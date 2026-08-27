@@ -1,0 +1,15 @@
+{
+  "model": "speech-2.8-hd",
+  "voice_id": "male-qn-qingse",
+  "speed": 1.05,
+  "vol": 1.2,
+  "pitch": 0,
+  "lines": [
+    { "id": "battle_start", "text": "战斗开始" },
+    { "id": "redeploy", "text": "重新部署" },
+    { "id": "kill", "text": "击杀" },
+    { "id": "death", "text": "你已被击倒" },
+    { "id": "victory", "text": "胜利" },
+    { "id": "defeat", "text": "任务失败" }
+  ]
+}
