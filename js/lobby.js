@@ -532,10 +532,10 @@
       let ownedScene = false;
       if (!scene) {
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xc45a28);
-        scene.fog = new THREE.Fog(0xb85a32, 42, 135);
-        scene.add(new THREE.AmbientLight(0xffc9a0, 0.68));
-        const sun = new THREE.DirectionalLight(0xff8c4a, 0.95);
+        scene.background = new THREE.Color(0x7eb6e4);
+        scene.fog = new THREE.Fog(0x7eb6e4, 42, 135);
+        scene.add(new THREE.AmbientLight(0xd4e2f2, 0.62));
+        const sun = new THREE.DirectionalLight(0xfff2cc, 1.05);
         sun.position.set(-45, 55, 18);
         scene.add(sun);
         ownedScene = true;
@@ -549,7 +549,7 @@
           alpha: false,
         });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-        renderer.setClearColor(0xc45a28, 1);
+        renderer.setClearColor(0x7eb6e4, 1);
 
         this._world = {
           scene: scene,

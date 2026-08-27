@@ -173,7 +173,7 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(1);
     renderer.shadowMap.enabled = false;
-    renderer.setClearColor(0x1a1008);
+    renderer.setClearColor(0x7eb6e4);
     document.body.prepend(renderer.domElement);
     game.renderer = renderer;
     renderer.domElement.addEventListener(
@@ -190,34 +190,33 @@
         try {
           renderer.setSize(window.innerWidth, window.innerHeight);
           renderer.setPixelRatio(1);
-          renderer.setClearColor(0x1a1008);
+          renderer.setClearColor(0x7eb6e4);
         } catch (_) {}
       },
       false
     );
 
-    // Scene — dystopian sunset atmosphere (no sky sphere — avoids black ball artifacts)
+    // Scene — daylight blue sky (no sky sphere — avoids black ball artifacts)
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xc45a28);
-    // Softer fog — keep silhouette readable at bridge distances
-    scene.fog = new THREE.Fog(0xb85a32, 100, 300);
+    scene.background = new THREE.Color(0x7eb6e4);
+    scene.fog = new THREE.Fog(0x7eb6e4, 220, 920);
     game.scene = scene;
 
     // Camera — must be in the scene so FPS viewmodel (camera children) render
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.08, 360);
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.08, 1100);
     scene.add(camera);
     game.camera = camera;
 
-    // Lighting — warm sunset (fewer lights = better FPS)
-    const ambient = new THREE.AmbientLight(0xffc9a0, 0.7);
+    // Lighting — noon daylight
+    const ambient = new THREE.AmbientLight(0xd4e2f2, 0.62);
     scene.add(ambient);
 
-    const sun = new THREE.DirectionalLight(0xff8c4a, 0.95);
+    const sun = new THREE.DirectionalLight(0xfff2cc, 1.05);
     sun.position.set(-60, 45, 25);
     sun.castShadow = false;
     scene.add(sun);
 
-    const fill = new THREE.DirectionalLight(0x4466aa, 0.18);
+    const fill = new THREE.DirectionalLight(0x5a8ac8, 0.28);
     fill.position.set(40, 20, -30);
     scene.add(fill);
 

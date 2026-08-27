@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>体素战争</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=scorch3" />
 </head>
 <body>
   <button id="audio-toggle" type="button" title="静音" aria-label="切换声音" aria-pressed="false">
@@ -219,13 +219,13 @@
       <div class="tutorial-body">
         <section class="tutorial-section">
           <h2>任务目标</h2>
-          <p>征服模式：走进 A–E 占领圈即可推进进度；<strong>双方同时在圈内则冻结</strong>。每完全控制一个点，对方每隔数秒掉 1 票。阵亡后确认部署才扣本方增援。一方占满全部点并保持 60 秒，或增援归零，或 45 分钟到点比票，即可结束。</p>
+          <p>征服模式：走进 A–F 占领圈即可推进进度；<strong>双方同时在圈内则冻结</strong>。每完全控制一个点，对方每隔数秒掉 1 票。阵亡后确认部署才扣本方增援。一方占满全部点并保持 60 秒，或增援归零，或 45 分钟到点比票，即可结束。</p>
         </section>
         <section class="tutorial-section">
           <h2>开局流程</h2>
           <ul>
-            <li><strong>模式选择</strong>：点「进入大厅」→ 快速匹配 32v32 → 部署图选重生点后进入裂脊谷征服</li>
-            <li>当前版本唯一地图为<strong>裂脊谷</strong>：西蓝 / 东红主基地，山谷中串联 A–E 占领点</li>
+            <li><strong>模式选择</strong>：点「进入大厅」→ 快速匹配 32v32 → 部署图选重生点后进入荒盆征服</li>
+            <li>当前版本唯一地图为<strong>荒盆</strong>：南蓝 / 北红主基地，盆地中布置 A–F 占领点（南部署点到 A 为 170m）</li>
           </ul>
         </section>
         <section class="tutorial-section">
@@ -755,10 +755,10 @@
     <div class="deploy-shell">
       <header class="deploy-top">
         <div class="deploy-map-meta">
-          <div id="deploy-map-name">裂脊谷 [32 vs 32]</div>
+          <div id="deploy-map-name">荒盆 [32 vs 32]</div>
           <div id="deploy-map-mode">CONQUEST <span>征服 · 32 vs 32</span></div>
         </div>
-        <div class="deploy-server" id="deploy-server">裂脊谷 · 增援 1000 · 45:00 · 占领 A–E</div>
+        <div class="deploy-server" id="deploy-server">荒盆 · 增援 1000 · 45:00 · 占领 A–F</div>
         <button type="button" class="deploy-back" id="spawn-cancel-btn">返回</button>
       </header>
       <aside class="deploy-squad">
@@ -994,42 +994,42 @@
 
   <!-- Game modules (order matters) -->
   <!-- feel-config.js: KEEP on production (baked feel numbers) -->
-  <script src="js/feel-config.js"></script>
-  <script src="js/maps/island-conquest.js"></script>
-  <script src="js/voxel-world.js"></script>
-  <script src="js/terrain-fine.js"></script>
-  <script src="js/world-outskirts.js"></script>
-  <script src="js/bases.js"></script>
-  <script src="js/soldier.js"></script>
-  <script src="js/player.js"></script>
-  <script src="js/weapons.js"></script>
-  <script src="js/skills.js"></script>
-  <script src="js/building.js"></script>
-  <script src="js/tower-designer.js"></script>
-  <script src="js/hub.js"></script>
-  <script src="js/economy.js"></script>
-  <script src="js/lobby.js"></script>
-  <script src="js/range.js"></script>
-  <script src="js/ai.js"></script>
-  <script src="js/conquest.js"></script>
-  <script src="js/revive.js"></script>
-  <script src="js/squads.js"></script>
-  <script src="js/gadgets.js"></script>
-  <script src="js/scoring.js"></script>
-  <script src="js/comms.js"></script>
-  <script src="js/net-protocol.js"></script>
-  <script src="js/net-simulation.js"></script>
-  <script src="js/match-flow.js"></script>
-  <script src="js/soldier-menu.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/audio.js"></script>
-  <script src="js/atmosphere.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/kubee-bridge.js"></script>
-  <script src="js/pvp.js"></script>
-  <script src="js/main.js"></script>
+  <script src="js/feel-config.js?v=scorch3"></script>
+  <script src="js/maps/island-conquest.js?v=scorch3"></script>
+  <script src="js/voxel-world.js?v=scorch3"></script>
+  <script src="js/terrain-fine.js?v=scorch3"></script>
+  <script src="js/world-outskirts.js?v=scorch3"></script>
+  <script src="js/bases.js?v=scorch3"></script>
+  <script src="js/soldier.js?v=scorch3"></script>
+  <script src="js/player.js?v=scorch3"></script>
+  <script src="js/weapons.js?v=scorch3"></script>
+  <script src="js/skills.js?v=scorch3"></script>
+  <script src="js/building.js?v=scorch3"></script>
+  <script src="js/tower-designer.js?v=scorch3"></script>
+  <script src="js/hub.js?v=scorch4"></script>
+  <script src="js/economy.js?v=scorch3"></script>
+  <script src="js/lobby.js?v=scorch4"></script>
+  <script src="js/range.js?v=scorch4"></script>
+  <script src="js/ai.js?v=scorch3"></script>
+  <script src="js/conquest.js?v=scorch6"></script>
+  <script src="js/revive.js?v=scorch3"></script>
+  <script src="js/squads.js?v=scorch3"></script>
+  <script src="js/gadgets.js?v=scorch3"></script>
+  <script src="js/scoring.js?v=scorch3"></script>
+  <script src="js/comms.js?v=scorch3"></script>
+  <script src="js/net-protocol.js?v=scorch3"></script>
+  <script src="js/net-simulation.js?v=scorch3"></script>
+  <script src="js/match-flow.js?v=scorch3"></script>
+  <script src="js/soldier-menu.js?v=scorch3"></script>
+  <script src="js/ui.js?v=scorch5"></script>
+  <script src="js/audio.js?v=scorch3"></script>
+  <script src="js/atmosphere.js?v=scorch3"></script>
+  <script src="js/config.js?v=scorch3"></script>
+  <script src="js/kubee-bridge.js?v=scorch3"></script>
+  <script src="js/pvp.js?v=scorch3"></script>
+  <script src="js/main.js?v=scorch4"></script>
   <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
-  <script src="js/feel-tuner.js"></script>
-  <script src="js/map-editor.js"></script>
+  <script src="js/feel-tuner.js?v=scorch3"></script>
+  <script src="js/map-editor.js?v=scorch3"></script>
 </body>
 </html>

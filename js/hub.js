@@ -214,8 +214,8 @@
 
   Hub.prototype._buildScene = function () {
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xc45a28);
-    scene.fog = new THREE.Fog(0xb85a32, 42, 135);
+    scene.background = new THREE.Color(0x7eb6e4);
+    scene.fog = new THREE.Fog(0x7eb6e4, 42, 135);
     this.scene = scene;
     this.colliders = [];
     this.zones = [];
@@ -229,8 +229,8 @@
       220
     );
 
-    scene.add(new THREE.AmbientLight(0xffc9a0, 0.68));
-    const sun = new THREE.DirectionalLight(0xff8c4a, 0.95);
+    scene.add(new THREE.AmbientLight(0xd4e2f2, 0.62));
+    const sun = new THREE.DirectionalLight(0xfff2cc, 1.05);
     sun.position.set(-45, 55, 18);
     scene.add(sun);
     const fill = new THREE.DirectionalLight(0x4466aa, 0.22);

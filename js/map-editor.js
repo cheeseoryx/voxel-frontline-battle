@@ -32,7 +32,7 @@
     { id: 'flag', label: '占领点', w: GRID, d: GRID, color: '#e8c76a', rotatable: false, flag: true },
   ];
 
-  const KIT_STORAGE_KEY = 'vf_map_kit_v2';
+  const KIT_STORAGE_KEY = 'vf_map_kit_v3';
 
   const state = {
     open: false,
@@ -124,7 +124,7 @@
       return (a.cx || 0) - (b.cx || 0) || (a.cz || 0) - (b.cz || 0);
     });
     for (let i = 0; i < flags.length; i++) {
-      flags[i].letter = 'ABCDE'.charAt(i) || 'A';
+      flags[i].letter = 'ABCDEF'.charAt(i) || 'A';
     }
     return flags;
   }
@@ -175,7 +175,6 @@
   function readStoredKit() {
     try {
       let raw = localStorage.getItem(KIT_STORAGE_KEY);
-      if (!raw) raw = localStorage.getItem('vf_map_kit_v1');
       if (!raw) return null;
       const data = JSON.parse(raw);
       if (!data || !data.active) return null;
@@ -655,11 +654,7 @@
     const g = game();
     const w = world();
     if (!g || !w || !w.regenerate) return false;
-    const placed = resolvePlacedForMatch();
-    const terrain = resolveTerrainForMatch();
-    if (g.mode !== 'pvp' && (placed.length || terrain)) {
-      return applyKitToWorld(placed, { skipSave: true, terrain: terrain });
-    }
+    // 32v32 始终用官方荒盆。地图编辑器里存的旧 kit（裂脊谷等）不得覆盖对局。
     const seed =
       g.mapSeed != null
         ? g.mapSeed >>> 0
@@ -693,6 +688,7 @@
       };
     });
     state.officialLayout = true;
+    state.terrain = null;
     if (global.VF.UI && global.VF.UI.invalidateWorldMapCache) {
       global.VF.UI.invalidateWorldMapCache();
     }
@@ -719,16 +715,16 @@
     invalidateAndRedraw();
     syncCount();
     syncApplyGenBtn();
-    setStatus('已重置为裂脊谷 · 可继续编辑');
+    setStatus('已重置为荒盆 · 可继续编辑');
     if (global.VF.UI && global.VF.UI.toast) {
-      global.VF.UI.toast('已重置为裂脊谷');
+      global.VF.UI.toast('已重置为荒盆');
     }
   }
 
   /** True if cell is too close to a fixed base / gate corridor. */
   function cellNearBase(gx, gz) {
     const w = world();
-    const size = (w && w.worldSize) || 640;
+    const size = (w && w.worldSize) || 1024;
     const cx = gx * GRID + GRID * 0.5;
     const cz = gz * GRID + GRID * 0.5;
     const planned =
@@ -3391,9 +3387,9 @@
       for (let i = 0; i < state.placed.length; i++) {
         if (state.placed[i].kind === 'flag') nFlags++;
       }
-      if (nFlags >= 5) {
-        setStatus('占领点最多 5 个（A–E）');
-        if (global.VF.UI && global.VF.UI.toast) global.VF.UI.toast('占领点最多 5 个');
+      if (nFlags >= 6) {
+        setStatus('占领点最多 6 个（A–F）');
+        if (global.VF.UI && global.VF.UI.toast) global.VF.UI.toast('占领点最多 6 个');
         return;
       }
       state.placed.push({
@@ -3411,7 +3407,7 @@
       });
       persistKitFlags(state.placed);
       writeStoredKit(true);
-      setStatus('已放置占领点 · 共 ' + reletterFlags().length + ' 个（按东西向标 A–E）');
+      setStatus('已放置占领点 · 共 ' + reletterFlags().length + ' 个（A–F）');
       return;
     }
 
@@ -3702,7 +3698,7 @@
       '<p class="map-kit-hint" id="map-kit-yaw">朝向 0°</p>' +
       '<p class="map-kit-hint" id="map-kit-status">左键放置/画桥 · 右键删除</p></section>' +
       '<section class="tower-section tower-section-actions">' +
-      '<button type="button" class="class-card tower-tool-btn" id="map-kit-ridge-btn"><span class="class-card-name">重置为裂脊谷</span></button>' +
+      '<button type="button" class="class-card tower-tool-btn" id="map-kit-ridge-btn"><span class="class-card-name">重置为荒盆</span></button>' +
       '<label class="class-card tower-tool-btn" id="map-kit-image-label"><span class="class-card-name">上传参考图生成地图</span>' +
       '<input id="map-kit-image" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden /></label>' +
       '<button type="button" class="class-card tower-tool-btn hidden" id="map-kit-apply-gen-btn"><span class="class-card-name">应用生成到局内</span></button>' +
@@ -3736,7 +3732,7 @@
         if (p.zipline) setStatus('滑索：只能点桥格 · 挂在桥边 · 不下房子');
         else if (p.paint) setStatus('桥梁：拖画格子 · 高度可切换');
         else if (p.spawn) setStatus('出生水晶：可占领点（蓝2/3·红2/3）；点1是大本营不可占领');
-        else if (p.flag) setStatus('占领点：最多 5 个（A–E）· 主基地附近不可放 · 无旗时对局自动生成 3 面');
+        else if (p.flag) setStatus('占领点：最多 6 个（A–F）· 主基地附近不可放 · 无旗时对局自动生成官方布局');
         else setStatus('左键放置 · Q/R 旋转');
       });
       pal.appendChild(btn);
@@ -3892,7 +3888,7 @@
         );
       } else {
         applyMatchMap();
-        setStatus('裂脊谷 · 可编辑 ·「重置为裂脊谷」可恢复官方布局');
+        setStatus('荒盆 · 可编辑 ·「重置为荒盆」可恢复官方布局');
       }
     }
     syncApplyGenBtn();

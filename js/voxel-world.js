@@ -72,7 +72,7 @@
   };
 
   const CHUNK_SIZE = 16;
-  const WORLD_CHUNKS = 40; // 640×640 (2× original 320; flag gaps ~210–280m)
+  const WORLD_CHUNKS = 64; // 1024×1024 — 1:1 meters with 荒盆 (1×0.5km playable basin)
   /** Extra solid layers under the playable surface */
   const SUB_LAYERS = 5;
   const WORLD_HEIGHT = 96 + SUB_LAYERS;
@@ -265,14 +265,17 @@
       }
     }
     this.ziplines = [];
+    this._clearShallowWater && this._clearShallowWater();
 
     // Remove non-chunk meshes (zipline posts, leftover props)
     const chunkSet = new Set();
     this.chunkMeshes.forEach((m) => chunkSet.add(m));
+    const keepWater = new Set(this._shallowWater || []);
     const drop = [];
     for (let i = 0; i < this.group.children.length; i++) {
       const c = this.group.children[i];
-      if (!chunkSet.has(c)) drop.push(c);
+      if (chunkSet.has(c) || keepWater.has(c)) continue;
+      drop.push(c);
     }
     for (let i = 0; i < drop.length; i++) {
       const c = drop[i];
@@ -358,12 +361,13 @@
       const layout = global.VF && global.VF.IslandConquestMap;
       const land = layout && layout.isLand ? layout.isLand(x, z, size) : true;
       const bank = !!(layout && layout.isBank && layout.isBank(x, z, size));
+      const wet = !!(layout && layout.isWater && layout.isWater(x, z, size));
       return {
-        dist: land ? 99 : 0,
+        dist: wet ? 0 : land ? 99 : 8,
         width: 8,
         centerX: size * 0.5,
-        inWater: !land,
-        bank: bank,
+        inWater: wet,
+        bank: bank || wet,
       };
     }
     // Fixed river path (independent of match seed)
@@ -460,6 +464,7 @@
     };
     for (let z = 0; z < size; z++) {
       for (let x = 0; x < size; x++) {
+        const wet = !!(layout.isWater && layout.isWater(x, z, size));
         const playable = layout.isLand ? layout.isLand(x, z, size) : true;
         let surfH = layout.heightAtMeters
           ? layout.heightAtMeters(x, z, size)
@@ -473,9 +478,15 @@
           blocks[idx(x, y, z)] = y < gy - 2 ? BLOCK.STONE : BLOCK.DIRT;
         }
         let top = BLOCK.STONE;
+        const desert = layout.biome === 'desert';
         if (playable) {
           const n = this._noise(x * 0.11, z * 0.11);
-          if (gy < 15) top = n > 0.58 ? BLOCK.DIRT : BLOCK.GRASS;
+          if (wet) top = BLOCK.DIRT;
+          else if (desert) {
+            if (gy < 14) top = n > 0.72 ? BLOCK.GRASS : BLOCK.DIRT;
+            else if (gy < 22) top = n > 0.55 ? BLOCK.RUBBLE : BLOCK.DIRT;
+            else top = n > 0.6 ? BLOCK.STONE : BLOCK.RUBBLE;
+          } else if (gy < 15) top = n > 0.58 ? BLOCK.DIRT : BLOCK.GRASS;
           else if (gy < 22) top = n > 0.5 ? BLOCK.GRASS : BLOCK.DIRT;
           else top = n > 0.62 ? BLOCK.RUBBLE : BLOCK.STONE;
         } else {
@@ -486,6 +497,71 @@
         if (this.terrainH) this.terrainH[z * size + x] = surfH;
       }
     }
+    this._stampShallowWater(layout);
+  };
+
+  VoxelWorld.prototype._clearShallowWater = function () {
+    const list = this._shallowWater;
+    if (!list || !list.length) {
+      this._shallowWater = [];
+      return;
+    }
+    for (let i = 0; i < list.length; i++) {
+      const m = list[i];
+      if (m.parent) m.parent.remove(m);
+      if (m.geometry) m.geometry.dispose();
+      if (m.material && m.material.dispose && !m.userData.sharedMat) m.material.dispose();
+    }
+    if (this._shallowWaterMat && this._shallowWaterMat.dispose) {
+      this._shallowWaterMat.dispose();
+      this._shallowWaterMat = null;
+    }
+    this._shallowWater = [];
+  };
+
+  /** Decorative 30cm water cubes. No collision — feet use the lowered river bed. */
+  VoxelWorld.prototype._stampShallowWater = function (layout) {
+    this._clearShallowWater();
+    if (!layout || !layout.isWater || typeof THREE === 'undefined') return;
+    const size = this.worldSize;
+    const hmap = this.terrainH;
+    if (!hmap) return;
+    const cells = [];
+    for (let z = 1; z < size - 1; z++) {
+      for (let x = 1; x < size - 1; x++) {
+        if (!layout.isWater(x, z, size)) continue;
+        cells.push(x, z);
+      }
+    }
+    if (!cells.length) return;
+    const count = cells.length / 2;
+    const geo = new THREE.BoxGeometry(1, 0.3, 1);
+    const mat = new THREE.MeshLambertMaterial({
+      color: 0x8ed4f0,
+      transparent: true,
+      opacity: 0.72,
+      depthWrite: false,
+    });
+    this._shallowWaterMat = mat;
+    const mesh = new THREE.InstancedMesh(geo, mat, count);
+    mesh.frustumCulled = false;
+    mesh.matrixAutoUpdate = false;
+    mesh.raycast = function () {};
+    mesh.userData.noCollision = true;
+    mesh.userData.sharedMat = true;
+    const dummy = this._shallowWaterDummy || (this._shallowWaterDummy = new THREE.Object3D());
+    for (let i = 0; i < count; i++) {
+      const x = cells[i * 2];
+      const z = cells[i * 2 + 1];
+      const bed = hmap[z * size + x] || 9;
+      dummy.position.set(x + 0.5, bed + 0.15, z + 0.5);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+    this.group.add(mesh);
+    this._shallowWater = [mesh];
   };
 
   /** Flat street + canal — playable surface sits above SUB_LAYERS foundation */
@@ -878,7 +954,15 @@
     const cz = oz + d * 0.5;
     const info = this._riverInfo(cx, cz);
     if (info.inWater) return null;
-    const side = cx < this.worldSize * 0.5 ? 'ally' : 'enemy';
+    let side = cz < this.worldSize * 0.5 ? 'ally' : 'enemy';
+    const bases = this._plannedBases;
+    if (bases && bases.length >= 2) {
+      const a = bases[0];
+      const e = bases[1];
+      const da = (cx - a.x) * (cx - a.x) + (cz - a.z) * (cz - a.z);
+      const de = (cx - e.x) * (cx - e.x) + (cz - e.z) * (cz - e.z);
+      side = da <= de ? 'ally' : 'enemy';
+    }
     if (this._mapLayout !== 'island' && this._mapLayout !== 'ridge' && info.dist < info.width + 6) return null;
     const b = {
       ox: ox,
@@ -959,6 +1043,100 @@
     if (this._riverInfo(mx, mz).inWater) return;
     const gy = this._surface(mx, mz);
     this.fill(ox, gy + 1, oz, ox + w - 1, gy + h, oz + d - 1, BLOCK.METAL);
+  };
+
+  VoxelWorld.prototype._placeTank = function (cx, cz, r, h) {
+    r = Math.max(4, Math.floor(r || 8));
+    h = h != null ? h : 12;
+    const gx = Math.floor(cx);
+    const gz = Math.floor(cz);
+    if (this._riverInfo(gx, gz).inWater) return;
+    const gy = this._surface(gx, gz);
+    const r2 = r * r;
+    const inner = (r - 2) * (r - 2);
+    for (let dz = -r; dz <= r; dz++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const d2 = dx * dx + dz * dz;
+        if (d2 > r2) continue;
+        const x = gx + dx;
+        const z = gz + dz;
+        const wall = d2 >= inner;
+        this.set(x, gy, z, BLOCK.CONCRETE);
+        for (let y = gy + 1; y <= gy + h; y++) {
+          if (wall || y === gy + h) this.set(x, y, z, y === gy + h ? BLOCK.RUST : BLOCK.METAL);
+        }
+      }
+    }
+  };
+
+  VoxelWorld.prototype._placeStadium = function (cx, cz, rx, rz) {
+    rx = Math.max(10, Math.floor(rx || 22));
+    rz = Math.max(12, Math.floor(rz || 30));
+    const gx = Math.floor(cx);
+    const gz = Math.floor(cz);
+    if (this._riverInfo(gx, gz).inWater) return;
+    const gy = this._surface(gx, gz);
+    for (let dz = -rz; dz <= rz; dz++) {
+      for (let dx = -rx; dx <= rx; dx++) {
+        const u = (dx / rx) * (dx / rx) + (dz / rz) * (dz / rz);
+        if (u > 1) continue;
+        const x = gx + dx;
+        const z = gz + dz;
+        const ring = u > 0.72;
+        this.set(x, gy, z, ring ? BLOCK.CONCRETE : BLOCK.DIRT);
+        if (ring) {
+          for (let y = gy + 1; y <= gy + 5; y++) this.set(x, y, z, BLOCK.CONCRETE);
+        } else {
+          for (let y = gy + 1; y <= gy + 6; y++) this.set(x, y, z, BLOCK.AIR);
+        }
+      }
+    }
+  };
+
+  VoxelWorld.prototype._placeBridge = function (x0, z0, x1, z1, halfW) {
+    halfW = halfW != null ? halfW : 4;
+    const dx = x1 - x0;
+    const dz = z1 - z0;
+    const len = Math.hypot(dx, dz) || 1;
+    const steps = Math.ceil(len);
+    const ux = dx / len;
+    const uz = dz / len;
+    const px = -uz;
+    const pz = ux;
+    const gy0 = this._surface(Math.floor(x0), Math.floor(z0));
+    const deck = gy0 + 6;
+    for (let i = 0; i <= steps; i++) {
+      const x = x0 + ux * i;
+      const z = z0 + uz * i;
+      if (i % 10 === 0) {
+        const wx = Math.floor(x);
+        const wz = Math.floor(z);
+        const gy = this._surface(wx, wz);
+        this.fill(wx - 1, gy + 1, wz - 1, wx + 1, deck - 1, wz + 1, BLOCK.CONCRETE);
+      }
+      for (let s = -halfW; s <= halfW; s++) {
+        const wx = Math.floor(x + px * s);
+        const wz = Math.floor(z + pz * s);
+        if (wx < 2 || wz < 2 || wx >= this.worldSize - 2 || wz >= this.worldSize - 2) continue;
+        this.set(wx, deck, wz, Math.abs(s) >= halfW - 1 ? BLOCK.CONCRETE : BLOCK.ASPHALT);
+        this.set(wx, deck + 1, wz, BLOCK.AIR);
+      }
+    }
+  };
+
+  VoxelWorld.prototype._placeShrub = function (x, z) {
+    const gx = Math.floor(x);
+    const gz = Math.floor(z);
+    if (this._riverInfo(gx, gz).inWater) return;
+    const gy = this._surface(gx, gz);
+    this.set(gx, gy + 1, gz, BLOCK.DIRT);
+    this.set(gx, gy + 2, gz, BLOCK.DIRT);
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        this.set(gx + dx, gy + 3, gz + dz, BLOCK.GRASS);
+      }
+    }
+    this.set(gx, gy + 4, gz, BLOCK.GRASS);
   };
 
   /** Low stone ring around a capture yard (openings on +x / -x). */
@@ -3272,6 +3450,7 @@
       }
     }
     this.ziplines = [];
+    this._clearShallowWater && this._clearShallowWater();
     this.buildings = [];
     this.rooftops = [];
     this.skyBridges = [];
@@ -3308,10 +3487,12 @@
     this.chunkMeshes.forEach(function (m) {
       chunkSet.add(m);
     });
+    const keepWater = new Set(this._shallowWater || []);
     const drop = [];
     for (let i = 0; i < this.group.children.length; i++) {
       const c = this.group.children[i];
-      if (!chunkSet.has(c)) drop.push(c);
+      if (chunkSet.has(c) || keepWater.has(c)) continue;
+      drop.push(c);
     }
     for (let i = 0; i < drop.length; i++) {
       const c = drop[i];

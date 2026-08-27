@@ -683,51 +683,9 @@
 
     _drawCqMarkers(flags, camera, player, playerTeam) {
       const wrap = this.els.cqMarkers;
-      if (!wrap || !camera || typeof THREE === 'undefined') return;
-      if (!this._cqV) this._cqV = new THREE.Vector3();
-      const v = this._cqV;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      const px = player && player.object ? player.object.position.x : camera.position.x;
-      const pz = player && player.object ? player.object.position.z : camera.position.z;
-      while (wrap.children.length < flags.length) {
-        const el = document.createElement('div');
-        el.className = 'cq-marker';
-        el.innerHTML = '<i></i><b></b><em></em>';
-        wrap.appendChild(el);
-      }
-      while (wrap.children.length > flags.length) wrap.removeChild(wrap.lastChild);
-      for (let i = 0; i < flags.length; i++) {
-        const f = flags[i];
-        const el = wrap.children[i];
-        v.set(f.x, (f.y || 8) + 8, f.z).project(camera);
-        let nx = v.x;
-        let ny = v.y;
-        const behind = v.z > 1;
-        if (behind) {
-          nx = -nx;
-          ny = -ny;
-        }
-        let x = (nx * 0.5 + 0.5) * w;
-        let y = (-ny * 0.5 + 0.5) * h;
-        const m = 36;
-        const off = x < m || x > w - m || y < m || y > h - m || behind;
-        x = Math.max(m, Math.min(w - m, x));
-        y = Math.max(m, Math.min(h - m, y));
-        const dist = Math.round(Math.hypot(f.x - px, f.z - pz));
-        const kind = this._cqFlagKind(f, playerTeam);
-        if (dist < 18) {
-          el.className = 'cq-marker hidden';
-          continue;
-        }
-        el.className = 'cq-marker ' + kind + (off ? ' edge' : '');
-        el.style.transform =
-          'translate(' + Math.round(x) + 'px,' + Math.round(y) + 'px) translate(-50%,-50%)';
-        const letter = el.querySelector('b');
-        const distEl = el.querySelector('em');
-        if (letter) letter.textContent = f.letter || '';
-        if (distEl) distEl.textContent = dist + 'm';
-      }
+      if (!wrap) return;
+      // World-space flag sprites already show the letter; hide the duplicate HUD pins.
+      while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
     },
 
     setObjective(text) {
@@ -1835,7 +1793,7 @@
       const island = global.VF && global.VF.IslandConquestMap;
       if (this.els.deployMapName) {
         this.els.deployMapName.textContent =
-          ((world && world._mapName) || (island && island.name) || '裂脊谷') + ' [32 vs 32]';
+          ((world && world._mapName) || (island && island.name) || '荒盆') + ' [32 vs 32]';
       }
       if (this.els.deployServer) {
         const C = global.VF.CONQUEST || {};
@@ -1844,9 +1802,9 @@
         const round = feel.roundSec != null ? feel.roundSec : C.ROUND_SEC || 2700;
         const mm = String(Math.floor(round / 60)).padStart(2, '0');
         const ss = String(Math.floor(round % 60)).padStart(2, '0');
-        const mapName = (world && world._mapName) || (island && island.name) || '裂脊谷';
+        const mapName = (world && world._mapName) || (island && island.name) || '荒盆';
         this.els.deployServer.textContent =
-          mapName + ' · 增援 ' + tix + ' · ' + mm + ':' + ss + ' · 占领 A–E';
+          mapName + ' · 增援 ' + tix + ' · ' + mm + ':' + ss + ' · 占领 A–F';
       }
       if (this._spawnRedeploy && global.VF.Conquest && global.VF.Conquest.applyDeployList) {
         global.VF.Conquest.applyDeployList(world, world._playerTeam || 'ally');
@@ -2344,7 +2302,12 @@
           let r = 0;
           let g = 0;
           let b = 0;
-          if (t === WATER) {
+          const layout = global.VF && global.VF.IslandConquestMap;
+          if (layout && layout.isWater && layout.isWater(wx, wz, size)) {
+            r = 142;
+            g = 214;
+            b = 236;
+          } else if (t === WATER) {
             r = 10;
             g = 10;
             b = 12;
@@ -2579,9 +2542,9 @@
 
     /** Build a downsampled full-world terrain cache (once) */
     _ensureWorldMapCache(world) {
-      if (this._worldMapCache && this._worldMapCacheSize === world.worldSize) {
-        return this._worldMapCache;
-      }
+    if (this._worldMapCache && this._worldMapCacheSize === world.worldSize && this._worldMapCacheName === (world._mapName || '')) {
+      return this._worldMapCache;
+    }
       const size = world.worldSize;
       const out = 512;
       const canvas = document.createElement('canvas');
@@ -2631,7 +2594,13 @@
               break;
             }
           }
-          const c = colorOf(t);
+          const layout = global.VF && global.VF.IslandConquestMap;
+          let c;
+          if (layout && layout.isWater && layout.isWater(wx, wz, size)) {
+            c = [142, 214, 236];
+          } else {
+            c = colorOf(t);
+          }
           const i = (py * out + px) * 4;
           data[i] = c[0];
           data[i + 1] = c[1];
@@ -2642,6 +2611,7 @@
       ctx.putImageData(img, 0, 0);
       this._worldMapCache = canvas;
       this._worldMapCacheSize = size;
+      this._worldMapCacheName = world._mapName || '';
       return canvas;
     },
 
@@ -2649,6 +2619,7 @@
     invalidateWorldMapCache() {
       this._worldMapCache = null;
       this._worldMapCacheSize = 0;
+      this._worldMapCacheName = '';
       this._schematicCache = null;
       this._schematicSize = 0;
       this._schematicSeed = null;
@@ -3040,7 +3011,9 @@
             let t = world.get(wx, gy, wz);
             if (t === AIR) t = world.get(wx, gy - 1, wz);
             let col = '#3a4a30';
-            if (t === WATER) col = '#1a4a6a';
+            const layout = global.VF && global.VF.IslandConquestMap;
+            if (layout && layout.isWater && layout.isWater(wx, wz, world.worldSize)) col = '#8ed6ec';
+            else if (t === WATER) col = '#1a4a6a';
             else if (t === global.VF.BLOCK.ROAD || t === global.VF.BLOCK.ASPHALT) col = '#22252a';
             else if (t === global.VF.BLOCK.METAL) col = '#6a9ccc';
             else if (t === global.VF.BLOCK.BRICK) col = '#8a3a2a';

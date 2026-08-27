@@ -356,7 +356,7 @@
             name:
               (state.server && state.server.name) ||
               '社区对战服务器 [' + String(state.code) + ']',
-            map: (state.server && state.server.map) || '裂脊谷',
+            map: (state.server && state.server.map) || '荒盆',
             mode: (state.server && state.server.mode) || 'conquest',
             modeLabel: (state.server && state.server.modeLabel) || '征服',
             size: 2,
@@ -433,7 +433,7 @@
         server:
           prev.server || {
             name: '社区对战服务器 [' + this.roomCode + ']',
-            map: '裂脊谷',
+            map: '荒盆',
             mode: 'conquest',
             modeLabel: '征服',
             createdAt: now,

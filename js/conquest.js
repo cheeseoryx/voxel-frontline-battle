@@ -13,10 +13,10 @@
   const BLEED_INTERVAL = 3;
   const SWEEP_SEC = 60;
   const DEPLOY_COUNTDOWN = 5;
-  const MAX_FLAGS = 5;
+  const MAX_FLAGS = 6;
   const SCORE_CAPTURE = 100;
   const SCORE_KILL = 25;
-  const LETTERS = 'ABCDE';
+  const LETTERS = 'ABCDEF';
   const COL = {
     ally: 0x33aaff,
     enemy: 0xff3344,
@@ -294,10 +294,13 @@
       });
     }
     fromKit.sort(function (a, b) {
-      return a.x - b.x || a.z - b.z;
+      const la = a.letter || '';
+      const lb = b.letter || '';
+      if (la && lb && la !== lb) return la.localeCompare(lb);
+      return a.z - b.z || a.x - b.x;
     });
     for (let i = 0; i < fromKit.length; i++) {
-      fromKit[i].letter = LETTERS.charAt(i);
+      if (!fromKit[i].letter) fromKit[i].letter = LETTERS.charAt(i);
     }
     if (fromKit.length) return fromKit;
     return this._fallbackFlags(g);
@@ -306,13 +309,14 @@
   Conquest.prototype._fallbackFlags = function (g) {
     const w = g.world;
     const bases = g.bases;
-    const size = (w && w.worldSize) || 640;
-    const ax = (bases && bases.allyOrigin && bases.allyOrigin.x) || size * 0.13;
-    const az = (bases && bases.allyOrigin && bases.allyOrigin.z) || size * 0.5;
-    const ex = (bases && bases.enemyOrigin && bases.enemyOrigin.x) || size * 0.87;
-    const ez = (bases && bases.enemyOrigin && bases.enemyOrigin.z) || size * 0.5;
-    const tList = [0.22, 0.38, 0.5, 0.62, 0.78];
-    const owners = ['ally', 'ally', 'neutral', 'enemy', 'enemy'];
+    const size = (w && w.worldSize) || 1024;
+    const ax = (bases && bases.allyOrigin && bases.allyOrigin.x) || size * 0.4;
+    const az = (bases && bases.allyOrigin && bases.allyOrigin.z) || size * 0.08;
+    const ex = (bases && bases.enemyOrigin && bases.enemyOrigin.x) || size * 0.52;
+    const ez = (bases && bases.enemyOrigin && bases.enemyOrigin.z) || size * 0.92;
+    const tList = [0.14, 0.3, 0.46, 0.46, 0.7, 0.62];
+    const offsets = [0.12, 0.28, 0.14, -0.18, 0.04, -0.22];
+    const owners = ['neutral', 'neutral', 'neutral', 'neutral', 'neutral', 'neutral'];
     const out = [];
     const dx = ex - ax;
     const dz = ez - az;
@@ -321,8 +325,9 @@
     const pz = dx / len;
     for (let i = 0; i < tList.length; i++) {
       const t = tList[i];
-      let x = ax + dx * t;
-      let z = az + dz * t;
+      const off = offsets[i] || 0;
+      let x = ax + dx * t + px * off * size;
+      let z = az + dz * t + pz * off * size;
       const land = this._nudgeToLand(w, x, z, px, pz);
       out.push({
         x: land.x,
@@ -461,8 +466,8 @@
     root.add(cap);
 
     const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 128;
+    canvas.width = 256;
+    canvas.height = 256;
     const ctx = canvas.getContext('2d');
     const tex = new THREE.CanvasTexture(canvas);
     const spr = new THREE.Sprite(
@@ -486,52 +491,82 @@
     root.userData.letterCtx = ctx;
     root.userData.letterTex = tex;
     root.userData.letterKey = '';
-    this._paintLetter(root, flag.letter, 'neutral', false);
+    this._paintLetter(root, flag.letter, 'neutral', false, 0);
     return root;
   };
 
-  Conquest.prototype._paintLetter = function (mesh, letter, owner, contested) {
-    const key = letter + ':' + owner + ':' + (contested ? 1 : 0);
+  Conquest.prototype._paintLetter = function (mesh, letter, owner, contested, capture) {
+    const t = Math.max(0, Math.min(1, Math.abs(capture || 0)));
+    const q = Math.round(t * 40);
+    const sign = (capture || 0) >= 0 ? 1 : 0;
+    const key = letter + ':' + owner + ':' + (contested ? 1 : 0) + ':' + q + ':' + sign;
     if (mesh.userData.letterKey === key) return;
     mesh.userData.letterKey = key;
     const ctx = mesh.userData.letterCtx;
-    ctx.clearRect(0, 0, 128, 128);
+    if (!ctx) return;
+    const S = 256;
+    const cx = S * 0.5;
+    const cy = S * 0.5;
+    ctx.clearRect(0, 0, S, S);
+
     const hex =
       owner === 'ally' ? '#4aa3ff' : owner === 'enemy' ? '#ff5a4a' : '#f2f0ea';
+    const ringCol = contested ? '#ffe08a' : sign ? '#4aa3ff' : '#ff5a4a';
+
     ctx.fillStyle = 'rgba(6,8,12,0.82)';
     ctx.strokeStyle = contested ? '#ffe08a' : hex;
-    ctx.lineWidth = contested ? 9 : 6;
+    ctx.lineWidth = contested ? 14 : 10;
     if (owner === 'enemy') {
       ctx.beginPath();
-      ctx.moveTo(64, 10);
-      ctx.lineTo(118, 64);
-      ctx.lineTo(64, 118);
-      ctx.lineTo(10, 64);
+      ctx.moveTo(cx, 28);
+      ctx.lineTo(S - 28, cy);
+      ctx.lineTo(cx, S - 28);
+      ctx.lineTo(28, cy);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
     } else {
       ctx.beginPath();
-      ctx.arc(64, 64, 52, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 92, 0, Math.PI * 2);
       if (owner === 'neutral') {
         ctx.fill();
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(64, 64, 38, 0, Math.PI * 2);
+        ctx.arc(cx, cy, 70, 0, Math.PI * 2);
         ctx.strokeStyle = hex;
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 6;
         ctx.stroke();
       } else {
         ctx.fill();
         ctx.stroke();
       }
     }
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, 118, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0,0,0,0.62)';
+    ctx.lineWidth = 18;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, 118, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = 6;
+    ctx.stroke();
+    if (q > 0) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, 118, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * q) / 40);
+      ctx.strokeStyle = ringCol;
+      ctx.lineWidth = 14;
+      ctx.lineCap = 'butt';
+      ctx.stroke();
+    }
+
     ctx.fillStyle = hex;
-    ctx.font = 'bold 58px "Segoe UI", "Microsoft YaHei", sans-serif';
+    ctx.font = 'bold 108px "Segoe UI", "Microsoft YaHei", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(letter, 64, 66);
-    mesh.userData.letterTex.needsUpdate = true;
+    ctx.fillText(letter, cx, cy + 4);
+    if (mesh.userData.letterTex) mesh.userData.letterTex.needsUpdate = true;
   };
 
   Conquest.prototype._tintFlag = function (flag) {
@@ -559,7 +594,7 @@
     if (mesh.userData.capMat) {
       mesh.userData.capMat.opacity = flag.contested ? 0.55 : Math.min(1, Math.abs(flag.capture)) * 0.45;
     }
-    this._paintLetter(mesh, flag.letter, flag.owner, flag.contested);
+    this._paintLetter(mesh, flag.letter, flag.owner, flag.contested, flag.capture);
   };
 
   Conquest.prototype._clearMeshes = function () {

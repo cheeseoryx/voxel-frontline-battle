@@ -125,12 +125,12 @@
     this.renderer = renderer;
     this.world = new RangeWorld();
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xc45a28);
-    this.scene.fog = new THREE.Fog(0xb85a32, 40, 110);
+    this.scene.background = new THREE.Color(0x7eb6e4);
+    this.scene.fog = new THREE.Fog(0x7eb6e4, 40, 110);
 
-    const ambient = new THREE.AmbientLight(0xffc9a0, 0.7);
+    const ambient = new THREE.AmbientLight(0xd4e2f2, 0.62);
     this.scene.add(ambient);
-    const sun = new THREE.DirectionalLight(0xff8c4a, 0.95);
+    const sun = new THREE.DirectionalLight(0xfff2cc, 1.05);
     sun.position.set(-40, 45, 20);
     this.scene.add(sun);
     const fill = new THREE.DirectionalLight(0x4466aa, 0.18);

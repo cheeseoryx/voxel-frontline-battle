@@ -159,4 +159,32 @@ for (let i = 0; i < 64; i++) {
   ok(Math.abs(h * 10 - Math.round(h * 10)) < 1e-6, 'map height is not quantized to 10cm');
 }
 
+const SIZE = 1024;
+ok(!map.isWater(10, 10, SIZE), 'mountain rim should not count as water');
+let bed = 0;
+let bankH = null;
+for (let z = Math.floor(SIZE * 0.2); z < SIZE * 0.8 && bankH == null; z += 3) {
+  for (let x = Math.floor(SIZE * 0.35); x < SIZE * 0.58; x += 2) {
+    if (!map.isWater(x, z, SIZE)) continue;
+    const nbs = [
+      [x + 1, z],
+      [x - 1, z],
+      [x, z + 1],
+      [x, z - 1],
+    ];
+    for (let i = 0; i < nbs.length; i++) {
+      const bx = nbs[i][0];
+      const bz = nbs[i][1];
+      if (map.isLand(bx, bz, SIZE) && !map.isWater(bx, bz, SIZE)) {
+        bed = map.heightAtMeters(x, z, SIZE);
+        bankH = map.heightAtMeters(bx, bz, SIZE);
+        break;
+      }
+    }
+    if (bankH != null) break;
+  }
+}
+ok(bankH != null, 'river bank sample was not found');
+ok(Math.abs(bankH - bed - 0.3) < 0.15, 'river bed is not ~30cm below the bank: ' + (bankH - bed));
+
 console.log('terrain-fine checks: OK');
