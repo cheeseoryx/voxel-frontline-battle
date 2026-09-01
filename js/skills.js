@@ -147,6 +147,7 @@
     const self = this;
     document.addEventListener('keydown', function (e) {
       if (global.VF.Range && global.VF.Range.isOpen) return;
+      if (self.player && self.player.vehicleId) return;
       if (e.code === DASH.key && !e.repeat) {
         if (!self._canDash()) return;
         e.preventDefault();

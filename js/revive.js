@@ -415,6 +415,7 @@
       player &&
       player.alive &&
       !player.dead &&
+      !player.vehicleId &&
       this._canRevive(player, unit) &&
       distanceSq(player, unit) <= cfg.reviveRange * cfg.reviveRange;
     if (playerCan && player.keys && player.keys['KeyE']) {
@@ -438,7 +439,7 @@
 
   ReviveSystem.prototype._tickDrag = function (game) {
     const player = game && game.player;
-    if (!player || !player.alive || player.dead || !player.keys) return;
+    if (!player || !player.alive || player.dead || player.vehicleId || !player.keys) return;
     player.draggingTarget = null;
     if (!player.keys['KeyF'] || player.keys['KeyE']) return;
     const cfg = config();

@@ -27,6 +27,7 @@
       caliber: '7.62×39mm',
       slot: 1,
       damage: 22,
+      damageType: 'bullet',
       fireRate: 0.1, // ~600 rpm cyclic
       magSize: 30,
       reserve: 150,
@@ -60,6 +61,7 @@
       caliber: '12ga 00 Buck',
       slot: 2,
       damage: 14,
+      damageType: 'bullet',
       fireRate: 0.8,
       magSize: 7,
       reserve: 35,
@@ -93,6 +95,7 @@
       caliber: '7.62×54R',
       slot: 3,
       damage: 88,
+      damageType: 'bullet',
       fireRate: 0.95,
       magSize: 10,
       reserve: 40,
@@ -118,6 +121,34 @@
       scope: 'sniper',
       adsSens: 0.45,
     },
+    rpg: {
+      id: 'rpg',
+      model: 'RPG-7',
+      name: 'RPG-7',
+      nameZh: 'RPG-7',
+      caliber: '85mm HEAT',
+      slot: 6,
+      damage: 200,
+      damageType: 'antiArmor',
+      projectile: true,
+      projectileSpeed: 38,
+      magSize: 1,
+      reserve: 2,
+      spread: 0.006,
+      adsSpread: 0.002,
+      range: 240,
+      recoil: 0.22,
+      adsRecoilMul: 0.7,
+      pellets: 1,
+      automatic: false,
+      fireRate: 3.2,
+      reloadTime: 3.2,
+      ammoColor: 0xff8844,
+      ammoLabel: 'RPG',
+      adsFov: 46,
+      scope: 'holo',
+      adsSens: 0.72,
+    },
   };
 
   function Weapons(player, world, scene) {
@@ -130,6 +161,7 @@
       ar: { mag: WEAPONS.ar.magSize, reserve: WEAPONS.ar.reserve },
       sg: { mag: WEAPONS.sg.magSize, reserve: WEAPONS.sg.reserve },
       sr: { mag: WEAPONS.sr.magSize, reserve: WEAPONS.sr.reserve },
+      rpg: { mag: WEAPONS.rpg.magSize, reserve: WEAPONS.rpg.reserve },
     };
     this.cooldown = 0;
     this.firing = false;
@@ -194,6 +226,13 @@
     document.addEventListener('mousedown', (e) => {
       if (!self.player.locked || e.button !== 0) return;
       if (global.VF.game && global.VF.game.levelEditing) return;
+      if (
+        self.player.vehicleId &&
+        global.VF.Vehicles &&
+        !global.VF.Vehicles.canUsePersonalWeapon(self.player)
+      ) {
+        return;
+      }
       if (self.mode !== 'weapon') return;
       self.firing = true;
       self.tryFire();
@@ -204,17 +243,32 @@
     document.addEventListener('keydown', (e) => {
       if (!self.player.locked) return;
       if (global.VF.game && global.VF.game.levelEditing) return;
+      if (
+        self.player.vehicleId &&
+        global.VF.Vehicles &&
+        !global.VF.Vehicles.canUsePersonalWeapon(self.player)
+      ) {
+        return;
+      }
       if (e.code === 'Digit1') self.equip('ar');
       if (e.code === 'Digit2') self.equip('sg');
       if (e.code === 'Digit3') self.equip('sr');
+      if (e.code === 'Digit6') self.equip('rpg');
       if (e.code === 'KeyR') self.reload();
     });
   };
 
   Weapons.prototype.equip = function (id) {
     if (!WEAPONS[id]) return;
+    if (id === 'rpg' && (!this.player || this.player.classId !== 'engineer')) {
+      if (global.VF.UI && global.VF.UI.toast) {
+        global.VF.UI.toast('RPG-7 仅工程兵可用');
+      }
+      return;
+    }
     const rangeOpen = global.VF.Range && global.VF.Range.isOpen;
     if (
+      id !== 'rpg' &&
       !rangeOpen &&
       global.VF.Economy &&
       global.VF.Economy.ownsWeapon &&
@@ -234,7 +288,13 @@
       global.VF.game.building.exitMode();
     }
     if (this.player && this.player.setHeldMode) this.player.setHeldMode('weapon');
-    if (global.VF.UI) global.VF.UI.setHotbarSlot(WEAPONS[id].slot);
+    if (global.VF.UI) {
+      global.VF.UI.setHotbarSlot(WEAPONS[id].slot);
+      const ammo = this.state[id];
+      if (ammo && global.VF.UI.updateAmmo) {
+        global.VF.UI.updateAmmo(ammo.mag, ammo.reserve);
+      }
+    }
     this._restyleGun(id);
   };
 
@@ -243,6 +303,13 @@
     const owns =
       global.VF.Economy && global.VF.Economy.ownsWeapon
         ? function (id) {
+            if (id === 'rpg') {
+              return !!(
+                global.VF.game &&
+                global.VF.game.player &&
+                global.VF.game.player.classId === 'engineer'
+              );
+            }
             return global.VF.Economy.ownsWeapon(id);
           }
         : function () {
@@ -260,7 +327,8 @@
     const gun = this.player.gunNode;
     if (!gun) return;
     // Scale cue per weapon type
-    if (id === 'sg') gun.scale.set(1.15, 1.1, 0.85);
+    if (id === 'rpg') gun.scale.set(1.25, 1.45, 1.5);
+    else if (id === 'sg') gun.scale.set(1.15, 1.1, 0.85);
     else if (id === 'sr') gun.scale.set(0.95, 0.95, 1.35);
     else gun.scale.set(1, 1, 1);
   };
@@ -289,6 +357,14 @@
 
   Weapons.prototype.tryFire = function () {
     if (this.player && this.player.dead) return;
+    if (
+      this.player &&
+      this.player.vehicleId &&
+      global.VF.Vehicles &&
+      !global.VF.Vehicles.canUsePersonalWeapon(this.player)
+    ) {
+      return;
+    }
     if (this.mode !== 'weapon') return;
     if (this.reloading) return;
     if (this.cooldown > 0) return;
@@ -332,7 +408,40 @@
     this._shotHitCount = 0;
     this._shotDmg = 0;
     this._shotImpactCount = 0;
-    this._fireRays(def, origin, baseDir, this._tmpMuzzle);
+    if (def.projectile && this.current === 'rpg') {
+      const net = global.VF && global.VF.NetSimulation;
+      const game = global.VF && global.VF.game;
+      const networkGuest = !!(
+        net &&
+        net.isNetworkConquest &&
+        net.isNetworkConquest(game) &&
+        !net.isAuthority(game)
+      );
+      if (networkGuest && net.sendCommand) {
+        net.sendCommand('rpg-fire', {
+          origin: {
+            x: this._tmpMuzzle.x,
+            y: this._tmpMuzzle.y,
+            z: this._tmpMuzzle.z,
+          },
+          direction: { x: baseDir.x, y: baseDir.y, z: baseDir.z },
+        });
+      } else if (global.VF.Vehicles && global.VF.Vehicles.launchProjectile) {
+        global.VF.Vehicles.launchProjectile({
+          weaponId: 'rpg',
+          actor: this.player,
+          team:
+            this.player.team ||
+            (this.player.world && this.player.world._playerTeam) ||
+            'ally',
+          origin: this._tmpMuzzle,
+          direction: baseDir,
+          speed: def.projectileSpeed,
+        });
+      }
+    } else {
+      this._fireRays(def, origin, baseDir, this._tmpMuzzle);
+    }
     // ADS reduces view/gun recoil (blend with hip → scoped)
     const adsBlend =
       this.player._adsBlend != null
@@ -356,7 +465,11 @@
 
     if (global.VF.Audio) {
       const shot =
-        this.current === 'sg' ? 'shoot_sg' : this.current === 'sr' ? 'shoot_sr' : 'shoot_ar';
+        this.current === 'sg' || this.current === 'rpg'
+          ? 'shoot_sg'
+          : this.current === 'sr'
+            ? 'shoot_sr'
+            : 'shoot_ar';
       global.VF.Audio.play(shot);
     }
 
@@ -737,6 +850,16 @@
       }
     }
 
+    if (!inRange && global.VF.Vehicles && global.VF.Vehicles.raycast) {
+      const vehicleHit = global.VF.Vehicles.raycast(origin, dir, bestDist, {
+        excludeId: this.player.vehicleId || null,
+      });
+      if (vehicleHit && vehicleHit.dist < bestDist) {
+        bestDist = vehicleHit.dist;
+        bestAction = { type: 'vehicle', hit: vehicleHit };
+      }
+    }
+
     // PVP: hit remote human player
     if (!inRange && global.VF.Pvp && global.VF.Pvp.raycastRemote) {
       const rpHit = global.VF.Pvp.raycastRemote(origin, dir, bestDist);
@@ -861,6 +984,33 @@
         }
       }
       this._spawnImpact(bestAction.hit.point, 0xff6688, 0.55);
+    } else if (bestAction.type === 'vehicle') {
+      const applied = global.VF.Vehicles.applyDamage(
+        bestAction.hit.vehicle,
+        dmg,
+        {
+          damageType: def.damageType || 'bullet',
+          source: this.player,
+          sourceId: this.player.entityId || 'player-local',
+          weaponId: def.id,
+        }
+      );
+      this._spawnImpact(
+        bestAction.hit.point,
+        applied > 0 ? 0xff8a3d : 0xaab5b8,
+        applied > 0 ? 0.34 : 0.11
+      );
+      if (applied > 0) {
+        this._shotHitHostile = true;
+        this._shotHitCount++;
+        this._shotDmg += applied;
+      } else if (global.VF.UI) {
+        const now = performance.now();
+        if (!this._armorToastAt || now - this._armorToastAt > 900) {
+          this._armorToastAt = now;
+          global.VF.UI.toast('跳弹 · 需要反装甲武器');
+        }
+      }
     } else if (bestAction.type === 'gadget') {
       global.VF.Gadgets.damage(
         bestAction.hit.item,

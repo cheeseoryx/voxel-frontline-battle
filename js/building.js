@@ -65,6 +65,7 @@
     const self = this;
     document.addEventListener('keydown', (e) => {
       if (!self.player.locked) return;
+      if (self.player.vehicleId) return;
       if (global.VF.Range && global.VF.Range.isOpen) return;
       if (e.code === 'Digit4') self.enterMode('a');
       if (e.code === 'Digit5') self.enterMode('b');

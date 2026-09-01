@@ -1167,6 +1167,42 @@
     if (this.dirtyRect) this.dirtyRect(gx - outer - 1, gz - outer - 1, gx + outer + 1, gz + outer + 1);
   };
 
+  /** Clear headroom for a vehicle pad without flattening or raising terrain. */
+  VoxelWorld.prototype._clearVehiclePad = function (cx, cz, radius) {
+    const r = Math.max(4, Math.floor(radius || 6));
+    const gx = Math.floor(cx);
+    const gz = Math.floor(cz);
+    const size = this.worldSize;
+    for (let dz = -r; dz <= r; dz++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (dx * dx + dz * dz > r * r) continue;
+        const x = gx + dx;
+        const z = gz + dz;
+        if (x < 2 || z < 2 || x >= size - 2 || z >= size - 2) continue;
+        const ground = this.groundY
+          ? this.groundY[z * size + x]
+          : Math.floor(this.getTerrainTop(x, z));
+        for (
+          let y = Math.max(1, ground + 1);
+          y <= ground + 7 && y < this.height;
+          y++
+        ) {
+          const block = this.get(x, y, z);
+          if (
+            block !== BLOCK.AIR &&
+            block !== BLOCK.WATER &&
+            block !== BLOCK.BEDROCK
+          ) {
+            this.set(x, y, z, BLOCK.AIR);
+          }
+        }
+      }
+    }
+    if (this.dirtyRect) {
+      this.dirtyRect(gx - r - 1, gz - r - 1, gx + r + 1, gz + r + 1);
+    }
+  };
+
   /** Flatten a capture plaza so flags are never buried in buildings. */
   VoxelWorld.prototype._clearFlagPlaza = function (cx, cz, radius) {
     const r = Math.max(8, Math.floor(radius || 18));
@@ -2985,6 +3021,29 @@
       const p = props[i];
       if (p.box && box.intersectsBox(p.box)) return true;
     }
+    const vehicles = box.ignoreVehicleColliders
+      ? []
+      : this._vehicleAABBs || [];
+    for (let i = 0; i < vehicles.length; i++) {
+      const v = vehicles[i];
+      if (
+        !v ||
+        v.alive === false ||
+        v.vehicleId === box.excludeVehicleId
+      ) {
+        continue;
+      }
+      if (
+        box.min.x <= v.max.x &&
+        box.max.x >= v.min.x &&
+        box.min.y <= v.max.y &&
+        box.max.y >= v.min.y &&
+        box.min.z <= v.max.z &&
+        box.max.z >= v.min.z
+      ) {
+        return true;
+      }
+    }
     if (this._terrainOverlapsBox && this._terrainOverlapsBox(box)) return true;
     return false;
   };
@@ -3032,6 +3091,35 @@
         h.max.copy(p.box.max);
         n++;
       }
+    }
+    const vehicles = box.ignoreVehicleColliders
+      ? []
+      : this._vehicleAABBs || [];
+    for (let i = 0; i < vehicles.length; i++) {
+      const v = vehicles[i];
+      if (
+        !v ||
+        v.alive === false ||
+        v.vehicleId === box.excludeVehicleId ||
+        box.min.x > v.max.x ||
+        box.max.x < v.min.x ||
+        box.min.y > v.max.y ||
+        box.max.y < v.min.y ||
+        box.min.z > v.max.z ||
+        box.max.z < v.min.z
+      ) {
+        continue;
+      }
+      let h = pool[n];
+      if (!h) {
+        h = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
+        pool[n] = h;
+      }
+      h.min.set(v.min.x, v.min.y, v.min.z);
+      h.max.set(v.max.x, v.max.y, v.max.z);
+      h.userData = h.userData || {};
+      h.userData.vehicleId = v.vehicleId;
+      n++;
     }
     if (this._appendTerrainHits) n = this._appendTerrainHits(box, pool, n);
     pool.length = n;

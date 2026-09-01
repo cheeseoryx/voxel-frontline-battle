@@ -53,12 +53,21 @@
     _onStorage: null,
     _pendingStart: null,
     _pendingEnter: null,
+    _cancelledStartSeed: null,
+    _pendingPrepCancel: null,
+    _lastPrepCancelAt: 0,
+    _lastNetCommandIds: null,
     spawnReadyLocal: false,
     spawnReadyRemote: false,
+    _spawnGateAutoReady: false,
+    _spawnGateAutoTimer: null,
     localLoadout: null,
     remoteLoadout: null,
+    _lockedRemoteLoadout: null,
     remoteState: null,
     remoteAvatar: null,
+    _remoteAuthoritativeAlive: true,
+    _remotePendingLifeId: null,
     _lastStateSend: 0,
 
     els: null,
@@ -117,6 +126,17 @@
       bind(this.els.copyBtn, () => this.copyCode());
       bind(this.els.matchReadyBtn, () => this.toggleSpawnReady());
       bind(this.els.matchReadyBack, () => this.cancelSpawnGate());
+      global.addEventListener('keydown', (e) => {
+        if (
+          e.code === 'Escape' &&
+          this.phase === 'spawnWait' &&
+          this._spawnGateAutoReady
+        ) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          this.returnToLobbyFromPrep(true, this.matchSeed);
+        }
+      });
       if (this.els.joinCode) {
         this.els.joinCode.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') {
@@ -208,7 +228,12 @@
           : '等待另一窗口进入联机大厅…（同机请再开一个 localhost:15180）'
       );
       this._refreshLobby();
-      this._send({ type: 'hello', role: this.mode, ready: this.localReady });
+      this._send({
+        type: 'hello',
+        role: this.mode,
+        ready: this.localReady,
+        wallTime: Date.now(),
+      });
     },
 
     /**
@@ -267,6 +292,10 @@
       this._battlefieldEntered = false;
       this._pendingStart = null;
       this._pendingEnter = null;
+      this._cancelledStartSeed = null;
+      this._pendingPrepCancel = null;
+      this._lastPrepCancelAt = 0;
+      this._lastNetCommandIds = null;
       this.spawnReadyLocal = false;
       this.spawnReadyRemote = false;
       this.mode = this._electKubeeRoleFromBus();
@@ -294,7 +323,12 @@
     /** Re-broadcast lobby presence (used when backing out of class select). */
     _sendLobbySync() {
       this._busPublish();
-      this._send({ type: 'hello', role: this.mode, ready: this.localReady });
+      this._send({
+        type: 'hello',
+        role: this.mode,
+        ready: this.localReady,
+        wallTime: Date.now(),
+      });
     },
 
     _hideCover() {
@@ -318,6 +352,36 @@
 
     _busKey() {
       return BUS_PREFIX + (this.roomCode || '');
+    },
+
+    _netBusKey(role) {
+      return (
+        BUS_PREFIX +
+        'net_' +
+        (this.roomCode || '') +
+        '_' +
+        (role || this.mode || 'host')
+      );
+    },
+
+    _netBusRemoteKey() {
+      return this._netBusKey(this.mode === 'host' ? 'guest' : 'host');
+    },
+
+    _netCommandBusKey(role) {
+      return (
+        BUS_PREFIX +
+        'netcmd_' +
+        (this.roomCode || '') +
+        '_' +
+        (role || this.mode || 'host')
+      );
+    },
+
+    _netCommandBusRemoteKey() {
+      return this._netCommandBusKey(
+        this.mode === 'host' ? 'guest' : 'host'
+      );
     },
 
     _readBus() {
@@ -360,7 +424,7 @@
             mode: (state.server && state.server.mode) || 'conquest',
             modeLabel: (state.server && state.server.modeLabel) || '征服',
             size: 2,
-            sizeLabel: '32 v 32',
+            sizeLabel: '1 v 1',
             players: 1 + (guestAlive ? 1 : 0),
             capacity: 2,
             ping: Math.max(1, Math.min(999, now - (state.host.ts || now))),
@@ -397,6 +461,10 @@
         if (e.key === this._busKey()) this._ingestBus();
         if (e.key === this._dmgKey()) this._pollDamageBus();
         if (e.key === this._buildLogKey()) this._pollBuildBus();
+        if (e.key === this._netBusRemoteKey()) this._pollNetBus();
+        if (e.key === this._netCommandBusRemoteKey()) {
+          this._pollNetCommandBus();
+        }
       };
       window.addEventListener('storage', this._onStorage);
       this._busTimer = setInterval(() => {
@@ -442,6 +510,7 @@
         guest: prev.guest || null,
         start: prev.start || null,
         enter: prev.enter || null,
+        prepCancel: prev.prepCancel || null,
       };
       const slot = {
         id: this._busClientId,
@@ -452,6 +521,7 @@
       };
       if (this.localLoadout) {
         slot.classId = this.localLoadout.classId;
+        slot.weaponId = this.localLoadout.weaponId;
         slot.spawnId = this.localLoadout.spawnId;
         slot.team = this.localLoadout.team;
       }
@@ -464,12 +534,29 @@
         slot.alive = this._playState.alive;
         slot.crouch = !!this._playState.crouch;
         slot.stealth = !!this._playState.stealth;
+        slot.vehicleId = this._playState.vehicleId || null;
+        slot.vehicleSeat =
+          this._playState.vehicleSeat != null
+            ? this._playState.vehicleSeat
+            : null;
+        slot.vehicleRole = this._playState.vehicleRole || null;
+        slot.vehicleThrottle = this._playState.vehicleThrottle || 0;
+        slot.vehicleSteer = this._playState.vehicleSteer || 0;
+        slot.vehicleBrake = this._playState.vehicleBrake || 0;
+        slot.vehicleBoost = !!this._playState.vehicleBoost;
+        slot.vehicleSlow = !!this._playState.vehicleSlow;
+        slot.vehicleTurretLocked = !!this._playState.vehicleTurretLocked;
+        slot.vehicleAimYaw = this._playState.vehicleAimYaw || 0;
+        slot.vehicleAimPitch = this._playState.vehicleAimPitch || 0;
+        slot.vehicleWeaponIndex = this._playState.vehicleWeaponIndex || 0;
+        slot.vehicleFire = !!this._playState.vehicleFire;
       }
       if (this.mode === 'host') next.host = slot;
       else next.guest = slot;
 
       if (this.mode === 'host' && this._pendingStart) next.start = this._pendingStart;
       if (this.mode === 'host' && this._pendingEnter) next.enter = this._pendingEnter;
+      if (this._pendingPrepCancel) next.prepCancel = this._pendingPrepCancel;
       if (this.mode === 'host' && this._matchHud) next.matchHud = this._matchHud;
       if (this.mode === 'host' && this._pendingWinner) next.winner = this._pendingWinner;
 
@@ -545,12 +632,16 @@
         this.connected = true;
         this.remoteReady = !!other.ready;
         this.spawnReadyRemote = !!other.spawnReady;
-        if (other.classId || other.spawnId || other.team) {
-          this.remoteLoadout = {
+        if (
+          this.phase !== 'play' &&
+          (other.classId || other.weaponId || other.spawnId || other.team)
+        ) {
+          this.remoteLoadout = this._sanitizeRemoteLoadout({
             classId: other.classId || 'assault',
+            weaponId: other.weaponId || 'ar',
             spawnId: other.spawnId || null,
             team: other.team || (this.mode === 'host' ? 'enemy' : 'ally'),
-          };
+          });
         }
         if (other.x != null) {
           this.remoteState = {
@@ -562,9 +653,43 @@
             alive: other.alive !== false,
             crouch: !!other.crouch,
             stealth: !!other.stealth,
+            vehicleId: other.vehicleId || null,
+            vehicleSeat:
+              other.vehicleSeat != null ? other.vehicleSeat : null,
+            vehicleRole: other.vehicleRole || null,
+            vehicleThrottle: other.vehicleThrottle || 0,
+            vehicleSteer: other.vehicleSteer || 0,
+            vehicleBrake: other.vehicleBrake || 0,
+            vehicleBoost: !!other.vehicleBoost,
+            vehicleSlow: !!other.vehicleSlow,
+            vehicleTurretLocked: !!other.vehicleTurretLocked,
+            vehicleAimYaw: other.vehicleAimYaw || 0,
+            vehicleAimPitch: other.vehicleAimPitch || 0,
+            vehicleWeaponIndex: other.vehicleWeaponIndex || 0,
+            vehicleFire: !!other.vehicleFire,
             classId: other.classId || (this.remoteLoadout && this.remoteLoadout.classId) || 'assault',
             team: other.team || (this.remoteLoadout && this.remoteLoadout.team),
           };
+          if (other.alive === false) {
+            this._remoteAuthoritativeAlive = false;
+          }
+          if (this._remoteAuthoritativeAlive === false) {
+            this.remoteState.alive = false;
+            this.remoteState.hp = 0;
+          }
+          if (
+            this.mode === 'host' &&
+            global.VF.NetSimulation &&
+            global.VF.NetSimulation.observeRemotePlayerState
+          ) {
+            const actor =
+              global.VF.NetSimulation.observeRemotePlayerState();
+            this.remoteState.vehicleId = actor && actor.vehicleId;
+            this.remoteState.vehicleSeat =
+              actor && actor.vehicleSeat != null ? actor.vehicleSeat : null;
+            this.remoteState.vehicleRole =
+              (actor && actor.vehicleRole) || null;
+          }
         }
       } else if (!peerUp) {
         if (this.phase === 'lobby') {
@@ -572,10 +697,34 @@
           this.remoteReady = false;
         }
         this.spawnReadyRemote = false;
+        if (this.phase === 'spawnWait' && this._spawnGateAutoReady) {
+          this.remotePresent = false;
+          this.returnToLobbyFromPrep(false, this.matchSeed);
+          return;
+        }
+      }
+
+      const prepCancel = state.prepCancel;
+      if (
+        prepCancel &&
+        prepCancel.fromId !== this._busClientId &&
+        (prepCancel.t || 0) > this._lastPrepCancelAt
+      ) {
+        this._lastPrepCancelAt = prepCancel.t || now;
+        if (this.phase === 'prep' || this.phase === 'spawnWait') {
+          this.returnToLobbyFromPrep(false, prepCancel.seed);
+          return;
+        }
       }
 
       // Lobby start (guest)
-      if (!this._lobbyDone && this.mode === 'guest' && state.start && state.start.seed) {
+      if (
+        !this._lobbyDone &&
+        this.mode === 'guest' &&
+        state.start &&
+        state.start.seed &&
+        state.start.seed !== this._cancelledStartSeed
+      ) {
         this.matchSeed = state.start.seed;
         this._beginMatchFromNet(state.start);
         return;
@@ -613,6 +762,8 @@
       this._pollDamageBus();
       this._pollCoreDmgBus();
       this._pollBuildBus();
+      this._pollNetBus();
+      this._pollNetCommandBus();
 
       // Host: both spawn-ready → publish enter
       if (
@@ -699,6 +850,10 @@
       this._battlefieldEntered = false;
       this._pendingStart = null;
       this._pendingEnter = null;
+      this._cancelledStartSeed = null;
+      this._pendingPrepCancel = null;
+      this._lastPrepCancelAt = 0;
+      this._lastNetCommandIds = null;
       this.spawnReadyLocal = false;
       this.spawnReadyRemote = false;
       this.roomCode = randomCode(6);
@@ -766,6 +921,10 @@
       this._battlefieldEntered = false;
       this._pendingStart = null;
       this._pendingEnter = null;
+      this._cancelledStartSeed = null;
+      this._pendingPrepCancel = null;
+      this._lastPrepCancelAt = 0;
+      this._lastNetCommandIds = null;
       this.spawnReadyLocal = false;
       this.spawnReadyRemote = false;
 
@@ -811,7 +970,12 @@
       const onOpen = () => {
         this.connected = true;
         this.remotePresent = true;
-        this._send({ type: 'hello', role: this.mode, ready: this.localReady });
+        this._send({
+          type: 'hello',
+          role: this.mode,
+          ready: this.localReady,
+          wallTime: Date.now(),
+        });
         this._busPublish();
         this._refreshLobby();
       };
@@ -838,6 +1002,9 @@
         case 'hello':
           this.connected = true;
           this.remotePresent = true;
+          if (typeof data.wallTime === 'number') {
+            this._remoteClockOffset = Date.now() - data.wallTime;
+          }
           if (typeof data.ready === 'boolean') this.remoteReady = data.ready;
           this._updateStatusFromFlags();
           this._refreshLobby();
@@ -848,8 +1015,16 @@
           this._refreshLobby();
           break;
         case 'spawnReady':
+          if (this.phase !== 'prep' && this.phase !== 'spawnWait') break;
+          if (data.loadout) {
+            const sanitized = this._sanitizeRemoteLoadout(data.loadout);
+            if (!sanitized && data.ready) {
+              this.spawnReadyRemote = false;
+              break;
+            }
+            if (sanitized) this.remoteLoadout = sanitized;
+          }
           this.spawnReadyRemote = !!data.ready;
-          if (data.loadout) this.remoteLoadout = data.loadout;
           this._refreshMatchReadyUI();
           if (
             this.mode === 'host' &&
@@ -859,11 +1034,38 @@
             this._hostPublishEnter();
           }
           break;
+        case 'prepCancel':
+          if (this.phase === 'prep' || this.phase === 'spawnWait') {
+            this.returnToLobbyFromPrep(false, data.seed);
+          }
+          break;
         case 'enter':
           this._enterBattlefield(data);
           break;
         case 'state':
+          if (data.alive === false) {
+            this._remoteAuthoritativeAlive = false;
+          }
+          if (
+            this._remoteAuthoritativeAlive === false &&
+            data.alive !== false
+          ) {
+            data.alive = false;
+            data.hp = 0;
+          }
           this.remoteState = data;
+          if (
+            this.mode === 'host' &&
+            global.VF.NetSimulation &&
+            global.VF.NetSimulation.observeRemotePlayerState
+          ) {
+            const actor =
+              global.VF.NetSimulation.observeRemotePlayerState();
+            data.vehicleId = actor && actor.vehicleId;
+            data.vehicleSeat =
+              actor && actor.vehicleSeat != null ? actor.vehicleSeat : null;
+            data.vehicleRole = (actor && actor.vehicleRole) || null;
+          }
           break;
         case 'build':
           this._applyRemoteBuild(data);
@@ -894,16 +1096,88 @@
             this.remoteState.hp = 0;
           }
           this._lastRemoteAlive = false;
+          this._remoteAuthoritativeAlive = false;
+          break;
+        case 'playerCasualty':
+          if (
+            this.phase === 'play' &&
+            data.seed === this.matchSeed &&
+            data.lifeId &&
+            this._remoteAuthoritativeAlive === false
+          ) {
+            this._remotePendingLifeId = data.lifeId;
+          }
+          break;
+        case 'playerRespawn':
+          if (
+            this.phase === 'play' &&
+            this._remoteAuthoritativeAlive === false &&
+            data.seed === this.matchSeed &&
+            data.lifeId &&
+            data.lifeId === this._remotePendingLifeId
+          ) {
+            const team =
+              (this._lockedRemoteLoadout &&
+                this._lockedRemoteLoadout.team) ||
+              (this.mode === 'host' ? 'enemy' : 'ally');
+            const C = global.VF && global.VF.Conquest;
+            const points =
+              C && C.listDeployPoints
+                ? C.listDeployPoints(team)
+                : [];
+            const point = points.find(function (entry) {
+              return (
+                entry.id === data.spawnId &&
+                entry.team === team &&
+                entry.available !== false
+              );
+            });
+            if (!point) break;
+            const classes =
+              (global.VF.Soldier && global.VF.Soldier.CLASSES) || [];
+            const nextClass = classes.some(function (entry) {
+              return entry.id === data.classId;
+            })
+              ? data.classId
+              : this._lockedRemoteLoadout &&
+                  this._lockedRemoteLoadout.classId;
+            if (this._lockedRemoteLoadout && nextClass) {
+              this._lockedRemoteLoadout.classId = nextClass;
+              if (
+                global.VF.WEAPONS &&
+                global.VF.WEAPONS[data.weaponId]
+              ) {
+                this._lockedRemoteLoadout.weaponId = data.weaponId;
+              }
+            }
+            this._remoteAuthoritativeAlive = true;
+            this._lastRemoteAlive = true;
+            this._remotePendingLifeId = null;
+            if (
+              global.VF.NetSimulation &&
+              global.VF.NetSimulation.onRemoteRespawn
+            ) {
+              global.VF.NetSimulation.onRemoteRespawn(point);
+            }
+            if (this.remoteState) {
+              this.remoteState.alive = true;
+              this.remoteState.hp = 100;
+              this.remoteState.x = point.x;
+              this.remoteState.y = point.y;
+              this.remoteState.z = point.z;
+            }
+          }
           break;
         case 'conquest-snapshot':
         case 'conquest-snapshot-request':
         case 'conquest-command':
           if (global.VF.NetSimulation && global.VF.NetSimulation.receive) {
+            data._receivedAt = performance.now();
             global.VF.NetSimulation.receive(data);
           }
           break;
         case 'start':
-          if (!this._lobbyDone) {
+          if (!this._lobbyDone && data.seed !== this._cancelledStartSeed) {
             this.matchSeed = data.seed || Date.now();
             this._beginMatchFromNet(data);
           }
@@ -912,6 +1186,10 @@
           this.remotePresent = false;
           this.remoteReady = false;
           this.spawnReadyRemote = false;
+          if (this.phase === 'spawnWait' && this._spawnGateAutoReady) {
+            this.returnToLobbyFromPrep(false, this.matchSeed);
+            break;
+          }
           this._setStatus('对手已离开房间');
           this._refreshLobby();
           this._refreshMatchReadyUI();
@@ -933,6 +1211,109 @@
           global.VF_KUBEE.send(obj);
         } catch (_) {}
       }
+      if (
+        this.roomCode &&
+        obj &&
+        (obj.type === 'conquest-snapshot' ||
+          obj.type === 'conquest-snapshot-request' ||
+          obj.type === 'conquest-command' ||
+          obj.type === 'playerCasualty' ||
+          obj.type === 'playerRespawn')
+      ) {
+        try {
+          const packet = {
+            id:
+              this._busClientId +
+              ':' +
+              obj.type +
+              ':' +
+              (obj.seq || 0) +
+              ':' +
+              Date.now(),
+            fromId: this._busClientId,
+            sentAt: Date.now(),
+            message: obj,
+          };
+          if (
+            obj.type === 'conquest-command' ||
+            obj.type === 'playerCasualty' ||
+            obj.type === 'playerRespawn'
+          ) {
+            const key = this._netCommandBusKey(this.mode);
+            let queue = [];
+            try {
+              queue = JSON.parse(localStorage.getItem(key) || '[]');
+            } catch (_) {}
+            if (!Array.isArray(queue)) queue = [];
+            queue.push(packet);
+            if (queue.length > 32) queue = queue.slice(-32);
+            localStorage.setItem(key, JSON.stringify(queue));
+          } else {
+            localStorage.setItem(
+              this._netBusKey(this.mode),
+              JSON.stringify(packet)
+            );
+          }
+        } catch (_) {}
+      }
+    },
+
+    _pollNetBus() {
+      if (!this.roomCode) return;
+      try {
+        const raw = localStorage.getItem(this._netBusRemoteKey());
+        if (!raw) return;
+        const packet = JSON.parse(raw);
+        if (
+          !packet ||
+          !packet.id ||
+          packet.id === this._lastNetBusId ||
+          packet.fromId === this._busClientId ||
+          (packet.sentAt && Date.now() - packet.sentAt > 5000) ||
+          !packet.message
+        ) {
+          return;
+        }
+        this._lastNetBusId = packet.id;
+        this._onData(packet.message);
+      } catch (_) {}
+    },
+
+    _pollNetCommandBus() {
+      if (!this.roomCode) return;
+      try {
+        const raw = localStorage.getItem(this._netCommandBusRemoteKey());
+        if (!raw) return;
+        const queue = JSON.parse(raw);
+        if (!Array.isArray(queue)) return;
+        if (!this._lastNetCommandIds) {
+          this._lastNetCommandIds = Object.create(null);
+        }
+        const cutoff = Date.now() - 5000;
+        for (let i = 0; i < queue.length; i++) {
+          const packet = queue[i];
+          if (
+            !packet ||
+            !packet.id ||
+            this._lastNetCommandIds[packet.id] ||
+            packet.fromId === this._busClientId ||
+            (packet.sentAt || 0) < cutoff ||
+            !packet.message
+          ) {
+            continue;
+          }
+          this._lastNetCommandIds[packet.id] = 1;
+          this._onData(packet.message);
+        }
+        const ids = Object.keys(this._lastNetCommandIds);
+        if (ids.length > 96) {
+          const keep = Object.create(null);
+          for (let i = ids.length - 64; i < ids.length; i++) {
+            keep[ids[i]] = 1;
+          }
+          this._lastNetCommandIds = keep;
+        }
+      } catch (_) {}
     },
 
     toggleReady() {
@@ -963,6 +1344,13 @@
         return;
       }
       const seed = (Date.now() ^ ((Math.random() * 1e9) | 0)) >>> 0;
+      this._cancelledStartSeed = null;
+      this._pendingPrepCancel = null;
+      const bus = this._readBus();
+      if (bus && bus.prepCancel) {
+        bus.prepCancel = null;
+        this._writeBus(bus);
+      }
       this.matchSeed = seed;
       const payload = {
         type: 'start',
@@ -1001,11 +1389,16 @@
       this._busPublish();
     },
 
-    /** After spawn select: wait until both players ready, then enter same match */
-    openSpawnGate(loadout, onEnter, onBack) {
+    /** Wait until both clients have finished the pre-match presentation. */
+    openSpawnGate(loadout, onEnter, onBack, opts) {
+      opts = opts || {};
+      const autoReady = !!opts.autoReady;
+      if (this._spawnGateAutoTimer) clearTimeout(this._spawnGateAutoTimer);
+      this._spawnGateAutoTimer = null;
+      this._spawnGateAutoReady = autoReady;
       this.phase = 'spawnWait';
       this.localLoadout = loadout || null;
-      this.spawnReadyLocal = false;
+      this.spawnReadyLocal = autoReady;
       this._onEnterBattlefield = onEnter;
       this._onSpawnGateBack = onBack;
       this._battlefieldEntered = false;
@@ -1013,14 +1406,42 @@
       this._busPublish();
       this._send({
         type: 'spawnReady',
-        ready: false,
+        ready: this.spawnReadyLocal,
         loadout: this.localLoadout,
       });
       if (this.els.matchReadyOverlay) {
-        this.els.matchReadyOverlay.classList.remove('hidden');
+        this.els.matchReadyOverlay.classList.toggle('hidden', autoReady);
       }
-      this._startMatchPreviews();
+      if (autoReady) {
+        this._stopMatchPreviews();
+      } else {
+        this._startMatchPreviews();
+      }
       this._refreshMatchReadyUI();
+      if (
+        autoReady &&
+        this.mode === 'host' &&
+        this.spawnReadyRemote
+      ) {
+        this._hostPublishEnter();
+      }
+      if (autoReady && !this._battlefieldEntered) {
+        if (global.VF && global.VF.UI && global.VF.UI.toast) {
+          global.VF.UI.toast('等待对手进入战场 · Esc 返回联机大厅');
+        }
+        this._spawnGateAutoTimer = setTimeout(() => {
+          if (
+            this.phase === 'spawnWait' &&
+            !this._battlefieldEntered &&
+            this._spawnGateAutoReady
+          ) {
+            if (global.VF && global.VF.UI && global.VF.UI.toast) {
+              global.VF.UI.toast('对手同步超时 · 已返回联机大厅');
+            }
+            this.returnToLobbyFromPrep(true, this.matchSeed);
+          }
+        }, 12000);
+      }
     },
 
     toggleSpawnReady() {
@@ -1043,14 +1464,85 @@
     },
 
     cancelSpawnGate() {
+      if (this._spawnGateAutoTimer) clearTimeout(this._spawnGateAutoTimer);
+      this._spawnGateAutoTimer = null;
+      this._spawnGateAutoReady = false;
       this.spawnReadyLocal = false;
       this.phase = 'prep';
       this._busPublish();
+      this._send({
+        type: 'spawnReady',
+        ready: false,
+        loadout: this.localLoadout,
+      });
       this._stopMatchPreviews();
       if (this.els.matchReadyOverlay) {
         this.els.matchReadyOverlay.classList.add('hidden');
       }
       if (typeof this._onSpawnGateBack === 'function') this._onSpawnGateBack();
+    },
+
+    returnToLobbyFromPrep(notifyPeer, cancelledSeed) {
+      if (this._spawnGateAutoTimer) clearTimeout(this._spawnGateAutoTimer);
+      this._spawnGateAutoTimer = null;
+      this._spawnGateAutoReady = false;
+      const seed =
+        cancelledSeed != null
+          ? cancelledSeed
+          : this.matchSeed != null
+            ? this.matchSeed
+            : this._pendingStart && this._pendingStart.seed;
+      this._cancelledStartSeed = seed != null ? seed : null;
+      if (notifyPeer !== false) {
+        this._pendingPrepCancel = {
+          seed: this._cancelledStartSeed,
+          t: Date.now(),
+          fromId: this._busClientId,
+        };
+        this._lastPrepCancelAt = this._pendingPrepCancel.t;
+        this._send({ type: 'prepCancel', seed: this._cancelledStartSeed });
+      } else {
+        this._pendingPrepCancel = null;
+      }
+      this.phase = 'lobby';
+      this._lobbyDone = false;
+      this._battlefieldEntered = false;
+      this._pendingStart = null;
+      this._pendingEnter = null;
+      this.localReady = false;
+      this.remoteReady = false;
+      this.spawnReadyLocal = false;
+      this.spawnReadyRemote = false;
+      this.localLoadout = null;
+      this.remoteLoadout = null;
+      this._lockedRemoteLoadout = null;
+      this._stopMatchPreviews();
+      if (this.els.matchReadyOverlay) {
+        this.els.matchReadyOverlay.classList.add('hidden');
+      }
+      const bus = this._readBus();
+      if (bus) {
+        bus.phase = 'lobby';
+        bus.start = null;
+        bus.enter = null;
+        this._writeBus(bus);
+      }
+      if (global.VF && global.VF.UI && global.VF.UI.closeClassSelect) {
+        global.VF.UI.closeClassSelect();
+      }
+      if (global.VF && global.VF.UI && global.VF.UI.closeSquadIntro) {
+        global.VF.UI.closeSquadIntro();
+      }
+      if (global.VF && global.VF.UI && global.VF.UI.closeLoadoutCustomize) {
+        global.VF.UI.closeLoadoutCustomize();
+      }
+      if (global.VF && global.VF.game) {
+        if (global.VF.clearPreMatchMapView) global.VF.clearPreMatchMapView();
+        else global.VF.game._preMatchView = null;
+      }
+      this._openLobbyUI();
+      this._setStatus('已返回大厅 · 双方重新准备后开始');
+      this._busPublish();
     },
 
     _hostPublishEnter() {
@@ -1070,8 +1562,25 @@
 
     _enterBattlefield(data) {
       if (this._battlefieldEntered) return;
+      if (this.phase !== 'spawnWait') return;
+      if (
+        data &&
+        data.seed != null &&
+        this.matchSeed != null &&
+        data.seed !== this.matchSeed
+      ) {
+        return;
+      }
+      if (this._spawnGateAutoTimer) clearTimeout(this._spawnGateAutoTimer);
+      this._spawnGateAutoTimer = null;
+      this._spawnGateAutoReady = false;
       this._battlefieldEntered = true;
       this.phase = 'play';
+      this._remoteAuthoritativeAlive = true;
+      this._remotePendingLifeId = null;
+      this._lockedRemoteLoadout = this.remoteLoadout
+        ? Object.assign({}, this.remoteLoadout)
+        : null;
       this.matchTime = 0;
       this._matchEnded = false;
       this._pendingWinner = null;
@@ -1108,6 +1617,52 @@
       return classId || '—';
     },
 
+    _sanitizeRemoteLoadout(loadout) {
+      if (!loadout || typeof loadout !== 'object') return null;
+      const expectedTeam = this.mode === 'host' ? 'enemy' : 'ally';
+      const classes =
+        (global.VF &&
+          global.VF.Soldier &&
+          global.VF.Soldier.CLASSES) ||
+        [];
+      const classId = classes.some(function (entry) {
+        return entry.id === loadout.classId;
+      })
+        ? loadout.classId
+        : 'assault';
+      const weaponId =
+        global.VF &&
+        global.VF.WEAPONS &&
+        global.VF.WEAPONS[loadout.weaponId]
+          ? loadout.weaponId
+          : 'ar';
+      let spawnId = loadout.spawnId || null;
+      const world = global.VF && global.VF.game && global.VF.game.world;
+      const spawnPoints =
+        world && world._spawnPoints && world._spawnPoints.all
+          ? world._spawnPoints.all
+          : [];
+      if (spawnPoints.length && !spawnId) return null;
+      if (spawnId && spawnPoints.length) {
+        const valid = spawnPoints.some(function (point) {
+          return point.id === spawnId && point.team === expectedTeam;
+        });
+        if (!valid) return null;
+      }
+      return {
+        classId: classId,
+        weaponId: weaponId,
+        spawnId: spawnId,
+        team: expectedTeam,
+      };
+    },
+
+    _weaponLabel(weaponId) {
+      const defs = global.VF && global.VF.WEAPONS;
+      const def = defs && defs[weaponId || 'ar'];
+      return def ? def.nameZh || def.name || weaponId : weaponId || 'AKM';
+    },
+
     _teamLabel(team) {
       return team === 'enemy' ? '红方' : '蓝方';
     },
@@ -1140,20 +1695,33 @@
       const ll = this.localLoadout;
       if (this.els.matchYouClass) {
         this.els.matchYouClass.textContent = ll
-          ? this._teamLabel(ll.team) + ' · ' + this._classLabel(ll.classId)
+          ? this._teamLabel(ll.team) +
+            ' · ' +
+            this._classLabel(ll.classId) +
+            ' · ' +
+            this._weaponLabel(ll.weaponId)
           : '—';
       }
 
       const rl = this.remoteLoadout;
       if (this.els.matchFoeClass) {
         this.els.matchFoeClass.textContent = rl
-          ? this._teamLabel(rl.team) + ' · ' + this._classLabel(rl.classId)
+          ? this._teamLabel(rl.team) +
+            ' · ' +
+            this._classLabel(rl.classId) +
+            ' · ' +
+            this._weaponLabel(rl.weaponId)
           : '等待中…';
       }
       if (this.els.matchFoeInfo) {
         this.els.matchFoeInfo.textContent = rl
-          ? '对手：' + this._teamLabel(rl.team) + ' · ' + this._classLabel(rl.classId)
-          : '对手选点同步中…';
+          ? '对手：' +
+            this._teamLabel(rl.team) +
+            ' · ' +
+            this._classLabel(rl.classId) +
+            ' · ' +
+            this._weaponLabel(rl.weaponId)
+          : '对手兵种同步中…';
       }
 
       if (this.els.matchReadyStatus) {
@@ -1166,7 +1734,7 @@
           this.els.matchReadyStatus.textContent = '已准备 · 等待对手准备进入';
         } else {
           this.els.matchReadyStatus.textContent =
-            '选点完成 · 双方都点「准备进入」后进入同一战场';
+            '兵种已确认 · 双方都点「准备进入」后进入同一战场';
         }
       }
 
@@ -1363,6 +1931,20 @@
           classId: state.classId,
           team: state.team,
           stealth: !!state.stealth,
+          vehicleId: state.vehicleId || null,
+          vehicleSeat:
+            state.vehicleSeat != null ? state.vehicleSeat : null,
+          vehicleRole: state.vehicleRole || null,
+          vehicleThrottle: state.vehicleThrottle || 0,
+          vehicleSteer: state.vehicleSteer || 0,
+          vehicleBrake: state.vehicleBrake || 0,
+          vehicleBoost: !!state.vehicleBoost,
+          vehicleSlow: !!state.vehicleSlow,
+          vehicleTurretLocked: !!state.vehicleTurretLocked,
+          vehicleAimYaw: state.vehicleAimYaw || 0,
+          vehicleAimPitch: state.vehicleAimPitch || 0,
+          vehicleWeaponIndex: state.vehicleWeaponIndex || 0,
+          vehicleFire: !!state.vehicleFire,
         });
       }
     },
@@ -1716,6 +2298,52 @@
       } catch (_) {}
     },
 
+    reportLocalRespawn() {
+      if (this._matchEnded || this.phase !== 'play') return;
+      const game = global.VF && global.VF.game;
+      const team =
+        (game && game.player && game.player.team) ||
+        (game && game.world && game.world._playerTeam) ||
+        (this.mode === 'host' ? 'ally' : 'enemy');
+      const selected =
+        (game && game._lastDeploymentSelection) ||
+        (game &&
+          game.world &&
+          game.world.getSelectedSpawn &&
+          game.world.getSelectedSpawn());
+      if (game && game._lastRespawnLifeId) {
+        this._send({
+          type: 'playerCasualty',
+          lifeId: game._lastRespawnLifeId,
+          seed: this.matchSeed,
+        });
+      }
+      this._send({
+        type: 'playerRespawn',
+        team: team,
+        spawnId: selected && selected.id,
+        vehicleId: game && game.player && game.player.vehicleId,
+        classId:
+          game && game.player
+            ? game.player.classId
+            : this.localLoadout && this.localLoadout.classId,
+        weaponId:
+          game && game.weapons
+            ? game.weapons.current
+            : this.localLoadout && this.localLoadout.weaponId,
+        vehicleSeat:
+          game && game.player && game.player.vehicleSeat != null
+            ? game.player.vehicleSeat
+            : null,
+        lifeId: game && game._lastRespawnLifeId,
+        seed: this.matchSeed,
+      });
+      if (game) {
+        game._lastDeploymentSelection = null;
+        game._lastRespawnLifeId = null;
+      }
+    },
+
     declareWinner(winnerTeam, reason) {
       if (this._matchEnded) return;
       if (winnerTeam !== 'ally' && winnerTeam !== 'enemy') return;
@@ -1842,7 +2470,7 @@
       while (dy > Math.PI) dy -= Math.PI * 2;
       while (dy < -Math.PI) dy += Math.PI * 2;
       m.rotation.y += dy * k;
-      m.visible = st.alive !== false && !st.stealth;
+      m.visible = st.alive !== false && !st.stealth && !st.vehicleId;
       if (global.VF.Soldier) {
         if (global.VF.Soldier.setCrouchPose) {
           global.VF.Soldier.setCrouchPose(m, !!st.crouch);
@@ -1858,7 +2486,7 @@
       if (this.phase !== 'play') return null;
       const st = this.remoteState;
       // Stealthed remotes stay hittable (fair PvP) but are invisible
-      if (!st || st.x == null || st.alive === false) return null;
+      if (!st || st.x == null || st.alive === false || st.vehicleId) return null;
       const av = this.remoteAvatar;
       const px = av && av.mesh ? av.mesh.position.x : st.x;
       const py = av && av.mesh ? av.mesh.position.y : st.y;
@@ -1895,7 +2523,10 @@
           0,
           (this.remoteState.hp != null ? this.remoteState.hp : 100) - dmg
         );
-        if (this.remoteState.hp <= 0) this.remoteState.alive = false;
+        if (this.remoteState.hp <= 0) {
+          this.remoteState.alive = false;
+          this._remoteAuthoritativeAlive = false;
+        }
       }
       if (this.remoteAvatar && this.remoteAvatar.mesh) {
         this.remoteAvatar.mesh.traverse((c) => {
@@ -1937,7 +2568,13 @@
           : this.remoteState
             ? { x: this.remoteState.x, y: this.remoteState.y, z: this.remoteState.z }
             : null;
-      if (game.player.takeDamage) game.player.takeDamage(dmg, from);
+      const source = {
+        entityId: 'remote-player',
+        team:
+          (this._lockedRemoteLoadout && this._lockedRemoteLoadout.team) ||
+          (this.mode === 'host' ? 'enemy' : 'ally'),
+      };
+      if (game.player.takeDamage) game.player.takeDamage(dmg, from, source);
       else {
         game.player.health = Math.max(0, game.player.health - dmg);
         if (global.VF.UI) {
@@ -2053,8 +2690,15 @@
     destroySession() {
       this._destroyed = true;
       this._stopBus();
+      if (this._spawnGateAutoTimer) clearTimeout(this._spawnGateAutoTimer);
+      this._spawnGateAutoTimer = null;
+      this._spawnGateAutoReady = false;
       this._pendingStart = null;
       this._pendingEnter = null;
+      this._cancelledStartSeed = null;
+      this._pendingPrepCancel = null;
+      this._lastPrepCancelAt = 0;
+      this._lastNetCommandIds = null;
       this._playState = null;
       try {
         if (this.conn) this.conn.close();
@@ -2072,6 +2716,7 @@
       this.spawnReadyRemote = false;
       this.localLoadout = null;
       this.remoteLoadout = null;
+      this._lockedRemoteLoadout = null;
       this.remoteState = null;
       this.mode = null;
       this.roomCode = null;

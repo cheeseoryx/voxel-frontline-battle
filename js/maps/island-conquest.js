@@ -345,6 +345,40 @@
     pushRing(aiEnemy, flags[5].x, flags[5].z, 4, 14, 24);
     world._aiSpawns = { ally: aiAlly, enemy: aiEnemy };
     if (g) g._mapKitAiSpawns = { ally: aiAlly.slice(), enemy: aiEnemy.slice() };
+
+    const vehicleSpawns = [];
+    const vehicleTypes = ['jeep', 'ifv', 'tank'];
+    const bases =
+      world._plannedBases && world._plannedBases.length >= 2
+        ? world._plannedBases
+        : [
+            { x: size * HQ.ally.nx, z: size * HQ.ally.nz },
+            { x: size * HQ.enemy.nx, z: size * HQ.enemy.nz },
+          ];
+    const teams = ['ally', 'enemy'];
+    for (let side = 0; side < teams.length; side++) {
+      const team = teams[side];
+      const inward = team === 'ally' ? 1 : -1;
+      const yaw = team === 'ally' ? Math.PI : 0;
+      for (let i = 0; i < vehicleTypes.length; i++) {
+        const p = nudgeLand(
+          world,
+          bases[side].x + (i - 1) * 10,
+          bases[side].z + inward * 21
+        );
+        if (world._clearVehiclePad) world._clearVehiclePad(p.x, p.z, 6);
+        vehicleSpawns.push({
+          id: team + '-' + vehicleTypes[i] + '-1',
+          type: vehicleTypes[i],
+          team: team,
+          x: p.x,
+          z: p.z,
+          yaw: yaw,
+        });
+      }
+    }
+    world._vehicleSpawns = vehicleSpawns;
+    if (g) g._mapKitVehicleSpawns = vehicleSpawns.slice();
   }
 
   const api = {

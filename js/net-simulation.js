@@ -8,25 +8,54 @@
   function NetSimulation() {
     this.seq = 0;
     this.lastRemoteSeq = 0;
+    this.seenRemoteSeq = Object.create(null);
     this.lastSnapshotAt = 0;
+    this.lastSnapshotSeq = 0;
     this.lastSendAt = 0;
     this.lastHash = '';
     this.remoteHash = '';
     this.remoteSquads = null;
     this.remoteScoring = null;
     this.remoteFlow = null;
+    this.remoteVehicleHash = '';
+    this.remoteVehicleActor = null;
+    this.remoteTrustedPosition = null;
+    this.remoteTrustedAt = 0;
+    this.remoteMoveBudget = 2;
+    this.remoteMoveBudgetAt = 0;
+    this.lastVehicleControlSeq = 0;
     this.errors = [];
   }
 
   NetSimulation.prototype.reset = function () {
+    if (
+      this.remoteVehicleActor &&
+      global.VF &&
+      global.VF.Vehicles &&
+      global.VF.Vehicles.dismount
+    ) {
+      global.VF.Vehicles.dismount(this.remoteVehicleActor, {
+        reason: 'network-reset',
+        silent: true,
+      });
+    }
     this.lastRemoteSeq = 0;
+    this.seenRemoteSeq = Object.create(null);
     this.lastSnapshotAt = 0;
+    this.lastSnapshotSeq = 0;
     this.lastSendAt = 0;
     this.lastHash = '';
     this.remoteHash = '';
     this.remoteSquads = null;
     this.remoteScoring = null;
     this.remoteFlow = null;
+    this.remoteVehicleHash = '';
+    this.remoteVehicleActor = null;
+    this.remoteTrustedPosition = null;
+    this.remoteTrustedAt = 0;
+    this.remoteMoveBudget = 2;
+    this.remoteMoveBudgetAt = 0;
+    this.lastVehicleControlSeq = 0;
     this.errors.length = 0;
   };
 
@@ -49,6 +78,10 @@
     const C = global.VF && global.VF.Conquest;
     if (!C || !C.active || !C.getStateSnapshot) return null;
     const snapshot = C.getStateSnapshot();
+    const vehicles =
+      global.VF.Vehicles && global.VF.Vehicles.getSnapshot
+        ? global.VF.Vehicles.getSnapshot()
+        : { version: 1, vehicles: [] };
     return {
       snapshot: snapshot,
       checksum: global.VF.NetProtocol.checksum(snapshot),
@@ -71,6 +104,11 @@
               enemy: global.VF.Revive.getDowned('enemy').map(this._downedWire),
             }
           : null,
+      vehicles: vehicles,
+      vehicleChecksum:
+        global.VF.NetProtocol && global.VF.NetProtocol.vehicleChecksum
+          ? global.VF.NetProtocol.vehicleChecksum(vehicles)
+          : '',
     };
   };
 
@@ -151,16 +189,61 @@
       this.errors.push(checked.reason);
       return false;
     }
-    if (message.seq <= this.lastRemoteSeq) return false;
-    this.lastRemoteSeq = message.seq;
+    if (this.seenRemoteSeq[message.seq]) return false;
+    if (message.type === 'conquest-command') {
+      const pvpClock = global.VF && global.VF.Pvp;
+      const offset =
+        pvpClock && isFinite(pvpClock._remoteClockOffset)
+          ? pvpClock._remoteClockOffset
+          : 0;
+      const adjustedAge =
+        message.sentAt != null
+          ? Date.now() - (message.sentAt + offset)
+          : Infinity;
+      if (
+        !message._receivedAt ||
+        performance.now() - message._receivedAt > 5000 ||
+        adjustedAge > 5000 ||
+        adjustedAge < -2000
+      ) {
+        this.errors.push('stale-command');
+        return false;
+      }
+    }
+    this.seenRemoteSeq[message.seq] = 1;
+    if (message.seq > this.lastRemoteSeq) this.lastRemoteSeq = message.seq;
+    const pruneBefore = this.lastRemoteSeq - 256;
+    if (pruneBefore > 0) {
+      for (const seq in this.seenRemoteSeq) {
+        if (Number(seq) < pruneBefore) delete this.seenRemoteSeq[seq];
+      }
+    }
     if (message.type === 'conquest-snapshot-request') {
       if (this.isAuthority()) this.sendSnapshot();
       return true;
     }
     if (message.type === 'conquest-command') {
-      return this._receiveCommand(message.payload);
+      const C = global.VF && global.VF.Conquest;
+      const pvp = global.VF && global.VF.Pvp;
+      const flow = global.VF && global.VF.MatchFlow;
+      if (
+        !C ||
+        !C.active ||
+        !pvp ||
+        pvp.phase !== 'play' ||
+        !flow ||
+        flow.phase !== 'live' ||
+        !message.matchId ||
+        !C.matchId ||
+        message.matchId !== C.matchId
+      ) {
+        this.errors.push('command-phase-or-match');
+        return false;
+      }
+      return this._receiveCommand(message.payload, message.seq);
     }
     if (message.type !== 'conquest-snapshot' || this.isAuthority()) return false;
+    if (message.seq <= this.lastSnapshotSeq) return false;
     const bundle = message.payload;
     const valid = P.validateSnapshot(bundle.snapshot);
     if (!valid.ok || P.checksum(bundle.snapshot) !== bundle.checksum) {
@@ -168,17 +251,35 @@
       this.requestSnapshot();
       return false;
     }
+    if (
+      bundle.vehicles &&
+      P.vehicleChecksum &&
+      bundle.vehicleChecksum !== P.vehicleChecksum(bundle.vehicles)
+    ) {
+      this.errors.push('vehicle-checksum');
+      this.requestSnapshot();
+      return false;
+    }
     this.remoteHash = bundle.checksum;
     this.remoteSquads = bundle.squads || null;
     this.remoteScoring = bundle.scoring || null;
     this.remoteFlow = bundle.flow || null;
+    this.remoteVehicleHash = bundle.vehicleChecksum || '';
+    this.lastSnapshotSeq = message.seq;
     this._applySnapshot(bundle.snapshot);
     this._applyFlow(bundle.flow);
+    if (
+      bundle.vehicles &&
+      global.VF.Vehicles &&
+      global.VF.Vehicles.applySnapshot
+    ) {
+      global.VF.Vehicles.applySnapshot(bundle.vehicles);
+    }
     this.lastSnapshotAt = performance.now();
     return true;
   };
 
-  NetSimulation.prototype._receiveCommand = function (payload) {
+  NetSimulation.prototype._receiveCommand = function (payload, seq) {
     if (!this.isAuthority() || !payload || typeof payload.command !== 'string') return false;
     const data = payload.data || {};
     if (payload.command === 'squad-order') {
@@ -197,29 +298,369 @@
       const C = global.VF && global.VF.Conquest;
       const pvp = global.VF && global.VF.Pvp;
       const remoteTeam =
-        (pvp && pvp.remoteState && pvp.remoteState.team) ||
+        (pvp &&
+          pvp._lockedRemoteLoadout &&
+          pvp._lockedRemoteLoadout.team) ||
         (pvp && pvp.remoteLoadout && pvp.remoteLoadout.team) ||
         'enemy';
       if (!C || !data.lifeId || typeof data.lifeId !== 'string') return false;
       C.onDeath(remoteTeam, {
         lifeId: data.lifeId,
-        subjectId: data.subjectId || 'remote-player',
+        subjectId: 'remote-player',
         reason: data.reason || 'combat',
       });
-      if (global.VF.Scoring && global.VF.Scoring.confirmKill && data.killerId) {
+      if (pvp) pvp._remotePendingLifeId = data.lifeId;
+      const game = global.VF && global.VF.game;
+      const localPlayer = game && game.player;
+      const localKillerId =
+        data.killerId && localPlayer
+          ? localPlayer.entityId || 'player-local'
+          : null;
+      const localTeam =
+        (localPlayer && localPlayer.team) ||
+        (game && game.world && game.world._playerTeam) ||
+        (remoteTeam === 'ally' ? 'enemy' : 'ally');
+      if (
+        global.VF.Scoring &&
+        global.VF.Scoring.confirmKill &&
+        localKillerId
+      ) {
         global.VF.Scoring.confirmKill(
-          data.killerId,
-          data.subjectId || 'remote-player',
-          data.killerTeam || (remoteTeam === 'ally' ? 'enemy' : 'ally'),
+          localKillerId,
+          'remote-player',
+          localTeam,
           remoteTeam,
           data.lifeId
         );
       }
       return true;
+    } else if (payload.command.indexOf('vehicle-') === 0 || payload.command === 'rpg-fire') {
+      if (
+        payload.command !== 'rpg-fire' &&
+        seq != null &&
+        seq <= this.lastVehicleControlSeq
+      ) {
+        return false;
+      }
+      if (payload.command !== 'rpg-fire' && seq != null) {
+        this.lastVehicleControlSeq = seq;
+      }
+      return this._receiveVehicleCommand(payload.command, data);
     } else if (payload.command === 'snapshot') {
       return this.sendSnapshot();
     }
     return false;
+  };
+
+  NetSimulation.prototype._remoteVehicleActor = function () {
+    const pvp = global.VF && global.VF.Pvp;
+    const state = (pvp && pvp.remoteState) || {};
+    const loadout =
+      (pvp && pvp._lockedRemoteLoadout) ||
+      (pvp && pvp.remoteLoadout) ||
+      {};
+    if (!this.remoteVehicleActor) {
+      this.remoteVehicleActor = {
+        entityId: 'remote-player',
+        isRemote: true,
+        alive: true,
+        position: { x: 0, y: 0, z: 0 },
+      };
+    }
+    const actor = this.remoteVehicleActor;
+    actor.team = loadout.team === 'ally' ? 'ally' : 'enemy';
+    actor.classId = loadout.classId || 'assault';
+    actor.alive =
+      state.alive !== false &&
+      (!pvp || pvp._remoteAuthoritativeAlive !== false);
+    if (actor.rpgAmmo == null) actor.rpgAmmo = 3;
+    if (actor.rpgCd == null) actor.rpgCd = 0;
+    const now = performance.now();
+    if (!this.remoteTrustedPosition) {
+      const world = global.VF && global.VF.game && global.VF.game.world;
+      const spawnList =
+        world && world._spawnPoints && world._spawnPoints.all
+          ? world._spawnPoints.all
+          : [];
+      let spawn = null;
+      for (let i = 0; i < spawnList.length; i++) {
+        if (spawnList[i].id === loadout.spawnId) {
+          spawn = spawnList[i];
+          break;
+        }
+      }
+      if (!spawn) {
+        for (let i = 0; i < spawnList.length; i++) {
+          if (spawnList[i].team === actor.team && spawnList[i].fixed) {
+            spawn = spawnList[i];
+            break;
+          }
+        }
+      }
+      this.remoteTrustedPosition = {
+        x: spawn ? spawn.x : 0,
+        y: spawn ? spawn.y : 0,
+        z: spawn ? spawn.z : 0,
+      };
+      this.remoteTrustedAt = now;
+      this.remoteMoveBudget = 2;
+      this.remoteMoveBudgetAt = now;
+    } else if (state.x != null && !actor.vehicleId) {
+      const candidate = {
+        x: Number(state.x) || 0,
+        y: Number(state.y) || 0,
+        z: Number(state.z) || 0,
+      };
+      const elapsed = Math.max(
+        0,
+        (now - (this.remoteMoveBudgetAt || now)) / 1000
+      );
+      this.remoteMoveBudget = Math.min(
+        4,
+        (this.remoteMoveBudget || 0) + elapsed * 16
+      );
+      this.remoteMoveBudgetAt = now;
+      const distance = Math.hypot(
+        candidate.x - this.remoteTrustedPosition.x,
+        candidate.y - this.remoteTrustedPosition.y,
+        candidate.z - this.remoteTrustedPosition.z
+      );
+      if (distance <= this.remoteMoveBudget + 0.1) {
+        this.remoteTrustedPosition = candidate;
+        this.remoteTrustedAt = now;
+        this.remoteMoveBudget = Math.max(
+          0,
+          this.remoteMoveBudget - distance
+        );
+      }
+    }
+    actor.position.x = this.remoteTrustedPosition.x;
+    actor.position.y = this.remoteTrustedPosition.y;
+    actor.position.z = this.remoteTrustedPosition.z;
+    return actor;
+  };
+
+  NetSimulation.prototype._receiveVehicleCommand = function (command, data) {
+    const vehicles = global.VF && global.VF.Vehicles;
+    if (!vehicles) return false;
+    const actor = this._remoteVehicleActor();
+    if (command === 'vehicle-mount') {
+      const vehicle = vehicles.getById(data.vehicleId);
+      if (!vehicle || vehicle.team !== actor.team) return false;
+      if (
+        Math.hypot(
+          actor.position.x - vehicle.position.x,
+          actor.position.y -
+            (vehicle.position.y + vehicle.def.dimensions.height * 0.45),
+          actor.position.z - vehicle.position.z
+        ) > 6
+      ) {
+        return false;
+      }
+      if (actor.vehicleId) vehicles.dismount(actor, { silent: true });
+      return !!vehicles.mount(actor, vehicle, data.seatIndex);
+    }
+    if (command === 'vehicle-dismount') {
+      const exited = !!vehicles.dismount(actor, {
+        reason: 'remote',
+        silent: true,
+      });
+      if (exited) {
+        this.remoteTrustedPosition = {
+          x: actor.position.x,
+          y: actor.position.y,
+          z: actor.position.z,
+        };
+        this.remoteTrustedAt = performance.now();
+        this.remoteMoveBudget = 2;
+        this.remoteMoveBudgetAt = this.remoteTrustedAt;
+      }
+      return exited;
+    }
+    if (command === 'vehicle-seat') {
+      return !!vehicles.switchSeat(actor, data.seatIndex);
+    }
+    if (command === 'vehicle-input') {
+      const vehicle = vehicles.getById(data.vehicleId);
+      if (!vehicle || vehicle.team !== actor.team) return false;
+      if (actor.vehicleId !== vehicle.id) {
+        if (
+          Math.hypot(
+            actor.position.x - vehicle.position.x,
+            actor.position.y -
+              (vehicle.position.y + vehicle.def.dimensions.height * 0.45),
+            actor.position.z - vehicle.position.z
+          ) > 6
+        ) {
+          return false;
+        }
+        if (actor.vehicleId) vehicles.dismount(actor, { silent: true });
+        if (!vehicles.mount(actor, vehicle, data.seatIndex)) return false;
+      } else if (
+        data.seatIndex != null &&
+        Number(data.seatIndex) !== Number(actor.vehicleSeat)
+      ) {
+        vehicles.switchSeat(actor, Number(data.seatIndex));
+      }
+      if (actor.vehicleRole === 'driver') {
+        vehicles.setDriverInput(vehicle, {
+          throttle: data.throttle,
+          steer: data.steer,
+          brake: data.brake,
+          handbrake: data.handbrake,
+          boost: data.boost,
+          slow: data.slow,
+        });
+      }
+      if (!data.turretLocked) {
+        vehicles.setAim(vehicle, {
+          yaw: Number(data.aimYaw) || 0,
+          pitch: Number(data.aimPitch) || 0,
+          role: actor.vehicleRole,
+        });
+      }
+      if (data.fire) {
+        const choices = vehicles.getWeaponsForRole(vehicle, actor.vehicleRole);
+        const index = Math.max(
+          0,
+          Math.min(choices.length - 1, Number(data.weaponIndex) | 0)
+        );
+        if (choices[index]) {
+          const roleAim =
+            (vehicle.aimByRole &&
+              vehicle.aimByRole[actor.vehicleRole]) ||
+            vehicle.aim;
+          vehicles.fireWeapon(vehicle, choices[index], actor, {
+            direction: roleAim.direction,
+          });
+        }
+      }
+      return true;
+    }
+    if (command === 'rpg-fire') {
+      const mountedVehicle = actor.vehicleId
+        ? vehicles.getById(actor.vehicleId)
+        : null;
+      const mountedRpgAllowed = !!(
+        mountedVehicle &&
+        mountedVehicle.type === 'jeep' &&
+        actor.vehicleRole === 'passenger'
+      );
+      if (
+        actor.classId !== 'engineer' ||
+        !actor.alive ||
+        (actor.vehicleId && !mountedRpgAllowed) ||
+        actor.rpgAmmo <= 0 ||
+        actor.rpgCd > 0 ||
+        !data.origin ||
+        !data.direction
+      ) {
+        return false;
+      }
+      const originDistance = Math.hypot(
+        Number(data.origin.x) - actor.position.x,
+        Number(data.origin.y) - (actor.position.y + 1.3),
+        Number(data.origin.z) - actor.position.z
+      );
+      const directionLength = Math.hypot(
+        Number(data.direction.x),
+        Number(data.direction.y),
+        Number(data.direction.z)
+      );
+      if (
+        !isFinite(originDistance) ||
+        originDistance > 3 ||
+        !isFinite(directionLength) ||
+        directionLength < 0.5 ||
+        directionLength > 1.5
+      ) {
+        return false;
+      }
+      actor.rpgAmmo--;
+      actor.rpgCd = 3.2;
+      return !!vehicles.launchProjectile({
+        weaponId: 'rpg',
+        actor: actor,
+        team: actor.team,
+        origin: data.origin,
+        direction: data.direction,
+      });
+    }
+    return false;
+  };
+
+  NetSimulation.prototype.applyRemoteVehicleState = function (state) {
+    if (!this.isAuthority() || !state) return false;
+    const vehicles = global.VF && global.VF.Vehicles;
+    if (!vehicles) return false;
+    const actor = this._remoteVehicleActor();
+    if (
+      state.vehicleId &&
+      (!global.VF.MatchFlow || global.VF.MatchFlow.phase !== 'live')
+    ) {
+      return false;
+    }
+    if (!state.vehicleId || state.alive === false) {
+      if (actor.vehicleId) {
+        vehicles.dismount(actor, { reason: 'remote-state', silent: true });
+        this.remoteTrustedPosition = {
+          x: actor.position.x,
+          y: actor.position.y,
+          z: actor.position.z,
+        };
+        this.remoteTrustedAt = performance.now();
+        this.remoteMoveBudget = 2;
+        this.remoteMoveBudgetAt = this.remoteTrustedAt;
+      }
+      return true;
+    }
+    return this._receiveVehicleCommand('vehicle-input', {
+      vehicleId: state.vehicleId,
+      seatIndex: state.vehicleSeat,
+      role: state.vehicleRole,
+      throttle: state.vehicleThrottle,
+      steer: state.vehicleSteer,
+      brake: state.vehicleBrake,
+      boost: state.vehicleBoost,
+      slow: state.vehicleSlow,
+      turretLocked: state.vehicleTurretLocked,
+      aimYaw: state.vehicleAimYaw,
+      aimPitch: state.vehicleAimPitch,
+      weaponIndex: state.vehicleWeaponIndex,
+      fire: state.vehicleFire,
+    });
+  };
+
+  NetSimulation.prototype.observeRemotePlayerState = function () {
+    if (!this.isAuthority()) return null;
+    return this._remoteVehicleActor();
+  };
+
+  NetSimulation.prototype.onRemoteRespawn = function (spawnPoint) {
+    if (this.remoteVehicleActor && this.remoteVehicleActor.vehicleId) {
+      const vehicles = global.VF && global.VF.Vehicles;
+      if (vehicles) {
+        vehicles.dismount(this.remoteVehicleActor, {
+          reason: 'remote-respawn',
+          silent: true,
+        });
+      }
+    }
+    this.remoteTrustedPosition = spawnPoint
+      ? {
+          x: Number(spawnPoint.x) || 0,
+          y: Number(spawnPoint.y) || 0,
+          z: Number(spawnPoint.z) || 0,
+        }
+      : null;
+    this.remoteTrustedAt = performance.now();
+    this.remoteMoveBudget = 2;
+    this.remoteMoveBudgetAt = this.remoteTrustedAt;
+    if (this.remoteVehicleActor) {
+      this.remoteVehicleActor.alive = true;
+      this.remoteVehicleActor.rpgAmmo = 3;
+      this.remoteVehicleActor.rpgCd = 0;
+    }
   };
 
   NetSimulation.prototype._applySnapshot = function (snapshot) {
@@ -291,6 +732,12 @@
 
   NetSimulation.prototype.update = function (dt, game) {
     if (!this.isNetworkConquest(game)) return;
+    if (this.remoteVehicleActor && this.remoteVehicleActor.rpgCd > 0) {
+      this.remoteVehicleActor.rpgCd = Math.max(
+        0,
+        this.remoteVehicleActor.rpgCd - Math.max(0, Number(dt) || 0)
+      );
+    }
     const t = performance.now();
     if (this.isAuthority(game)) {
       if (t - this.lastSendAt >= 200) this.sendSnapshot();
@@ -309,6 +756,7 @@
       remoteSeq: this.lastRemoteSeq,
       localHash: this.lastHash,
       remoteHash: this.remoteHash,
+      remoteVehicleHash: this.remoteVehicleHash,
       lastSnapshotAgeMs: this.lastSnapshotAt ? performance.now() - this.lastSnapshotAt : null,
       errors: this.errors.slice(-20),
       transportLimit:

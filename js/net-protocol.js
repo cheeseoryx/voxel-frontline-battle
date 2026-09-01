@@ -4,7 +4,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = 1;
+  const VERSION = 2;
 
   function finite(value, fallback) {
     return typeof value === 'number' && isFinite(value) ? value : fallback;
@@ -47,6 +47,115 @@
 
   function checksum(snapshot) {
     return hashString(canonicalSnapshot(snapshot || {}));
+  }
+
+  function canonicalVehicles(snapshot) {
+    const vehicles =
+      snapshot && Array.isArray(snapshot.vehicles)
+        ? snapshot.vehicles.slice()
+        : [];
+    vehicles.sort(function (a, b) {
+      return String(a.id).localeCompare(String(b.id));
+    });
+    const vehicleData = vehicles.map(function (vehicle) {
+        const p = vehicle.position || {};
+        return [
+          vehicle.id || '',
+          vehicle.type || '',
+          vehicle.team || '',
+          Math.round(finite(p.x, 0) * 100),
+          Math.round(finite(p.y, 0) * 100),
+          Math.round(finite(p.z, 0) * 100),
+          Math.round(finite(vehicle.yaw, 0) * 1000),
+          Math.round(finite(vehicle.pitch, 0) * 1000),
+          Math.round(finite(vehicle.roll, 0) * 1000),
+          Math.round(finite(vehicle.speed, 0) * 100),
+          Math.round(finite(vehicle.turretYaw, 0) * 1000),
+          Math.round(finite(vehicle.turretPitch, 0) * 1000),
+          Math.round(
+            finite(
+              vehicle.aimByRole &&
+                vehicle.aimByRole.gunner &&
+                vehicle.aimByRole.gunner.yaw,
+              0
+            ) * 1000
+          ),
+          Math.round(
+            finite(
+              vehicle.aimByRole &&
+                vehicle.aimByRole.gunner &&
+                vehicle.aimByRole.gunner.pitch,
+              0
+            ) * 1000
+          ),
+          Math.round(finite(vehicle.hp, 0)),
+          vehicle.alive === false ? 0 : 1,
+          Math.round(finite(vehicle.respawnTimer, 0) * 10),
+          (vehicle.seats || []).map(function (seat) {
+            return [seat.index | 0, seat.occupantId || ''];
+          }),
+          Object.keys(vehicle.weapons || {})
+            .sort()
+            .map(function (id) {
+              const weapon = vehicle.weapons[id] || {};
+              return [
+                id,
+                Math.round(finite(weapon.cooldown, 0) * 100),
+                weapon.mag == null ? -1 : weapon.mag | 0,
+                weapon.reserve == null ? -1 : weapon.reserve | 0,
+                Math.round(finite(weapon.reloadTimer, 0) * 100),
+                Math.round(finite(weapon.heat, 0) * 10),
+                weapon.overheated ? 1 : 0,
+              ];
+            }),
+        ];
+      });
+    const projectiles =
+      snapshot && Array.isArray(snapshot.projectiles)
+        ? snapshot.projectiles.slice()
+        : [];
+    projectiles.sort(function (a, b) {
+      return String(a.id).localeCompare(String(b.id));
+    });
+    const projectileData = projectiles.map(function (projectile) {
+      const p = projectile.position || {};
+      const d = projectile.direction || {};
+      return [
+        projectile.id || '',
+        projectile.vehicleId || '',
+        projectile.ownerId || '',
+        projectile.team || '',
+        projectile.weaponId || '',
+        Math.round(finite(projectile.damage, 0) * 10),
+        projectile.damageType || '',
+        Math.round(finite(p.x, 0) * 100),
+        Math.round(finite(p.y, 0) * 100),
+        Math.round(finite(p.z, 0) * 100),
+        Math.round(finite(d.x, 0) * 1000),
+        Math.round(finite(d.y, 0) * 1000),
+        Math.round(finite(d.z, 0) * 1000),
+        Math.round(finite(projectile.speed, 0) * 100),
+        Math.round(finite(projectile.gravity, 0) * 100),
+        projectile.guidance || '',
+        Math.round(finite(projectile.guidanceRate, 0) * 100),
+        projectile.targetVehicleId || '',
+        Math.round(
+          finite(projectile.targetPoint && projectile.targetPoint.x, 0) * 100
+        ),
+        Math.round(
+          finite(projectile.targetPoint && projectile.targetPoint.y, 0) * 100
+        ),
+        Math.round(
+          finite(projectile.targetPoint && projectile.targetPoint.z, 0) * 100
+        ),
+        Math.round(finite(projectile.life, 0) * 100),
+      ];
+    });
+    return JSON.stringify([vehicleData, projectileData]);
+  }
+
+  function vehicleChecksum(snapshot) {
+    return hashString(canonicalVehicles(snapshot || {}));
   }
 
   function envelope(type, payload, opts) {
@@ -98,5 +207,7 @@
     validateSnapshot: validateSnapshot,
     checksum: checksum,
     canonicalSnapshot: canonicalSnapshot,
+    vehicleChecksum: vehicleChecksum,
+    canonicalVehicles: canonicalVehicles,
   };
 })(typeof window !== 'undefined' ? window : this);

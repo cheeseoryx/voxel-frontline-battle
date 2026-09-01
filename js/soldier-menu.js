@@ -1,5 +1,5 @@
 /**
- * soldier-menu.js — Soldier profile, equipment archive and unavailable vehicle catalog.
+ * soldier-menu.js — Soldier profile, equipment archive and vehicle catalog.
  */
 (function (global) {
   'use strict';
@@ -368,7 +368,12 @@
 
   const VEHICLES = {
     transport: [
-      { name: '轻型侦察车', silhouette: 'jeep' },
+      {
+        name: '军用吉普',
+        silhouette: 'jeep',
+        available: true,
+        detail: '6 座轻型装甲运输载具 · 无车载武器',
+      },
       { name: '通用运输车', silhouette: 'utility' },
       { name: '装甲运兵车', silhouette: 'carrier' },
       { name: '重型运输车', silhouette: 'truck' },
@@ -385,10 +390,20 @@
     ],
     light: [
       { name: '轻型装甲平台', silhouette: 'light-armor' },
-      { name: '轮式步战平台', silhouette: 'ifv' },
+      {
+        name: '步兵战车',
+        silhouette: 'ifv',
+        available: true,
+        detail: '6 座轻型装甲 · HE 自动炮 / 反装甲导弹 / 炮手榴弹发射器',
+      },
     ],
     tank: [
-      { name: '主战坦克 A', silhouette: 'tank-a' },
+      {
+        name: '主战坦克',
+        silhouette: 'tank-a',
+        available: true,
+        detail: '2 座重型装甲 · 防御提高 50% · 主炮 / 同轴机枪 / 炮手重机枪',
+      },
       { name: '主战坦克 B', silhouette: 'tank-b' },
     ],
     naval: [

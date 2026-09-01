@@ -37,6 +37,11 @@
   const JUMP_COOLDOWN = 2.8;
   const SEP_DIST = 1.4;
   const SEP_DIST_SQ = SEP_DIST * SEP_DIST;
+  const VEHICLE_SEEK_RANGE = 72;
+  const VEHICLE_MOUNT_RANGE = 4.2;
+  const VEHICLE_TARGET_RANGE = 320;
+  const RPG_RANGE = 55;
+  const RPG_COOLDOWN = 3.2;
   /** House exterior ring (from outer wall) — farther out */
   const HOUSE_DIST_MIN = 12;
   const HOUSE_DIST_MAX = 16;
@@ -538,6 +543,32 @@
       zipAnchor: opts.zipAnchor || null,
       zipRide: null,
       zipPhase: opts.role === 'zip' ? 'descend' : null,
+      isAI: true,
+      vehicleId: null,
+      vehicleSeat: null,
+      vehicleRole: null,
+      vehicleWeaponIndex: 0,
+      rpgAmmo: 3,
+      rpgCd: 0,
+      _rpgScanCd: Math.random() * 0.35,
+      _vehicleTargetId: null,
+      _vehicleTargetKind: null,
+      _vehicleTarget: null,
+      _vehicleCombatScanCd: 0,
+      _vehicleSeekId: null,
+      _vehicleSeekCd: 0.35 + Math.random() * 1.8,
+      _vehicleMountCooldown: 0,
+      _vehicleGoal: null,
+      _vehicleGoalCd: 0,
+      _vehicleDriveIntent: false,
+      _vehicleStuckTime: 0,
+      _vehicleReverseTime: 0,
+      _vehicleReverseCooldown: 0,
+      _vehicleRecoverySteer: 0,
+      _vehicleProbeCd: 0,
+      _vehicleLastX: null,
+      _vehicleLastZ: null,
+      _vehicleBoardingWait: 0,
       patrolTarget: null,
       patrolWait: opts.role === 'zip' ? 0 : 0.4 + Math.random() * 1.2,
       patrolWalk: 0,
@@ -679,6 +710,13 @@
   AI.prototype._clearUnits = function () {
     const all = this.blue.concat(this.red);
     for (let i = 0; i < all.length; i++) {
+      if (all[i].vehicleId != null) {
+        this._dismountAI(all[i], {
+          reason: 'reset',
+          silent: true,
+          resume: false,
+        });
+      }
       if (all[i].mesh) this.scene.remove(all[i].mesh);
     }
     this.blue = [];
@@ -749,7 +787,7 @@
     let bestDist = range;
     for (let i = 0; i < list.length; i++) {
       const e = list[i];
-      if (!e.alive) continue;
+      if (!e.alive || e.vehicleId != null) continue;
       const center = e.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0));
       const to = center.clone().sub(origin);
       const proj = to.dot(dir);
@@ -766,6 +804,66 @@
 
   AI.prototype.damageEnemy = function (enemy, dmg, hitDir) {
     return this._damageUnit(enemy, dmg, hitDir, true, this.player);
+  };
+
+  AI.prototype._restoreOnFoot = function (unit) {
+    if (!unit) return;
+    unit.vehicleId = null;
+    unit.vehicleSeat = null;
+    unit.vehicleRole = null;
+    unit.vehicleWeaponIndex = 0;
+    unit._vehicleSeekId = null;
+    unit._vehicleTargetId = null;
+    unit._vehicleTargetKind = null;
+    unit._vehicleTarget = null;
+    unit._vehicleCombatScanCd = 0;
+    unit._vehicleDriveIntent = false;
+    unit._vehicleStuckTime = 0;
+    unit._vehicleReverseTime = 0;
+    unit._vehicleReverseCooldown = 0;
+    unit._vehicleLastX = null;
+    unit._vehicleLastZ = null;
+    unit._vehicleBoardingWait = 0;
+    unit._vehicleMountCooldown = Math.max(unit._vehicleMountCooldown || 0, 3.5);
+    unit.velY = 0;
+    unit.onGround = true;
+    unit.target = null;
+    unit._lastThreatPos = null;
+    unit.state = 'patrol';
+    if (unit.mesh) {
+      unit.mesh.visible = true;
+      if (unit.mesh.userData) unit.mesh.userData.downed = false;
+    }
+    if (Object.prototype.hasOwnProperty.call(unit, '_vehiclePreviousVisible')) {
+      delete unit._vehiclePreviousVisible;
+    }
+  };
+
+  AI.prototype._dismountAI = function (unit, opts) {
+    if (!unit || unit.vehicleId == null) return false;
+    opts = opts || {};
+    const vehicles = global.VF && global.VF.Vehicles;
+    let dismounted = false;
+    if (vehicles && typeof vehicles.dismount === 'function') {
+      dismounted = !!vehicles.dismount(unit, {
+        reason: opts.reason || 'ai-exit',
+        silent: !!opts.silent,
+      });
+    }
+    if (opts.resume === false) {
+      unit.vehicleId = null;
+      unit.vehicleSeat = null;
+      unit.vehicleRole = null;
+      unit._vehicleSeekId = null;
+      unit._vehicleTargetId = null;
+      unit._vehicleTargetKind = null;
+      unit._vehicleTarget = null;
+      unit._vehicleDriveIntent = false;
+      if (unit.mesh) unit.mesh.visible = true;
+      return dismounted;
+    }
+    this._restoreOnFoot(unit);
+    return dismounted;
   };
 
   AI.prototype._damageUnit = function (unit, dmg, hitDir, fromPlayer, attacker) {
@@ -835,6 +933,13 @@
     }
 
     if (unit.hp <= 0) {
+      if (unit.vehicleId != null) {
+        this._dismountAI(unit, {
+          reason: 'death',
+          silent: true,
+          resume: false,
+        });
+      }
       if (
         global.VF.Conquest &&
         global.VF.Conquest.active &&
@@ -1255,14 +1360,19 @@
     let bestD = range;
     for (let i = 0; i < foes.length; i++) {
       const e = foes[i];
-      if (!e.alive) continue;
+      if (!e.alive || e.vehicleId != null) continue;
       const d = unit.mesh.position.distanceTo(e.mesh.position);
       if (d < bestD) {
         bestD = d;
         best = { unit: e, isPlayer: false, pos: e.mesh.position, dist: d };
       }
     }
-    if (unit.team !== playerTeam && this.player.health > 0 && !this.player.dead) {
+    if (
+      unit.team !== playerTeam &&
+      this.player.health > 0 &&
+      !this.player.dead &&
+      this.player.vehicleId == null
+    ) {
       // Ghost stealth: AI cannot lock onto stealthed player
       const stealthed =
         (global.VF.Skills && global.VF.Skills.isPlayerStealthed(this.player)) ||
@@ -1606,7 +1716,7 @@
   };
 
   AI.prototype._updatePhysics = function (unit, dt) {
-    if (!unit || !unit.alive || unit.zipRide) return;
+    if (!unit || !unit.alive || unit.zipRide || unit.vehicleId != null) return;
     const pos = unit.mesh.position;
     unit.mesh.visible = true;
     this._updateKnockback(unit, dt);
@@ -1773,7 +1883,7 @@
     for (let t = 0; t < teams.length; t++) {
       for (let i = 0; i < teams[t].length; i++) {
         const u = teams[t][i];
-        if (u.alive && u.mesh && !u.zipRide) {
+        if (u.alive && u.mesh && !u.zipRide && u.vehicleId == null) {
           u._sepId = list.length;
           list.push(u);
         }
@@ -1845,6 +1955,842 @@
         }
       }
     }
+  };
+
+  /* ---------- Vehicles ---------- */
+
+  AI.prototype._vehicleWeaponDef = function (vehicles, weaponId) {
+    const defs =
+      (vehicles && (vehicles.weaponDefinitions || vehicles.weaponDefs)) ||
+      (global.VF && global.VF.VEHICLE_WEAPONS) ||
+      {};
+    return defs[weaponId] || null;
+  };
+
+  AI.prototype._nearestEnemyVehicle = function (unit, vehicles, range, from) {
+    if (!vehicles || typeof vehicles.getAll !== 'function') return null;
+    const origin = from || (unit.mesh && unit.mesh.position);
+    if (!origin) return null;
+    const list = vehicles.getAll();
+    let best = null;
+    let bestD = range;
+    for (let i = 0; i < list.length; i++) {
+      const vehicle = list[i];
+      if (
+        !vehicle ||
+        !vehicle.alive ||
+        vehicle.team === unit.team ||
+        vehicle.id === unit.vehicleId ||
+        !vehicle.position
+      ) {
+        continue;
+      }
+      const dist = Math.hypot(
+        vehicle.position.x - origin.x,
+        vehicle.position.z - origin.z
+      );
+      if (dist < bestD) {
+        best = vehicle;
+        bestD = dist;
+      }
+    }
+    return best ? { vehicle: best, dist: bestD } : null;
+  };
+
+  AI.prototype._vehicleLineClear = function (from, to) {
+    const vehicles = global.VF && global.VF.Vehicles;
+    if (vehicles && vehicles.raycastWorld) {
+      const direction = to.clone().sub(from);
+      const distance = direction.length();
+      if (distance <= 0.01) return true;
+      direction.divideScalar(distance);
+      const hit = vehicles.raycastWorld(from, direction, distance);
+      return !hit || hit.distance >= distance - 0.35;
+    }
+    if (
+      !this.world ||
+      typeof this.world.get !== 'function' ||
+      typeof this.world._isSolid !== 'function' ||
+      !global.VF ||
+      !global.VF.BLOCK
+    ) {
+      return true;
+    }
+    return this._hasLOS(from, to);
+  };
+
+  AI.prototype._vehicleAimPoint = function (target, kind) {
+    if (!target) return null;
+    if (kind === 'vehicle') {
+      const dims = target.def && target.def.dimensions;
+      return new THREE.Vector3(
+        target.position.x,
+        target.position.y + (dims ? dims.height * 0.52 : 1.2),
+        target.position.z
+      );
+    }
+    if (target === this.player) {
+      if (this.player.getEyePosition) {
+        const eye = this.player.getEyePosition().clone();
+        eye.y -= 0.35;
+        return eye;
+      }
+      return this.player.object.position.clone().add(new THREE.Vector3(0, 1.35, 0));
+    }
+    return target.mesh
+      ? target.mesh.position.clone().add(new THREE.Vector3(0, 1.25, 0))
+      : null;
+  };
+
+  AI.prototype._tryEngineerRpg = function (unit, dt) {
+    if (
+      unit.classId !== 'engineer' ||
+      unit.vehicleId != null ||
+      unit.zipRide ||
+      (unit.rpgAmmo || 0) <= 0 ||
+      (unit.rpgCd || 0) > 0
+    ) {
+      return false;
+    }
+    const vehicles = global.VF && global.VF.Vehicles;
+    if (
+      !vehicles ||
+      typeof vehicles.getById !== 'function' ||
+      typeof vehicles.getAll !== 'function' ||
+      typeof vehicles.launchProjectile !== 'function'
+    ) {
+      return false;
+    }
+
+    let target = unit._vehicleTargetId
+      ? vehicles.getById(unit._vehicleTargetId)
+      : null;
+    if (
+      !target ||
+      !target.alive ||
+      target.team === unit.team ||
+      Math.hypot(
+        target.position.x - unit.mesh.position.x,
+        target.position.z - unit.mesh.position.z
+      ) > RPG_RANGE
+    ) {
+      target = null;
+    }
+    unit._rpgScanCd = Math.max(0, (unit._rpgScanCd || 0) - dt);
+    if (!target && unit._rpgScanCd <= 0) {
+      const hit = this._nearestEnemyVehicle(unit, vehicles, RPG_RANGE);
+      target = hit && hit.vehicle;
+      unit._rpgScanCd = 0.22 + Math.random() * 0.18;
+    }
+    if (!target) {
+      unit._vehicleTargetId = null;
+      return false;
+    }
+
+    const origin = unit.mesh.position.clone().add(new THREE.Vector3(0, 1.35, 0));
+    const targetPoint = this._vehicleAimPoint(target, 'vehicle');
+    if (!targetPoint || !this._vehicleLineClear(origin, targetPoint)) return false;
+    const direction = targetPoint.clone().sub(origin);
+    if (direction.lengthSq() < 0.01) return false;
+    direction.normalize();
+    this._faceToward(unit, targetPoint, dt);
+    const shot = vehicles.launchProjectile({
+      weaponId: 'rpg',
+      actor: unit,
+      team: unit.team,
+      origin: origin,
+      direction: direction,
+    });
+    if (!shot) return false;
+    unit.rpgAmmo = Math.max(0, unit.rpgAmmo - 1);
+    unit.rpgCd = RPG_COOLDOWN;
+    unit._vehicleTargetId = target.id;
+    unit._vehicleTargetKind = 'vehicle';
+    unit._lastCombatAt = performance.now();
+    unit.state = 'anti_vehicle';
+    return true;
+  };
+
+  AI.prototype._vehicleSeatOpen = function (seat) {
+    return !!(seat && !seat.occupant && seat.occupantId == null);
+  };
+
+  AI.prototype._vehicleOpenSeatCount = function (vehicle) {
+    if (!vehicle || !vehicle.seats) return 0;
+    let count = 0;
+    for (let i = 0; i < vehicle.seats.length; i++) {
+      if (this._vehicleSeatOpen(vehicle.seats[i])) count++;
+    }
+    return count;
+  };
+
+  AI.prototype._preferredVehicleSeat = function (vehicles, vehicle) {
+    if (!vehicles || typeof vehicles.getOpenSeat !== 'function') return null;
+    const roles = ['driver', 'gunner', 'passenger'];
+    for (let i = 0; i < roles.length; i++) {
+      const seat = vehicles.getOpenSeat(vehicle, roles[i]);
+      if (seat && seat.role === roles[i] && this._vehicleSeatOpen(seat)) return seat;
+    }
+    const fallback = vehicles.getOpenSeat(vehicle);
+    return this._vehicleSeatOpen(fallback) ? fallback : null;
+  };
+
+  AI.prototype._unitForVehicleSeat = function (seat) {
+    if (!seat) return null;
+    if (seat.occupant) return seat.occupant;
+    if (seat.occupantId == null) return null;
+    const id = String(seat.occupantId);
+    if (this.player && String(this.player.entityId || 'player-local') === id) {
+      return this.player;
+    }
+    const lists = [this.blue, this.red];
+    for (let l = 0; l < lists.length; l++) {
+      for (let i = 0; i < lists[l].length; i++) {
+        if (lists[l][i] && String(lists[l][i].entityId) === id) return lists[l][i];
+      }
+    }
+    return null;
+  };
+
+  AI.prototype._vehicleReservationInfo = function (vehicle, unit) {
+    const info = { total: 0, sameSquad: 0, otherSquad: 0 };
+    const lists = [this.blue, this.red];
+    for (let l = 0; l < lists.length; l++) {
+      for (let i = 0; i < lists[l].length; i++) {
+        const other = lists[l][i];
+        if (
+          !other ||
+          other === unit ||
+          !other.alive ||
+          other.vehicleId != null ||
+          other._vehicleSeekId !== vehicle.id
+        ) {
+          continue;
+        }
+        info.total++;
+        if (unit.squadId && other.squadId === unit.squadId) info.sameSquad++;
+        else if (unit.squadId && other.squadId) info.otherSquad++;
+      }
+    }
+    return info;
+  };
+
+  AI.prototype._vehicleSquadOccupancy = function (vehicle, unit) {
+    const info = { sameSquad: 0, otherSquad: 0 };
+    if (!vehicle || !vehicle.seats || !unit.squadId) return info;
+    for (let i = 0; i < vehicle.seats.length; i++) {
+      const seat = vehicle.seats[i];
+      if (this._vehicleSeatOpen(seat)) continue;
+      const rider = this._unitForVehicleSeat(seat);
+      if (rider && rider.squadId === unit.squadId) info.sameSquad++;
+      else info.otherSquad++;
+    }
+    return info;
+  };
+
+  AI.prototype._cancelVehicleSeek = function (unit) {
+    unit._vehicleSeekId = null;
+    if (unit.state === 'seek_vehicle') unit.state = 'idle';
+  };
+
+  AI.prototype._mountVehicle = function (unit, vehicles, vehicle) {
+    const seat = this._preferredVehicleSeat(vehicles, vehicle);
+    if (!seat || unit.zipRide) return false;
+    if (!vehicles.mount(unit, vehicle, seat.index)) return false;
+    unit.zipRide = null;
+    unit._vehicleSeekId = null;
+    unit._vehicleTargetId = null;
+    unit._vehicleTargetKind = null;
+    unit._vehicleTarget = null;
+    unit._vehicleCombatScanCd = 0;
+    unit.vehicleWeaponIndex = 0;
+    unit.velY = 0;
+    unit.onGround = true;
+    unit._moveBlocked = false;
+    unit._vehicleStuckTime = 0;
+    unit._vehicleReverseTime = 0;
+    unit._vehicleReverseCooldown = 0;
+    unit._vehicleLastX = vehicle.position.x;
+    unit._vehicleLastZ = vehicle.position.z;
+    unit._vehicleBoardingWait = unit.vehicleRole === 'driver' ? 3 : 0;
+    unit.state = 'vehicle_' + (unit.vehicleRole || 'passenger');
+    if (unit.mesh) unit.mesh.visible = false;
+    return true;
+  };
+
+  AI.prototype._updateVehicleSeeking = function (unit, dt, doBrain) {
+    if (
+      unit.vehicleId != null ||
+      unit.downed ||
+      unit.zipRide ||
+      unit.role === 'zip' ||
+      (unit._vehicleMountCooldown || 0) > 0
+    ) {
+      return false;
+    }
+    const vehicles = global.VF && global.VF.Vehicles;
+    if (
+      !vehicles ||
+      typeof vehicles.getById !== 'function' ||
+      typeof vehicles.findNearby !== 'function' ||
+      typeof vehicles.getOpenSeat !== 'function' ||
+      typeof vehicles.mount !== 'function'
+    ) {
+      this._cancelVehicleSeek(unit);
+      return false;
+    }
+
+    const recentlyFought =
+      unit._lastCombatAt && performance.now() - unit._lastCombatAt < 2500;
+    if (recentlyFought || (!doBrain && unit.state === 'engage')) {
+      this._cancelVehicleSeek(unit);
+      return false;
+    }
+    if (doBrain && this._nearestHostile(unit, ENGAGE_RANGE)) {
+      this._cancelVehicleSeek(unit);
+      return false;
+    }
+
+    unit._vehicleSeekCd = Math.max(0, (unit._vehicleSeekCd || 0) - dt);
+    let vehicle = unit._vehicleSeekId
+      ? vehicles.getById(unit._vehicleSeekId)
+      : null;
+    if (vehicle) {
+      const open = this._vehicleOpenSeatCount(vehicle);
+      const reserved = this._vehicleReservationInfo(vehicle, unit).total;
+      if (
+        !vehicle.alive ||
+        vehicle.team !== unit.team ||
+        !open ||
+        reserved >= open
+      ) {
+        vehicle = null;
+        this._cancelVehicleSeek(unit);
+      }
+    }
+
+    if (!vehicle && doBrain && unit._vehicleSeekCd <= 0) {
+      const nearby = vehicles.findNearby(unit, VEHICLE_SEEK_RANGE, unit.team);
+      let bestScore = Infinity;
+      for (let i = 0; i < nearby.length; i++) {
+        const candidate = nearby[i];
+        const open = this._vehicleOpenSeatCount(candidate);
+        const reservations = this._vehicleReservationInfo(candidate, unit);
+        if (!candidate.alive || !open || reservations.total >= open) continue;
+        const dist = Math.hypot(
+          candidate.position.x - unit.mesh.position.x,
+          candidate.position.z - unit.mesh.position.z
+        );
+        const occupancy = this._vehicleSquadOccupancy(candidate, unit);
+        const score =
+          dist -
+          occupancy.sameSquad * 58 -
+          reservations.sameSquad * 38 +
+          occupancy.otherSquad * 20 +
+          reservations.otherSquad * 12;
+        if (score < bestScore) {
+          bestScore = score;
+          vehicle = candidate;
+        }
+      }
+      unit._vehicleSeekCd = 1.2 + Math.random() * 1.4;
+      if (vehicle) unit._vehicleSeekId = vehicle.id;
+    }
+    if (!vehicle) return false;
+
+    unit.state = 'seek_vehicle';
+    unit.patrolTarget = null;
+    const dist = Math.hypot(
+      vehicle.position.x - unit.mesh.position.x,
+      vehicle.position.z - unit.mesh.position.z
+    );
+    if (
+      dist <= VEHICLE_MOUNT_RANGE &&
+      Math.abs(vehicle.speed || 0) <= 5.5
+    ) {
+      if (this._mountVehicle(unit, vehicles, vehicle)) return true;
+      this._cancelVehicleSeek(unit);
+      unit._vehicleSeekCd = 0.25;
+      return false;
+    }
+    this._moveToward(unit, vehicle.position, dt, 2.1);
+    return true;
+  };
+
+  AI.prototype._vehicleGoalFor = function (unit, vehicle, dt) {
+    if (unit._flagGoal) return unit._flagGoal;
+    unit._vehicleGoalCd = Math.max(0, (unit._vehicleGoalCd || 0) - dt);
+    if (unit._vehicleGoal && unit._vehicleGoalCd > 0) return unit._vehicleGoal;
+
+    const C = global.VF && global.VF.Conquest;
+    let best = null;
+    let bestScore = Infinity;
+    if (C && C.active && C.flags && C.flags.length) {
+      for (let i = 0; i < C.flags.length; i++) {
+        const flag = C.flags[i];
+        const held = C._isFullyHeld
+          ? C._isFullyHeld(flag, unit.team)
+          : flag.owner === unit.team && !flag.contested;
+        const dist = Math.hypot(
+          flag.x - vehicle.position.x,
+          flag.z - vehicle.position.z
+        );
+        let score = dist;
+        if (flag.contested) score -= 90;
+        else if (!held && flag.owner === 'neutral') score -= 55;
+        else if (!held) score -= 35;
+        else score += 75;
+        if (score < bestScore) {
+          bestScore = score;
+          best = {
+            x: flag.x,
+            z: flag.z,
+            r: flag.radius || 16,
+            letter: flag.letter,
+          };
+        }
+      }
+    } else if (unit.patrolTarget) {
+      best = {
+        x: unit.patrolTarget.x,
+        z: unit.patrolTarget.z,
+        r: 8,
+      };
+    }
+    unit._vehicleGoal = best;
+    unit._vehicleGoalCd = 1 + Math.random() * 0.6;
+    return best;
+  };
+
+  AI.prototype._vehicleHasDriver = function (vehicle) {
+    if (!vehicle || !vehicle.seats) return false;
+    for (let i = 0; i < vehicle.seats.length; i++) {
+      if (
+        vehicle.seats[i].role === 'driver' &&
+        !this._vehicleSeatOpen(vehicle.seats[i])
+      ) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  AI.prototype._squadNeedsVehicleSeat = function (unit, vehicle) {
+    if (!unit.squadId || this._vehicleOpenSeatCount(vehicle) <= 0) return false;
+    const list = unit.team === 'enemy' ? this.red : this.blue;
+    for (let i = 0; i < list.length; i++) {
+      const mate = list[i];
+      if (
+        mate === unit ||
+        !mate ||
+        !mate.alive ||
+        mate.downed ||
+        mate.squadId !== unit.squadId ||
+        mate.vehicleId != null
+      ) {
+        continue;
+      }
+      const dist = Math.hypot(
+        mate.mesh.position.x - vehicle.position.x,
+        mate.mesh.position.z - vehicle.position.z
+      );
+      if (dist <= 18) return true;
+    }
+    const playerTeam = (this.world && this.world._playerTeam) || 'ally';
+    if (
+      this.player &&
+      unit.team === playerTeam &&
+      this.player.squadId === unit.squadId &&
+      this.player.vehicleId == null &&
+      !this.player.dead &&
+      this.player.object
+    ) {
+      const pos = this.player.object.position;
+      if (Math.hypot(pos.x - vehicle.position.x, pos.z - vehicle.position.z) <= 18) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  AI.prototype._vehicleForwardBlocked = function (vehicle) {
+    if (
+      !vehicle ||
+      !vehicle.position ||
+      !vehicle.def ||
+      !vehicle.def.dimensions ||
+      !this.world ||
+      typeof this.world.overlapsSolid !== 'function' ||
+      typeof THREE === 'undefined' ||
+      !THREE.Box3
+    ) {
+      return false;
+    }
+    const dims = vehicle.def.dimensions;
+    const forwardX = -Math.sin(vehicle.yaw || 0);
+    const forwardZ = -Math.cos(vehicle.yaw || 0);
+    const sideX = -forwardZ;
+    const sideZ = forwardX;
+    const centerDist = dims.length * 0.5 + 0.75;
+    const cx = vehicle.position.x + forwardX * centerDist;
+    const cz = vehicle.position.z + forwardZ * centerDist;
+    const halfW = dims.width * 0.36;
+    const halfD = 0.55;
+    const halfX = Math.abs(sideX) * halfW + Math.abs(forwardX) * halfD;
+    const halfZ = Math.abs(sideZ) * halfW + Math.abs(forwardZ) * halfD;
+    const box =
+      this._vehicleProbeBox ||
+      (this._vehicleProbeBox = new THREE.Box3(
+        new THREE.Vector3(),
+        new THREE.Vector3()
+      ));
+    box.min.set(cx - halfX, vehicle.position.y + 0.42, cz - halfZ);
+    box.max.set(
+      cx + halfX,
+      vehicle.position.y + Math.min(2.2, dims.height * 0.78),
+      cz + halfZ
+    );
+    box.excludeVehicleId = vehicle.id;
+    try {
+      return !!this.world.overlapsSolid(box);
+    } catch (_) {
+      return false;
+    }
+  };
+
+  AI.prototype._setVehicleDriverInput = function (vehicles, vehicle, input) {
+    if (vehicles && typeof vehicles.setDriverInput === 'function') {
+      vehicles.setDriverInput(vehicle, input);
+    }
+  };
+
+  AI.prototype._updateVehicleDriver = function (unit, vehicle, vehicles, dt) {
+    unit.state = 'vehicle_driver';
+    unit._vehicleReverseCooldown = Math.max(
+      0,
+      (unit._vehicleReverseCooldown || 0) - dt
+    );
+    if (
+      unit._vehicleBoardingWait > 0 &&
+      this._squadNeedsVehicleSeat(unit, vehicle)
+    ) {
+      unit._vehicleBoardingWait = Math.max(0, unit._vehicleBoardingWait - dt);
+      unit._vehicleDriveIntent = false;
+      unit._vehicleLastX = vehicle.position.x;
+      unit._vehicleLastZ = vehicle.position.z;
+      this._setVehicleDriverInput(vehicles, vehicle, {
+        throttle: 0,
+        steer: 0,
+        brake: 1,
+      });
+      return;
+    }
+    unit._vehicleBoardingWait = 0;
+
+    const goal = this._vehicleGoalFor(unit, vehicle, dt);
+    if (!goal) {
+      unit._vehicleDriveIntent = false;
+      this._setVehicleDriverInput(vehicles, vehicle, {
+        throttle: 0,
+        steer: 0,
+        brake: 1,
+      });
+      return;
+    }
+    const dx = goal.x - vehicle.position.x;
+    const dz = goal.z - vehicle.position.z;
+    const dist = Math.hypot(dx, dz);
+    const stopDist = Math.max(5.5, Math.min(10, (goal.r || 16) * 0.38));
+    if (dist <= stopDist) {
+      unit._vehicleDriveIntent = false;
+      unit._vehicleStuckTime = 0;
+      unit._vehicleReverseTime = 0;
+      unit._vehicleLastX = vehicle.position.x;
+      unit._vehicleLastZ = vehicle.position.z;
+      this._setVehicleDriverInput(vehicles, vehicle, {
+        throttle: 0,
+        steer: 0,
+        brake: 1,
+      });
+      return;
+    }
+
+    if (unit._vehicleLastX != null && unit._vehicleDriveIntent) {
+      const moved = Math.hypot(
+        vehicle.position.x - unit._vehicleLastX,
+        vehicle.position.z - unit._vehicleLastZ
+      );
+      if (moved < 0.018 && Math.abs(vehicle.speed || 0) < 1.25) {
+        unit._vehicleStuckTime = (unit._vehicleStuckTime || 0) + dt;
+      } else {
+        unit._vehicleStuckTime = Math.max(
+          0,
+          (unit._vehicleStuckTime || 0) - dt * 1.8
+        );
+      }
+    }
+    unit._vehicleLastX = vehicle.position.x;
+    unit._vehicleLastZ = vehicle.position.z;
+    unit._vehicleProbeCd = Math.max(0, (unit._vehicleProbeCd || 0) - dt);
+    let frontBlocked = false;
+    if (
+      unit._vehicleProbeCd <= 0 &&
+      (unit._vehicleReverseTime || 0) <= 0
+    ) {
+      frontBlocked = this._vehicleForwardBlocked(vehicle);
+      unit._vehicleProbeCd = 0.22;
+    }
+    if (
+      unit._vehicleReverseCooldown <= 0 &&
+      (frontBlocked || (unit._vehicleStuckTime || 0) > 0.72)
+    ) {
+      unit._vehicleReverseTime = 0.9 + Math.random() * 0.55;
+      unit._vehicleReverseCooldown = 2;
+      unit._vehicleRecoverySteer =
+        Math.random() < 0.5 ? -0.78 : 0.78;
+      unit._vehicleStuckTime = 0;
+    }
+
+    if ((unit._vehicleReverseTime || 0) > 0) {
+      unit._vehicleReverseTime = Math.max(0, unit._vehicleReverseTime - dt);
+      unit._vehicleDriveIntent = false;
+      this._setVehicleDriverInput(vehicles, vehicle, {
+        throttle: -0.82,
+        steer: unit._vehicleRecoverySteer || 0.78,
+        brake: 0,
+      });
+      return;
+    }
+
+    const wantYaw = Math.atan2(-dx, -dz);
+    let error = wantYaw - (vehicle.yaw || 0);
+    while (error > Math.PI) error -= Math.PI * 2;
+    while (error < -Math.PI) error += Math.PI * 2;
+    const absError = Math.abs(error);
+    const steer = Math.max(-1, Math.min(1, -error * 1.45));
+    let throttle = absError > 2.25 ? 0.2 : absError > 1.2 ? 0.42 : 1;
+    if (dist < stopDist * 2.2) throttle = Math.min(throttle, 0.48);
+    unit._vehicleDriveIntent = throttle > 0.1;
+    this._setVehicleDriverInput(vehicles, vehicle, {
+      throttle: throttle,
+      steer: steer,
+      brake: 0,
+    });
+  };
+
+  AI.prototype._validMountedInfantryTarget = function (unit, target) {
+    if (!target) return false;
+    const playerTeam = (this.world && this.world._playerTeam) || 'ally';
+    if (target === this.player) {
+      return !!(
+        unit.team !== playerTeam &&
+        !this.player.dead &&
+        this.player.health > 0 &&
+        this.player.vehicleId == null
+      );
+    }
+    return !!(
+      target.alive &&
+      target.team !== unit.team &&
+      target.vehicleId == null &&
+      target.mesh
+    );
+  };
+
+  AI.prototype._updateVehicleCombat = function (unit, vehicle, vehicles, dt) {
+    if (
+      !vehicles ||
+      typeof vehicles.getWeaponsForRole !== 'function' ||
+      typeof vehicles.setAim !== 'function' ||
+      typeof vehicles.fireWeapon !== 'function'
+    ) {
+      return;
+    }
+    const available = vehicles.getWeaponsForRole(vehicle, unit.vehicleRole) || [];
+    if (!available.length) {
+      unit._vehicleTargetId = null;
+      unit._vehicleTarget = null;
+      return;
+    }
+    const antiArmor = [];
+    const antiInfantry = [];
+    let vehicleRange = 0;
+    let infantryRange = 0;
+    for (let i = 0; i < available.length; i++) {
+      const def = this._vehicleWeaponDef(vehicles, available[i]);
+      if (!def) continue;
+      if (def.damageType === 'antiArmor') {
+        antiArmor.push(available[i]);
+        vehicleRange = Math.max(vehicleRange, def.range || VEHICLE_TARGET_RANGE);
+      } else if (def.damageType === 'explosive' || def.damageType === 'bullet') {
+        antiInfantry.push(available[i]);
+        infantryRange = Math.max(infantryRange, def.range || 120);
+      }
+    }
+
+    let target = unit._vehicleTarget;
+    let kind = unit._vehicleTargetKind;
+    if (kind === 'vehicle') {
+      target = unit._vehicleTargetId
+        ? vehicles.getById(unit._vehicleTargetId)
+        : null;
+      if (
+        !target ||
+        !target.alive ||
+        target.team === unit.team ||
+        !antiArmor.length
+      ) {
+        target = null;
+      }
+    } else if (!this._validMountedInfantryTarget(unit, target)) {
+      target = null;
+    }
+
+    unit._vehicleCombatScanCd = Math.max(
+      0,
+      (unit._vehicleCombatScanCd || 0) - dt
+    );
+    if (!target || unit._vehicleCombatScanCd <= 0) {
+      target = null;
+      kind = null;
+      let vehicleHit = null;
+      let infantryThreat = null;
+      if (antiArmor.length) {
+        vehicleHit = this._nearestEnemyVehicle(
+          unit,
+          vehicles,
+          vehicleRange || VEHICLE_TARGET_RANGE,
+          vehicle.position
+        );
+      }
+      if (antiInfantry.length) {
+        infantryThreat = this._nearestHostile(unit, infantryRange || 120);
+      }
+      if (
+        vehicleHit &&
+        (!infantryThreat || vehicleHit.dist <= infantryThreat.dist)
+      ) {
+        target = vehicleHit.vehicle;
+        kind = 'vehicle';
+      } else if (infantryThreat) {
+        target = infantryThreat.isPlayer ? this.player : infantryThreat.unit;
+        kind = 'infantry';
+      }
+      unit._vehicleCombatScanCd = 0.18 + Math.random() * 0.12;
+      unit._vehicleTarget = target;
+      unit._vehicleTargetKind = kind;
+      unit._vehicleTargetId =
+        target && kind === 'vehicle'
+          ? target.id
+          : target && (target.entityId || (target === this.player ? 'player-local' : null));
+    }
+    if (!target || !kind) return;
+
+    const choices = kind === 'vehicle' ? antiArmor : antiInfantry;
+    if (!choices.length) return;
+    const weaponId = choices[0];
+    const def = this._vehicleWeaponDef(vehicles, weaponId);
+    const point = this._vehicleAimPoint(target, kind);
+    if (!def || !point) return;
+    const origin = new THREE.Vector3(
+      vehicle.position.x,
+      vehicle.position.y + (vehicle.def.dimensions.height || 2) * 0.7,
+      vehicle.position.z
+    );
+    const direction = point.clone().sub(origin);
+    const dist = direction.length();
+    if (dist < 0.01 || dist > (def.range || VEHICLE_TARGET_RANGE)) return;
+    direction.normalize();
+    vehicles.setAim(vehicle, { target: point, role: unit.vehicleRole });
+    if (!this._vehicleLineClear(origin, point)) return;
+    unit.vehicleWeaponIndex = Math.max(0, available.indexOf(weaponId));
+    const options =
+      kind === 'vehicle'
+        ? { targetVehicle: target, direction: direction }
+        : { target: point, direction: direction };
+    const shot = vehicles.fireWeapon(vehicle, weaponId, unit, options);
+    if (shot) unit._lastCombatAt = performance.now();
+  };
+
+  AI.prototype._updateMountedPassenger = function (unit, vehicle, vehicles, dt) {
+    unit.state = 'vehicle_passenger';
+    if (
+      vehicle.type === 'jeep' &&
+      typeof vehicles.canUsePersonalWeapon === 'function' &&
+      vehicles.canUsePersonalWeapon(unit)
+    ) {
+      const threat = this._nearestHostile(unit, unit.range || ENGAGE_RANGE);
+      if (threat) {
+        const target = threat.isPlayer
+          ? {
+              object: this.player.object,
+              isPlayer: true,
+              alive: !this.player.dead && this.player.health > 0,
+            }
+          : threat.unit;
+        this._faceToward(unit, threat.pos, dt);
+        this._tryShoot(unit, target, dt);
+      } else {
+        unit.shootCd = Math.max(0, (unit.shootCd || 0) - dt);
+      }
+    }
+    if (vehicle.type !== 'ifv') return;
+
+    const hasDriver = this._vehicleHasDriver(vehicle);
+    if (!hasDriver) {
+      this._setVehicleDriverInput(vehicles, vehicle, {
+        throttle: 0,
+        steer: 0,
+        brake: 1,
+      });
+    }
+    const goal = this._vehicleGoalFor(unit, vehicle, dt);
+    const nearGoal =
+      goal &&
+      Math.hypot(
+        vehicle.position.x - goal.x,
+        vehicle.position.z - goal.z
+      ) <= Math.max(10, (goal.r || 16) * 0.72);
+    if (!nearGoal && hasDriver) return;
+    unit.state = 'vehicle_exit_wait';
+    if (Math.abs(vehicle.speed || 0) <= 2.2) {
+      this._dismountAI(unit, {
+        reason: hasDriver ? 'objective' : 'no-driver',
+        silent: false,
+      });
+    }
+  };
+
+  AI.prototype._updateMountedSoldier = function (unit, dt) {
+    const vehicles = global.VF && global.VF.Vehicles;
+    if (!vehicles || typeof vehicles.getById !== 'function') {
+      this._restoreOnFoot(unit);
+      return false;
+    }
+    const vehicle = vehicles.getById(unit.vehicleId);
+    if (!vehicle || !vehicle.alive) {
+      this._dismountAI(unit, {
+        reason: 'vehicle-unavailable',
+        silent: true,
+      });
+      return false;
+    }
+
+    unit.zipRide = null;
+    unit.velY = 0;
+    unit.onGround = true;
+    unit._moveBlocked = false;
+    if (unit.mesh) unit.mesh.visible = false;
+    if (unit.vehicleRole === 'driver') {
+      this._updateVehicleDriver(unit, vehicle, vehicles, dt);
+      this._updateVehicleCombat(unit, vehicle, vehicles, dt);
+    } else if (unit.vehicleRole === 'gunner') {
+      unit.state = 'vehicle_gunner';
+      this._updateVehicleCombat(unit, vehicle, vehicles, dt);
+    } else {
+      this._updateMountedPassenger(unit, vehicle, vehicles, dt);
+    }
+    return true;
   };
 
   /* ---------- Brain ---------- */
@@ -2195,6 +3141,20 @@
 
   AI.prototype._updateSoldier = function (unit, dt, doBrain) {
     if (!unit.alive) return;
+    unit.rpgCd = Math.max(0, (unit.rpgCd || 0) - dt);
+    unit._vehicleMountCooldown = Math.max(
+      0,
+      (unit._vehicleMountCooldown || 0) - dt
+    );
+    if (unit.vehicleId != null && this._updateMountedSoldier(unit, dt)) return;
+    if (
+      unit.vehicleId == null &&
+      typeof unit.state === 'string' &&
+      unit.state.indexOf('vehicle_') === 0
+    ) {
+      this._restoreOnFoot(unit);
+    }
+
     unit._moveBlocked = false;
     const px = unit.mesh.position.x;
     const pz = unit.mesh.position.z;
@@ -2205,12 +3165,29 @@
     }
     if (unit.mesh) unit.mesh.visible = distP <= 140;
     const rescuing = this._updateRescue(unit, dt, doBrain);
-    if (!rescuing && doBrain) {
+    const firedRpg = !rescuing && this._tryEngineerRpg(unit, dt);
+    const seekingVehicle =
+      !rescuing &&
+      !firedRpg &&
+      this._updateVehicleSeeking(unit, dt, doBrain);
+    if (!rescuing && !firedRpg && !seekingVehicle && doBrain) {
       if (unit.role === 'zip') this._updateZipSoldier(unit, dt);
       else this._updateBaseSoldier(unit, dt);
-    } else if (!rescuing && unit.state === 'patrol' && unit.patrolTarget) {
+    } else if (
+      !rescuing &&
+      !firedRpg &&
+      !seekingVehicle &&
+      unit.state === 'patrol' &&
+      unit.patrolTarget
+    ) {
       this._moveToward(unit, unit.patrolTarget, dt, 0.9);
-    } else if (unit.state === 'engage' && unit._lastThreatPos) {
+    } else if (
+      !rescuing &&
+      !firedRpg &&
+      !seekingVehicle &&
+      unit.state === 'engage' &&
+      unit._lastThreatPos
+    ) {
       if (global.VF.Skills && global.VF.Skills.isPlayerStealthed(this.player)) {
         unit.state = 'idle';
         unit._lastThreatPos = null;
@@ -2219,6 +3196,7 @@
       }
     }
     this._updatePhysics(unit, dt);
+    if (unit.vehicleId != null) return;
 
     if (distP <= 70 && global.VF.Soldier && global.VF.Soldier.updateLocomotion) {
       const dx = unit.mesh.position.x - px;

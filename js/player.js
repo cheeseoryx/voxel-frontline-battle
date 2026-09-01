@@ -54,6 +54,13 @@
     this._zipKeyWasDown = false;
     this._zipJumpWasDown = false;
     this._zipCool = 0;
+    this.vehicleId = null;
+    this.vehicleSeat = null;
+    this.vehicleRole = null;
+    this.vehicleWeaponIndex = 0;
+    this.vehicleCameraMode = 0;
+    this.vehicleTurretLocked = false;
+    this._vehicleExitCool = 0;
 
     // Body (collision root)
     this.object = new THREE.Object3D();
@@ -142,6 +149,12 @@
     this.camera.add(this.viewModel);
     this._heldMode = 'weapon';
     if (wasBuild) this.setHeldMode('build');
+    if (global.VF.game && global.VF.game.weapons) {
+      global.VF.game.weapons.syncOwnedLoadout();
+    }
+    if (global.VF.UI && global.VF.UI.syncWeaponLocks) {
+      global.VF.UI.syncWeaponLocks();
+    }
   };
 
   /** Switch FPS hands between rifle and gray stone block (slots 4/5) */
@@ -197,6 +210,9 @@
 
   /** Teleport to selected spawn and face the opposite base */
   Player.prototype.applySelectedSpawn = function () {
+    if (this.vehicleId && global.VF.Vehicles) {
+      global.VF.Vehicles.dismount(this, { reason: 'spawn', silent: true });
+    }
     const world = this.world;
     const spawn = world.getSpawnPosition();
     this.object.position.copy(spawn);
@@ -293,6 +309,17 @@
     document.addEventListener('keydown', (e) => {
       self.keys[e.code] = true;
       if (e.key === 'f' || e.key === 'F') self.keys['KeyF'] = true;
+      if (
+        !e.repeat &&
+        self.locked &&
+        self._handleVehicleKey &&
+        self._handleVehicleKey(e)
+      ) {
+        self.keys[e.code] = false;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
       if (['Space', 'Tab'].includes(e.code)) e.preventDefault();
       if (e.code === 'ControlLeft' || e.code === 'ControlRight') e.preventDefault();
     });
@@ -321,18 +348,344 @@
 
     document.addEventListener('mousedown', (e) => {
       if (!self.locked) return;
+      if (e.button === 0) self.keys['Mouse0'] = true;
       if (e.button === 2) {
         self.keys['Mouse2'] = true;
         self.aiming = true;
       }
     });
     document.addEventListener('mouseup', (e) => {
+      if (e.button === 0) self.keys['Mouse0'] = false;
       if (e.button === 2) {
         self.keys['Mouse2'] = false;
         self.aiming = false;
       }
     });
     document.addEventListener('contextmenu', (e) => e.preventDefault());
+  };
+
+  Player.prototype._setVehicleViewModelVisible = function (visible) {
+    if (this._weaponViewModel) this._weaponViewModel.visible = !!visible;
+    if (this.buildViewModel) this.buildViewModel.visible = false;
+  };
+
+  Player.prototype._sendVehicleCommand = function (command, data) {
+    const net = global.VF && global.VF.NetSimulation;
+    const game = global.VF && global.VF.game;
+    if (
+      !net ||
+      !net.sendCommand ||
+      !net.isNetworkConquest ||
+      !net.isNetworkConquest(game) ||
+      net.isAuthority(game)
+    ) {
+      return false;
+    }
+    return !!net.sendCommand(command, data || {});
+  };
+
+  Player.prototype._handleVehicleKey = function (event) {
+    const vehicles = global.VF && global.VF.Vehicles;
+    if (!vehicles || this.dead) return false;
+    const game = global.VF && global.VF.game;
+    if (
+      game &&
+      game.mode === 'pvp' &&
+      global.VF.MatchFlow &&
+      global.VF.MatchFlow.phase !== 'live' &&
+      (event.code === 'KeyE' || /^F[1-6]$/.test(event.code))
+    ) {
+      if (
+        global.VF.UI &&
+        global.VF.UI.toast &&
+        (!this._vehicleWarmupToastAt ||
+          performance.now() - this._vehicleWarmupToastAt > 900)
+      ) {
+        this._vehicleWarmupToastAt = performance.now();
+        global.VF.UI.toast('热身结束后可使用载具');
+      }
+      return true;
+    }
+    if (event.code === 'KeyE') {
+      if (this.vehicleId) {
+        const exited = vehicles.dismount(this, { reason: 'player-exit' });
+        if (exited) {
+          this._sendVehicleCommand('vehicle-dismount', {});
+          this._vehicleExitCool = 0.4;
+          this.velocity.set(0, 0, 0);
+          this._setVehicleViewModelVisible(true);
+          if (this.unstuckFromWorld) this.unstuckFromWorld();
+        }
+        return exited;
+      }
+      if (this._vehicleExitCool > 0) return false;
+      const team =
+        this.team || (this.world && this.world._playerTeam) || 'ally';
+      const nearby = vehicles.findNearby(this, 4.5, team);
+      for (let i = 0; i < nearby.length; i++) {
+        let open = nearby[i].seats.find(function (seatState) {
+          return (
+            seatState.role === 'driver' &&
+            !seatState.occupant &&
+            seatState.occupantId == null
+          );
+        });
+        const driver = nearby[i].seats.find(function (seatState) {
+          return seatState.role === 'driver';
+        });
+        if (
+          !open &&
+          driver &&
+          driver.occupant &&
+          driver.occupant.isAI
+        ) {
+          const passenger = nearby[i].seats.find(function (seatState) {
+            return (
+              seatState.role !== 'driver' &&
+              !seatState.occupant &&
+              seatState.occupantId == null
+            );
+          });
+          if (passenger && vehicles.switchSeat(driver.occupant, passenger.index)) {
+            open = driver;
+          } else {
+            driver.occupant._vehicleMountCooldown = 5;
+            if (
+              vehicles.dismount(driver.occupant, {
+                reason: 'player-priority',
+              })
+            ) {
+              open = driver;
+            }
+          }
+        }
+        if (!open) open = vehicles.getOpenSeat(nearby[i]);
+        if (!open || !vehicles.mount(this, nearby[i], open.index)) continue;
+        this.vehicleWeaponIndex = 0;
+        this._vehicleAuthorityGraceUntil = performance.now() + 800;
+        this.vehicleCameraMode = 0;
+        this.vehicleTurretLocked = false;
+        this.velocity.set(0, 0, 0);
+        this.zipRide = null;
+        if (
+          global.VF.game &&
+          global.VF.game.building &&
+          global.VF.game.building.exitMode
+        ) {
+          global.VF.game.building.exitMode();
+        }
+        this.yaw = nearby[i].yaw || 0;
+        this.pitch = -0.08;
+        this._setVehicleViewModelVisible(
+          vehicles.canUsePersonalWeapon(this)
+        );
+        this._sendVehicleCommand('vehicle-mount', {
+          vehicleId: nearby[i].id,
+          seatIndex: open.index,
+        });
+        return true;
+      }
+      return false;
+    }
+    if (!this.vehicleId) return false;
+    if (/^F[1-6]$/.test(event.code)) {
+      const seatIndex = Number(event.code.slice(1)) - 1;
+      const switched = vehicles.switchSeat(this, seatIndex);
+      if (switched) {
+        this.vehicleWeaponIndex = 0;
+        this._vehicleAuthorityGraceUntil = performance.now() + 800;
+        this._setVehicleViewModelVisible(
+          vehicles.canUsePersonalWeapon(this)
+        );
+        this._sendVehicleCommand('vehicle-seat', {
+          vehicleId: this.vehicleId,
+          seatIndex: seatIndex,
+        });
+      }
+      return true;
+    }
+    if (event.code === 'KeyC') {
+      this.vehicleCameraMode = this.vehicleCameraMode ? 0 : 1;
+      return true;
+    }
+    if (event.code === 'KeyV') {
+      this.vehicleTurretLocked = !this.vehicleTurretLocked;
+      if (global.VF.UI && global.VF.UI.toast) {
+        global.VF.UI.toast(
+          this.vehicleTurretLocked ? '炮塔已锁定' : '炮塔已解锁'
+        );
+      }
+      return true;
+    }
+    if (event.code === 'Digit1' || event.code === 'Digit2') {
+      const vehicle = vehicles.getById(this.vehicleId);
+      const available = vehicle
+        ? vehicles.getWeaponsForRole(vehicle, this.vehicleRole)
+        : [];
+      if (available.length) {
+        this.vehicleWeaponIndex = Math.min(
+          event.code === 'Digit2' ? 1 : 0,
+          available.length - 1
+        );
+        return true;
+      }
+      return !vehicles.canUsePersonalWeapon(this);
+    }
+    if (event.code === 'KeyR') {
+      const vehicle = vehicles.getById(this.vehicleId);
+      const list = vehicle
+        ? vehicles.getWeaponsForRole(vehicle, this.vehicleRole)
+        : [];
+      const weaponId = list[
+        Math.min(this.vehicleWeaponIndex || 0, Math.max(0, list.length - 1))
+      ];
+      return !!(weaponId && vehicles.reloadWeapon(vehicle, weaponId));
+    }
+    return false;
+  };
+
+  Player.prototype._updateVehicleRide = function (dt) {
+    const vehicles = global.VF && global.VF.Vehicles;
+    const vehicle = vehicles && vehicles.getById(this.vehicleId);
+    if (!vehicles || !vehicle || !vehicle.alive) {
+      this.vehicleId = null;
+      this.vehicleSeat = null;
+      this.vehicleRole = null;
+      this._setVehicleViewModelVisible(true);
+      return false;
+    }
+    if (this._vehicleExitCool > 0) {
+      this._vehicleExitCool = Math.max(0, this._vehicleExitCool - dt);
+    }
+    const role = this.vehicleRole;
+    let driverInput = null;
+    if (role === 'driver') {
+      driverInput = {
+        throttle: (this.keys['KeyW'] ? 1 : 0) - (this.keys['KeyS'] ? 1 : 0),
+        steer: (this.keys['KeyD'] ? 1 : 0) - (this.keys['KeyA'] ? 1 : 0),
+        brake: this.keys['Space'] ? 1 : 0,
+        handbrake: false,
+        boost: !!this.keys['ShiftLeft'],
+        slow: !!(
+          this.keys['ControlLeft'] || this.keys['ControlRight']
+        ),
+      };
+      vehicles.setDriverInput(vehicle, driverInput);
+    }
+
+    const look = this.getLookDirection();
+    if (
+      (role === 'driver' || role === 'gunner') &&
+      !this.vehicleTurretLocked
+    ) {
+      vehicles.setAim(vehicle, { direction: look, role: role });
+    }
+    if (role === 'driver' || role === 'gunner') {
+      const available = vehicles.getWeaponsForRole(vehicle, role);
+      if (available.length) {
+        this.vehicleWeaponIndex = Math.min(
+          this.vehicleWeaponIndex || 0,
+          available.length - 1
+        );
+        if (this.keys['Mouse0']) {
+          const net = global.VF && global.VF.NetSimulation;
+          const game = global.VF && global.VF.game;
+          const predictOnly = !!(
+            net &&
+            net.isNetworkConquest &&
+            net.isNetworkConquest(game) &&
+            !net.isAuthority(game)
+          );
+          const roleAim =
+            (vehicle.aimByRole && vehicle.aimByRole[role]) ||
+            vehicle.aim;
+          const fireDirection = this.vehicleTurretLocked
+            ? roleAim.direction
+            : look;
+          vehicles.fireWeapon(
+            vehicle,
+            available[this.vehicleWeaponIndex],
+            this,
+            { direction: fireDirection, predictOnly: predictOnly }
+          );
+        }
+      }
+    }
+    const now = performance.now();
+    if (!this._vehicleNetAt || now - this._vehicleNetAt >= 50) {
+      this._vehicleNetAt = now;
+      this._sendVehicleCommand('vehicle-input', {
+        vehicleId: vehicle.id,
+        seatIndex: this.vehicleSeat,
+        role: role,
+        throttle: driverInput ? driverInput.throttle : 0,
+        steer: driverInput ? driverInput.steer : 0,
+        brake: driverInput ? driverInput.brake : 0,
+        handbrake: driverInput ? driverInput.handbrake : false,
+        boost: driverInput ? driverInput.boost : false,
+        slow: driverInput ? driverInput.slow : false,
+        turretLocked: !!this.vehicleTurretLocked,
+        aimYaw: this.yaw,
+        aimPitch: this.pitch,
+        weaponIndex: this.vehicleWeaponIndex || 0,
+        fire: !!this.keys['Mouse0'],
+      });
+    }
+
+    const seatPosition = vehicles.getSeatWorldPosition(
+      vehicle,
+      this.vehicleSeat
+    );
+    if (seatPosition) this.object.position.set(
+      seatPosition.x,
+      seatPosition.y,
+      seatPosition.z
+    );
+
+    const personalWeapon = vehicles.canUsePersonalWeapon(this);
+    this._setVehicleViewModelVisible(personalWeapon);
+    if (personalWeapon || this.vehicleCameraMode === 1) {
+      this.camera.position.set(
+        this.object.position.x,
+        this.object.position.y + (personalWeapon ? 0.45 : 0.3),
+        this.object.position.z
+      );
+      this._syncCameraLook();
+    } else {
+      const target = new THREE.Vector3(
+        vehicle.position.x,
+        vehicle.position.y + vehicle.def.dimensions.height * 0.7,
+        vehicle.position.z
+      );
+      const distance = vehicle.def.dimensions.length * 0.62 + 3.2;
+      const desired = new THREE.Vector3(
+        target.x - look.x * distance,
+        target.y - look.y * distance + 1.25,
+        target.z - look.z * distance
+      );
+      const cameraRay = desired.clone().sub(target);
+      const cameraDistance = cameraRay.length();
+      if (cameraDistance > 0.01) cameraRay.divideScalar(cameraDistance);
+      const cameraHit =
+        cameraDistance > 0.01 && vehicles.raycastWorld
+          ? vehicles.raycastWorld(target, cameraRay, cameraDistance)
+          : null;
+      if (cameraHit && cameraHit.distance < cameraDistance) {
+        desired.copy(target).addScaledVector(
+          cameraRay,
+          Math.max(0.75, cameraHit.distance - 0.3)
+        );
+      }
+      this.camera.position.copy(desired);
+      this.camera.lookAt(
+        target.x + look.x * 12,
+        target.y + look.y * 12,
+        target.z + look.z * 12
+      );
+    }
+    this.camera.fov = this.aiming ? 48 : 68;
+    this.camera.updateProjectionMatrix();
+    return true;
   };
 
   Player.prototype.setPointerLock = function (locked) {
@@ -349,7 +702,8 @@
   };
 
   Player.prototype.getEyePosition = function () {
-    return this.object.position.clone().add(new THREE.Vector3(0, this.getEyeHeight(), 0));
+    const height = this.vehicleId ? 0.45 : this.getEyeHeight();
+    return this.object.position.clone().add(new THREE.Vector3(0, height, 0));
   };
 
   /** True if standing capsule fits at current feet position */
@@ -692,6 +1046,9 @@
 
   Player.prototype.die = function () {
     if (this.dead) return;
+    if (this.vehicleId && global.VF.Vehicles) {
+      global.VF.Vehicles.dismount(this, { reason: 'death', silent: true });
+    }
     this.dead = true;
     this.alive = false;
     this.health = 0;
@@ -754,6 +1111,9 @@
 
   /** Revive after death redeploy (keeps class / inventory). */
   Player.prototype.respawn = function () {
+    if (this.vehicleId && global.VF.Vehicles) {
+      global.VF.Vehicles.dismount(this, { reason: 'respawn', silent: true });
+    }
     this.dead = false;
     this.alive = true;
     this.downed = false;
@@ -786,6 +1146,10 @@
 
   Player.prototype.update = function (dt) {
     if (this.dead) return;
+    if (this.vehicleId && this._updateVehicleRide(dt)) return;
+    if (this._vehicleExitCool > 0) {
+      this._vehicleExitCool = Math.max(0, this._vehicleExitCool - dt);
+    }
 
     this._updateViewPunch(dt);
     this._syncCameraLook();

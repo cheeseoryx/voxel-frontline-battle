@@ -34,6 +34,7 @@
       if (event.repeat) return;
       const g = global.VF && global.VF.game;
       if (!g || !g.running || !g.player || g.player.dead || !g.player.locked) return;
+      if (g.player.vehicleId) return;
       if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return;
       if (event.code === 'KeyX') {
         event.preventDefault();

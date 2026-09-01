@@ -15,6 +15,8 @@
     spot: 5,
     gadget: 40,
     order: 200,
+    vehicleDestroy: 200,
+    vehicleAssist: 75,
   };
 
   function ScoringSystem() {
@@ -79,6 +81,7 @@
         captures: 0,
         defends: 0,
         spots: 0,
+        vehicleDestroys: 0,
         ribbons: [],
       };
     }
@@ -251,6 +254,40 @@
       }
     } else if (event.type === 'gadget-destroyed' && data.actorId) {
       this._add(data.actorId, SCORE.gadget, 'gadget-destroyed', data);
+    } else if (event.type === 'vehicle-damaged' && data.sourceId && data.appliedDamage > 0) {
+      this.recordDamage(
+        data.sourceId,
+        data.vehicleId,
+        data.appliedDamage,
+        data.team === 'enemy' ? 'ally' : 'enemy',
+        data.team
+      );
+    } else if (event.type === 'vehicle-destroyed' && data.sourceId) {
+      const killer = this._profile(
+        data.sourceId,
+        data.team === 'enemy' ? 'ally' : 'enemy',
+        null
+      );
+      killer.vehicleDestroys = (killer.vehicleDestroys || 0) + 1;
+      this._add(data.sourceId, SCORE.vehicleDestroy, 'vehicle-destroyed', data);
+      const hits = this.damage[data.vehicleId] || [];
+      const totals = Object.create(null);
+      const cutoff = performance.now() - 12000;
+      for (let i = 0; i < hits.length; i++) {
+        const hit = hits[i];
+        if (hit.at < cutoff || hit.attackerId === data.sourceId) continue;
+        totals[hit.attackerId] = (totals[hit.attackerId] || 0) + hit.amount;
+      }
+      for (const assisterId in totals) {
+        if (totals[assisterId] < 80) continue;
+        const assister = this._profile(assisterId, null, null);
+        assister.assists++;
+        this._add(assisterId, SCORE.vehicleAssist, 'vehicle-assist', {
+          vehicleId: data.vehicleId,
+          damage: Math.round(totals[assisterId]),
+        });
+      }
+      delete this.damage[data.vehicleId];
     } else if (event.type === 'squad-order-completed' && data.squadId) {
       const squads = global.VF && global.VF.Squads;
       const squad = squads && squads.getSquad ? squads.getSquad(data.squadId) : null;

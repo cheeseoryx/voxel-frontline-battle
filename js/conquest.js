@@ -1,5 +1,5 @@
 /**
- * conquest.js — PVE 大征服（战地 6 规则蓝本，不含载具）
+ * conquest.js — PVE 大征服（战地 6 规则蓝本，含地面载具）
  * 多旗占领 + 增援票；核心不再决定 PVE 胜负。PVP 1v1 仍走拆核。
  */
 (function (global) {
@@ -1390,6 +1390,13 @@
         reason: safe.reason,
       });
     }
+    const vehicles = global.VF && global.VF.Vehicles;
+    if (vehicles && vehicles.getDeployPoints) {
+      const vehiclePoints = vehicles.getDeployPoints(t);
+      for (let i = 0; i < vehiclePoints.length; i++) {
+        out.push(vehiclePoints[i]);
+      }
+    }
     return out;
   };
 
@@ -1417,6 +1424,12 @@
         world._selectedSpawnId = hq ? hq.id : list[0] ? list[0].id : null;
         if (cur.indexOf('flag-') === 0 && global.VF.UI && global.VF.UI.toast) {
           global.VF.UI.toast('占领点已丢失 · 改回主基地');
+        } else if (
+          cur.indexOf('vehicle-') === 0 &&
+          global.VF.UI &&
+          global.VF.UI.toast
+        ) {
+          global.VF.UI.toast('载具不可用 · 改回主基地');
         }
       }
     }

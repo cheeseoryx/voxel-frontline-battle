@@ -24,6 +24,16 @@
         ammoMag: document.getElementById('ammo-mag'),
         ammoReserve: document.getElementById('ammo-reserve'),
         ammoReload: document.getElementById('ammo-reload'),
+        vehicleHud: document.getElementById('vehicle-hud'),
+        vehicleHudName: document.getElementById('vehicle-hud-name'),
+        vehicleHudArmor: document.getElementById('vehicle-hud-armor'),
+        vehicleHudHealthFill: document.getElementById('vehicle-hud-health-fill'),
+        vehicleHudHp: document.getElementById('vehicle-hud-hp'),
+        vehicleHudSpeed: document.getElementById('vehicle-hud-speed'),
+        vehicleHudSeat: document.getElementById('vehicle-hud-seat'),
+        vehicleHudSeats: document.getElementById('vehicle-hud-seats'),
+        vehicleHudWeapon: document.getElementById('vehicle-hud-weapon'),
+        vehicleHudAmmo: document.getElementById('vehicle-hud-ammo'),
         skillHud: document.getElementById('skill-hud'),
         skillActive: document.getElementById('skill-active'),
         skillPassive: document.getElementById('skill-passive'),
@@ -105,9 +115,24 @@
         spawnCancel: document.getElementById('spawn-cancel-btn'),
         deployHover: document.getElementById('deploy-hover'),
         deployClassRow: document.getElementById('deploy-class-row'),
-        deployLoadout: document.getElementById('deploy-loadout-btn'),
         deployRole: document.getElementById('deploy-role-btn'),
         deployMapName: document.getElementById('deploy-map-name'),
+        deployMapMode: document.getElementById('deploy-map-mode'),
+        deployTicketAlly: document.getElementById('deploy-ticket-ally'),
+        deployTicketEnemy: document.getElementById('deploy-ticket-enemy'),
+        deployFillAlly: document.getElementById('deploy-fill-ally'),
+        deployFillEnemy: document.getElementById('deploy-fill-enemy'),
+        deployObjectives: document.getElementById('deploy-objectives'),
+        deployClock: document.getElementById('deploy-clock'),
+        deployFactionName: document.getElementById('deploy-faction-name'),
+        deploySquadStatus: document.getElementById('deploy-squad-status'),
+        deployClassName: document.getElementById('deploy-class-name'),
+        deployClassRole: document.getElementById('deploy-class-role'),
+        deployLoadoutStrip: document.getElementById('deploy-loadout-strip'),
+        deployZoomIn: document.getElementById('deploy-zoom-in'),
+        deployZoomOut: document.getElementById('deploy-zoom-out'),
+        deployMapReset: document.getElementById('deploy-map-reset'),
+        deployMapZoom: document.getElementById('deploy-map-zoom'),
         modeOverlay: document.getElementById('mode-overlay'),
         classOverlay: document.getElementById('class-overlay'),
         classGrid: document.getElementById('class-grid'),
@@ -115,15 +140,51 @@
         classStageName: document.getElementById('class-stage-name'),
         classStageRole: document.getElementById('class-stage-role'),
         classStageRoleText: document.getElementById('class-stage-role-text'),
+        classDeployMapName: document.getElementById('class-deploy-map-name'),
+        classDeployModeName: document.getElementById('class-deploy-mode-name'),
+        classDeployPlayerCount: document.getElementById('class-deploy-player-count'),
+        classDeployPlayerState: document.getElementById('class-deploy-player-state'),
+        classDeployFactionName: document.getElementById('class-deploy-faction-name'),
+        classDeployBlurb: document.getElementById('class-deploy-blurb'),
+        classDeployLoadout: document.getElementById('class-deploy-loadout'),
         classStageSkills: document.getElementById('class-stage-skills'),
         classSkillActive: document.getElementById('class-skill-active'),
         classSkillPassive: document.getElementById('class-skill-passive'),
+        classSkillActiveName: document.getElementById('class-skill-active-name'),
+        classSkillActiveDesc: document.getElementById('class-skill-active-desc'),
+        classSkillPassiveName: document.getElementById('class-skill-passive-name'),
+        classSkillPassiveDesc: document.getElementById('class-skill-passive-desc'),
         classSkillTip: document.getElementById('class-skill-tip'),
         classSkillTipName: document.getElementById('class-skill-tip-name'),
         classSkillTipDesc: document.getElementById('class-skill-tip-desc'),
         classStagePlaceholder: document.getElementById('class-stage-placeholder'),
         classConfirm: document.getElementById('class-confirm-btn'),
         classCancel: document.getElementById('class-cancel-btn'),
+        squadIntroOverlay: document.getElementById('squad-intro-overlay'),
+        squadIntroCanvas: document.getElementById('squad-intro-canvas'),
+        squadIntroCards: document.getElementById('squad-intro-cards'),
+        squadIntroCountdown: document.getElementById('squad-intro-countdown'),
+        squadIntroMapName: document.getElementById('squad-intro-map-name'),
+        squadIntroModeName: document.getElementById('squad-intro-mode-name'),
+        squadIntroFactionName: document.getElementById('squad-intro-faction-name'),
+        squadIntroCurrentClass: document.getElementById('squad-intro-current-class'),
+        squadIntroLoadout: document.getElementById('squad-intro-loadout'),
+        squadIntroCustomize: document.getElementById('squad-intro-customize'),
+        squadIntroBack: document.getElementById('squad-intro-back'),
+        squadIntroSkip: document.getElementById('squad-intro-skip'),
+        loadoutCustomizeOverlay: document.getElementById('loadout-customize-overlay'),
+        loadoutCustomizeCanvas: document.getElementById('loadout-customize-canvas'),
+        loadoutCustomizeMapName: document.getElementById('loadout-customize-map-name'),
+        loadoutCustomizeModeName: document.getElementById('loadout-customize-mode-name'),
+        loadoutCustomizeFactionName: document.getElementById('loadout-customize-faction-name'),
+        loadoutCustomizeClassName: document.getElementById('loadout-customize-class-name'),
+        loadoutCustomizeClassRole: document.getElementById('loadout-customize-class-role'),
+        loadoutCustomizeClassBlurb: document.getElementById('loadout-customize-class-blurb'),
+        loadoutCustomizeClasses: document.getElementById('loadout-customize-classes'),
+        loadoutCustomizeWeapons: document.getElementById('loadout-customize-weapons'),
+        loadoutCustomizeEquipment: document.getElementById('loadout-customize-equipment'),
+        loadoutCustomizeCancel: document.getElementById('loadout-customize-cancel'),
+        loadoutCustomizeApply: document.getElementById('loadout-customize-apply'),
       };
       this.minimapCtx = this.els.minimap.getContext('2d');
       this.bigMapCtx = this.els.bigMap ? this.els.bigMap.getContext('2d') : null;
@@ -132,10 +193,14 @@
       this.mapOpen = false;
       this.spawnSelectOpen = false;
       this.classSelectOpen = false;
+      this.squadIntroOpen = false;
+      this.loadoutCustomizeOpen = false;
       this.modeSelectOpen = false;
       this.selectedClassId = null;
       this._lastHp = 100;
       this.scoreboardOpen = false;
+      this._spawnMapCamera = { zoom: 1, panX: 0, panY: 0 };
+      this._spawnMapDrag = null;
       this._deathHandlers = { onRedeploy: null, onCallout: null, onHub: null };
       this._bindDeathButtons();
     },
@@ -263,6 +328,143 @@
     updateAmmo(mag, reserve) {
       this.els.ammoMag.textContent = mag;
       this.els.ammoReserve.textContent = reserve;
+    },
+
+    updateVehicleHud(player, vehicles) {
+      const vehicle =
+        player && player.vehicleId && vehicles
+          ? vehicles.getById(player.vehicleId)
+          : null;
+      if (!vehicle || !vehicle.alive) {
+        if (this.els.vehicleHud) this.els.vehicleHud.classList.add('hidden');
+        if (this.els.hud) {
+          this.els.hud.classList.remove('vehicle-active', 'vehicle-personal');
+        }
+        return;
+      }
+      if (this.els.vehicleHud) this.els.vehicleHud.classList.remove('hidden');
+      if (this.els.vehicleHud) {
+        this.els.vehicleHud.classList.remove(
+          'vehicle-jeep',
+          'vehicle-ifv',
+          'vehicle-tank',
+          'role-driver',
+          'role-gunner',
+          'role-passenger'
+        );
+        this.els.vehicleHud.classList.add('vehicle-' + vehicle.type);
+        this.els.vehicleHud.classList.add(
+          'role-' + (player.vehicleRole || 'passenger')
+        );
+      }
+      const personal = !!(
+        vehicles.canUsePersonalWeapon &&
+        vehicles.canUsePersonalWeapon(player)
+      );
+      if (this.els.hud) {
+        this.els.hud.classList.add('vehicle-active');
+        this.els.hud.classList.toggle('vehicle-personal', personal);
+      }
+      if (this.els.vehicleHudName) {
+        this.els.vehicleHudName.textContent = vehicle.def.nameZh;
+      }
+      if (this.els.vehicleHudArmor) {
+        this.els.vehicleHudArmor.textContent =
+          vehicle.armorClass === 'heavy' ? '重型装甲 · +50%' : '轻型装甲';
+      }
+      const hpPct = Math.max(0, Math.min(1, vehicle.hp / vehicle.maxHp));
+      if (this.els.vehicleHud) {
+        this.els.vehicleHud.classList.toggle('damaged', hpPct <= 0.3);
+      }
+      if (this.els.vehicleHudHealthFill) {
+        this.els.vehicleHudHealthFill.style.transform =
+          'scaleX(' + hpPct + ')';
+      }
+      if (this.els.vehicleHudHp) {
+        this.els.vehicleHudHp.textContent =
+          Math.ceil(vehicle.hp) + ' / ' + vehicle.maxHp;
+      }
+      if (this.els.vehicleHudSpeed) {
+        this.els.vehicleHudSpeed.textContent =
+          Math.round(Math.abs(vehicle.speed) * 3.6) + ' km/h';
+      }
+      const roleNames = {
+        driver: '驾驶员',
+        gunner: '炮手',
+        passenger: '乘员',
+      };
+      if (this.els.vehicleHudSeat) {
+        this.els.vehicleHudSeat.textContent =
+          (roleNames[player.vehicleRole] || '乘员') +
+          ' · F' +
+          (Number(player.vehicleSeat) + 1) +
+          (player.vehicleTurretLocked ? ' · 炮塔锁定' : '');
+      }
+      if (this.els.vehicleHudSeats) {
+        let seats = '';
+        for (let i = 0; i < vehicle.seats.length; i++) {
+          const occupied = vehicle.seats[i].occupantId != null;
+          const mine = i === Number(player.vehicleSeat);
+          seats +=
+            '<i class="' +
+            (occupied ? 'occupied ' : '') +
+            (mine ? 'current' : '') +
+            '">' +
+            (i + 1) +
+            '</i>';
+        }
+        if (this.els.vehicleHudSeats._html !== seats) {
+          this.els.vehicleHudSeats._html = seats;
+          this.els.vehicleHudSeats.innerHTML = seats;
+        }
+      }
+      const available = vehicles.getWeaponsForRole
+        ? vehicles.getWeaponsForRole(vehicle, player.vehicleRole)
+        : [];
+      const index = Math.min(
+        player.vehicleWeaponIndex || 0,
+        Math.max(0, available.length - 1)
+      );
+      const weaponId = available[index];
+      const weaponDef =
+        weaponId && global.VF.VEHICLE_WEAPONS
+          ? global.VF.VEHICLE_WEAPONS[weaponId]
+          : null;
+      const weaponState = weaponId && vehicle.weapons[weaponId];
+      if (this.els.vehicleHud) {
+        this.els.vehicleHud
+          .querySelectorAll('.vehicle-hud-weapon-slots i')
+          .forEach(function (slot, slotIndex) {
+            slot.classList.toggle(
+              'active',
+              slotIndex === index && slotIndex < available.length
+            );
+            slot.classList.toggle('unused', slotIndex >= available.length);
+          });
+      }
+      if (this.els.vehicleHudWeapon) {
+        this.els.vehicleHudWeapon.textContent = personal
+          ? '个人武器'
+          : weaponDef
+            ? weaponDef.nameZh
+            : '无车载武器';
+      }
+      if (this.els.vehicleHudAmmo) {
+        if (!weaponState) {
+          this.els.vehicleHudAmmo.textContent = '—';
+        } else if (weaponState.mag != null) {
+          this.els.vehicleHudAmmo.textContent =
+            weaponState.mag +
+            ' / ' +
+            weaponState.reserve +
+            (weaponState.reloadTimer > 0 ? ' · 装填' : '');
+        } else {
+          this.els.vehicleHudAmmo.textContent =
+            Math.round(weaponState.heat || 0) +
+            '% 热量' +
+            (weaponState.overheated ? ' · 过热' : '');
+        }
+      }
     },
 
     setReloading(on) {
@@ -887,6 +1089,15 @@
         const slot = Number(el.dataset.slot);
         if (slot === 2) el.classList.toggle('locked', !owns('sg'));
         else if (slot === 3) el.classList.toggle('locked', !owns('sr'));
+        else if (slot === 6) {
+          const g = global.VF && global.VF.game;
+          const engineer = !!(
+            g &&
+            g.player &&
+            g.player.classId === 'engineer'
+          );
+          el.classList.toggle('locked', !engineer);
+        }
       });
     },
 
@@ -1136,6 +1347,8 @@
         this.mapOpen ||
         this.spawnSelectOpen ||
         this.classSelectOpen ||
+        this.squadIntroOpen ||
+        this.loadoutCustomizeOpen ||
         this.modeSelectOpen ||
         towerOpen ||
         rangeOpen
@@ -1155,6 +1368,8 @@
         this.inventoryOpen ||
         this.mapOpen ||
         this.classSelectOpen ||
+        this.squadIntroOpen ||
+        this.loadoutCustomizeOpen ||
         this.modeSelectOpen ||
         towerOpen ||
         rangeOpen
@@ -1408,12 +1623,39 @@
 
     /* ---------- Character class select ---------- */
 
-    openClassSelect(onConfirm, onCancel, preferredClassId) {
+    openClassSelect(onConfirm, onCancel, preferredClassId, opts) {
       if (!this.els.classOverlay) return;
+      opts = opts || {};
       this.classSelectOpen = true;
-      this.selectedClassId = preferredClassId || null;
+      const preferred =
+        preferredClassId ||
+        (global.VF.game && global.VF.game.playerClass) ||
+        (global.VF.game && global.VF.game.player && global.VF.game.player.classId) ||
+        'assault';
+      this.selectedClassId =
+        global.VF.Soldier && global.VF.Soldier.normalizeClassId
+          ? global.VF.Soldier.normalizeClassId(preferred)
+          : preferred;
       this._classOnConfirm = onConfirm;
       this._classOnCancel = onCancel;
+      this._classPlayerStateText = opts.playerState || '比赛即将开始';
+      if (this.els.classDeployMapName) {
+        this.els.classDeployMapName.textContent = opts.mapName || '荒盆';
+      }
+      if (this.els.classDeployModeName) {
+        this.els.classDeployModeName.textContent = opts.modeName || '征服 · 32 VS 32';
+      }
+      if (this.els.classDeployPlayerCount) {
+        const current = opts.playerCount != null ? opts.playerCount : 64;
+        const max = opts.playerMax != null ? opts.playerMax : 64;
+        this.els.classDeployPlayerCount.textContent = current + '/' + max + ' 玩家';
+      }
+      if (this.els.classDeployPlayerState) {
+        this.els.classDeployPlayerState.textContent = this._classPlayerStateText;
+      }
+      if (this.els.classDeployFactionName) {
+        this.els.classDeployFactionName.textContent = opts.factionName || '和平军团';
+      }
       this.els.classOverlay.classList.remove('hidden');
       this._buildClassGrid();
       this._bindClassSelect();
@@ -1425,16 +1667,65 @@
       this._updateClassStageUI();
       this._startClassPreviews();
       this._syncClassConfirm();
+      this._startClassAutoAdvance(opts.autoAdvanceSec || 0);
     },
 
     closeClassSelect() {
       this.classSelectOpen = false;
+      if (this._classAutoTimer) {
+        clearInterval(this._classAutoTimer);
+        this._classAutoTimer = null;
+      }
+      this._classAutoAdvanceAt = 0;
       if (this.els.classOverlay) this.els.classOverlay.classList.add('hidden');
       // Defer preview teardown so it never runs in the same turn as beginMatch
       const self = this;
       setTimeout(function () {
         if (!self.classSelectOpen) self._stopClassPreviews();
       }, 250);
+    },
+
+    _startClassAutoAdvance(seconds) {
+      if (this._classAutoTimer) clearInterval(this._classAutoTimer);
+      this._classAutoTimer = null;
+      this._classAutoAdvanceAt = 0;
+      this._classAutoTriggered = false;
+      const label =
+        this.els.classConfirm && this.els.classConfirm.querySelector('span');
+      if (!(seconds > 0)) {
+        if (label) label.textContent = '部署';
+        this._syncClassConfirm();
+        return;
+      }
+      this._classAutoAdvanceAt = performance.now() + seconds * 1000;
+      const tick = () => {
+        if (!this.classSelectOpen) {
+          if (this._classAutoTimer) clearInterval(this._classAutoTimer);
+          this._classAutoTimer = null;
+          return;
+        }
+        const left = Math.max(
+          0,
+          Math.ceil((this._classAutoAdvanceAt - performance.now()) / 1000)
+        );
+        if (this.els.classDeployPlayerState) {
+          this.els.classDeployPlayerState.textContent =
+            left > 0 ? '兵种选择 · ' + left + ' 秒' : '兵种已锁定';
+        }
+        if (label) label.textContent = left > 0 ? '自动部署 ' + left : '部署';
+        this._syncClassConfirm();
+        if (left <= 0 && !this._classAutoTriggered) {
+          this._classAutoTriggered = true;
+          if (this._classAutoTimer) clearInterval(this._classAutoTimer);
+          this._classAutoTimer = null;
+          this._classAutoAdvanceAt = 0;
+          if (this.selectedClassId && typeof this._classOnConfirm === 'function') {
+            this._classOnConfirm(this.selectedClassId);
+          }
+        }
+      };
+      this._classAutoTimer = setInterval(tick, 200);
+      tick();
     },
 
     _buildClassGrid() {
@@ -1458,14 +1749,22 @@
 
         const name = document.createElement('span');
         name.className = 'class-card-name';
-        name.textContent = c.label;
+        const className = c.nameZh || c.nameEn || c.id;
+        name.textContent = /兵$/.test(className) ? className : className + '兵';
+
+        const role = document.createElement('small');
+        role.className = 'class-card-role';
+        role.textContent = c.role || '';
 
         btn.appendChild(canvas);
         btn.appendChild(name);
+        btn.appendChild(role);
+        btn.setAttribute('aria-pressed', c.id === this.selectedClassId ? 'true' : 'false');
         btn.addEventListener('click', () => {
           this.selectedClassId = c.id;
           grid.querySelectorAll('.class-card').forEach((el) => {
             el.classList.toggle('selected', el.dataset.classId === c.id);
+            el.setAttribute('aria-pressed', el.dataset.classId === c.id ? 'true' : 'false');
           });
           this._updateClassStageUI();
           this._syncClassConfirm();
@@ -1482,7 +1781,14 @@
         this.els.classStagePlaceholder.classList.toggle('hidden', !!id);
       }
       if (this.els.classStageName) {
-        this.els.classStageName.textContent = info ? info.label : '';
+        if (info) {
+          const className = info.nameZh || info.nameEn || info.id;
+          this.els.classStageName.textContent = /兵$/.test(className)
+            ? className
+            : className + '兵';
+        } else {
+          this.els.classStageName.textContent = '';
+        }
       }
       if (this.els.classStageRole) {
         this.els.classStageRole.classList.toggle('is-visible', !!(info && info.role));
@@ -1491,6 +1797,25 @@
       if (this.els.classStageRoleText) {
         this.els.classStageRoleText.textContent = info && info.role ? info.role : '';
       }
+      if (this.els.classDeployBlurb) {
+        this.els.classDeployBlurb.textContent = info && info.blurb ? info.blurb : '';
+      }
+      if (this.els.classSkillActiveName) {
+        this.els.classSkillActiveName.textContent =
+          info && info.activeSkill ? info.activeSkill.name || '主动技能' : '';
+      }
+      if (this.els.classSkillActiveDesc) {
+        this.els.classSkillActiveDesc.textContent =
+          info && info.activeSkill ? info.activeSkill.desc || '' : '';
+      }
+      if (this.els.classSkillPassiveName) {
+        this.els.classSkillPassiveName.textContent =
+          info && info.passiveSkill ? info.passiveSkill.name || '被动特性' : '';
+      }
+      if (this.els.classSkillPassiveDesc) {
+        this.els.classSkillPassiveDesc.textContent =
+          info && info.passiveSkill ? info.passiveSkill.desc || '' : '';
+      }
       if (this.els.classStageSkills) {
         this.els.classStageSkills.classList.toggle('hidden', !info);
       }
@@ -1498,6 +1823,9 @@
         this.els.classStageSkills.querySelectorAll('[data-skill-icon]').forEach((el) => {
           el.classList.toggle('hidden', el.getAttribute('data-skill-icon') !== id);
         });
+      }
+      if (info && this._syncDeployClassDetails) {
+        this._syncDeployClassDetails(info);
       }
       this._hideClassSkillTip();
       if (this.els.classStageCanvas) {
@@ -1524,7 +1852,10 @@
 
     _syncClassConfirm() {
       if (this.els.classConfirm) {
-        this.els.classConfirm.disabled = !this.selectedClassId;
+        const waiting =
+          this._classAutoAdvanceAt &&
+          performance.now() < this._classAutoAdvanceAt;
+        this.els.classConfirm.disabled = !this.selectedClassId || !!waiting;
       }
     },
 
@@ -1555,6 +1886,21 @@
       };
       bindSkillHover(this.els.classSkillActive, 'active');
       bindSkillHover(this.els.classSkillPassive, 'passive');
+      global.addEventListener('keydown', (e) => {
+        if (!this.classSelectOpen || e.repeat) return;
+        if (e.code === 'Escape' && this.els.classCancel) {
+          e.preventDefault();
+          this.els.classCancel.click();
+        } else if (e.code === 'Enter' && this.els.classConfirm && !this.els.classConfirm.disabled) {
+          e.preventDefault();
+          this.els.classConfirm.click();
+        } else if (e.code === 'KeyC') {
+          e.preventDefault();
+          const classes = (global.VF.Soldier && global.VF.Soldier.CLASSES) || [];
+          const info = classes.find((item) => item.id === this.selectedClassId);
+          if (info && this.toast) this.toast(info.blurb || info.role || info.label);
+        }
+      });
     },
 
     /**
@@ -1563,19 +1909,32 @@
      */
     _frameBodyCamera(cam, aspect) {
       const midY = 1.05;
-      const bodyH = 2.35; // head-to-toe + margin (covers heavy scale)
-      cam.fov = 40;
+      const bodyH = 2.18;
+      cam.fov = 38;
       cam.aspect = aspect;
       const vFov = THREE.MathUtils.degToRad(cam.fov);
       let dist = (bodyH * 0.5) / Math.tan(vFov * 0.5);
-      // Keep full height when panel is wide; when tall, still fit height
-      dist *= 1.22;
+      dist *= 1.06;
       cam.near = 0.1;
       cam.far = 40;
       cam.position.set(0, midY, dist);
       cam.up.set(0, 1, 0);
       cam.lookAt(0, midY, 0);
       cam.updateProjectionMatrix();
+    },
+
+    _getPresentationRenderer() {
+      if (this._presentationRenderer) return this._presentationRenderer;
+      if (!global.THREE) return null;
+      this._presentationRenderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        preserveDrawingBuffer: true,
+      });
+      // Canvas dimensions are already DPR-scaled before setSize.
+      this._presentationRenderer.setPixelRatio(1);
+      this._presentationRenderer.setClearColor(0x000000, 0);
+      return this._presentationRenderer;
     },
 
     _startClassPreviews() {
@@ -1601,13 +1960,8 @@
       fill.position.set(-3, 2, 2);
       scene.add(fill);
 
-      const renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: true,
-        preserveDrawingBuffer: true,
-      });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      renderer.setClearColor(0x000000, 0);
+      const renderer = this._getPresentationRenderer();
+      if (!renderer) return;
 
       const models = {};
       const classes = global.VF.Soldier.CLASSES;
@@ -1648,7 +2002,7 @@
           const model = prev.models[id];
           model.visible = true;
           model.position.set(0, 0, 0);
-          model.rotation.set(0, Math.PI + t * 0.75, 0);
+          model.rotation.set(0, Math.PI + Math.sin(t * 0.45) * 0.16, 0);
           if (global.VF.Soldier.updateLocomotion) {
             global.VF.Soldier.updateLocomotion(model, dt, {
               moving: false,
@@ -1722,17 +2076,571 @@
       if (!prev) return;
       if (prev.raf) cancelAnimationFrame(prev.raf);
       prev.raf = 0;
-      if (prev.renderer) {
-        try {
-          prev.renderer.dispose();
-        } catch (_) {}
-        // Never forceContextLoss — on Intel/Lenovo that can kill the match WebGL context
-      }
       for (const k in prev.models) {
         const m = prev.models[k];
         if (m && prev.scene) prev.scene.remove(m);
       }
       this._classPreview = null;
+    },
+
+    /* ---------- Pre-match squad introduction ---------- */
+
+    openSquadIntro(roster, onComplete, opts) {
+      opts = opts || {};
+      if (!this.els.squadIntroOverlay) {
+        if (typeof onComplete === 'function') onComplete();
+        return;
+      }
+      this.squadIntroOpen = true;
+      this._squadIntroComplete = onComplete;
+      this._squadIntroBack = opts.onBack || null;
+      this._squadIntroCustomize = opts.onCustomize || null;
+      this._squadIntroTriggered = false;
+      this._squadIntroRoster = (roster || []).slice(0, 4);
+      if (this.els.squadIntroMapName) {
+        this.els.squadIntroMapName.textContent = opts.mapName || '荒盆';
+      }
+      if (this.els.squadIntroModeName) {
+        this.els.squadIntroModeName.textContent = opts.modeName || '征服 · 32 VS 32';
+      }
+      if (this.els.squadIntroFactionName) {
+        this.els.squadIntroFactionName.textContent = opts.factionName || '和平军团';
+      }
+      this._buildSquadIntroCards();
+      const playerEntry =
+        this._squadIntroRoster.find((member) => member.isPlayer) ||
+        this._squadIntroRoster[0];
+      const classes = (global.VF.Soldier && global.VF.Soldier.CLASSES) || [];
+      const classInfo =
+        classes.find((item) => playerEntry && item.id === playerEntry.classId) ||
+        classes[0];
+      if (this.els.squadIntroCurrentClass && classInfo) {
+        const name = classInfo.nameZh || classInfo.nameEn || classInfo.id;
+        this.els.squadIntroCurrentClass.textContent = /兵$/.test(name)
+          ? name
+          : name + '兵';
+      }
+      if (classInfo) this._syncDeployClassDetails(classInfo);
+      this.els.squadIntroOverlay.classList.remove('hidden');
+      this._bindSquadIntro();
+      this._startSquadIntroPreview();
+      this._startSquadIntroCountdown(opts.durationSec != null ? opts.durationSec : 5);
+    },
+
+    closeSquadIntro() {
+      this.squadIntroOpen = false;
+      if (this._squadIntroTimer) {
+        clearInterval(this._squadIntroTimer);
+        this._squadIntroTimer = null;
+      }
+      if (this.els.squadIntroOverlay) {
+        this.els.squadIntroOverlay.classList.add('hidden');
+      }
+      const self = this;
+      setTimeout(function () {
+        if (!self.squadIntroOpen) self._stopSquadIntroPreview();
+      }, 250);
+    },
+
+    _buildSquadIntroCards() {
+      const root = this.els.squadIntroCards;
+      if (!root) return;
+      root.innerHTML = '';
+      for (let i = 0; i < this._squadIntroRoster.length; i++) {
+        const member = this._squadIntroRoster[i];
+        const card = document.createElement('article');
+        card.className =
+          'squad-intro-card' + (member.isPlayer ? ' is-player' : '');
+        const heading = document.createElement('strong');
+        heading.textContent = member.name || '小队成员 ' + (i + 1);
+        const detail = document.createElement('span');
+        detail.textContent =
+          (member.className || member.classId || '步兵') +
+          ' · ' +
+          (member.weapon || '制式步枪');
+        card.appendChild(heading);
+        card.appendChild(detail);
+        root.appendChild(card);
+      }
+    },
+
+    _bindSquadIntro() {
+      if (this._squadIntroBound) return;
+      this._squadIntroBound = true;
+      if (this.els.squadIntroSkip) {
+        this.els.squadIntroSkip.addEventListener('click', (e) => {
+          e.preventDefault();
+          this._finishSquadIntro();
+        });
+      }
+      if (this.els.squadIntroBack) {
+        this.els.squadIntroBack.addEventListener('click', (e) => {
+          e.preventDefault();
+          this._backFromSquadIntro();
+        });
+      }
+      if (this.els.squadIntroCustomize) {
+        this.els.squadIntroCustomize.addEventListener('click', (e) => {
+          e.preventDefault();
+          this._customizeFromSquadIntro();
+        });
+      }
+      global.addEventListener('keydown', (e) => {
+        if (!this.squadIntroOpen || e.repeat) return;
+        if (e.code === 'Escape') {
+          e.preventDefault();
+          this._backFromSquadIntro();
+        } else if (e.code === 'KeyX') {
+          e.preventDefault();
+          this._customizeFromSquadIntro();
+        } else if (e.code === 'Enter' || e.code === 'Space') {
+          e.preventDefault();
+          this._finishSquadIntro();
+        }
+      });
+    },
+
+    _startSquadIntroCountdown(seconds) {
+      if (this._squadIntroTimer) clearInterval(this._squadIntroTimer);
+      this._squadIntroEndsAt = performance.now() + Math.max(0, seconds) * 1000;
+      const tick = () => {
+        if (!this.squadIntroOpen) {
+          if (this._squadIntroTimer) clearInterval(this._squadIntroTimer);
+          this._squadIntroTimer = null;
+          return;
+        }
+        const left = Math.max(
+          0,
+          Math.ceil((this._squadIntroEndsAt - performance.now()) / 1000)
+        );
+        if (this.els.squadIntroCountdown) {
+          this.els.squadIntroCountdown.textContent = String(left);
+        }
+        if (left <= 0) this._finishSquadIntro();
+      };
+      this._squadIntroTimer = setInterval(tick, 200);
+      tick();
+    },
+
+    _finishSquadIntro() {
+      if (!this.squadIntroOpen || this._squadIntroTriggered) return;
+      this._squadIntroTriggered = true;
+      const done = this._squadIntroComplete;
+      this.closeSquadIntro();
+      if (typeof done === 'function') done();
+    },
+
+    _backFromSquadIntro() {
+      if (!this.squadIntroOpen || this._squadIntroTriggered) return;
+      this._squadIntroTriggered = true;
+      const back = this._squadIntroBack;
+      this.closeSquadIntro();
+      if (typeof back === 'function') back();
+    },
+
+    _customizeFromSquadIntro() {
+      if (!this.squadIntroOpen || this._squadIntroTriggered) return;
+      this._squadIntroTriggered = true;
+      const customize = this._squadIntroCustomize;
+      const remainingSec = Math.max(
+        0.2,
+        (this._squadIntroEndsAt - performance.now()) / 1000
+      );
+      this.closeSquadIntro();
+      if (typeof customize === 'function') customize(remainingSec);
+    },
+
+    _startSquadIntroPreview() {
+      this._stopSquadIntroPreview();
+      if (!global.THREE || !global.VF.Soldier || !this.els.squadIntroCanvas) return;
+      const scene = new THREE.Scene();
+      scene.background = null;
+      const camera = new THREE.PerspectiveCamera(37, 16 / 9, 0.1, 40);
+      camera.position.set(0, 1.05, 7.4);
+      camera.lookAt(0, 1.02, 0);
+      const key = new THREE.DirectionalLight(0xfff1dd, 1.35);
+      key.position.set(-2, 6, 5);
+      scene.add(key);
+      const rim = new THREE.DirectionalLight(0x9bdcff, 0.68);
+      rim.position.set(4, 3, -2);
+      scene.add(rim);
+      scene.add(new THREE.AmbientLight(0xb8c5c8, 0.68));
+      const renderer = this._getPresentationRenderer();
+      if (!renderer) return;
+      const positions = [-2.25, -0.75, 0.75, 2.25];
+      const models = [];
+      for (let i = 0; i < this._squadIntroRoster.length; i++) {
+        const member = this._squadIntroRoster[i];
+        const model = global.VF.Soldier.createPreviewSoldier(
+          member.classId || 'assault'
+        );
+        model.position.set(positions[i] || 0, 0, 0);
+        model.rotation.y = Math.PI;
+        if (global.VF.Soldier.initLocomotion) {
+          global.VF.Soldier.initLocomotion(model);
+        }
+        scene.add(model);
+        models.push(model);
+      }
+      this._squadIntroPreview = {
+        scene: scene,
+        camera: camera,
+        renderer: renderer,
+        models: models,
+        raf: 0,
+        lastT: performance.now(),
+        startedAt: performance.now(),
+      };
+      const tick = () => {
+        const preview = this._squadIntroPreview;
+        if (!this.squadIntroOpen || !preview) return;
+        const now = performance.now();
+        const dt = Math.min(0.05, Math.max(0.001, (now - preview.lastT) / 1000));
+        preview.lastT = now;
+        const elapsed = (now - preview.startedAt) / 1000;
+        for (let i = 0; i < preview.models.length; i++) {
+          const model = preview.models[i];
+          model.rotation.y = Math.PI + Math.sin(elapsed * 0.42 + i) * 0.045;
+          if (global.VF.Soldier.updateLocomotion) {
+            global.VF.Soldier.updateLocomotion(model, dt, {
+              moving: false,
+              speedRatio: 0,
+              onGround: true,
+            });
+          }
+        }
+        const canvas = this.els.squadIntroCanvas;
+        const rect = canvas.getBoundingClientRect();
+        const dpr = Math.min(global.devicePixelRatio || 1, 1.5);
+        const w = Math.max(640, Math.round(rect.width * dpr) || 1280);
+        const h = Math.max(360, Math.round(rect.height * dpr) || 720);
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+        preview.camera.aspect = w / Math.max(1, h);
+        preview.camera.updateProjectionMatrix();
+        preview.renderer.setSize(w, h, false);
+        preview.renderer.render(preview.scene, preview.camera);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, w, h);
+          ctx.drawImage(preview.renderer.domElement, 0, 0, w, h);
+        }
+        preview.raf = requestAnimationFrame(tick);
+      };
+      this._squadIntroPreview.raf = requestAnimationFrame(tick);
+    },
+
+    _stopSquadIntroPreview() {
+      const preview = this._squadIntroPreview;
+      if (!preview) return;
+      if (preview.raf) cancelAnimationFrame(preview.raf);
+      for (let i = 0; i < preview.models.length; i++) {
+        if (preview.models[i] && preview.scene) preview.scene.remove(preview.models[i]);
+      }
+      this._squadIntroPreview = null;
+    },
+
+    /* ---------- Loadout customization ---------- */
+
+    openLoadoutCustomize(opts) {
+      opts = opts || {};
+      if (!this.els.loadoutCustomizeOverlay) {
+        if (typeof opts.onCancel === 'function') opts.onCancel();
+        return;
+      }
+      this.loadoutCustomizeOpen = true;
+      this._loadoutCustomizeTriggered = false;
+      this._loadoutOnApply = opts.onApply || null;
+      this._loadoutOnCancel = opts.onCancel || null;
+      const requestedClass = opts.classId || this.selectedClassId || 'assault';
+      this._loadoutDraftClassId =
+        global.VF.Soldier && global.VF.Soldier.normalizeClassId
+          ? global.VF.Soldier.normalizeClassId(requestedClass)
+          : requestedClass;
+      const weaponDefs = (global.VF && global.VF.WEAPONS) || {};
+      let weaponId = opts.weaponId || 'ar';
+      if (!weaponDefs[weaponId]) weaponId = 'ar';
+      if (
+        global.VF.Economy &&
+        global.VF.Economy.ownsWeapon &&
+        !global.VF.Economy.ownsWeapon(weaponId)
+      ) {
+        weaponId = 'ar';
+      }
+      this._loadoutDraftWeaponId = weaponId;
+      if (this.els.loadoutCustomizeMapName) {
+        this.els.loadoutCustomizeMapName.textContent = opts.mapName || '荒盆';
+      }
+      if (this.els.loadoutCustomizeModeName) {
+        this.els.loadoutCustomizeModeName.textContent =
+          opts.modeName || '征服 · 32 VS 32';
+      }
+      if (this.els.loadoutCustomizeFactionName) {
+        this.els.loadoutCustomizeFactionName.textContent =
+          opts.factionName || '和平军团';
+      }
+      this._buildLoadoutCustomizeClasses();
+      this._buildLoadoutCustomizeWeapons();
+      this._bindLoadoutCustomize();
+      this._updateLoadoutCustomizeUi();
+      this.els.loadoutCustomizeOverlay.classList.remove('hidden');
+      this._startLoadoutCustomizePreview();
+      document.exitPointerLock && document.exitPointerLock();
+    },
+
+    closeLoadoutCustomize() {
+      this.loadoutCustomizeOpen = false;
+      if (this.els.loadoutCustomizeOverlay) {
+        this.els.loadoutCustomizeOverlay.classList.add('hidden');
+      }
+      const self = this;
+      setTimeout(function () {
+        if (!self.loadoutCustomizeOpen) self._stopLoadoutCustomizePreview();
+      }, 250);
+    },
+
+    _buildLoadoutCustomizeClasses() {
+      const root = this.els.loadoutCustomizeClasses;
+      const classes = (global.VF.Soldier && global.VF.Soldier.CLASSES) || [];
+      if (!root) return;
+      root.innerHTML = '';
+      for (let i = 0; i < classes.length; i++) {
+        const info = classes[i];
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.classId = info.id;
+        button.className = 'loadout-class-option';
+        const mark = document.createElement('b');
+        mark.textContent = (info.nameZh || info.nameEn || info.id).charAt(0);
+        const name = document.createElement('span');
+        const rawName = info.nameZh || info.nameEn || info.id;
+        name.textContent = /兵$/.test(rawName) ? rawName : rawName + '兵';
+        button.appendChild(mark);
+        button.appendChild(name);
+        button.addEventListener('click', () => {
+          this._loadoutDraftClassId = info.id;
+          this._updateLoadoutCustomizeUi();
+        });
+        root.appendChild(button);
+      }
+    },
+
+    _buildLoadoutCustomizeWeapons() {
+      const root = this.els.loadoutCustomizeWeapons;
+      if (!root) return;
+      root.innerHTML = '';
+      const defs = (global.VF && global.VF.WEAPONS) || {};
+      const order = ['ar', 'sg', 'sr'];
+      for (let i = 0; i < order.length; i++) {
+        const id = order[i];
+        const def = defs[id];
+        if (!def) continue;
+        const owned =
+          !global.VF.Economy ||
+          !global.VF.Economy.ownsWeapon ||
+          global.VF.Economy.ownsWeapon(id);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.weaponId = id;
+        button.className = 'loadout-weapon-option' + (owned ? '' : ' locked');
+        button.disabled = !owned;
+        button.title = owned ? def.nameZh || def.name : '尚未解锁';
+        const icon = document.createElement('span');
+        icon.className = 'loadout-weapon-icon';
+        icon.innerHTML = this._deployGearSvg(id === 'sg' ? 'shotgun' : 'rifle');
+        const copy = document.createElement('span');
+        copy.className = 'loadout-weapon-copy';
+        const name = document.createElement('strong');
+        name.textContent = def.nameZh || def.name || id.toUpperCase();
+        const detail = document.createElement('small');
+        detail.textContent = owned ? def.caliber || '' : '未解锁';
+        copy.appendChild(name);
+        copy.appendChild(detail);
+        button.appendChild(icon);
+        button.appendChild(copy);
+        button.addEventListener('click', () => {
+          if (!owned) return;
+          this._loadoutDraftWeaponId = id;
+          this._updateLoadoutCustomizeUi();
+        });
+        root.appendChild(button);
+      }
+    },
+
+    _updateLoadoutCustomizeUi() {
+      const classes = (global.VF.Soldier && global.VF.Soldier.CLASSES) || [];
+      const info =
+        classes.find((item) => item.id === this._loadoutDraftClassId) ||
+        classes[0];
+      if (!info) return;
+      const rawName = info.nameZh || info.nameEn || info.id;
+      if (this.els.loadoutCustomizeClassName) {
+        this.els.loadoutCustomizeClassName.textContent = /兵$/.test(rawName)
+          ? rawName
+          : rawName + '兵';
+      }
+      if (this.els.loadoutCustomizeClassRole) {
+        this.els.loadoutCustomizeClassRole.textContent = info.role || '';
+      }
+      if (this.els.loadoutCustomizeClassBlurb) {
+        this.els.loadoutCustomizeClassBlurb.textContent = info.blurb || '';
+      }
+      if (this.els.loadoutCustomizeClasses) {
+        this.els.loadoutCustomizeClasses
+          .querySelectorAll('.loadout-class-option')
+          .forEach((button) => {
+            const selected = button.dataset.classId === info.id;
+            button.classList.toggle('selected', selected);
+            button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+          });
+      }
+      if (this.els.loadoutCustomizeWeapons) {
+        this.els.loadoutCustomizeWeapons
+          .querySelectorAll('.loadout-weapon-option')
+          .forEach((button) => {
+            const selected = button.dataset.weaponId === this._loadoutDraftWeaponId;
+            button.classList.toggle('selected', selected);
+            button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+          });
+      }
+      this._syncDeployClassDetails(info);
+    },
+
+    _bindLoadoutCustomize() {
+      if (this._loadoutCustomizeBound) return;
+      this._loadoutCustomizeBound = true;
+      if (this.els.loadoutCustomizeApply) {
+        this.els.loadoutCustomizeApply.addEventListener('click', (e) => {
+          e.preventDefault();
+          this._finishLoadoutCustomize(true);
+        });
+      }
+      if (this.els.loadoutCustomizeCancel) {
+        this.els.loadoutCustomizeCancel.addEventListener('click', (e) => {
+          e.preventDefault();
+          this._finishLoadoutCustomize(false);
+        });
+      }
+      global.addEventListener('keydown', (e) => {
+        if (!this.loadoutCustomizeOpen || e.repeat) return;
+        if (e.code === 'Escape') {
+          e.preventDefault();
+          this._finishLoadoutCustomize(false);
+        } else if (e.code === 'Enter') {
+          if (e.target && e.target.tagName === 'BUTTON') return;
+          e.preventDefault();
+          this._finishLoadoutCustomize(true);
+        }
+      });
+    },
+
+    _finishLoadoutCustomize(apply) {
+      if (!this.loadoutCustomizeOpen || this._loadoutCustomizeTriggered) return;
+      this._loadoutCustomizeTriggered = true;
+      const callback = apply ? this._loadoutOnApply : this._loadoutOnCancel;
+      const selection = {
+        classId: this._loadoutDraftClassId || 'assault',
+        weaponId: this._loadoutDraftWeaponId || 'ar',
+      };
+      this.closeLoadoutCustomize();
+      if (typeof callback === 'function') callback(selection);
+    },
+
+    _startLoadoutCustomizePreview() {
+      this._stopLoadoutCustomizePreview();
+      if (!global.THREE || !global.VF.Soldier || !this.els.loadoutCustomizeCanvas) return;
+      const scene = new THREE.Scene();
+      scene.background = null;
+      const camera = new THREE.PerspectiveCamera(38, 4 / 5, 0.1, 40);
+      camera.position.set(0, 1.05, 3.5);
+      camera.lookAt(0, 1.05, 0);
+      const key = new THREE.DirectionalLight(0xfff1dd, 1.35);
+      key.position.set(-2, 6, 5);
+      scene.add(key);
+      const rim = new THREE.DirectionalLight(0x9bdcff, 0.64);
+      rim.position.set(4, 3, -2);
+      scene.add(rim);
+      scene.add(new THREE.AmbientLight(0xb8c5c8, 0.7));
+      const renderer = this._getPresentationRenderer();
+      if (!renderer) return;
+      const models = {};
+      const classes = global.VF.Soldier.CLASSES || [];
+      for (let i = 0; i < classes.length; i++) {
+        const model = global.VF.Soldier.createPreviewSoldier(classes[i].id);
+        model.visible = false;
+        if (global.VF.Soldier.initLocomotion) {
+          global.VF.Soldier.initLocomotion(model);
+        }
+        scene.add(model);
+        models[classes[i].id] = model;
+      }
+      this._loadoutCustomizePreview = {
+        scene: scene,
+        camera: camera,
+        renderer: renderer,
+        models: models,
+        raf: 0,
+        lastT: performance.now(),
+        startedAt: performance.now(),
+      };
+      const tick = () => {
+        const preview = this._loadoutCustomizePreview;
+        if (!this.loadoutCustomizeOpen || !preview) return;
+        const now = performance.now();
+        const dt = Math.min(0.05, Math.max(0.001, (now - preview.lastT) / 1000));
+        preview.lastT = now;
+        for (const id in preview.models) preview.models[id].visible = false;
+        const model = preview.models[this._loadoutDraftClassId];
+        if (model) {
+          model.visible = true;
+          model.position.set(0, 0, 0);
+          model.rotation.y =
+            Math.PI + Math.sin((now - preview.startedAt) * 0.00042) * 0.12;
+          if (global.VF.Soldier.updateLocomotion) {
+            global.VF.Soldier.updateLocomotion(model, dt, {
+              moving: false,
+              speedRatio: 0,
+              onGround: true,
+            });
+          }
+        }
+        const canvas = this.els.loadoutCustomizeCanvas;
+        const rect = canvas.getBoundingClientRect();
+        const dpr = Math.min(global.devicePixelRatio || 1, 1.5);
+        const measuredW = Math.round(rect.width * dpr);
+        const measuredH = Math.round(rect.height * dpr);
+        const w = measuredW > 0 ? measuredW : 720;
+        const h = measuredH > 0 ? measuredH : 760;
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+        preview.camera.aspect = w / Math.max(1, h);
+        this._frameBodyCamera(preview.camera, preview.camera.aspect);
+        preview.renderer.setSize(w, h, false);
+        preview.renderer.render(preview.scene, preview.camera);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, w, h);
+          ctx.drawImage(preview.renderer.domElement, 0, 0, w, h);
+        }
+        preview.raf = requestAnimationFrame(tick);
+      };
+      this._loadoutCustomizePreview.raf = requestAnimationFrame(tick);
+    },
+
+    _stopLoadoutCustomizePreview() {
+      const preview = this._loadoutCustomizePreview;
+      if (!preview) return;
+      if (preview.raf) cancelAnimationFrame(preview.raf);
+      for (const id in preview.models) {
+        if (preview.models[id] && preview.scene) preview.scene.remove(preview.models[id]);
+      }
+      this._loadoutCustomizePreview = null;
     },
 
     /** Draw spawn pads on any map canvas context (world → pixel via toMap). */
@@ -1747,20 +2655,63 @@
       if (!points.length) return;
       const selectedId = world._selectedSpawnId;
       const teamFilter = opts.teamFilter || null;
+      const friendlyTeam = opts.friendlyTeam || null;
       const r = opts.radius != null ? opts.radius : 6;
       const showLabel = opts.label !== false;
       for (let i = 0; i < points.length; i++) {
         const s = points[i];
+        if (opts.skipFixed && (s.fixed || s.kind === 'hq')) continue;
+        if (opts.skipFlags && s.kind === 'flag') continue;
         const lockedOut = (teamFilter && s.team !== teamFilter) || s.available === false;
         const p = toMap(s.x, s.z);
         const selected = s.id === selectedId && !lockedOut;
         ctx.globalAlpha = lockedOut ? 0.28 : 1;
+        if (s.kind === 'vehicle') {
+          const width = selected ? 38 : 34;
+          const height = selected ? 25 : 22;
+          const friendly = !friendlyTeam || s.team === friendlyTeam;
+          ctx.fillStyle = friendly ? 'rgba(25,112,151,0.88)' : 'rgba(151,47,42,0.88)';
+          ctx.strokeStyle = selected ? '#ffffff' : friendly ? '#83d9f3' : '#ff9a8a';
+          ctx.lineWidth = selected ? 2 : 1;
+          ctx.fillRect(p.x - width / 2, p.y - height / 2, width, height);
+          ctx.strokeRect(p.x - width / 2, p.y - height / 2, width, height);
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold ' + (opts.fontSize || 9) + 'px Segoe UI, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          const vehicleMark =
+            s.vehicleType === 'tank' ? 'TNK' : s.vehicleType === 'ifv' ? 'IFV' : 'JEP';
+          ctx.fillText(vehicleMark, p.x, p.y - 2);
+          ctx.font = '7px Segoe UI, sans-serif';
+          ctx.fillText(
+            s.available === false
+              ? s.respawnRemaining > 0
+                ? Math.max(0, s.respawnRemaining) + 's'
+                : '满员'
+              : (s.openSeats || 0) + '/' + (s.seatCount || 0),
+            p.x,
+            p.y + 7
+          );
+          if (showLabel) {
+            ctx.fillStyle = '#eef8fa';
+            ctx.font = (opts.fontSize || 9) + 'px Zpix, monospace';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText(s.label || '载具', p.x - width / 2, p.y - height / 2 - 4);
+          }
+          ctx.globalAlpha = 1;
+          continue;
+        }
         ctx.beginPath();
         ctx.arc(p.x, p.y, selected ? r + 2 : r, 0, Math.PI * 2);
         ctx.fillStyle =
           s.kind === 'flag'
             ? '#e8c76a'
-            : s.team === 'ally'
+            : friendlyTeam
+              ? s.team === friendlyTeam
+                ? '#4aa3ff'
+                : '#ff5566'
+              : s.team === 'ally'
               ? '#4aa3ff'
               : '#ff5566';
         ctx.fill();
@@ -1788,12 +2739,19 @@
       this._deployUnlockAt = opts.countdown > 0 ? performance.now() + opts.countdown * 1000 : 0;
       this._deployListKey = '';
       this._deployRefreshAt = 0;
+      this._deployHudAt = 0;
       this._spawnHover = null;
+      this._spawnMapCamera = { zoom: 1, panX: 0, panY: 0 };
       const g = global.VF && global.VF.game;
       const island = global.VF && global.VF.IslandConquestMap;
+      const mapName = (world && world._mapName) || (island && island.name) || '荒盆';
       if (this.els.deployMapName) {
-        this.els.deployMapName.textContent =
-          ((world && world._mapName) || (island && island.name) || '荒盆') + ' [32 vs 32]';
+        this.els.deployMapName.textContent = '征服';
+      }
+      if (this.els.deployMapMode) {
+        const modeMap = this.els.deployMapMode.querySelector('span');
+        const matchSize = g && g.mode === 'pvp' ? '1 vs 1' : '32 vs 32';
+        if (modeMap) modeMap.textContent = mapName + ' · ' + matchSize;
       }
       if (this.els.deployServer) {
         const C = global.VF.CONQUEST || {};
@@ -1802,9 +2760,15 @@
         const round = feel.roundSec != null ? feel.roundSec : C.ROUND_SEC || 2700;
         const mm = String(Math.floor(round / 60)).padStart(2, '0');
         const ss = String(Math.floor(round % 60)).padStart(2, '0');
-        const mapName = (world && world._mapName) || (island && island.name) || '荒盆';
+        const deployFlags =
+          world && world._conquestFlags && world._conquestFlags.length
+            ? world._conquestFlags
+            : (world && world._kitFlags) || [];
+        const lastFlag = deployFlags.length
+          ? deployFlags[deployFlags.length - 1].letter || String.fromCharCode(64 + deployFlags.length)
+          : 'F';
         this.els.deployServer.textContent =
-          mapName + ' · 增援 ' + tix + ' · ' + mm + ':' + ss + ' · 占领 A–F';
+          mapName + ' · 增援 ' + tix + ' · ' + mm + ':' + ss + ' · 占领 A–' + lastFlag;
       }
       if (this._spawnRedeploy && global.VF.Conquest && global.VF.Conquest.applyDeployList) {
         global.VF.Conquest.applyDeployList(world, world._playerTeam || 'ally');
@@ -1822,13 +2786,21 @@
           ? '只能部署到主基地或已占领的旗帜 · 短倒计时后出发'
           : '在地图上点选主基地或已占领旗帜，再按部署进入';
       }
+      if (this.els.spawnCancel) {
+        this.els.spawnCancel.setAttribute(
+          'aria-label',
+          this._spawnRedeploy ? '返回阵亡界面' : '返回大厅'
+        );
+      }
       const teamRow = document.getElementById('team-pick-row');
       if (teamRow) teamRow.classList.add('hidden');
       document.exitPointerLock && document.exitPointerLock();
+      if (document.body) document.body.classList.add('deploy-overlay-open');
       this.els.spawnOverlay.classList.remove('hidden');
       this._buildSpawnButtons(world);
       this._buildDeployClasses();
       this._syncTeamPickUi(world);
+      this._syncDeployBattleState(world);
       this.drawSpawnSelectMap(world);
       this._bindSpawnSelectOnce(world);
       this._syncSpawnConfirm();
@@ -1838,7 +2810,11 @@
       this.spawnSelectOpen = false;
       this._spawnRedeploy = false;
       this._deployUnlockAt = 0;
+      this._spawnMapDrag = null;
+      this._spawnMapSuppressClick = false;
+      if (this.els.spawnMap) this.els.spawnMap.classList.remove('dragging');
       if (this.els.spawnOverlay) this.els.spawnOverlay.classList.add('hidden');
+      if (document.body) document.body.classList.remove('deploy-overlay-open');
     },
 
     _syncTeamPickUi(world) {
@@ -1870,6 +2846,127 @@
         this.els.spawnGroupEnemy.classList.remove('hidden');
         this.els.spawnGroupEnemy.classList.toggle('locked', team !== 'enemy');
       }
+    },
+
+    _syncDeployBattleState(world) {
+      if (!world) return;
+      const C = global.VF && global.VF.Conquest;
+      const constants = (global.VF && global.VF.CONQUEST) || {};
+      const feel = (global.VF && global.VF.Feel && global.VF.Feel.conquest) || {};
+      const max = Math.max(
+        1,
+        C && C.ticketsMax
+          ? C.ticketsMax
+          : feel.tickets != null
+            ? feel.tickets
+            : constants.TICKETS_START || 1000
+      );
+      const allyRaw = C && C.active && C.tickets ? C.tickets.ally : max;
+      const enemyRaw = C && C.active && C.tickets ? C.tickets.enemy : max;
+      const pTeam = world._playerTeam === 'enemy' ? 'enemy' : 'ally';
+      const you = pTeam === 'enemy' ? enemyRaw : allyRaw;
+      const them = pTeam === 'enemy' ? allyRaw : enemyRaw;
+      if (this.els.deployTicketAlly) this.els.deployTicketAlly.textContent = String(you);
+      if (this.els.deployTicketEnemy) this.els.deployTicketEnemy.textContent = String(them);
+      if (this.els.deployFillAlly) {
+        this.els.deployFillAlly.style.transform =
+          'scaleX(' + Math.max(0, Math.min(1, you / max)) + ')';
+      }
+      if (this.els.deployFillEnemy) {
+        this.els.deployFillEnemy.style.transform =
+          'scaleX(' + Math.max(0, Math.min(1, them / max)) + ')';
+      }
+
+      let flags =
+        C && C.active && C.flags && C.flags.length
+          ? C.flags
+          : world._conquestFlags && world._conquestFlags.length
+            ? world._conquestFlags
+            : world._kitFlags && world._kitFlags.length
+              ? world._kitFlags
+              : [];
+      if (!flags.length) {
+        const island = global.VF && global.VF.IslandConquestMap;
+        flags = (island && island.FLAGS) || [
+          { letter: 'A', owner: 'neutral' },
+          { letter: 'B', owner: 'neutral' },
+          { letter: 'C', owner: 'neutral' },
+          { letter: 'D', owner: 'neutral' },
+          { letter: 'E', owner: 'neutral' },
+          { letter: 'F', owner: 'neutral' },
+        ];
+      }
+      if (this.els.deployObjectives) {
+        let html = '';
+        for (let i = 0; i < flags.length; i++) {
+          const flag = flags[i];
+          const normalized = {
+            owner: flag.owner || 'neutral',
+            phase: flag.phase || '',
+            contested: !!flag.contested,
+          };
+          html +=
+            '<span class="deploy-objective ' +
+            this._cqFlagKind(normalized, pTeam) +
+            '" title="' +
+            (flag.letter || '') +
+            '"><b>' +
+            (flag.letter || '') +
+            '</b></span>';
+        }
+        if (this.els.deployObjectives._flagHtml !== html) {
+          this.els.deployObjectives._flagHtml = html;
+          this.els.deployObjectives.innerHTML = html;
+        }
+      }
+
+      const round =
+        C && C.active && C.timeLeft
+          ? C.timeLeft()
+          : feel.roundSec != null
+            ? feel.roundSec
+            : constants.ROUND_SEC || 2700;
+      if (this.els.deployClock) this.els.deployClock.textContent = this.formatClock(round);
+      if (this.els.deployFactionName) {
+        this.els.deployFactionName.textContent = pTeam === 'enemy' ? '赤焰军团' : '和平军团';
+      }
+      if (this.els.deploySquadStatus) {
+        const squads = global.VF && global.VF.Squads && global.VF.Squads.squads;
+        const squadCount = squads && squads[pTeam] && squads[pTeam].length ? squads[pTeam].length : 8;
+        this.els.deploySquadStatus.textContent = '作战中小队: ' + squadCount;
+      }
+    },
+
+    _getDeployMapTargets(world) {
+      const direct = this._getSpawnChoices(world);
+      return direct && direct.length ? direct : this._listMapSpawnTargets(world);
+    },
+
+    _selectDeployTarget(world, target) {
+      if (!world || !target || target.available === false) return;
+      const g = global.VF && global.VF.game;
+      const locked = !!(
+        this._spawnRedeploy ||
+        (g && g.teamLocked) ||
+        (g && g.mode === 'pvp')
+      );
+      if (locked && world._playerTeam && target.team && target.team !== world._playerTeam) {
+        if (this.toast) this.toast('该部署点不属于你的阵营');
+        return;
+      }
+      if (!locked && target.team) world._playerTeam = target.team;
+      if (
+        locked &&
+        global.VF.Conquest &&
+        global.VF.Conquest.applyDeployList
+      ) {
+        global.VF.Conquest.applyDeployList(
+          world,
+          world._playerTeam || target.team || 'ally'
+        );
+      }
+      world.setSelectedSpawn(target.id);
+      this._refreshSpawnSelection(world);
     },
 
     _buildSpawnButtons(world) {
@@ -1917,6 +3014,131 @@
       world._spawnPoints.enemy.forEach((s) => enemyRow.appendChild(makeBtn(s)));
     },
 
+    _deployGearSvg(kind) {
+      const icons = {
+        rifle:
+          '<svg viewBox="0 0 96 32" aria-hidden="true"><path d="M3 13h42l8-6h8l2 5h25v5H62l-8 4H35l-7 8h-9l5-9H3z"/><rect x="42" y="19" width="8" height="9" transform="skewX(-12)"/></svg>',
+        pistol:
+          '<svg viewBox="0 0 64 32" aria-hidden="true"><path d="M8 8h39l7 5v6H32l-3 11H18l2-13H8z"/><rect x="45" y="11" width="10" height="3"/></svg>',
+        shotgun:
+          '<svg viewBox="0 0 96 32" aria-hidden="true"><path d="M3 13h59l18-5 12 3v5l-29 2H39l-8 10H20l5-11H3z"/><rect x="48" y="18" width="7" height="10" transform="skewX(-10)"/></svg>',
+        rpg:
+          '<svg viewBox="0 0 96 32" aria-hidden="true"><path d="M3 12h15l4-6h53l5 5 13 5-13 5-5 5H22l-4-6H3z"/><path d="M40 24l7 7h10l-5-7z"/></svg>',
+        grenade:
+          '<svg viewBox="0 0 48 36" aria-hidden="true"><path d="M17 8h17l4 7v13l-5 6H17l-6-6V15z"/><path d="M20 3h11v6H20zM30 2h9v3h-9z"/></svg>',
+        charge:
+          '<svg viewBox="0 0 52 36" aria-hidden="true"><rect x="8" y="8" width="33" height="24" rx="2"/><path d="M17 8V3h17v5M18 17h13v4H18z" fill="none"/></svg>',
+        turret:
+          '<svg viewBox="0 0 58 36" aria-hidden="true"><path d="M13 16h31l5 6-6 6H14L8 22z"/><rect x="25" y="8" width="10" height="9"/><path d="M34 10h20v3H34zM19 28l-6 7M39 28l6 7" fill="none"/></svg>',
+        repair:
+          '<svg viewBox="0 0 48 36" aria-hidden="true"><path d="M12 3l8 8-4 5-8-8c-5 8 1 16 9 15l10 10 7-7-10-10c1-8-6-14-12-13z"/></svg>',
+        medkit:
+          '<svg viewBox="0 0 52 36" aria-hidden="true"><rect x="7" y="9" width="38" height="24" rx="2"/><path d="M21 3h10v7H21zM23 14h7v5h5v7h-5v5h-7v-5h-5v-7h5z"/></svg>',
+        ammo:
+          '<svg viewBox="0 0 58 36" aria-hidden="true"><rect x="5" y="10" width="48" height="23" rx="2"/><path d="M16 10V6h26v4M17 17h5v11h-5zM27 17h5v11h-5zM37 17h5v11h-5z"/></svg>',
+        binoculars:
+          '<svg viewBox="0 0 58 36" aria-hidden="true"><path d="M8 11h15l4 7h4l4-7h15l5 18H34l-3-6h-4l-3 6H3z"/><circle cx="14" cy="25" r="7"/><circle cx="44" cy="25" r="7"/></svg>',
+        cloak:
+          '<svg viewBox="0 0 48 36" aria-hidden="true"><path d="M24 3l16 7v10c0 8-7 13-16 15C15 33 8 28 8 20V10z"/><path d="M17 20l5 5 10-12" fill="none"/></svg>',
+        knife:
+          '<svg viewBox="0 0 68 30" aria-hidden="true"><path d="M4 19h17l4-5 36-10-8 12-27 7-5-3H4z"/><rect x="7" y="16" width="15" height="8"/></svg>',
+      };
+      return (
+        icons[kind] ||
+        '<svg viewBox="0 0 48 32" aria-hidden="true"><rect x="7" y="7" width="34" height="20"/></svg>'
+      );
+    },
+
+    _syncDeployClassDetails(classInfo) {
+      const info = classInfo || {
+        id: 'assault',
+        nameZh: '突击',
+        role: '进攻与突破',
+      };
+      if (this.els.deployClassName) {
+        const name = info.nameZh || info.nameEn || info.id;
+        this.els.deployClassName.textContent = /兵$/.test(name) ? name : name + '兵';
+      }
+      if (this.els.deployClassRole) {
+        this.els.deployClassRole.textContent = info.role || info.blurb || '';
+      }
+      const kits = {
+        assault: [
+          { kind: 'rifle', name: 'AKM', primary: true, weaponId: 'ar' },
+          { kind: 'shotgun', name: 'Remington 870', weaponId: 'sg' },
+          { kind: 'rifle', name: 'SVD', weaponId: 'sr' },
+          { kind: 'charge', name: '突破炸药' },
+          { kind: 'knife', name: '战斗刀' },
+        ],
+        engineer: [
+          { kind: 'rifle', name: 'AKM', primary: true, weaponId: 'ar' },
+          { kind: 'shotgun', name: 'Remington 870', weaponId: 'sg' },
+          { kind: 'rifle', name: 'SVD', weaponId: 'sr' },
+          { kind: 'rpg', name: 'RPG-7' },
+          { kind: 'turret', name: '自动炮塔' },
+        ],
+        support: [
+          { kind: 'rifle', name: 'AKM', primary: true, weaponId: 'ar' },
+          { kind: 'shotgun', name: 'Remington 870', weaponId: 'sg' },
+          { kind: 'rifle', name: 'SVD', weaponId: 'sr' },
+          { kind: 'medkit', name: '医疗装置' },
+          { kind: 'knife', name: '战斗刀' },
+        ],
+        recon: [
+          { kind: 'rifle', name: 'AKM', primary: true, weaponId: 'ar' },
+          { kind: 'shotgun', name: 'Remington 870', weaponId: 'sg' },
+          { kind: 'rifle', name: 'SVD', weaponId: 'sr' },
+          { kind: 'binoculars', name: '观察镜' },
+          { kind: 'cloak', name: '低可见装置' },
+        ],
+      };
+      const kit = kits[info.id] || kits.assault;
+      const strips = [
+        this.els.deployLoadoutStrip,
+        this.els.classDeployLoadout,
+        this.els.squadIntroLoadout,
+        this.els.loadoutCustomizeEquipment,
+      ].filter(Boolean);
+      const currentWeapon =
+        this.loadoutCustomizeOpen && this._loadoutDraftWeaponId
+          ? this._loadoutDraftWeaponId
+          : global.VF.game && global.VF.game.weapons
+            ? global.VF.game.weapons.current
+            : 'ar';
+      const orderedKit = kit.filter((item) => {
+        return (
+          !item.weaponId ||
+          !global.VF.Economy ||
+          !global.VF.Economy.ownsWeapon ||
+          global.VF.Economy.ownsWeapon(item.weaponId)
+        );
+      });
+      const selectedIndex = orderedKit.findIndex(
+        (item) => item.weaponId === currentWeapon
+      );
+      if (selectedIndex > 0) {
+        orderedKit.unshift(orderedKit.splice(selectedIndex, 1)[0]);
+      }
+      for (let s = 0; s < strips.length; s++) {
+        const strip = strips[s];
+        strip.innerHTML = '';
+        for (let i = 0; i < orderedKit.length; i++) {
+          const item = orderedKit[i];
+          const slot = document.createElement('span');
+          slot.className =
+            'deploy-gear-slot' + (i === 0 && item.weaponId ? ' primary' : '');
+          slot.title = item.name;
+          if (item.weaponId) slot.dataset.weaponId = item.weaponId;
+          if (item.weaponId === currentWeapon) slot.classList.add('equipped');
+          slot.innerHTML = this._deployGearSvg(item.kind);
+          const label = document.createElement('small');
+          label.textContent = item.name;
+          slot.appendChild(label);
+          strip.appendChild(slot);
+        }
+      }
+    },
+
     _buildDeployClasses() {
       const row = this.els.deployClassRow;
       if (!row) return;
@@ -1935,8 +3157,12 @@
         btn.type = 'button';
         btn.className = 'deploy-class' + (c.id === current ? ' selected' : '');
         btn.dataset.classId = c.id;
-        btn.textContent = c.nameZh || c.nameEn || c.id;
+        btn.dataset.mark = (c.nameZh || c.nameEn || c.id).charAt(0);
         btn.title = c.label || c.nameZh || c.id;
+        btn.setAttribute('aria-pressed', c.id === current ? 'true' : 'false');
+        const label = document.createElement('span');
+        label.textContent = c.nameZh || c.nameEn || c.id;
+        btn.appendChild(label);
         btn.addEventListener('click', function () {
           const id = btn.dataset.classId;
           self.selectedClassId = id;
@@ -1949,20 +3175,32 @@
           }
           row.querySelectorAll('.deploy-class').forEach(function (el) {
             el.classList.toggle('selected', el.dataset.classId === id);
+            el.setAttribute('aria-pressed', el.dataset.classId === id ? 'true' : 'false');
           });
+          self._syncDeployClassDetails(c);
         });
         row.appendChild(btn);
       }
-      if (this.els.deployLoadout && !this.els.deployLoadout._vfBound) {
-        this.els.deployLoadout._vfBound = true;
-        this.els.deployLoadout.addEventListener('click', function () {
-          if (self.toast) self.toast('局内用 1 / 2 / 3 切换武器');
-        });
+      let currentInfo = classes[0] || null;
+      for (let i = 0; i < classes.length; i++) {
+        if (classes[i].id === current) {
+          currentInfo = classes[i];
+          break;
+        }
       }
+      this._syncDeployClassDetails(currentInfo);
       if (this.els.deployRole && !this.els.deployRole._vfBound) {
         this.els.deployRole._vfBound = true;
         this.els.deployRole.addEventListener('click', function () {
-          if (self.toast) self.toast('在底部选择兵种后部署');
+          const game = global.VF && global.VF.game;
+          const id = (game && game.playerClass) || self.selectedClassId || 'assault';
+          let picked = null;
+          for (let i = 0; i < classes.length; i++) {
+            if (classes[i].id === id) picked = classes[i];
+          }
+          if (self.toast && picked) {
+            self.toast((picked.label || picked.nameZh) + ' · ' + (picked.role || ''));
+          }
         });
       }
     },
@@ -1973,6 +3211,7 @@
         btn.classList.toggle('selected', btn.dataset.spawnId === selected);
       });
       this._syncTeamPickUi(world);
+      this._syncDeployBattleState(world);
       this.drawSpawnSelectMap(world);
       this._syncSpawnConfirm();
     },
@@ -2000,7 +3239,15 @@
             const key =
               (list || [])
                 .map(function (s) {
-                  return s.id;
+                  return (
+                    s.id +
+                    ':' +
+                    (s.available === false ? '0' : '1') +
+                    ':' +
+                    (s.reason || '') +
+                    ':' +
+                    (s.label || '')
+                  );
                 })
                 .join(',') +
               '|' +
@@ -2014,7 +3261,43 @@
           }
         }
       }
+      if (!this._deployHudAt || now - this._deployHudAt > 500) {
+        this._deployHudAt = now;
+        const world = global.VF.game && global.VF.game.world;
+        if (world) {
+          this._syncDeployBattleState(world);
+          this.drawSpawnSelectMap(world);
+        }
+      }
       this._syncSpawnConfirm();
+    },
+
+    _resetSpawnMapCamera(world) {
+      this._spawnMapCamera = { zoom: 1, panX: 0, panY: 0 };
+      if (this.els.deployMapZoom) this.els.deployMapZoom.textContent = '100%';
+      if (world) this.drawSpawnSelectMap(world);
+    },
+
+    _setSpawnMapZoom(nextZoom, anchor) {
+      const world = global.VF && global.VF.game && global.VF.game.world;
+      const canvas = this.els.spawnMap;
+      if (!world || !canvas) return;
+      const camera = this._spawnMapCamera || { zoom: 1, panX: 0, panY: 0 };
+      const clamped = Math.max(0.72, Math.min(3.2, nextZoom));
+      if (Math.abs(clamped - camera.zoom) < 0.001) return;
+      const point = anchor || { x: canvas.width / 2, y: canvas.height / 2 };
+      const beforeView = this._spawnMapView(canvas, world);
+      const before = beforeView.fromMap(point.x, point.y);
+      camera.zoom = clamped;
+      this._spawnMapCamera = camera;
+      const afterView = this._spawnMapView(canvas, world);
+      const after = afterView.toMap(before.x, before.z);
+      camera.panX += point.x - after.x;
+      camera.panY += point.y - after.y;
+      if (this.els.deployMapZoom) {
+        this.els.deployMapZoom.textContent = Math.round(camera.zoom * 100) + '%';
+      }
+      this.drawSpawnSelectMap(world);
     },
 
     _bindSpawnSelectOnce(world) {
@@ -2055,10 +3338,98 @@
         });
       }
 
+      if (this.els.deployZoomIn) {
+        this.els.deployZoomIn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const camera = this._spawnMapCamera || { zoom: 1 };
+          this._setSpawnMapZoom(camera.zoom * 1.22);
+        });
+      }
+      if (this.els.deployZoomOut) {
+        this.els.deployZoomOut.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const camera = this._spawnMapCamera || { zoom: 1 };
+          this._setSpawnMapZoom(camera.zoom / 1.22);
+        });
+      }
+      if (this.els.deployMapReset) {
+        this.els.deployMapReset.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const w = global.VF.game && global.VF.game.world;
+          this._resetSpawnMapCamera(w);
+        });
+      }
       const canvas = this.els.spawnMap;
       if (canvas) {
+        canvas.addEventListener(
+          'wheel',
+          (e) => {
+            if (!this.spawnSelectOpen) return;
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const anchor = {
+              x: ((e.clientX - rect.left) / rect.width) * canvas.width,
+              y: ((e.clientY - rect.top) / rect.height) * canvas.height,
+            };
+            const camera = this._spawnMapCamera || { zoom: 1 };
+            this._setSpawnMapZoom(
+              e.deltaY < 0 ? camera.zoom * 1.16 : camera.zoom / 1.16,
+              anchor
+            );
+          },
+          { passive: false }
+        );
+        canvas.addEventListener('pointerdown', (e) => {
+          if (!this.spawnSelectOpen || e.button !== 0) return;
+          const camera = this._spawnMapCamera || { zoom: 1, panX: 0, panY: 0 };
+          this._spawnMapDrag = {
+            pointerId: e.pointerId,
+            x: e.clientX,
+            y: e.clientY,
+            panX: camera.panX,
+            panY: camera.panY,
+            moved: false,
+          };
+          canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+        });
+        canvas.addEventListener('pointermove', (e) => {
+          const drag = this._spawnMapDrag;
+          if (!drag || drag.pointerId !== e.pointerId || !this.spawnSelectOpen) return;
+          const rect = canvas.getBoundingClientRect();
+          const dx = ((e.clientX - drag.x) / rect.width) * canvas.width;
+          const dy = ((e.clientY - drag.y) / rect.height) * canvas.height;
+          if (Math.abs(dx) + Math.abs(dy) > 5) drag.moved = true;
+          const camera = this._spawnMapCamera || { zoom: 1, panX: 0, panY: 0 };
+          camera.panX = drag.panX + dx;
+          camera.panY = drag.panY + dy;
+          this._spawnMapCamera = camera;
+          canvas.classList.toggle('dragging', drag.moved);
+          const w = global.VF.game && global.VF.game.world;
+          if (w) this.drawSpawnSelectMap(w);
+        });
+        const endMapDrag = (e) => {
+          const drag = this._spawnMapDrag;
+          if (!drag || drag.pointerId !== e.pointerId) return;
+          if (drag.moved) {
+            this._spawnMapSuppressClick = true;
+            global.setTimeout(() => {
+              this._spawnMapSuppressClick = false;
+            }, 0);
+          }
+          canvas.classList.remove('dragging');
+          if (
+            canvas.releasePointerCapture &&
+            (!canvas.hasPointerCapture || canvas.hasPointerCapture(e.pointerId))
+          ) {
+            canvas.releasePointerCapture(e.pointerId);
+          }
+          this._spawnMapDrag = null;
+        };
+        canvas.addEventListener('pointerup', endMapDrag);
+        canvas.addEventListener('pointercancel', endMapDrag);
         canvas.addEventListener('click', (e) => {
           if (!this.spawnSelectOpen) return;
+          if (this._spawnMapSuppressClick) return;
           const w = global.VF.game && global.VF.game.world;
           if (!w) return;
           const rect = canvas.getBoundingClientRect();
@@ -2066,24 +3437,13 @@
           const my = ((e.clientY - rect.top) / rect.height) * canvas.height;
           const view = this._spawnMapView(canvas, w);
           const wz = view.fromMap(mx, my);
-          const hit = this._nearestSpawnTarget(w, wz.x, wz.z, 39);
+          const hit = this._nearestSpawnTarget(w, wz.x, wz.z, 24 / view.scale);
           if (!hit) return;
-          const g = global.VF.game;
-          const locked = !!(
-            this._spawnRedeploy ||
-            (g && g.teamLocked) ||
-            (g && g.mode === 'pvp')
-          );
-          if (locked && w._playerTeam && hit.team && hit.team !== w._playerTeam) return;
-          if (!locked && hit.team) w._playerTeam = hit.team;
-          if (global.VF.Conquest && global.VF.Conquest.applyDeployList) {
-            global.VF.Conquest.applyDeployList(w, w._playerTeam || hit.team || 'ally');
-          }
-          w.setSelectedSpawn(hit.id);
-          this._refreshSpawnSelection(w);
+          this._selectDeployTarget(w, hit);
         });
         canvas.addEventListener('mousemove', (e) => {
           if (!this.spawnSelectOpen) return;
+          if (this._spawnMapDrag) return;
           const w = global.VF.game && global.VF.game.world;
           if (!w) return;
           const rect = canvas.getBoundingClientRect();
@@ -2091,7 +3451,7 @@
           const my = ((e.clientY - rect.top) / rect.height) * canvas.height;
           const view = this._spawnMapView(canvas, w);
           const wz = view.fromMap(mx, my);
-          const hit = this._nearestSpawnTarget(w, wz.x, wz.z, 33);
+          const hit = this._nearestSpawnTarget(w, wz.x, wz.z, 21 / view.scale);
           const label = hit
             ? (hit.label || hit.letter || '') + (hit.available === false && hit.reason ? ' · ' + hit.reason : '')
             : '';
@@ -2103,7 +3463,38 @@
             }
           }
         });
+        canvas.addEventListener('mouseleave', () => {
+          if (this._spawnMapDrag) return;
+          this._spawnHover = null;
+          if (this.els.deployHover) this.els.deployHover.classList.add('hidden');
+        });
       }
+      global.addEventListener('resize', () => {
+        if (!this.spawnSelectOpen) return;
+        const w = global.VF.game && global.VF.game.world;
+        if (w) this.drawSpawnSelectMap(w);
+      });
+      global.addEventListener('keydown', (e) => {
+        if (!this.spawnSelectOpen || e.repeat) return;
+        const tag = e.target && e.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        if (e.code === 'Escape' && this.els.spawnCancel) {
+          e.preventDefault();
+          this.els.spawnCancel.click();
+        } else if (e.code === 'KeyR') {
+          e.preventDefault();
+          const w = global.VF.game && global.VF.game.world;
+          this._resetSpawnMapCamera(w);
+        } else if (e.code === 'Equal' || e.code === 'NumpadAdd') {
+          e.preventDefault();
+          const camera = this._spawnMapCamera || { zoom: 1 };
+          this._setSpawnMapZoom(camera.zoom * 1.22);
+        } else if (e.code === 'Minus' || e.code === 'NumpadSubtract') {
+          e.preventDefault();
+          const camera = this._spawnMapCamera || { zoom: 1 };
+          this._setSpawnMapZoom(camera.zoom / 1.22);
+        }
+      });
       if (this.els.spawnConfirm) {
         this.els.spawnConfirm.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -2128,24 +3519,31 @@
       const w = canvas.width;
       const h = canvas.height;
       const size = world.worldSize;
-      const x0 = size * 0.02;
-      const z0 = size * 0.1;
-      const x1 = size * 0.98;
-      const z1 = size * 0.9;
-      const bw = x1 - x0;
-      const bh = z1 - z0;
-      const scale = Math.min(w / bw, h / bh);
-      const ox = (w - bw * scale) / 2 - x0 * scale;
-      const oy = (h - bh * scale) / 2 - z0 * scale;
+      // The battlefield runs north/south in world space; rotate it so both HQs
+      // read left/right like the tactical deployment reference.
+      const x0 = size * 0.14;
+      const z0 = size * 0.025;
+      const x1 = size * 0.86;
+      const z1 = size * 0.975;
+      const bw = z1 - z0;
+      const bh = x1 - x0;
+      const camera = this._spawnMapCamera || { zoom: 1, panX: 0, panY: 0 };
+      const zoom = Math.max(0.72, Math.min(3.2, camera.zoom || 1));
+      const scale = Math.min(w / bw, h / bh) * zoom;
+      const centerX = (x0 + x1) / 2;
+      const centerZ = (z0 + z1) / 2;
+      const ox = w / 2 - centerZ * scale + (camera.panX || 0);
+      const oy = h / 2 + centerX * scale + (camera.panY || 0);
       return {
         ox: ox,
         oy: oy,
         scale: scale,
+        zoom: zoom,
         toMap: function (wx, wz) {
-          return { x: ox + wx * scale, y: oy + wz * scale };
+          return { x: ox + wz * scale, y: oy - wx * scale };
         },
         fromMap: function (mx, my) {
-          return { x: (mx - ox) / scale, z: (my - oy) / scale };
+          return { x: (oy - my) / scale, z: (mx - ox) / scale };
         },
       };
     },
@@ -2251,7 +3649,7 @@
     },
 
     _nearestSpawnTarget(world, wx, wz, maxDist) {
-      const pts = this._listMapSpawnTargets(world);
+      const pts = this._getDeployMapTargets(world);
       let best = null;
       let bestD = (maxDist || 36) * (maxDist || 36);
       for (let i = 0; i < pts.length; i++) {
@@ -2358,7 +3756,7 @@
       return canvas;
     },
 
-    _drawHqZone(ctx, p, team, sx) {
+    _drawHqZone(ctx, p, team, sx, colorTeam) {
       const hw = 22 * sx;
       const hh = 26 * sx;
       const taper = 10 * sx;
@@ -2377,7 +3775,10 @@
         ctx.lineTo(p.x + hw, p.y + hh);
       }
       ctx.closePath();
-      ctx.fillStyle = team === 'ally' ? 'rgba(40,110,210,0.38)' : 'rgba(200,48,40,0.38)';
+      ctx.fillStyle =
+        (colorTeam || team) === 'ally'
+          ? 'rgba(40,110,210,0.38)'
+          : 'rgba(200,48,40,0.38)';
       ctx.fill();
     },
 
@@ -2424,54 +3825,183 @@
       ctx.fillText(flag.letter || '', p.x, p.y + 0.5);
     },
 
+    _resizeSpawnMapCanvas(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const nextW = Math.max(480, Math.round(rect.width));
+      const nextH = Math.max(280, Math.round(rect.height));
+      if (canvas.width === nextW && canvas.height === nextH) return;
+      const oldW = canvas.width || nextW;
+      const oldH = canvas.height || nextH;
+      const camera = this._spawnMapCamera;
+      if (camera) {
+        camera.panX *= nextW / oldW;
+        camera.panY *= nextH / oldH;
+      }
+      canvas.width = nextW;
+      canvas.height = nextH;
+    },
+
+    _drawDeployTerritory(ctx, world, flags, toMap, scale) {
+      if (!flags || !flags.length) return;
+      const pTeam = world._playerTeam === 'enemy' ? 'enemy' : 'ally';
+      const radius = Math.max(42, world.worldSize * 0.12 * scale);
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (let i = 0; i < flags.length; i++) {
+        const flag = flags[i];
+        if (flag.owner !== 'ally' && flag.owner !== 'enemy') continue;
+        const point = toMap(flag.x, flag.z);
+        const friendly = flag.owner === pTeam;
+        const gradient = ctx.createRadialGradient(
+          point.x,
+          point.y,
+          0,
+          point.x,
+          point.y,
+          radius
+        );
+        gradient.addColorStop(0, friendly ? 'rgba(48,158,205,0.24)' : 'rgba(211,66,57,0.22)');
+        gradient.addColorStop(0.55, friendly ? 'rgba(33,116,157,0.11)' : 'rgba(161,45,42,0.1)');
+        gradient.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(point.x - radius, point.y - radius, radius * 2, radius * 2);
+      }
+      ctx.restore();
+    },
+
+    _drawDeployGrid(ctx, world, view) {
+      const size = world.worldSize;
+      const steps = 10;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(175,208,218,0.105)';
+      ctx.fillStyle = 'rgba(199,222,229,0.22)';
+      ctx.lineWidth = 1;
+      ctx.font = '8px Segoe UI, Microsoft YaHei, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      for (let i = 0; i <= steps; i++) {
+        const value = (size / steps) * i;
+        const x0 = view.toMap(value, 0);
+        const x1 = view.toMap(value, size);
+        ctx.beginPath();
+        ctx.moveTo(x0.x, x0.y);
+        ctx.lineTo(x1.x, x1.y);
+        ctx.stroke();
+        const y0 = view.toMap(0, value);
+        const y1 = view.toMap(size, value);
+        ctx.beginPath();
+        ctx.moveTo(y0.x, y0.y);
+        ctx.lineTo(y1.x, y1.y);
+        ctx.stroke();
+        if (i < steps && x0.x >= 0 && x0.x < ctx.canvas.width - 18) {
+          ctx.fillText(String(i + 1).padStart(2, '0'), x0.x + 3, Math.max(3, x0.y + 3));
+        }
+      }
+      ctx.restore();
+    },
+
+    _drawDeployRoutes(ctx, world, flags, toMap) {
+      const nodes = [];
+      if (world._allyBasePos) nodes.push(world._allyBasePos);
+      for (let i = 0; i < flags.length; i++) nodes.push(flags[i]);
+      if (world._enemyBasePos) nodes.push(world._enemyBasePos);
+      if (nodes.length < 2) return;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(218,232,236,0.13)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 5]);
+      for (let i = 0; i < nodes.length; i++) {
+        let best = -1;
+        let bestDist = Infinity;
+        for (let j = 0; j < nodes.length; j++) {
+          if (i === j) continue;
+          const dx = nodes[i].x - nodes[j].x;
+          const dz = nodes[i].z - nodes[j].z;
+          const dist = dx * dx + dz * dz;
+          if (dist < bestDist) {
+            bestDist = dist;
+            best = j;
+          }
+        }
+        if (best < 0 || best < i) continue;
+        const a = toMap(nodes[i].x, nodes[i].z);
+        const b = toMap(nodes[best].x, nodes[best].z);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.restore();
+    },
+
     drawSpawnSelectMap(world) {
       const canvas = this.els.spawnMap;
       const ctx = this.spawnMapCtx;
       if (!canvas || !ctx || !world) return;
+      this._resizeSpawnMapCanvas(canvas);
       const w = canvas.width;
       const h = canvas.height;
       const view = this._spawnMapView(canvas, world);
       const toMap = view.toMap;
       const selected = !!world._selectedSpawnId;
-      ctx.fillStyle = '#000';
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = '#071117';
       ctx.fillRect(0, 0, w, h);
 
       const schematic = this._ensureSchematicCache(world);
       const size = world.worldSize;
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(schematic, 0, 0, 512, 512, view.ox, view.oy, size * view.scale, size * view.scale);
+      ctx.imageSmoothingEnabled = true;
+      ctx.save();
+      ctx.setTransform(0, -view.scale, view.scale, 0, view.ox, view.oy);
+      ctx.drawImage(schematic, 0, 0, 512, 512, 0, 0, size, size);
+      ctx.restore();
+      ctx.fillStyle = 'rgba(5,16,22,0.5)';
+      ctx.fillRect(0, 0, w, h);
+
+      const flags =
+        world._conquestFlags && world._conquestFlags.length
+          ? world._conquestFlags
+          : world._kitFlags || [];
+      this._drawDeployTerritory(ctx, world, flags, toMap, view.scale);
+      this._drawDeployGrid(ctx, world, view);
+      this._drawDeployRoutes(ctx, world, flags, toMap);
       this._drawValleyOutline(ctx, world, toMap, size);
 
       if (selected) {
         ctx.save();
-        ctx.strokeStyle = '#e8922a';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([6, 5]);
-        ctx.beginPath();
-        ctx.moveTo(w / 2, 8);
-        ctx.lineTo(w / 2, h - 8);
-        ctx.moveTo(8, h / 2);
-        ctx.lineTo(w - 8, h / 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
+        ctx.strokeStyle = 'rgba(207,231,238,0.2)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 8]);
+        ctx.strokeRect(5.5, 5.5, w - 11, h - 11);
         ctx.restore();
-        ctx.strokeStyle = '#e8922a';
-        ctx.lineWidth = 4;
-        const pad = 10;
-        ctx.strokeRect(view.ox + pad, view.oy + pad, size * view.scale - pad * 2, size * view.scale - pad * 2);
       }
 
       if (world._allyBasePos) {
-        this._drawHqZone(ctx, toMap(world._allyBasePos.x, world._allyBasePos.z), 'ally', view.scale);
+        this._drawHqZone(
+          ctx,
+          toMap(world._allyBasePos.x, world._allyBasePos.z),
+          'ally',
+          view.scale,
+          world._playerTeam === 'enemy' ? 'enemy' : 'ally'
+        );
       }
       if (world._enemyBasePos) {
-        this._drawHqZone(ctx, toMap(world._enemyBasePos.x, world._enemyBasePos.z), 'enemy', view.scale);
+        this._drawHqZone(
+          ctx,
+          toMap(world._enemyBasePos.x, world._enemyBasePos.z),
+          'enemy',
+          view.scale,
+          world._playerTeam === 'enemy' ? 'ally' : 'enemy'
+        );
       }
 
       const drawHqBadge = function (pos, team) {
         if (!pos) return;
         const p = toMap(pos.x, pos.z);
-        ctx.fillStyle = team === 'ally' ? '#3b82e8' : '#e24b3c';
+        const friendly = team === (world._playerTeam === 'enemy' ? 'enemy' : 'ally');
+        ctx.fillStyle = friendly ? '#3b82e8' : '#e24b3c';
         ctx.fillRect(p.x - 10, p.y - 10, 20, 20);
         ctx.fillStyle = '#fff';
         ctx.font = 'bold 11px Segoe UI, Microsoft YaHei, sans-serif';
@@ -2487,7 +4017,6 @@
       drawHqBadge(world._allyBasePos, 'ally');
       drawHqBadge(world._enemyBasePos, 'enemy');
 
-      const flags = world._conquestFlags || world._kitFlags || [];
       for (let i = 0; i < flags.length; i++) {
         const f = flags[i];
         const p = toMap(f.x, f.z);
@@ -2504,6 +4033,13 @@
           ctx.stroke();
         }
       }
+      this._drawSpawnMarkers(ctx, world, toMap, {
+        radius: 5,
+        fontSize: 9,
+        skipFixed: true,
+        skipFlags: true,
+        friendlyTeam: world._playerTeam === 'enemy' ? 'enemy' : 'ally',
+      });
 
       const g = global.VF.game;
       const ai = g && g.ai;
@@ -2514,7 +4050,8 @@
             const u = lists[L][i];
             if (!u || !u.alive || !u.mesh) continue;
             const p = toMap(u.mesh.position.x, u.mesh.position.z);
-            ctx.fillStyle = u.team === 'enemy' ? '#ff5566' : '#4aa3ff';
+            const pTeam = world._playerTeam === 'enemy' ? 'enemy' : 'ally';
+            ctx.fillStyle = u.team === pTeam ? '#4aa3ff' : '#ff5566';
             ctx.beginPath();
             ctx.moveTo(p.x, p.y - 4);
             ctx.lineTo(p.x + 3, p.y + 3);
@@ -2537,6 +4074,10 @@
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'left';
         ctx.fillText(s.label || s.letter || '', p.x + 18, p.y - 8);
+      }
+      if (this.els.deployMapZoom) {
+        const camera = this._spawnMapCamera || { zoom: 1 };
+        this.els.deployMapZoom.textContent = Math.round((camera.zoom || 1) * 100) + '%';
       }
     },
 
@@ -2897,6 +4438,28 @@
         }
       }
 
+      const vehicles =
+        global.VF && global.VF.Vehicles && global.VF.Vehicles.getAll
+          ? global.VF.Vehicles.getAll()
+          : [];
+      const playerTeam = this._playerTeam();
+      for (let i = 0; i < vehicles.length; i++) {
+        const vehicle = vehicles[i];
+        const p = toMap(vehicle.position.x, vehicle.position.z);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(-(vehicle.yaw || 0));
+        ctx.fillStyle = !vehicle.alive
+          ? 'rgba(150,155,158,0.42)'
+          : vehicle.team === playerTeam
+            ? '#59c6e8'
+            : '#ef665b';
+        ctx.fillRect(-5, -8, 10, 16);
+        ctx.fillStyle = '#f5fafb';
+        ctx.fillRect(-1.5, -8, 3, 4);
+        ctx.restore();
+      }
+
       // Player + facing (same forward as look / W: -sin/-cos in XZ)
       const me = toMap(player.object.position.x, player.object.position.z);
       const yaw = player.yaw;
@@ -3099,6 +4662,30 @@
           ctx.textBaseline = 'middle';
           ctx.fillText(f.letter || '', mx, my + 0.5);
         }
+      }
+
+      const vehicles =
+        global.VF && global.VF.Vehicles && global.VF.Vehicles.getAll
+          ? global.VF.Vehicles.getAll()
+          : [];
+      const pTeam = this._playerTeam();
+      for (let i = 0; i < vehicles.length; i++) {
+        const vehicle = vehicles[i];
+        const mx = cx + (vehicle.position.x - px) * scale;
+        const my = cy + (vehicle.position.z - pz) * scale;
+        if (mx < 5 || my < 5 || mx > w - 5 || my > h - 5) continue;
+        ctx.save();
+        ctx.translate(mx, my);
+        ctx.rotate(-(vehicle.yaw || 0));
+        ctx.fillStyle = !vehicle.alive
+          ? 'rgba(150,155,158,0.42)'
+          : vehicle.team === pTeam
+            ? '#59c6e8'
+            : '#ef665b';
+        ctx.fillRect(-3.5, -5, 7, 10);
+        ctx.fillStyle = '#f5fafb';
+        ctx.fillRect(-1, -5, 2, 3);
+        ctx.restore();
       }
 
       if (resources) {
