@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>体素战争</title>
-  <link rel="stylesheet" href="style.css?v=vehicle3" />
+  <link rel="stylesheet" href="style.css?v=pvp8v8" />
 </head>
 <body>
   <button id="audio-toggle" type="button" title="静音" aria-label="切换声音" aria-pressed="false">
@@ -97,7 +97,7 @@
         </fieldset>
         <fieldset>
           <legend>服务器规模</legend>
-          <label><input type="checkbox" data-server-size="2" checked /> 1 v 1</label>
+          <label><input type="checkbox" data-server-size="16" checked /> 8 v 8</label>
         </fieldset>
         <fieldset>
           <legend>游戏模式</legend>
@@ -204,7 +204,7 @@
         <button id="pvp-start-btn" type="button" class="cover-btn cover-btn-start">开始对局</button>
         <button id="pvp-lobby-back" type="button" class="cover-btn">离开房间</button>
       </div>
-      <p class="pvp-hint">同电脑开两个窗口即可联机 · 双方准备后由房主开始</p>
+      <p class="pvp-hint">同电脑开两个窗口即可联机 · 创建后直接进对局，最多 8v8</p>
     </div>
   </div>
 
@@ -364,7 +364,10 @@
       <div id="cq-capture-counts">友 0 · 敌 0</div>
     </div>
     <div id="cq-markers" class="cq-markers" aria-hidden="true"></div>
-    <div id="cq-command" class="cq-command hidden">Q 标记 · X 职业装备 · Z 烟雾</div>
+    <div id="cq-command" class="cq-command hidden">
+      <span id="cq-command-text">Q 标记 · X 职业装备 · Z 烟雾</span>
+      <button type="button" id="cq-team-switch" class="cq-team-switch hidden">换边 (T)</button>
+    </div>
 
     <!-- Health under minimap -->
     <div id="vitals">
@@ -1149,7 +1152,7 @@
   <!-- Three.js (global THREE) — local bundle: three@0.160.0 + GLTFLoader/FBXLoader
        + SkeletonUtils + EXRLoader/RGBELoader (built by scripts/three-global-entry.js) -->
   <script src="js/vendor/three.gltf.global.js?v=rifle1"></script>
-  <!-- PeerJS for 1v1 PVP rooms (WebRTC) -->
+  <!-- PeerJS for PVP rooms (WebRTC) -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
   <!-- Game modules (order matters) -->
@@ -1175,7 +1178,7 @@
   <script src="js/economy.js?v=scorch3"></script>
   <script src="js/lobby.js?v=scorch4"></script>
   <script src="js/range.js?v=scorch4"></script>
-  <script src="js/ai.js?v=vehicle3"></script>
+  <script src="js/ai.js?v=pvp8v8"></script>
   <script src="js/conquest.js?v=vehicle3"></script>
   <script src="js/revive.js?v=vehicle3"></script>
   <script src="js/squads.js?v=scorch3"></script>
@@ -1186,13 +1189,13 @@
   <script src="js/net-simulation.js?v=vehicle3"></script>
   <script src="js/match-flow.js?v=scorch3"></script>
   <script src="js/soldier-menu.js?v=vehicle3"></script>
-  <script src="js/ui.js?v=vehicle3"></script>
+  <script src="js/ui.js?v=pvp8v8"></script>
   <script src="js/audio.js?v=scorch3"></script>
   <script src="js/atmosphere.js?v=scorch3"></script>
   <script src="js/config.js?v=scorch3"></script>
   <script src="js/kubee-bridge.js?v=scorch3"></script>
-  <script src="js/pvp.js?v=vehicle3"></script>
-  <script src="js/main.js?v=vehicle3"></script>
+  <script src="js/pvp.js?v=pvp8v8"></script>
+  <script src="js/main.js?v=pvp8v8"></script>
   <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
   <script src="js/feel-tuner.js?v=scorch3"></script>
   <!-- render-tuner.js: F9 后处理参数调节（生产环境删除） -->
