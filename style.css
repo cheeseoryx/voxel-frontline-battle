@@ -3110,17 +3110,45 @@ canvas {
 .cq-command {
   position: absolute;
   left: 50%;
-  bottom: 84px;
-  z-index: 7;
+  bottom: 88px;
+  z-index: 13;
   transform: translateX(-50%);
-  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  max-width: min(640px, calc(100% - 48px));
+  padding: 6px 12px;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(8, 10, 14, 0.68);
+  background: rgba(8, 10, 14, 0.78);
   color: rgba(255, 255, 255, 0.76);
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
   font-size: 12px;
   letter-spacing: 0.05em;
+  line-height: 1.35;
+  text-align: center;
+  white-space: nowrap;
   pointer-events: none;
+}
+.cq-team-switch {
+  pointer-events: auto;
+  cursor: pointer;
+  border: 1px solid rgba(255, 224, 138, 0.45);
+  background: rgba(255, 224, 138, 0.12);
+  color: #ffe08a;
+  font: inherit;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 3px;
+}
+.cq-team-switch:hover {
+  background: rgba(255, 224, 138, 0.22);
+}
+.cq-team-switch.hidden {
+  display: none !important;
+}
+#hud.vehicle-active .cq-command {
+  bottom: 132px;
 }
 .cq-sweep.win { color: #7ec8ff; border-color: rgba(126, 200, 255, 0.45); }
 .cq-sweep.fail { color: #ff8a7a; border-color: rgba(255, 138, 122, 0.5); }
@@ -3562,6 +3590,7 @@ canvas {
   position: absolute;
   top: 50%;
   left: 50%;
+  z-index: 9;
   width: 44px;
   height: 44px;
   transform: translate(-50%, -50%);
@@ -3578,6 +3607,266 @@ canvas {
 #crosshair.scoped {
   opacity: 0;
   pointer-events: none;
+}
+
+#hud.vehicle-active:not(.vehicle-personal) #crosshair .ch {
+  display: none;
+}
+
+#vehicle-reticle {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  color: #f4f8fa;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  text-shadow: 0 1px 2px #000;
+}
+
+#vehicle-reticle.hidden {
+  display: none !important;
+}
+
+#vehicle-reticle .vr-tpv,
+#vehicle-reticle .vr-fpv {
+  position: absolute;
+  inset: 0;
+}
+
+#hud.vehicle-optic #vehicle-reticle .vr-tpv {
+  display: none;
+}
+
+#hud:not(.vehicle-optic) #vehicle-reticle .vr-fpv {
+  display: none;
+}
+
+#vehicle-reticle i {
+  display: block;
+  font-style: normal;
+}
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.85);
+}
+
+#vehicle-reticle .vr-arm {
+  position: absolute;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.8);
+}
+
+#vehicle-reticle .vr-arm.n,
+#vehicle-reticle .vr-arm.s {
+  left: 50%;
+  width: 2px;
+  height: 13px;
+  margin-left: -1px;
+}
+
+#vehicle-reticle .vr-arm.n {
+  top: calc(50% - 22px);
+}
+
+#vehicle-reticle .vr-arm.s {
+  top: calc(50% + 9px);
+}
+
+#vehicle-reticle .vr-arm.e,
+#vehicle-reticle .vr-arm.w {
+  top: 50%;
+  width: 13px;
+  height: 2px;
+  margin-top: -1px;
+}
+
+#vehicle-reticle .vr-arm.w {
+  left: calc(50% - 22px);
+}
+
+#vehicle-reticle .vr-arm.e {
+  left: calc(50% + 9px);
+}
+
+#vehicle-reticle .vr-box {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+
+#vehicle-reticle .vr-box.tl {
+  left: calc(50% - 34px);
+  top: calc(50% - 34px);
+  border-right: 0;
+  border-bottom: 0;
+}
+
+#vehicle-reticle .vr-box.tr {
+  left: calc(50% + 25px);
+  top: calc(50% - 34px);
+  border-left: 0;
+  border-bottom: 0;
+}
+
+#vehicle-reticle .vr-box.bl {
+  left: calc(50% - 34px);
+  top: calc(50% + 25px);
+  border-right: 0;
+  border-top: 0;
+}
+
+#vehicle-reticle .vr-box.br {
+  left: calc(50% + 25px);
+  top: calc(50% + 25px);
+  border-left: 0;
+  border-top: 0;
+}
+
+#vehicle-reticle .vr-monitor {
+  position: absolute;
+  inset: 16px 20px 92px 20px;
+  border: 2px solid rgba(226, 238, 242, 0.28);
+  box-shadow:
+    inset 0 0 90px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+#vehicle-reticle .vr-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 48%,
+    transparent 42%,
+    rgba(0, 0, 0, 0.28) 78%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+
+#vehicle-reticle .vr-stadia-v {
+  position: absolute;
+  left: 50%;
+  top: calc(50% - 92px);
+  width: 1px;
+  height: 184px;
+  margin-left: -0.5px;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.82) 0 2px,
+    transparent 2px 9px
+  );
+}
+
+#vehicle-reticle .vr-stadia-h {
+  position: absolute;
+  top: 50%;
+  left: calc(50% - 78px);
+  width: 156px;
+  height: 1px;
+  margin-top: -0.5px;
+  background: repeating-linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.82) 0 2px,
+    transparent 2px 11px
+  );
+}
+
+#vehicle-reticle .vr-bracket {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+}
+
+#vehicle-reticle .vr-bracket.tl {
+  left: calc(50% - 108px);
+  top: calc(50% - 78px);
+  border-right: 0;
+  border-bottom: 0;
+}
+
+#vehicle-reticle .vr-bracket.tr {
+  left: calc(50% + 82px);
+  top: calc(50% - 78px);
+  border-left: 0;
+  border-bottom: 0;
+}
+
+#vehicle-reticle .vr-bracket.bl {
+  left: calc(50% - 108px);
+  top: calc(50% + 52px);
+  border-right: 0;
+  border-top: 0;
+}
+
+#vehicle-reticle .vr-bracket.br {
+  left: calc(50% + 82px);
+  top: calc(50% + 52px);
+  border-left: 0;
+  border-top: 0;
+}
+
+#vehicle-reticle .vr-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 2px;
+  margin: -1px 0 0 -8px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7);
+}
+
+#vehicle-reticle .vr-range {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 86px);
+  transform: translateX(-50%);
+  color: #f5fafc;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+#vehicle-reticle .vr-pitch {
+  position: absolute;
+  left: calc(50% + 118px);
+  top: calc(50% - 8px);
+  color: rgba(245, 250, 252, 0.92);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+#vehicle-reticle .vr-side {
+  position: absolute;
+  top: 42%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: rgba(236, 246, 248, 0.78);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+#vehicle-reticle .vr-side.left {
+  left: 36px;
+}
+
+#vehicle-reticle .vr-side.right {
+  right: 36px;
+  text-align: right;
+}
+
+#vehicle-reticle .vr-side b {
+  color: #f4f8fa;
+  font-size: 16px;
+  font-weight: 700;
 }
 
 /* ===== Scope overlay ===== */
@@ -4232,49 +4521,64 @@ canvas {
   display: none !important;
 }
 
-.vehicle-hud-controls {
+.vehicle-hud-dock {
   position: absolute;
-  bottom: 24px;
   left: 50%;
-  display: grid;
-  width: 238px;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px 12px;
-  padding: 8px 10px;
-  background: linear-gradient(90deg, transparent, rgba(4, 12, 16, 0.72) 18%, rgba(4, 12, 16, 0.72) 82%, transparent);
+  bottom: 16px;
+  z-index: 12;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
   transform: translateX(-50%);
+}
+
+.vehicle-hud-controls {
+  display: grid;
+  width: 268px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  padding: 10px 14px;
+  background: rgba(4, 12, 16, 0.82);
+  border: 1px solid rgba(210, 233, 239, 0.12);
 }
 
 .vehicle-hud-controls span {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: rgba(237, 246, 248, 0.74);
-  font-size: 10px;
+  min-height: 18px;
+  gap: 8px;
+  color: rgba(237, 246, 248, 0.78);
+  font-size: 11px;
+  line-height: 1.2;
   white-space: nowrap;
+}
+
+.vehicle-hud-controls [data-hint="exit"] {
+  grid-column: 1 / 2;
 }
 
 .vehicle-hud-controls kbd {
   display: inline-grid;
-  min-width: 20px;
+  min-width: 22px;
   height: 18px;
-  padding: 0 3px;
+  padding: 0 4px;
   place-items: center;
-  border: 1px solid rgba(222, 239, 244, 0.26);
+  border: 1px solid rgba(222, 239, 244, 0.28);
   border-radius: 0;
-  background: rgba(211, 231, 237, 0.1);
+  background: rgba(211, 231, 237, 0.12);
   color: #f6fbfc;
   font: 8px/1 "Segoe UI", sans-serif;
   box-shadow: none;
 }
 
 .vehicle-hud-seat-block {
-  position: absolute;
-  bottom: 22px;
-  left: calc(50% + 140px);
-  min-width: 68px;
-  padding: 6px;
-  background: rgba(4, 12, 16, 0.66);
+  display: flex;
+  min-width: 76px;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 10px;
+  background: rgba(4, 12, 16, 0.82);
+  border: 1px solid rgba(210, 233, 239, 0.12);
 }
 
 .vehicle-hud-status {
@@ -4439,15 +4743,16 @@ canvas {
 }
 
 .vehicle-jeep .vehicle-hud-weapon-panel,
-.vehicle-jeep .vehicle-hud-controls span:nth-child(3) {
+.vehicle-jeep .vehicle-hud-controls [data-hint="turret"] {
   display: none;
 }
 
-.vehicle-hud.role-gunner .vehicle-hud-controls span:nth-child(1),
-.vehicle-hud.role-gunner .vehicle-hud-controls span:nth-child(2),
-.vehicle-hud.role-passenger .vehicle-hud-controls span:nth-child(1),
-.vehicle-hud.role-passenger .vehicle-hud-controls span:nth-child(2),
-.vehicle-hud.role-passenger .vehicle-hud-controls span:nth-child(3) {
+.vehicle-hud.role-gunner .vehicle-hud-controls [data-hint="boost"],
+.vehicle-hud.role-gunner .vehicle-hud-controls [data-hint="slow"],
+.vehicle-hud.role-passenger .vehicle-hud-controls [data-hint="boost"],
+.vehicle-hud.role-passenger .vehicle-hud-controls [data-hint="slow"],
+.vehicle-hud.role-passenger .vehicle-hud-controls [data-hint="turret"],
+.vehicle-hud.vehicle-no-fpv .vehicle-hud-controls [data-hint="camera"] {
   display: none;
 }
 
@@ -4455,20 +4760,24 @@ canvas {
   bottom: 24px;
 }
 
+.vehicle-jeep .vehicle-hud-seats,
+.vehicle-ifv .vehicle-hud-seats {
+  grid-template-columns: repeat(3, 20px);
+}
+
 @media (max-width: 900px) {
   .vehicle-hud-controls {
-    left: 43%;
-    width: 214px;
-  }
-
-  .vehicle-hud-seat-block {
-    left: calc(43% + 126px);
+    width: 232px;
   }
 
   .vehicle-hud-status,
   .vehicle-hud-weapon-panel {
     right: 14px;
     width: 190px;
+  }
+
+  #hud.vehicle-active .cq-command {
+    bottom: 148px;
   }
 }
 

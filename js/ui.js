@@ -34,6 +34,11 @@
         vehicleHudSeats: document.getElementById('vehicle-hud-seats'),
         vehicleHudWeapon: document.getElementById('vehicle-hud-weapon'),
         vehicleHudAmmo: document.getElementById('vehicle-hud-ammo'),
+        vehicleReticle: document.getElementById('vehicle-reticle'),
+        vehicleReticleRange: document.getElementById('vehicle-reticle-range'),
+        vehicleReticlePitch: document.getElementById('vehicle-reticle-pitch'),
+        vehicleReticleSpeed: document.getElementById('vehicle-reticle-speed'),
+        vehicleReticleReady: document.getElementById('vehicle-reticle-ready'),
         skillHud: document.getElementById('skill-hud'),
         skillActive: document.getElementById('skill-active'),
         skillPassive: document.getElementById('skill-passive'),
@@ -109,6 +114,8 @@
         cqCaptureCounts: document.getElementById('cq-capture-counts'),
         cqMarkers: document.getElementById('cq-markers'),
         cqCommand: document.getElementById('cq-command'),
+        cqCommandText: document.getElementById('cq-command-text'),
+        cqTeamSwitch: document.getElementById('cq-team-switch'),
         cqBoard: document.getElementById('cq-board'),
         cqBoardClock: document.getElementById('cq-board-clock'),
         deployServer: document.getElementById('deploy-server'),
@@ -203,6 +210,28 @@
       this._spawnMapDrag = null;
       this._deathHandlers = { onRedeploy: null, onCallout: null, onHub: null };
       this._bindDeathButtons();
+      this._bindTeamSwitchButton();
+    },
+
+    _bindTeamSwitchButton() {
+      const btn = this.els.cqTeamSwitch;
+      if (!btn || btn._vfBound) return;
+      btn._vfBound = true;
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (global.VF && global.VF.Pvp && global.VF.Pvp.requestTeamSwitch) {
+          global.VF.Pvp.requestTeamSwitch();
+        }
+      });
+    },
+
+    syncTeamSwitchButton() {
+      const btn = this.els && this.els.cqTeamSwitch;
+      if (!btn) return;
+      const g = global.VF && global.VF.game;
+      const pvp = !!(g && g.mode === 'pvp' && this._hudMode === 'conquest');
+      btn.classList.toggle('hidden', !pvp);
     },
 
     setDeathHandlers(handlers) {
@@ -250,6 +279,7 @@
       if (global.VF && global.VF.Conquest && global.VF.Conquest.active && this.setHudMode) {
         this.setHudMode('conquest');
       }
+      if (this.syncTeamSwitchButton) this.syncTeamSwitchButton();
       if (this.syncWeaponLocks) this.syncWeaponLocks();
       if (global.VF && global.VF.syncGameBackBtn) global.VF.syncGameBackBtn();
     },
@@ -337,8 +367,18 @@
           : null;
       if (!vehicle || !vehicle.alive) {
         if (this.els.vehicleHud) this.els.vehicleHud.classList.add('hidden');
+        if (this.els.vehicleReticle) {
+          this.els.vehicleReticle.classList.add('hidden');
+          this.els.vehicleReticle.setAttribute('aria-hidden', 'true');
+        }
         if (this.els.hud) {
-          this.els.hud.classList.remove('vehicle-active', 'vehicle-personal');
+          this.els.hud.classList.remove(
+            'vehicle-active',
+            'vehicle-personal',
+            'vehicle-fpv',
+            'vehicle-tpv',
+            'vehicle-optic'
+          );
         }
         return;
       }
@@ -361,16 +401,53 @@
         vehicles.canUsePersonalWeapon &&
         vehicles.canUsePersonalWeapon(player)
       );
+      const canVehicleFpv = !!(
+        vehicles.canUseVehicleFirstPerson &&
+        vehicles.canUseVehicleFirstPerson(player)
+      );
+      if (this.els.vehicleHud) {
+        this.els.vehicleHud.classList.toggle('vehicle-no-fpv', !canVehicleFpv);
+      }
       if (this.els.hud) {
         this.els.hud.classList.add('vehicle-active');
         this.els.hud.classList.toggle('vehicle-personal', personal);
+        const firstPerson = !!(!personal && canVehicleFpv && player.vehicleCameraMode === 1);
+        this.els.hud.classList.toggle('vehicle-fpv', firstPerson);
+        this.els.hud.classList.toggle('vehicle-tpv', !firstPerson);
+        this.els.hud.classList.toggle(
+          'vehicle-optic',
+          firstPerson && vehicle.type !== 'jeep'
+        );
+      }
+      if (this.els.vehicleReticle) {
+        const showReticle = !personal;
+        this.els.vehicleReticle.classList.toggle('hidden', !showReticle);
+        this.els.vehicleReticle.setAttribute(
+          'aria-hidden',
+          showReticle ? 'false' : 'true'
+        );
+      }
+      if (this.els.vehicleReticleRange) {
+        this.els.vehicleReticleRange.textContent =
+          player._vehicleSightRange != null
+            ? Math.max(1, Math.round(player._vehicleSightRange)) + ' M'
+            : '-- M';
+      }
+      if (this.els.vehicleReticlePitch) {
+        const deg = Math.round(((player.pitch || 0) * 180) / Math.PI);
+        this.els.vehicleReticlePitch.textContent =
+          (deg > 0 ? '+' : '') + deg + '°';
+      }
+      if (this.els.vehicleReticleSpeed) {
+        this.els.vehicleReticleSpeed.textContent =
+          Math.round(Math.abs(vehicle.speed) * 3.6) + ' KPH';
       }
       if (this.els.vehicleHudName) {
         this.els.vehicleHudName.textContent = vehicle.def.nameZh;
       }
       if (this.els.vehicleHudArmor) {
         this.els.vehicleHudArmor.textContent =
-          vehicle.armorClass === 'heavy' ? '重型装甲 · +50%' : '轻型装甲';
+          vehicle.armorClass === 'heavy' ? '重型装甲' : '轻型装甲';
       }
       const hpPct = Math.max(0, Math.min(1, vehicle.hp / vehicle.maxHp));
       if (this.els.vehicleHud) {
@@ -452,17 +529,46 @@
       if (this.els.vehicleHudAmmo) {
         if (!weaponState) {
           this.els.vehicleHudAmmo.textContent = '—';
+        } else if (weaponState.mag != null && weaponState.reserve != null) {
+          let ammoText = weaponState.mag + ' / ' + weaponState.reserve;
+          if (weaponState.reloadTimer > 0) ammoText += ' · 装填';
+          else if (
+            weaponState.reserve <= 0 &&
+            weaponDef &&
+            weaponDef.reserveRegenSec &&
+            (weaponState.reserveRegenTimer || 0) > 0
+          ) {
+            ammoText +=
+              ' · 补充 ' +
+              Math.max(
+                1,
+                Math.ceil(
+                  weaponDef.reserveRegenSec - weaponState.reserveRegenTimer
+                )
+              ) +
+              's';
+          }
+          this.els.vehicleHudAmmo.textContent = ammoText;
         } else if (weaponState.mag != null) {
-          this.els.vehicleHudAmmo.textContent =
-            weaponState.mag +
-            ' / ' +
-            weaponState.reserve +
-            (weaponState.reloadTimer > 0 ? ' · 装填' : '');
-        } else {
+          this.els.vehicleHudAmmo.textContent = String(Math.max(0, weaponState.mag | 0));
+        } else if (weaponDef && weaponDef.maxHeat != null) {
           this.els.vehicleHudAmmo.textContent =
             Math.round(weaponState.heat || 0) +
             '% 热量' +
             (weaponState.overheated ? ' · 过热' : '');
+        } else {
+          this.els.vehicleHudAmmo.textContent = '∞';
+        }
+      }
+      if (this.els.vehicleReticleReady) {
+        if (personal) this.els.vehicleReticleReady.textContent = '个人武器';
+        else if (!weaponDef) this.els.vehicleReticleReady.textContent = '—';
+        else if (weaponState && weaponState.overheated) {
+          this.els.vehicleReticleReady.textContent = weaponDef.nameZh + ' 过热';
+        } else if (weaponState && weaponState.reloadTimer > 0) {
+          this.els.vehicleReticleReady.textContent = weaponDef.nameZh + ' 装填';
+        } else {
+          this.els.vehicleReticleReady.textContent = weaponDef.nameZh + ' 就绪';
         }
       }
     },
@@ -713,6 +819,7 @@
         if (this.els.missionStatus) this.els.missionStatus.title = '红方增援';
         if (this.els.objective) this.els.objective.textContent = '占领旗帜 · 耗尽敌方增援';
       }
+      this.syncTeamSwitchButton();
     },
 
     _playerTeam() {
@@ -822,7 +929,8 @@
       } else if (isLeader) {
         text = '队长 · 对准旗点按 Q 下达命令 · X 装备 · Z 烟雾';
       }
-      this.els.cqCommand.textContent = text;
+      if (this.els.cqCommandText) this.els.cqCommandText.textContent = text;
+      else this.els.cqCommand.textContent = text;
     },
 
     _drawCqCapture(flag, playerTeam) {
@@ -2750,7 +2858,7 @@
       }
       if (this.els.deployMapMode) {
         const modeMap = this.els.deployMapMode.querySelector('span');
-        const matchSize = g && g.mode === 'pvp' ? '1 vs 1' : '32 vs 32';
+        const matchSize = g && g.mode === 'pvp' ? '8 vs 8' : '32 vs 32';
         if (modeMap) modeMap.textContent = mapName + ' · ' + matchSize;
       }
       if (this.els.deployServer) {

@@ -631,8 +631,99 @@
     this._setupSpawnPoints(this.allyOrigin, this.enemyOrigin, w._kitSpawns);
   };
 
+  Bases.prototype._gateAxis = function (gateDir) {
+    if (gateDir === '+z') return { ox: 0, oz: 1, px: 1, pz: 0 };
+    if (gateDir === '-z') return { ox: 0, oz: -1, px: 1, pz: 0 };
+    if (gateDir === '+x') return { ox: 1, oz: 0, px: 0, pz: 1 };
+    return { ox: -1, oz: 0, px: 0, pz: 1 };
+  };
+
+  Bases.prototype._surfaceAt = function (x, z) {
+    const w = this.world;
+    const gx = Math.floor(x);
+    const gz = Math.floor(z);
+    if (gx < 1 || gz < 1 || gx >= w.worldSize - 1 || gz >= w.worldSize - 1) return null;
+    if (w._riverInfo && w._riverInfo(gx, gz).inWater) return null;
+    let gy = w._surface(gx, gz);
+    if (!(gy > 2)) gy = 6;
+    return gy;
+  };
+
+  /** Courtyard height follows the gate approach, never a mesa above it. */
+  Bases.prototype._pickCourtyardHeight = function (gx, gz, half, gateDir) {
+    const center = this._surfaceAt(gx, gz) || 9;
+    const axis = this._gateAxis(gateDir);
+    const samples = [];
+    for (let d = half + 4; d <= half + 36; d += 3) {
+      for (let s = -10; s <= 10; s += 5) {
+        const y = this._surfaceAt(gx + axis.ox * d + axis.px * s, gz + axis.oz * d + axis.pz * s);
+        if (y != null) samples.push(y);
+      }
+    }
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const y = this._surfaceAt(
+        gx + Math.cos(a) * (half + 8),
+        gz + Math.sin(a) * (half + 8)
+      );
+      if (y != null) samples.push(y);
+    }
+    if (!samples.length) return center;
+    samples.sort(function (a, b) {
+      return a - b;
+    });
+    const lo = samples[Math.floor(samples.length * 0.2)];
+    const med = samples[samples.length >> 1];
+    return Math.max(6, Math.min(center, med, lo + 1));
+  };
+
+  Bases.prototype._setWalkColumn = function (x, z, walkTop, topBlock) {
+    const w = this.world;
+    const BLOCK = global.VF.BLOCK;
+    if (x < 0 || z < 0 || x >= w.worldSize || z >= w.worldSize) return;
+    const top = Math.max(1.2, walkTop);
+    const gy = Math.max(3, Math.round(top) - 1);
+    const cap = topBlock || BLOCK.CONCRETE;
+    for (let y = 0; y <= gy; y++) {
+      let t = BLOCK.STONE;
+      if (y === gy) t = cap;
+      else if (y === gy - 1) t = BLOCK.DIRT;
+      w.set(x, y, z, t);
+    }
+    for (let y = gy + 1; y < Math.min(gy + 24, w.height); y++) {
+      w.set(x, y, z, BLOCK.AIR);
+    }
+    if (w.groundY) w.groundY[z * w.worldSize + x] = gy;
+    if (w.terrainH) w.terrainH[z * w.worldSize + x] = top;
+  };
+
+  Bases.prototype._gradeGateExit = function (gx, gz, gy, half, gateDir) {
+    const w = this.world;
+    const BLOCK = global.VF.BLOCK;
+    const axis = this._gateAxis(gateDir);
+    const padTop = gy + 1;
+    const apron = 6;
+    const ramp = 18;
+    for (let d = 1; d <= apron + ramp; d++) {
+      const t = d <= apron ? 0 : Math.min(1, (d - apron) / ramp);
+      const topBlock = d <= apron ? BLOCK.CONCRETE : BLOCK.DIRT;
+      for (let s = -10; s <= 10; s++) {
+        const x = gx + axis.ox * (half + d) + axis.px * s;
+        const z = gz + axis.oz * (half + d) + axis.pz * s;
+        if (x < 1 || z < 1 || x >= w.worldSize - 1 || z >= w.worldSize - 1) continue;
+        if (w._riverInfo && w._riverInfo(x, z).inWater) continue;
+        const idx = z * w.worldSize + x;
+        const naturalTop =
+          w.terrainH && w.terrainH[idx] > 1.2
+            ? w.terrainH[idx]
+            : (w._surface(x, z) || gy) + 1;
+        const walkTop = padTop + (naturalTop - padTop) * t;
+        this._setWalkColumn(x, z, walkTop, topBlock);
+      }
+    }
+  };
   /**
-   * Full voxel footprint: floor pad, ziggurat pedestal, walls with open gate + stairs.
+   * Courtyard + walls on natural-height ground (no raised HQ mesa).
    */
   Bases.prototype._buildBaseStructure = function (cx, cz, gateDir) {
     const w = this.world;
@@ -644,25 +735,13 @@
     const gateHalf = 6;
     const wallThick = 4;
 
-    // Force flat ground height at pad
-    let gy = w._surface(gx, gz) || 9;
-    if (w._riverInfo(gx, gz).inWater) gy = Math.max(gy, 6);
+    const gy = this._pickCourtyardHeight(gx, gz, half, gateDir);
 
-    // --- Floor pad ---
+    // --- Floor pad (matches gate-out terrain, not the hilltop) ---
     for (let x = gx - half - 1; x <= gx + half + 1; x++) {
       for (let z = gz - half - 1; z <= gz + half + 1; z++) {
         if (x < 0 || z < 0 || x >= w.worldSize || z >= w.worldSize) continue;
-        for (let y = 0; y <= gy; y++) {
-          let t = BLOCK.STONE;
-          if (y === gy) t = BLOCK.CONCRETE;
-          else if (y === gy - 1) t = BLOCK.DIRT;
-          w.set(x, y, z, t);
-        }
-        for (let y = gy + 1; y < Math.min(gy + 24, w.height); y++) {
-          w.set(x, y, z, BLOCK.AIR);
-        }
-        if (w.groundY) w.groundY[z * w.worldSize + x] = gy;
-        if (w.terrainH) w.terrainH[z * w.worldSize + x] = gy + 1;
+        this._setWalkColumn(x, z, gy + 1, BLOCK.CONCRETE);
       }
     }
 
@@ -758,6 +837,7 @@
 
     // Wipe buildings in the open approach OUTSIDE the gate (not the gate itself)
     this._clearGateApproach(gx, gz, gy, half, gateDir);
+    this._gradeGateExit(gx, gz, gy, half, gateDir);
 
     // --- Interior spiral stairs: courtyard → wall walkway ---
     const stairCx =

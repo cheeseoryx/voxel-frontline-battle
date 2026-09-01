@@ -4,7 +4,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = 2;
+  const VERSION = 3;
 
   function finite(value, fallback) {
     return typeof value === 'number' && isFinite(value) ? value : fallback;
@@ -104,6 +104,7 @@
                 weapon.mag == null ? -1 : weapon.mag | 0,
                 weapon.reserve == null ? -1 : weapon.reserve | 0,
                 Math.round(finite(weapon.reloadTimer, 0) * 100),
+                Math.round(finite(weapon.reserveRegenTimer, 0) * 10),
                 Math.round(finite(weapon.heat, 0) * 10),
                 weapon.overheated ? 1 : 0,
               ];

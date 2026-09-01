@@ -726,46 +726,156 @@
     this._respawnQ = [];
   };
 
+  AI.prototype._pvpHumanCounts = function () {
+    if (
+      global.VF.game &&
+      global.VF.game.mode === 'pvp' &&
+      global.VF.Pvp &&
+      typeof global.VF.Pvp.getHumanCounts === 'function'
+    ) {
+      return global.VF.Pvp.getHumanCounts();
+    }
+    const playerTeam = (this.world && this.world._playerTeam) || 'ally';
+    return {
+      ally: playerTeam === 'ally' ? 1 : 0,
+      enemy: playerTeam === 'enemy' ? 1 : 0,
+    };
+  };
+
+  AI.prototype._aiCapForTeam = function (team) {
+    const roster = Math.max(1, Math.floor(feelAi().teamSize));
+    const humans = this._pvpHumanCounts();
+    const taken = team === 'enemy' ? humans.enemy || 0 : humans.ally || 0;
+    return Math.max(0, roster - taken);
+  };
+
+  AI.prototype._factionOccupancy = function (team) {
+    const list = team === 'enemy' ? this.red : this.blue;
+    let n = 0;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].alive || list[i].downed) n++;
+    }
+    if (this._respawnQ) {
+      for (let i = 0; i < this._respawnQ.length; i++) {
+        if (this._respawnQ[i].team === team) n++;
+      }
+    }
+    return n;
+  };
+
+  AI.prototype._bindTeamViews = function () {
+    const playerTeam = (this.world && this.world._playerTeam) || 'ally';
+    if (playerTeam === 'ally') {
+      this.allies = this.blue;
+      this.enemies = this.red;
+    } else {
+      this.allies = this.red;
+      this.enemies = this.blue;
+    }
+  };
+
+  AI.prototype._refreshArmyHud = function () {
+    if (!global.VF.UI) return;
+    const playerTeam = (this.world && this.world._playerTeam) || 'ally';
+    const humans = this._pvpHumanCounts();
+    let blueN = 0;
+    let redN = 0;
+    for (let i = 0; i < this.blue.length; i++) if (this.blue[i].alive) blueN++;
+    for (let i = 0; i < this.red.length; i++) if (this.red[i].alive) redN++;
+    blueN += humans.ally || 0;
+    redN += humans.enemy || 0;
+    global.VF.UI.updateArmyCounts(blueN, redN);
+    global.VF.UI.updateSquad(
+      playerTeam === 'ally' ? blueN : redN,
+      playerTeam === 'ally' ? redN : blueN,
+      '占领旗帜 · 耗尽敌方票数'
+    );
+  };
+
+  AI.prototype._removeOneUnit = function (faction) {
+    if (this._respawnQ && this._respawnQ.length) {
+      for (let i = this._respawnQ.length - 1; i >= 0; i--) {
+        if (this._respawnQ[i].team === faction) {
+          this._respawnQ.splice(i, 1);
+          return true;
+        }
+      }
+    }
+    const list = faction === 'enemy' ? this.red : this.blue;
+    let idx = -1;
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (!list[i].alive && !list[i].downed) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx < 0) {
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (!list[i].alive) {
+          idx = i;
+          break;
+        }
+      }
+    }
+    if (idx < 0 && list.length) idx = list.length - 1;
+    if (idx < 0) return false;
+    const unit = list[idx];
+    if (unit.vehicleId != null) {
+      this._dismountAI(unit, { reason: 'roster', silent: true, resume: false });
+    }
+    if (unit.mesh) this.scene.remove(unit.mesh);
+    list.splice(idx, 1);
+    return true;
+  };
+
+  AI.prototype._addOneUnit = function (faction) {
+    const home = this._baseHome(faction);
+    let pos = this._sampleAroundBase(faction);
+    if (!pos) {
+      const p = this._basePos(faction);
+      if (p) pos = new THREE.Vector3(p.x, p.y || 8, p.z);
+    }
+    if (!pos) return false;
+    const unit = this._spawnUnit('infantry', pos, faction, {
+      role: 'base',
+      home: home,
+    });
+    if (faction === 'enemy') this.red.push(unit);
+    else this.blue.push(unit);
+    return true;
+  };
+
+  AI.prototype.syncHumanCounts = function () {
+    if (!this._armiesSpawned) return;
+    const teams = ['ally', 'enemy'];
+    for (let t = 0; t < teams.length; t++) {
+      const team = teams[t];
+      const cap = this._aiCapForTeam(team);
+      let guard = 0;
+      while (this._factionOccupancy(team) > cap && guard++ < 48) {
+        if (!this._removeOneUnit(team)) break;
+      }
+      guard = 0;
+      while (this._factionOccupancy(team) < cap && guard++ < 48) {
+        if (!this._addOneUnit(team)) break;
+      }
+    }
+    this._bindTeamViews();
+    this._refreshArmyHud();
+    if (global.VF.Squads && global.VF.Squads.buildRosters && global.VF.game) {
+      global.VF.Squads.buildRosters(global.VF.game);
+    }
+  };
+
   AI.prototype.applyPlayerTeam = function () {
     this._clearUnits();
     if (!this.world.buildings) this.world.buildings = [];
-    const playerTeam = this.world._playerTeam || 'ally';
-    const roster = Math.max(1, Math.floor(feelAi().teamSize));
-    const pvp = global.VF.game && global.VF.game.mode === 'pvp';
-    let blueN = roster;
-    let redN = roster;
-    if (pvp) {
-      blueN = 0;
-      redN = 0;
-    } else {
-      if (playerTeam === 'ally') blueN = Math.max(0, roster - 1);
-      else redN = Math.max(0, roster - 1);
-    }
-    this.blue = this._spawnFaction('ally', blueN);
-    this.red = this._spawnFaction('enemy', redN);
-    if (playerTeam === 'ally') {
-      this.allies = this.blue.slice();
-      this.enemies = this.red.slice();
-    } else {
-      this.allies = this.red.slice();
-      this.enemies = this.blue.slice();
-    }
+    this.blue = this._spawnFaction('ally', this._aiCapForTeam('ally'));
+    this.red = this._spawnFaction('enemy', this._aiCapForTeam('enemy'));
+    this._bindTeamViews();
     this._armiesSpawned = true;
     this.waveTimer = 0;
-    if (global.VF.UI) {
-      const hudBlue = pvp ? 1 : playerTeam === 'ally' ? this.blue.length + 1 : this.blue.length;
-      const hudRed = pvp ? 1 : playerTeam === 'enemy' ? this.red.length + 1 : this.red.length;
-      global.VF.UI.updateArmyCounts(hudBlue, hudRed);
-      const obj =
-        global.VF.game && global.VF.game.mode === 'pvp'
-          ? '摧毁对方核心'
-          : '占领旗帜 · 耗尽敌方票数';
-      global.VF.UI.updateSquad(
-        playerTeam === 'ally' ? hudBlue : hudRed,
-        playerTeam === 'ally' ? hudRed : hudBlue,
-        obj
-      );
-    }
+    this._refreshArmyHud();
   };
 
   AI.prototype.relocateSquadNearSpawn = function () {
@@ -2864,7 +2974,7 @@
         : 0;
 
     // Pad units: stay near refresh point (leash)
-    if (unit.role === 'pad' && home && distHome > PAD_LEASH_R) {
+    if (unit.role === 'pad' && home && distHome > PAD_LEASH_R && !unit._flagGoal) {
       unit.state = 'patrol';
       unit.target = null;
       const back = new THREE.Vector3(home.cx, unit.mesh.position.y, home.cz);
@@ -3348,9 +3458,7 @@
     for (let i = 0; i < this._respawnQ.length; i++) {
       if (this._respawnQ[i].team === team) queued++;
     }
-    const roster = Math.max(1, Math.floor(feelAi().teamSize));
-    const playerTeam = (this.world && this.world._playerTeam) || 'ally';
-    const cap = team === playerTeam ? Math.max(0, roster - 1) : roster;
+    const cap = this._aiCapForTeam(team);
     if (alive + queued >= cap) return;
     if (!opts.casualtySettled && C.onDeath) {
       C.onDeath(team, {
@@ -3550,9 +3658,14 @@
       let redN = 0;
       for (let i = 0; i < this.blue.length; i++) if (this.blue[i].alive) blueN++;
       for (let i = 0; i < this.red.length; i++) if (this.red[i].alive) redN++;
-      if (this.player && !this.player.dead) {
+      if (this.player && !this.player.dead && !(global.VF.game && global.VF.game.mode === 'pvp')) {
         if (playerTeam === 'ally') blueN++;
         else redN++;
+      }
+      if (global.VF.game && global.VF.game.mode === 'pvp') {
+        const humans = this._pvpHumanCounts();
+        blueN += humans.ally || 0;
+        redN += humans.enemy || 0;
       }
       if (global.VF.UI) {
         if (!(global.VF.game && global.VF.game.mode === 'pvp')) {

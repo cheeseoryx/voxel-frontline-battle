@@ -7,6 +7,16 @@
 
   const DEG = Math.PI / 180;
   const EPS = 1e-6;
+  const RAM_MIN_SPEED = 2.5;
+  const RAM_LOOKAHEAD = 1.45;
+  const RAM_SLOW_FACTOR = 0.5;
+  const RAM_SLOW_DURATION = 0.7;
+  const RAM_MAX_VOXELS = 220;
+  const DRIVE_HALF_WIDTH = 0.48;
+  const DRIVE_HALF_LENGTH = 0.48;
+  const MAX_DRIVE_PITCH = Math.PI / 4;
+  const MAX_DRIVE_DOWN_PITCH = Math.PI * 0.42;
+  const DRIVE_PITCH_RATE = 10;
 
   function seat(role, x, y, z) {
     return { role: role, offset: { x: x, y: y, z: z } };
@@ -21,7 +31,7 @@
       nameZh: 'RPG-7 反装甲火箭',
       kind: 'anti-armor-rocket',
       mode: 'projectile',
-      damage: 200,
+      damage: 150,
       damageType: 'antiArmor',
       cooldown: 3.2,
       projectileSpeed: 38,
@@ -33,17 +43,20 @@
       id: 'ifv_he_autocannon',
       vehicleType: 'ifv',
       role: 'driver',
-      name: 'IFV HE Autocannon',
-      nameZh: 'IFV 高爆自动炮',
+      name: 'IFV HE Cannon',
+      nameZh: '高爆炮',
       kind: 'autocannon',
       mode: 'hitscan',
       damage: 46,
       damageType: 'explosive',
-      cooldown: 0.18,
+      cooldown: 0.22,
       range: 130,
-      maxHeat: 100,
-      heatPerShot: 9,
-      heatCoolPerSec: 20,
+      magSize: 12,
+      reserve: 192,
+      reserveMax: 192,
+      reserveRegenSec: 15,
+      reserveRegenAmount: 12,
+      reloadSec: 3.2,
       pivot: { x: 0, y: 2.28, z: -1.28 },
       muzzle: { x: 0, y: 2.72, z: -3.45 },
     },
@@ -56,7 +69,7 @@
       kind: 'guided-missile',
       mode: 'projectile',
       guidance: 'aim',
-      damage: 300,
+      damage: 150,
       damageType: 'antiArmor',
       cooldown: 6.5,
       magSize: 1,
@@ -98,12 +111,10 @@
       nameZh: '多用途主炮',
       kind: 'main-cannon',
       mode: 'projectile',
-      damage: 320,
+      damage: 200,
       damageType: 'antiArmor',
       cooldown: 4.2,
-      magSize: 1,
-      reserve: 11,
-      reloadSec: 4.2,
+      magSize: 15,
       range: 320,
       projectileSpeed: 95,
       projectileLife: 4.2,
@@ -124,8 +135,8 @@
       cooldown: 0.095,
       range: 150,
       maxHeat: 100,
-      heatPerShot: 4.5,
-      heatCoolPerSec: 22,
+      heatPerShot: 9,
+      heatCoolPerSec: 20,
       pivot: { x: 0, y: 2.46, z: -1.57 },
       muzzle: { x: 0.32, y: 2.76, z: -4.2 },
     },
@@ -140,10 +151,10 @@
       damage: 36,
       damageType: 'bullet',
       cooldown: 0.14,
-      magSize: 50,
-      reserve: 250,
-      reloadSec: 5,
       range: 180,
+      maxHeat: 100,
+      heatPerShot: 9,
+      heatCoolPerSec: 20,
       pivot: { x: -0.72, y: 3.15, z: 0.05 },
       muzzle: { x: -0.68, y: 3.25, z: -1.3 },
     },
@@ -174,11 +185,12 @@
       braking: 18,
       turn: 1.28,
       turnRate: 1.28,
-      maxStep: 1.25,
+      maxStep: 2.5,
       maxHp: 360,
       armorClass: 'light',
       armorMul: 1,
       respawnSec: 45,
+      canRam: false,
       seats: [
         seat('driver', -0.48, 1.05, 0.15),
         seat('passenger', 0.48, 1.05, 0.15),
@@ -203,11 +215,22 @@
       braking: 14,
       turn: 0.82,
       turnRate: 0.82,
-      maxStep: 1.8,
+      maxStep: 3.6,
       maxHp: 600,
       armorClass: 'light',
       armorMul: 1,
       respawnSec: 60,
+      canRam: true,
+      cameraAnchors: {
+        driver: {
+          pivot: { x: 0, y: 2.03, z: -0.48 },
+          offset: { x: -0.52, y: 0.86, z: -1.18 },
+        },
+        gunner: {
+          pivot: { x: -0.82, y: 2.58, z: 0.25 },
+          offset: { x: 0, y: 0.3, z: -0.5 },
+        },
+      },
       seats: [
         seat('driver', -0.62, 1.2, -1.15),
         seat('gunner', 0, 2.05, -0.25),
@@ -232,11 +255,22 @@
       braking: 12,
       turn: 0.68,
       turnRate: 0.68,
-      maxStep: 2.1,
-      maxHp: 600,
+      maxStep: 4.2,
+      maxHp: 1000,
       armorClass: 'heavy',
-      armorMul: 1.5,
+      armorMul: 1,
       respawnSec: 75,
+      canRam: true,
+      cameraAnchors: {
+        driver: {
+          pivot: { x: 0, y: 2.08, z: -0.42 },
+          offset: { x: 0.58, y: 0.98, z: -1.42 },
+        },
+        gunner: {
+          pivot: { x: -0.72, y: 3.15, z: 0.05 },
+          offset: { x: 0, y: 0.34, z: -0.5 },
+        },
+      },
       seats: [
         seat('driver', -0.58, 1.35, -1.25),
         seat('gunner', 0, 2.25, -0.15),
@@ -329,13 +363,37 @@
     };
   }
 
+  function boxesOverlap(a, b) {
+    if (!a || !b || !a.min || !b.min || !a.max || !b.max) return false;
+    if (typeof a.intersectsBox === 'function') {
+      try {
+        return !!a.intersectsBox(b);
+      } catch (_) {
+        // Fall through to numeric overlap.
+      }
+    }
+    return (
+      a.min.x <= b.max.x &&
+      a.max.x >= b.min.x &&
+      a.min.y <= b.max.y &&
+      a.max.y >= b.min.y &&
+      a.min.z <= b.max.z &&
+      a.max.z >= b.min.z
+    );
+  }
+
   function localToWorld(vehicle, offset) {
-    const c = Math.cos(vehicle.yaw || 0);
-    const s = Math.sin(vehicle.yaw || 0);
+    const cy = Math.cos(vehicle.yaw || 0);
+    const sy = Math.sin(vehicle.yaw || 0);
+    const cp = Math.cos(vehicle.pitch || 0);
+    const sp = Math.sin(vehicle.pitch || 0);
+    const x1 = offset.x;
+    const y1 = offset.y * cp - offset.z * sp;
+    const z1 = offset.y * sp + offset.z * cp;
     return {
-      x: vehicle.position.x + offset.x * c + offset.z * s,
-      y: vehicle.position.y + offset.y,
-      z: vehicle.position.z - offset.x * s + offset.z * c,
+      x: vehicle.position.x + x1 * cy + z1 * sy,
+      y: vehicle.position.y + y1,
+      z: vehicle.position.z - x1 * sy + z1 * cy,
     };
   }
 
@@ -346,6 +404,7 @@
       mag: state.mag == null ? null : state.mag,
       reserve: state.reserve == null ? null : state.reserve,
       reloadTimer: finite(state.reloadTimer, 0),
+      reserveRegenTimer: finite(state.reserveRegenTimer, 0),
       heat: finite(state.heat, 0),
       overheated: !!state.overheated,
     };
@@ -715,16 +774,25 @@
     return this;
   };
 
+  VehicleSystem.prototype._driveSampleHalf = function (def) {
+    const dims = def && def.dimensions;
+    return {
+      halfX: (dims && dims.width ? dims.width : 2.4) * DRIVE_HALF_WIDTH,
+      halfZ: (dims && dims.length ? dims.length : 4.8) * DRIVE_HALF_LENGTH,
+    };
+  };
+
   VehicleSystem.prototype._groundForSpawn = function (def, x, z, yaw) {
     const world = this.world;
     if (!world) return 0;
     if (typeof world.sampleDriveHeight === 'function') {
       try {
+        const half = this._driveSampleHalf(def);
         const sample = world.sampleDriveHeight(
           x,
           z,
-          def.dimensions.width * 0.42,
-          def.dimensions.length * 0.42,
+          half.halfX,
+          half.halfZ,
           yaw || 0,
           def.maxStep
         );
@@ -754,6 +822,7 @@
       mag: mag,
       reserve: def && def.reserve != null ? def.reserve : null,
       reloadTimer: 0,
+      reserveRegenTimer: 0,
       heat: 0,
       overheated: false,
     };
@@ -835,6 +904,7 @@
       turretPitch: finite(spec.turretPitch, 0),
       mesh: null,
       aabb: { min: vec(0, 0, 0), max: vec(0, 0, 0), vehicleId: id },
+      ramSlowTimer: 0,
       spawn: {
         position: copyVec(spec.respawnPosition || position),
         yaw: finite(spec.respawnYaw, yaw),
@@ -974,6 +1044,15 @@
     );
   };
 
+  VehicleSystem.prototype.canUseVehicleFirstPerson = function (entity) {
+    const vehicle = entity && this.getById(entity.vehicleId);
+    if (!vehicle || !vehicle.alive) return false;
+    if (entity.vehicleRole === 'passenger') {
+      return this.getWeaponsForRole(vehicle, 'passenger').length > 0;
+    }
+    return entity.vehicleRole === 'driver' || entity.vehicleRole === 'gunner';
+  };
+
   VehicleSystem.prototype.reloadWeapon = function (vehicleOrId, weaponId) {
     const vehicle = this.getById(vehicleOrId);
     const def = WEAPON_DEFS[weaponId];
@@ -1076,15 +1155,11 @@
     const current = this._findEntitySeat(entity);
     if (!current || !current.vehicle.alive) return false;
     const target = this._seatFromArg(current.vehicle, seatIndex);
-    if (
-      !target ||
-      target === current.seat ||
-      target.occupant ||
-      target.occupantId != null
-    ) {
-      return false;
-    }
-    if (current.seat.role === 'driver') {
+    if (!target || target === current.seat) return false;
+    const other = target.occupant;
+    if (target.occupantId != null && (!other || !other.isAI)) return false;
+
+    if (current.seat.role === 'driver' || target.role === 'driver') {
       current.vehicle.driverInput = {
         throttle: 0,
         steer: 0,
@@ -1094,10 +1169,21 @@
         slow: false,
       };
     }
+
+    const entityId = current.seat.occupantId || this._entityId(entity);
+    if (other) {
+      current.seat.occupant = other;
+      current.seat.occupantId = target.occupantId || this._entityId(other);
+      other.vehicleId = current.vehicle.id;
+      other.vehicleSeat = current.seat.index;
+      other.vehicleRole = current.seat.role;
+      this._syncOccupant(current.vehicle, current.seat);
+    } else {
+      current.seat.occupant = null;
+      current.seat.occupantId = null;
+    }
     target.occupant = entity;
-    target.occupantId = current.seat.occupantId || this._entityId(entity);
-    current.seat.occupant = null;
-    current.seat.occupantId = null;
+    target.occupantId = entityId;
     entity.vehicleSeat = target.index;
     entity.vehicleRole = target.role;
     this._syncOccupant(current.vehicle, target);
@@ -1282,11 +1368,12 @@
     if (!world) return { y: vehicle.position.y, climbable: true };
     if (typeof world.sampleDriveHeight === 'function') {
       try {
+        const half = this._driveSampleHalf(vehicle.def);
         const sample = world.sampleDriveHeight(
           x,
           z,
-          vehicle.def.dimensions.width * 0.42,
-          vehicle.def.dimensions.length * 0.42,
+          half.halfX,
+          half.halfZ,
           vehicle.yaw,
           vehicle.def.maxStep
         );
@@ -1299,6 +1386,57 @@
     if (typeof world.getTerrainTop === 'function') y = world.getTerrainTop(x, z);
     else if (typeof world.getWalkHeight === 'function') y = world.getWalkHeight(x, z);
     return { y: isFinite(y) ? y : vehicle.position.y, climbable: true };
+  };
+
+  VehicleSystem.prototype._driveLength = function (vehicle) {
+    return Math.max(0.8, vehicle.def.dimensions.length * (DRIVE_HALF_LENGTH * 2));
+  };
+
+  /**
+   * Pose the hull on the front/rear contact line. The center is only halfway
+   * up a step while the nose is on the lip and the tail is still below.
+   */
+  VehicleSystem.prototype._drivePoseFromSample = function (vehicle, sample) {
+    const fallbackY = isFinite(sample && sample.y) ? sample.y : vehicle.position.y;
+    const frontY = sample && isFinite(sample.frontY) ? sample.frontY : fallbackY;
+    const rearY = sample && isFinite(sample.rearY) ? sample.rearY : fallbackY;
+    const rise = frontY - rearY;
+    const pitch = clamp(
+      Math.atan2(rise, this._driveLength(vehicle)),
+      -MAX_DRIVE_DOWN_PITCH,
+      MAX_DRIVE_PITCH
+    );
+    return {
+      y: (frontY + rearY) * 0.5,
+      pitch: pitch,
+      frontY: frontY,
+      rearY: rearY,
+      rise: rise,
+      hasContacts: !!(sample && isFinite(sample.frontY) && isFinite(sample.rearY)),
+    };
+  };
+
+  VehicleSystem.prototype._driveUphillBlocked = function (vehicle, sample, pose, currentY) {
+    if (!sample || !pose) return false;
+    const leadingY = vehicle.speed < -0.05 ? pose.rearY : pose.frontY;
+    const trailingY = vehicle.speed < -0.05 ? pose.frontY : pose.rearY;
+    const leadingRise = leadingY - trailingY;
+    const descending = leadingRise <= 0.03 && pose.y <= currentY + 0.03;
+    if (!pose.hasContacts) {
+      return sample.climbable === false && !descending;
+    }
+    if (descending || leadingRise <= 0.03) return false;
+    if (sample.climbable === false) return true;
+    if (leadingRise > vehicle.def.maxStep + 1e-4) return true;
+    return Math.atan2(leadingRise, this._driveLength(vehicle)) > MAX_DRIVE_PITCH + 1e-4;
+  };
+
+  VehicleSystem.prototype._applyDrivePitch = function (vehicle, targetPitch, dt) {
+    vehicle.pitch = approach(
+      vehicle.pitch || 0,
+      targetPitch || 0,
+      DRIVE_PITCH_RATE * Math.max(0.016, dt)
+    );
   };
 
   VehicleSystem.prototype._worldLimits = function (vehicle) {
@@ -1347,20 +1485,24 @@
     if (oldX !== vehicle.position.x || oldZ !== vehicle.position.z) vehicle.speed *= 0.25;
   };
 
-  VehicleSystem.prototype._wouldHitWorld = function (
-    vehicle,
-    x,
-    y,
-    z,
-    ignoreVehicleColliders
-  ) {
-    const world = this.world;
-    if (!world || typeof world.overlapsSolid !== 'function') return false;
+  VehicleSystem.prototype._driveExtents = function (vehicle, x, y, z) {
     const dims = vehicle.def.dimensions;
     const c = Math.abs(Math.cos(vehicle.yaw || 0));
     const s = Math.abs(Math.sin(vehicle.yaw || 0));
     const halfX = c * dims.width * 0.43 + s * dims.length * 0.43;
     const halfZ = s * dims.width * 0.43 + c * dims.length * 0.43;
+    return {
+      min: { x: x - halfX, y: y + 0.18, z: z - halfZ },
+      max: { x: x + halfX, y: y + dims.height * 0.88, z: z + halfZ },
+    };
+  };
+
+  VehicleSystem.prototype._asOverlapBox = function (
+    extents,
+    vehicle,
+    ignoreVehicleColliders,
+    ignoreTerrain
+  ) {
     let box;
     if (global.THREE && global.THREE.Box3 && global.THREE.Vector3) {
       box =
@@ -1369,16 +1511,37 @@
           new global.THREE.Vector3(),
           new global.THREE.Vector3()
         ));
-      box.min.set(x - halfX, y + 0.18, z - halfZ);
-      box.max.set(x + halfX, y + dims.height * 0.88, z + halfZ);
+      box.min.set(extents.min.x, extents.min.y, extents.min.z);
+      box.max.set(extents.max.x, extents.max.y, extents.max.z);
     } else {
       box = {
-        min: { x: x - halfX, y: y + 0.18, z: z - halfZ },
-        max: { x: x + halfX, y: y + dims.height * 0.88, z: z + halfZ },
+        min: { x: extents.min.x, y: extents.min.y, z: extents.min.z },
+        max: { x: extents.max.x, y: extents.max.y, z: extents.max.z },
       };
     }
     box.excludeVehicleId = vehicle.id;
     box.ignoreVehicleColliders = !!ignoreVehicleColliders;
+    box.ignoreTerrain = !!ignoreTerrain;
+    return box;
+  };
+
+  VehicleSystem.prototype._wouldHitWorld = function (
+    vehicle,
+    x,
+    y,
+    z,
+    ignoreVehicleColliders,
+    ignoreTerrain
+  ) {
+    const world = this.world;
+    if (!world || typeof world.overlapsSolid !== 'function') return false;
+    const extents = this._driveExtents(vehicle, x, y, z);
+    const box = this._asOverlapBox(
+      extents,
+      vehicle,
+      ignoreVehicleColliders,
+      ignoreTerrain
+    );
     try {
       return !!world.overlapsSolid(box);
     } catch (_) {
@@ -1386,10 +1549,192 @@
     }
   };
 
+  VehicleSystem.prototype._expandExtentsAlong = function (extents, dx, dz, extra) {
+    const out = {
+      min: { x: extents.min.x, y: extents.min.y, z: extents.min.z },
+      max: { x: extents.max.x, y: extents.max.y, z: extents.max.z },
+    };
+    const len = Math.hypot(dx, dz);
+    if (len < EPS || extra <= 0) return out;
+    const nx = (dx / len) * extra;
+    const nz = (dz / len) * extra;
+    if (nx >= 0) out.max.x += nx;
+    else out.min.x += nx;
+    if (nz >= 0) out.max.z += nz;
+    else out.min.z += nz;
+    return out;
+  };
+
+  VehicleSystem.prototype._isRamVoxel = function (x, y, z) {
+    const world = this.world;
+    if (!world) return false;
+    x = Math.floor(x);
+    y = Math.floor(y);
+    z = Math.floor(z);
+    if (typeof world._isStructureSolid === 'function') {
+      try {
+        return !!world._isStructureSolid(x, y, z);
+      } catch (_) {
+        return false;
+      }
+    }
+    if (typeof world.get !== 'function') return false;
+    const t = world.get(x, y, z);
+    if (!t) return false;
+    const BLOCK = global.VF && global.VF.BLOCK;
+    if (BLOCK) {
+      if (t === BLOCK.AIR || t === BLOCK.WATER || t === BLOCK.BEDROCK) return false;
+    }
+    if (typeof world._isTerrainFill === 'function') {
+      try {
+        if (world._isTerrainFill(x, y, z)) return false;
+      } catch (_) {
+        // Treat unknown fill checks as smashable structure.
+      }
+    }
+    if (typeof world._isSolid === 'function') {
+      try {
+        return !!world._isSolid(x, y, z);
+      } catch (_) {
+        return true;
+      }
+    }
+    return true;
+  };
+
+  VehicleSystem.prototype._breakRamVoxel = function (x, y, z) {
+    const world = this.world;
+    if (!world) return false;
+    x = Math.floor(x);
+    y = Math.floor(y);
+    z = Math.floor(z);
+    if (typeof world.breakBlock === 'function') {
+      try {
+        return !!world.breakBlock(x, y, z, { force: true });
+      } catch (_) {
+        return false;
+      }
+    }
+    if (typeof world.set !== 'function') return false;
+    const BLOCK = global.VF && global.VF.BLOCK;
+    world.set(x, y, z, BLOCK && BLOCK.AIR != null ? BLOCK.AIR : 0);
+    return true;
+  };
+
+  VehicleSystem.prototype._tryRamObstacles = function (vehicle, x, y, z, travelX, travelZ) {
+    const world = this.world;
+    const def = vehicle.def;
+    if (!world || !def || !def.canRam) return false;
+    if (Math.abs(vehicle.speed) < RAM_MIN_SPEED) return false;
+    const extents = this._expandExtentsAlong(
+      this._driveExtents(vehicle, x, y, z),
+      travelX,
+      travelZ,
+      RAM_LOOKAHEAD
+    );
+    const voxels = [];
+    const seen = Object.create(null);
+    const minX = Math.floor(extents.min.x);
+    const maxX = Math.floor(extents.max.x);
+    const minY = Math.floor(extents.min.y);
+    const maxY = Math.floor(extents.max.y);
+    const minZ = Math.floor(extents.min.z);
+    const maxZ = Math.floor(extents.max.z);
+    const size = isFinite(world.worldSize) ? world.worldSize : Infinity;
+    const height = isFinite(world.height) ? world.height : 96;
+    for (let vx = minX; vx <= maxX; vx++) {
+      if (vx < 0 || vx >= size) continue;
+      for (let vz = minZ; vz <= maxZ; vz++) {
+        if (vz < 0 || vz >= size) continue;
+        for (let vy = minY; vy <= maxY; vy++) {
+          if (vy < 0 || vy >= height) continue;
+          if (!this._isRamVoxel(vx, vy, vz)) continue;
+          const key = vx + ',' + vy + ',' + vz;
+          if (seen[key]) continue;
+          seen[key] = 1;
+          voxels.push({ x: vx, y: vy, z: vz });
+          if (voxels.length >= RAM_MAX_VOXELS) break;
+        }
+        if (voxels.length >= RAM_MAX_VOXELS) break;
+      }
+      if (voxels.length >= RAM_MAX_VOXELS) break;
+    }
+
+    const props = [];
+    const list = world.props || [];
+    const ramBox = {
+      min: extents.min,
+      max: extents.max,
+    };
+    for (let i = 0; i < list.length; i++) {
+      const prop = list[i];
+      if (!prop || !prop.box || !boxesOverlap(ramBox, prop.box)) continue;
+      props.push(prop);
+    }
+
+    if (!voxels.length && !props.length) return false;
+
+    const brokenVoxels = [];
+    for (let i = 0; i < voxels.length; i++) {
+      const voxel = voxels[i];
+      if (this._breakRamVoxel(voxel.x, voxel.y, voxel.z)) brokenVoxels.push(voxel);
+    }
+
+    const brokenProps = [];
+    for (let i = 0; i < props.length; i++) {
+      const prop = props[i];
+      let destroyed = false;
+      if (typeof world.destroyProp === 'function') {
+        try {
+          destroyed = !!world.destroyProp(prop);
+        } catch (_) {
+          destroyed = false;
+        }
+      }
+      if (!destroyed) continue;
+      const box = prop.box;
+      brokenProps.push({
+        x: (box.min.x + box.max.x) * 0.5,
+        y: (box.min.y + box.max.y) * 0.5,
+        z: (box.min.z + box.max.z) * 0.5,
+        kind: prop.kind || 'prop',
+      });
+    }
+
+    if (!brokenVoxels.length && !brokenProps.length) return false;
+
+    const alreadySlow = (vehicle.ramSlowTimer || 0) > 0;
+    vehicle.ramSlowTimer = RAM_SLOW_DURATION;
+    if (!alreadySlow) vehicle.speed *= RAM_SLOW_FACTOR;
+
+    const payload = {
+      vehicleId: vehicle.id,
+      vehicleType: vehicle.type,
+      team: vehicle.team,
+      position: copyVec(vehicle.position),
+      speed: vehicle.speed,
+      voxels: brokenVoxels,
+      props: brokenProps,
+    };
+    if (typeof this.onRamBreak === 'function') {
+      try {
+        this.onRamBreak(vehicle, payload);
+      } catch (error) {
+        if (global.console && console.error) console.error('[VF] Vehicles onRamBreak', error);
+      }
+    }
+    this._emit('vehicle-ram-break', payload);
+    return true;
+  };
+
   VehicleSystem.prototype._updateMovement = function (vehicle, dt) {
     const input = vehicle.driverInput;
     const def = vehicle.def;
     let speedScale = input.slow ? 0.34 : input.boost ? 1.24 : 1;
+    if ((vehicle.ramSlowTimer || 0) > 0) {
+      speedScale *= RAM_SLOW_FACTOR;
+      vehicle.ramSlowTimer = Math.max(0, vehicle.ramSlowTimer - dt);
+    }
     let target = input.throttle >= 0
       ? input.throttle * def.maxSpeed
       : input.throttle * def.reverseSpeed;
@@ -1417,25 +1762,62 @@
     );
 
     const forward = forwardFor(vehicle.yaw, 0);
-    const nextX = vehicle.position.x + forward.x * vehicle.speed * dt;
-    const nextZ = vehicle.position.z + forward.z * vehicle.speed * dt;
-    const sample = this._sampleDrive(vehicle, nextX, nextZ);
-    const blocked =
-      sample.climbable === false ||
-      this._wouldHitWorld(
+    let nextX = vehicle.position.x + forward.x * vehicle.speed * dt;
+    let nextZ = vehicle.position.z + forward.z * vehicle.speed * dt;
+    let sample = this._sampleDrive(vehicle, nextX, nextZ);
+    let pose = this._drivePoseFromSample(vehicle, sample);
+    let nextY = isFinite(pose.y) ? pose.y : vehicle.position.y;
+    let uphillBlocked = this._driveUphillBlocked(
+      vehicle,
+      sample,
+      pose,
+      vehicle.position.y
+    );
+    // Terrain is owned by the front/rear contact pose; only structures/props block.
+    let blocked =
+      uphillBlocked ||
+      this._wouldHitWorld(vehicle, nextX, nextY, nextZ, false, true);
+    if (blocked && !uphillBlocked) {
+      const rammed = this._tryRamObstacles(
         vehicle,
         nextX,
-        isFinite(sample.y) ? sample.y : vehicle.position.y,
-        nextZ
+        nextY,
+        nextZ,
+        nextX - vehicle.position.x,
+        nextZ - vehicle.position.z
       );
+      if (rammed) {
+        nextX = vehicle.position.x + forward.x * vehicle.speed * dt;
+        nextZ = vehicle.position.z + forward.z * vehicle.speed * dt;
+        sample = this._sampleDrive(vehicle, nextX, nextZ);
+        pose = this._drivePoseFromSample(vehicle, sample);
+        nextY = isFinite(pose.y) ? pose.y : vehicle.position.y;
+      }
+      uphillBlocked = this._driveUphillBlocked(
+        vehicle,
+        sample,
+        pose,
+        vehicle.position.y
+      );
+      blocked =
+        uphillBlocked ||
+        this._wouldHitWorld(vehicle, nextX, nextY, nextZ, false, true);
+    }
     if (blocked) {
       vehicle.speed = approach(vehicle.speed, 0, def.braking * dt);
-      const currentSample = this._sampleDrive(vehicle, vehicle.position.x, vehicle.position.z);
-      if (isFinite(currentSample.y)) vehicle.position.y = currentSample.y;
+      const currentSample = this._sampleDrive(
+        vehicle,
+        vehicle.position.x,
+        vehicle.position.z
+      );
+      const currentPose = this._drivePoseFromSample(vehicle, currentSample);
+      if (isFinite(currentPose.y)) vehicle.position.y = currentPose.y;
+      this._applyDrivePitch(vehicle, currentPose.pitch, dt);
     } else {
       vehicle.position.x = nextX;
       vehicle.position.z = nextZ;
-      if (isFinite(sample.y)) vehicle.position.y = sample.y;
+      if (isFinite(pose.y)) vehicle.position.y = pose.y;
+      this._applyDrivePitch(vehicle, pose.pitch, dt);
     }
     this._clampToWorld(vehicle);
     vehicle.velocity.x = forward.x * vehicle.speed;
@@ -1484,6 +1866,7 @@
             a.position.x,
             a.position.y,
             a.position.z,
+            true,
             true
           )
         ) {
@@ -1496,6 +1879,7 @@
             b.position.x,
             b.position.y,
             b.position.z,
+            true,
             true
           )
         ) {
@@ -1549,11 +1933,12 @@
     vehicle.aabb.vehicleId = vehicle.id;
     vehicle.aabb.team = vehicle.team;
     vehicle.aabb.alive = vehicle.alive;
+    const pitchLift = Math.abs(Math.sin(vehicle.pitch || 0)) * dims.length * 0.5;
     vehicle.aabb.min.x = vehicle.position.x - halfX;
-    vehicle.aabb.min.y = vehicle.position.y;
+    vehicle.aabb.min.y = vehicle.position.y - pitchLift;
     vehicle.aabb.min.z = vehicle.position.z - halfZ;
     vehicle.aabb.max.x = vehicle.position.x + halfX;
-    vehicle.aabb.max.y = vehicle.position.y + dims.height;
+    vehicle.aabb.max.y = vehicle.position.y + dims.height + pitchLift;
     vehicle.aabb.max.z = vehicle.position.z + halfZ;
   };
 
@@ -1603,14 +1988,34 @@
           const take = Math.min(need, state.reserve || 0);
           state.mag += take;
           state.ammo = state.mag;
-          state.reserve -= take;
+          if (state.reserve != null) state.reserve -= take;
         }
       }
+      this._tickReserveRegen(state, def, dt);
       if (def.maxHeat != null) {
-        state.heat = Math.max(0, state.heat - def.heatCoolPerSec * dt);
+        const cool = def.heatCoolPerSec != null ? def.heatCoolPerSec : 20;
+        state.heat = Math.max(0, state.heat - cool * dt);
         if (state.overheated && state.heat <= def.maxHeat * 0.35) state.overheated = false;
       }
     }
+  };
+
+  VehicleSystem.prototype._tickReserveRegen = function (state, def, dt) {
+    if (!state || !def || def.reserveRegenSec == null) {
+      if (state) state.reserveRegenTimer = 0;
+      return;
+    }
+    if ((state.reserve || 0) > 0) {
+      state.reserveRegenTimer = 0;
+      return;
+    }
+    state.reserveRegenTimer = (state.reserveRegenTimer || 0) + dt;
+    if (state.reserveRegenTimer + EPS < def.reserveRegenSec) return;
+    const amount = def.reserveRegenAmount != null ? def.reserveRegenAmount : def.magSize || 0;
+    const cap = def.reserveMax != null ? def.reserveMax : def.reserve != null ? def.reserve : amount;
+    state.reserve = Math.min(cap, Math.max(0, state.reserve || 0) + amount);
+    state.reserveRegenTimer = 0;
+    if (state.mag <= 0 && state.reserve > 0) this._beginReload(state, def);
   };
 
   VehicleSystem.prototype._beginReload = function (state, def) {
@@ -1651,6 +2056,7 @@
     vehicle.pitch = 0;
     vehicle.roll = 0;
     vehicle.speed = 0;
+    vehicle.ramSlowTimer = 0;
     vehicle.velocity = vec(0, 0, 0);
     vehicle.hp = vehicle.maxHp;
     vehicle.alive = true;
@@ -2057,6 +2463,52 @@
         pitchedZ * Math.cos(relativeYaw),
     };
     return localToWorld(vehicle, rotated);
+  };
+
+  VehicleSystem.prototype.getWeaponPivotWorld = function (vehicleOrId, weaponId) {
+    const vehicle = this.getById(vehicleOrId);
+    const def = WEAPON_DEFS[weaponId];
+    if (!vehicle || !def) return null;
+    const pivot = def.pivot || {
+      x: 0,
+      y: vehicle.def.dimensions.height * 0.7,
+      z: 0,
+    };
+    return this._shotOrigin(
+      vehicle,
+      { role: def.role, pivot: pivot, muzzle: pivot },
+      {}
+    );
+  };
+
+  /**
+   * Camera point fixed to the front of the active turret. The turret pivot is
+   * hull-local; offset rotates around it with that seat's current world aim.
+   */
+  VehicleSystem.prototype.getFirstPersonCameraAnchor = function (
+    vehicleOrId,
+    role
+  ) {
+    const vehicle = this.getById(vehicleOrId);
+    if (!vehicle || !vehicle.def.cameraAnchors) return null;
+    if (role !== 'driver' && role !== 'gunner') return null;
+    const anchor = vehicle.def.cameraAnchors[role];
+    if (!anchor) return null;
+    const aim =
+      (vehicle.aimByRole && vehicle.aimByRole[role]) ||
+      vehicle.aim;
+    const relativeYaw = normalizeAngle(
+      finite(aim && aim.yaw, vehicle.yaw) - vehicle.yaw
+    );
+    const c = Math.cos(relativeYaw);
+    const s = Math.sin(relativeYaw);
+    const pivot = anchor.pivot;
+    const offset = anchor.offset;
+    return localToWorld(vehicle, {
+      x: pivot.x + offset.x * c + offset.z * s,
+      y: pivot.y + offset.y,
+      z: pivot.z - offset.x * s + offset.z * c,
+    });
   };
 
   VehicleSystem.prototype._shotDirection = function (vehicle, origin, options, def) {
@@ -2488,6 +2940,7 @@
           pitch: vehicle.pitch,
           roll: vehicle.roll,
           speed: vehicle.speed,
+          ramSlowTimer: vehicle.ramSlowTimer || 0,
           hp: vehicle.hp,
           alive: vehicle.alive,
           destroyed: vehicle.destroyed,
@@ -2651,8 +3104,26 @@
         const sourceMag = source.mag != null ? source.mag : source.ammo;
         state.mag = clamp(Math.floor(finite(sourceMag, state.mag)), 0, def.magSize);
         state.ammo = state.mag;
-        state.reserve = Math.max(0, Math.floor(finite(source.reserve, state.reserve)));
+        if (def.reserve != null || def.reserveRegenSec != null) {
+          const cap =
+            def.reserveMax != null ? def.reserveMax : def.reserve != null ? def.reserve : state.reserve;
+          state.reserve = Math.max(
+            0,
+            Math.min(cap, Math.floor(finite(source.reserve, state.reserve)))
+          );
+        } else {
+          state.reserve = null;
+        }
         state.reloadTimer = Math.max(0, finite(source.reloadTimer, state.reloadTimer));
+      }
+      if (def.reserveRegenSec != null) {
+        if ((state.reserve || 0) > 0) state.reserveRegenTimer = 0;
+        else {
+          state.reserveRegenTimer = Math.max(
+            0,
+            finite(source.reserveRegenTimer, state.reserveRegenTimer)
+          );
+        }
       }
       if (def.maxHeat != null) {
         state.heat = clamp(finite(source.heat, state.heat), 0, def.maxHeat);
@@ -2744,6 +3215,7 @@
       vehicle.pitch = finite(source.pitch, vehicle.pitch);
       vehicle.roll = finite(source.roll, vehicle.roll);
       vehicle.speed = finite(source.speed, vehicle.speed);
+      vehicle.ramSlowTimer = Math.max(0, finite(source.ramSlowTimer, vehicle.ramSlowTimer));
       vehicle.hp = clamp(finite(source.hp, vehicle.hp), 0, vehicle.maxHp);
       vehicle.alive = source.alive !== false && source.destroyed !== true;
       vehicle.destroyed = !vehicle.alive;

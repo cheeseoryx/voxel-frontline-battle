@@ -309,10 +309,15 @@
     document.addEventListener('keydown', (e) => {
       self.keys[e.code] = true;
       if (e.key === 'f' || e.key === 'F') self.keys['KeyF'] = true;
+      const seatHotkey = /^F[1-6]$/.test(e.code) || /^F[1-6]$/.test(e.key);
+      if (self.vehicleId && seatHotkey) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
       if (
         !e.repeat &&
-        self.locked &&
         self._handleVehicleKey &&
+        (self.locked || self.vehicleId) &&
         self._handleVehicleKey(e)
       ) {
         self.keys[e.code] = false;
@@ -341,9 +346,21 @@
           sens = base * def.adsSens;
         }
       }
+      if (
+        self.vehicleId &&
+        self.vehicleCameraMode === 1 &&
+        self.vehicleRole &&
+        self.vehicleRole !== 'passenger'
+      ) {
+        sens *= 0.82;
+      }
       self.yaw -= e.movementX * sens;
       self.pitch -= e.movementY * sens;
-      self.pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, self.pitch));
+      if (self.vehicleId && self.vehicleRole && self.vehicleRole !== 'passenger') {
+        self.pitch = Math.max(-0.46, Math.min(0.34, self.pitch));
+      } else {
+        self.pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, self.pitch));
+      }
     });
 
     document.addEventListener('mousedown', (e) => {
@@ -388,23 +405,23 @@
     const vehicles = global.VF && global.VF.Vehicles;
     if (!vehicles || this.dead) return false;
     const game = global.VF && global.VF.game;
-    if (
-      game &&
-      game.mode === 'pvp' &&
-      global.VF.MatchFlow &&
-      global.VF.MatchFlow.phase !== 'live' &&
-      (event.code === 'KeyE' || /^F[1-6]$/.test(event.code))
-    ) {
-      if (
-        global.VF.UI &&
-        global.VF.UI.toast &&
-        (!this._vehicleWarmupToastAt ||
-          performance.now() - this._vehicleWarmupToastAt > 900)
-      ) {
-        this._vehicleWarmupToastAt = performance.now();
-        global.VF.UI.toast('热身结束后可使用载具');
+    if (game && game.mode === 'pvp' && global.VF.MatchFlow && global.VF.MatchFlow.phase !== 'live') {
+      const blocked =
+        event.code === 'KeyE' ||
+        /^F[1-6]$/.test(event.code) ||
+        /^F[1-6]$/.test(event.key);
+      if (blocked) {
+        if (
+          global.VF.UI &&
+          global.VF.UI.toast &&
+          (!this._vehicleWarmupToastAt ||
+            performance.now() - this._vehicleWarmupToastAt > 900)
+        ) {
+          this._vehicleWarmupToastAt = performance.now();
+          global.VF.UI.toast('热身结束后可使用载具');
+        }
+        return true;
       }
-      return true;
     }
     if (event.code === 'KeyE') {
       if (this.vehicleId) {
@@ -412,8 +429,13 @@
         if (exited) {
           this._sendVehicleCommand('vehicle-dismount', {});
           this._vehicleExitCool = 0.4;
+          this.vehicleCameraMode = 0;
           this.velocity.set(0, 0, 0);
           this._setVehicleViewModelVisible(true);
+          if (this.camera) {
+            this.camera.fov = HIP_FOV;
+            this.camera.updateProjectionMatrix();
+          }
           if (this.unstuckFromWorld) this.unstuckFromWorld();
         }
         return exited;
@@ -488,8 +510,13 @@
       return false;
     }
     if (!this.vehicleId) return false;
-    if (/^F[1-6]$/.test(event.code)) {
-      const seatIndex = Number(event.code.slice(1)) - 1;
+    const seatHotkey = /^F[1-6]$/.test(event.code)
+      ? event.code
+      : /^F[1-6]$/.test(event.key)
+        ? event.key
+        : '';
+    if (seatHotkey) {
+      const seatIndex = Number(seatHotkey.slice(1)) - 1;
       const switched = vehicles.switchSeat(this, seatIndex);
       if (switched) {
         this.vehicleWeaponIndex = 0;
@@ -497,6 +524,12 @@
         this._setVehicleViewModelVisible(
           vehicles.canUsePersonalWeapon(this)
         );
+        if (
+          vehicles.canUseVehicleFirstPerson &&
+          !vehicles.canUseVehicleFirstPerson(this)
+        ) {
+          this.vehicleCameraMode = 0;
+        }
         this._sendVehicleCommand('vehicle-seat', {
           vehicleId: this.vehicleId,
           seatIndex: seatIndex,
@@ -505,6 +538,13 @@
       return true;
     }
     if (event.code === 'KeyC') {
+      if (
+        vehicles.canUseVehicleFirstPerson &&
+        !vehicles.canUseVehicleFirstPerson(this)
+      ) {
+        this.vehicleCameraMode = 0;
+        return true;
+      }
       this.vehicleCameraMode = this.vehicleCameraMode ? 0 : 1;
       return true;
     }
@@ -551,6 +591,8 @@
       this.vehicleId = null;
       this.vehicleSeat = null;
       this.vehicleRole = null;
+      this.vehicleCameraMode = 0;
+      this._vehicleSightRange = null;
       this._setVehicleViewModelVisible(true);
       return false;
     }
@@ -596,12 +638,12 @@
             net.isNetworkConquest(game) &&
             !net.isAuthority(game)
           );
-          const roleAim =
-            (vehicle.aimByRole && vehicle.aimByRole[role]) ||
-            vehicle.aim;
-          const fireDirection = this.vehicleTurretLocked
-            ? roleAim.direction
-            : look;
+          const fireDirection = this._vehicleFireDirection(
+            vehicles,
+            vehicle,
+            look,
+            available[this.vehicleWeaponIndex]
+          );
           vehicles.fireWeapon(
             vehicle,
             available[this.vehicleWeaponIndex],
@@ -643,49 +685,144 @@
     );
 
     const personalWeapon = vehicles.canUsePersonalWeapon(this);
+    if (
+      vehicles.canUseVehicleFirstPerson &&
+      !vehicles.canUseVehicleFirstPerson(this)
+    ) {
+      this.vehicleCameraMode = 0;
+    }
     this._setVehicleViewModelVisible(personalWeapon);
-    if (personalWeapon || this.vehicleCameraMode === 1) {
+    this._applyVehicleCamera(vehicles, vehicle, look, personalWeapon);
+    this._updateVehicleSight(vehicles, vehicle, look);
+    return true;
+  };
+
+  Player.prototype._vehicleFireDirection = function (
+    vehicles,
+    vehicle,
+    look,
+    weaponId
+  ) {
+    if (this.vehicleTurretLocked) {
+      const roleAim =
+        (vehicle.aimByRole && vehicle.aimByRole[this.vehicleRole]) ||
+        vehicle.aim;
+      return roleAim && roleAim.direction ? roleAim.direction : look;
+    }
+    const def =
+      weaponId && global.VF.VEHICLE_WEAPONS
+        ? global.VF.VEHICLE_WEAPONS[weaponId]
+        : null;
+    if (!def || !vehicles._shotOrigin || !this.camera) return look;
+    const muzzle = vehicles._shotOrigin(vehicle, def, {});
+    const zero = 180;
+    const dx = this.camera.position.x + look.x * zero - muzzle.x;
+    const dy = this.camera.position.y + look.y * zero - muzzle.y;
+    const dz = this.camera.position.z + look.z * zero - muzzle.z;
+    const len = Math.hypot(dx, dy, dz) || 1;
+    return { x: dx / len, y: dy / len, z: dz / len };
+  };
+
+  Player.prototype._applyVehicleCamera = function (
+    vehicles,
+    vehicle,
+    look,
+    personalWeapon
+  ) {
+    const vehicleFpv =
+      this.vehicleCameraMode === 1 &&
+      (!vehicles.canUseVehicleFirstPerson ||
+        vehicles.canUseVehicleFirstPerson(this));
+    const firstPerson = !!(personalWeapon || vehicleFpv);
+    if (firstPerson) {
+      this._applyVehicleFirstPersonCamera(vehicles, vehicle, look, personalWeapon);
+      return;
+    }
+    const dims = vehicle.def.dimensions;
+    const type = vehicle.type;
+    const back = type === 'tank' ? 9.8 : type === 'ifv' ? 8.6 : 6.4;
+    const lift = type === 'tank' ? 1.85 : type === 'ifv' ? 1.55 : 1.28;
+    const focus = new THREE.Vector3(
+      vehicle.position.x,
+      vehicle.position.y + dims.height * (type === 'jeep' ? 0.62 : 0.58),
+      vehicle.position.z
+    );
+    const desired = new THREE.Vector3(
+      focus.x - look.x * back,
+      focus.y - look.y * back + lift,
+      focus.z - look.z * back
+    );
+    const ray = desired.clone().sub(focus);
+    const rayLen = ray.length();
+    if (rayLen > 0.08) {
+      ray.multiplyScalar(1 / rayLen);
+      const hit = vehicles.raycastWorld
+        ? vehicles.raycastWorld(focus, ray, rayLen)
+        : null;
+      if (hit && hit.distance < rayLen) {
+        desired.copy(focus).addScaledVector(
+          ray,
+          Math.max(1.4, hit.distance - 0.35)
+        );
+      }
+    }
+    this.camera.position.copy(desired);
+    this._syncCameraLook();
+    this.camera.fov = 62;
+    this.camera.updateProjectionMatrix();
+  };
+
+  Player.prototype._applyVehicleFirstPersonCamera = function (
+    vehicles,
+    vehicle,
+    look,
+    personalWeapon
+  ) {
+    if (personalWeapon) {
       this.camera.position.set(
         this.object.position.x,
-        this.object.position.y + (personalWeapon ? 0.45 : 0.3),
+        this.object.position.y + 0.45,
         this.object.position.z
       );
       this._syncCameraLook();
-    } else {
-      const target = new THREE.Vector3(
-        vehicle.position.x,
-        vehicle.position.y + vehicle.def.dimensions.height * 0.7,
-        vehicle.position.z
-      );
-      const distance = vehicle.def.dimensions.length * 0.62 + 3.2;
-      const desired = new THREE.Vector3(
-        target.x - look.x * distance,
-        target.y - look.y * distance + 1.25,
-        target.z - look.z * distance
-      );
-      const cameraRay = desired.clone().sub(target);
-      const cameraDistance = cameraRay.length();
-      if (cameraDistance > 0.01) cameraRay.divideScalar(cameraDistance);
-      const cameraHit =
-        cameraDistance > 0.01 && vehicles.raycastWorld
-          ? vehicles.raycastWorld(target, cameraRay, cameraDistance)
-          : null;
-      if (cameraHit && cameraHit.distance < cameraDistance) {
-        desired.copy(target).addScaledVector(
-          cameraRay,
-          Math.max(0.75, cameraHit.distance - 0.3)
-        );
-      }
-      this.camera.position.copy(desired);
-      this.camera.lookAt(
-        target.x + look.x * 12,
-        target.y + look.y * 12,
-        target.z + look.z * 12
-      );
+      this.camera.fov = this.aiming ? ADS_FOV : 68;
+      this.camera.updateProjectionMatrix();
+      return;
     }
-    this.camera.fov = this.aiming ? 48 : 68;
+    let anchor =
+      vehicles.getFirstPersonCameraAnchor
+        ? vehicles.getFirstPersonCameraAnchor(vehicle, this.vehicleRole)
+        : null;
+    if (!anchor) {
+      const seat = vehicles.getSeatWorldPosition(vehicle, this.vehicleSeat);
+      anchor = seat
+        ? { x: seat.x, y: seat.y + 0.55, z: seat.z }
+        : {
+            x: vehicle.position.x,
+            y: vehicle.position.y + vehicle.def.dimensions.height * 0.72,
+            z: vehicle.position.z,
+          };
+    }
+    this.camera.position.set(anchor.x, anchor.y, anchor.z);
+    this._syncCameraLook();
+    this.camera.fov = vehicle.type === 'jeep' ? 68 : 54;
     this.camera.updateProjectionMatrix();
-    return true;
+  };
+
+  Player.prototype._updateVehicleSight = function (vehicles, vehicle, look) {
+    let dist = null;
+    const origin = this.camera.position;
+    const worldHit = vehicles.raycastWorld
+      ? vehicles.raycastWorld(origin, look, 420)
+      : null;
+    if (worldHit && worldHit.distance > 0.8) dist = worldHit.distance;
+    const vehHit = vehicles.raycast
+      ? vehicles.raycast(origin, look, 420, { excludeId: vehicle.id })
+      : null;
+    if (vehHit && vehHit.distance > 0.8 && (dist == null || vehHit.distance < dist)) {
+      dist = vehHit.distance;
+    }
+    this._vehicleSightRange = dist;
   };
 
   Player.prototype.setPointerLock = function (locked) {

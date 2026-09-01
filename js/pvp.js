@@ -1,7 +1,7 @@
 /**
- * pvp.js — 1v1 rooms + shared battlefield sync
+ * pvp.js — 8v8 human rooms + shared battlefield sync
  * Transport: localStorage bus (same PC) + PeerJS (optional).
- * Phases: lobby → prep → spawnWait → play
+ * Host creates and enters play immediately; joiners drop into the live match.
  */
 (function (global) {
   'use strict';
@@ -10,6 +10,10 @@
   const BUS_PREFIX = 'vf_pvp_bus_';
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const BUS_TTL_MS = 10000;
+  const HUMAN_CAP = 16;
+  const HUMAN_PER_TEAM = 8;
+  const TEAM_SWITCH_COOLDOWN_SEC = 60;
+  const TEAM_SWITCH_MAX = 3;
   const PEER_OPTS = {
     debug: 0,
     secure: true,
@@ -29,6 +33,86 @@
       s += CODE_CHARS[(Math.random() * CODE_CHARS.length) | 0];
     }
     return s;
+  }
+
+  function emptyRoster() {
+    return { ally: [], enemy: [] };
+  }
+
+  function cloneRoster(roster) {
+    return {
+      ally: ((roster && roster.ally) || []).slice(),
+      enemy: ((roster && roster.enemy) || []).slice(),
+    };
+  }
+
+  function rosterCounts(roster) {
+    return {
+      ally: ((roster && roster.ally) || []).length,
+      enemy: ((roster && roster.enemy) || []).length,
+    };
+  }
+
+  function rosterTeamOf(roster, id) {
+    if (!roster || id == null) return null;
+    const sid = String(id);
+    const allies = roster.ally || [];
+    const enemies = roster.enemy || [];
+    for (let i = 0; i < allies.length; i++) {
+      if (String(allies[i]) === sid) return 'ally';
+    }
+    for (let i = 0; i < enemies.length; i++) {
+      if (String(enemies[i]) === sid) return 'enemy';
+    }
+    return null;
+  }
+
+  function rosterAdd(roster, id, team) {
+    const next = cloneRoster(roster);
+    const sid = String(id);
+    next.ally = next.ally.filter(function (item) {
+      return String(item) !== sid;
+    });
+    next.enemy = next.enemy.filter(function (item) {
+      return String(item) !== sid;
+    });
+    if (team === 'enemy') next.enemy.push(sid);
+    else next.ally.push(sid);
+    return next;
+  }
+
+  function rosterRemove(roster, id) {
+    const sid = String(id);
+    return {
+      ally: ((roster && roster.ally) || []).filter(function (item) {
+        return String(item) !== sid;
+      }),
+      enemy: ((roster && roster.enemy) || []).filter(function (item) {
+        return String(item) !== sid;
+      }),
+    };
+  }
+
+  function pickJoinTeam(counts) {
+    const hb = (counts && counts.ally) || 0;
+    const hr = (counts && counts.enemy) || 0;
+    if (hb + hr >= HUMAN_CAP) return null;
+    if (hb < hr && hb < HUMAN_PER_TEAM) return 'ally';
+    if (hr < hb && hr < HUMAN_PER_TEAM) return 'enemy';
+    if (hb === hr) {
+      if (hr < HUMAN_PER_TEAM) return 'enemy';
+      if (hb < HUMAN_PER_TEAM) return 'ally';
+      return null;
+    }
+    if (hb < HUMAN_PER_TEAM) return 'ally';
+    if (hr < HUMAN_PER_TEAM) return 'enemy';
+    return null;
+  }
+
+  function canSwitchTeam(from, to, counts) {
+    if (!to || from === to) return false;
+    const dest = to === 'enemy' ? (counts && counts.enemy) || 0 : (counts && counts.ally) || 0;
+    return dest < HUMAN_PER_TEAM;
   }
 
   const Pvp = {
@@ -66,6 +150,11 @@
     _lockedRemoteLoadout: null,
     remoteState: null,
     remoteAvatar: null,
+    humanRoster: null,
+    localTeam: 'ally',
+    skipSpawnGate: true,
+    _teamSwitchAt: 0,
+    _teamSwitchCount: 0,
     _remoteAuthoritativeAlive: true,
     _remotePendingLifeId: null,
     _lastStateSend: 0,
@@ -127,6 +216,7 @@
       bind(this.els.matchReadyBtn, () => this.toggleSpawnReady());
       bind(this.els.matchReadyBack, () => this.cancelSpawnGate());
       global.addEventListener('keydown', (e) => {
+        if (e.repeat) return;
         if (
           e.code === 'Escape' &&
           this.phase === 'spawnWait' &&
@@ -135,7 +225,12 @@
           e.preventDefault();
           e.stopImmediatePropagation();
           this.returnToLobbyFromPrep(true, this.matchSeed);
+          return;
         }
+        if (e.code !== 'KeyT') return;
+        const tag = e.target && e.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (this.requestTeamSwitch()) e.preventDefault();
       });
       if (this.els.joinCode) {
         this.els.joinCode.addEventListener('keydown', (e) => {
@@ -199,35 +294,54 @@
 
       this._destroyed = false;
       this._kubee = true;
+      if (msg.playerId) this._busClientId = this._normalizeNetId(msg.playerId);
       this.mode = role;
+      this.skipSpawnGate = true;
       this.phase =
         this.phase === 'play' || this.phase === 'prep' || this.phase === 'spawnWait'
           ? this.phase
-          : 'lobby';
+          : 'prep';
       this.roomCode = 'KUBEE';
       this._hideCover();
-      this._openLobbyUI();
-      if (this.els.lobbyCode) this.els.lobbyCode.textContent = 'KUBEE';
+      if (this.els.lobbyOverlay) this.els.lobbyOverlay.classList.add('hidden');
       if (this.els.copyBtn) this.els.copyBtn.classList.add('hidden');
-      if (this.els.lobbyRole) {
-        this.els.lobbyRole.textContent =
-          '1v1 · Kubee · ' + (this.mode === 'host' ? '房主' : '访客');
-      }
 
       this._startBus();
-      this._busPublish();
-      this._ingestBus();
+      if (role === 'host') {
+        if (!this._rosterTeamOf(this._busClientId)) {
+          this.localTeam = 'ally';
+          this.humanRoster = rosterAdd(
+            this.humanRoster || emptyRoster(),
+            this._busClientId,
+            'ally'
+          );
+        }
+        if (!this._lobbyDone) this._launchInstantMatch();
+        const live = Object.create(null);
+        live[this._busClientId] = 1;
+        for (let i = 0; i < players.length; i++) {
+          const pid = this._normalizeNetId(players[i] && players[i].id);
+          if (pid && pid !== this._busClientId) {
+            live[pid] = 1;
+            this._hostAssignPlayer(pid);
+          }
+        }
+        const listed = (this.humanRoster && this.humanRoster.ally || []).concat(
+          (this.humanRoster && this.humanRoster.enemy) || []
+        );
+        for (let i = 0; i < listed.length; i++) {
+          if (!live[listed[i]]) this._hostRemovePlayer(listed[i]);
+        }
+      } else if (!this._lobbyDone) {
+        this._busPublish();
+        this._ingestBus();
+        if (kubeePaired) this._send({ type: 'joinRequest', fromId: this._busClientId });
+      }
 
       if (kubeePaired) {
         this.remotePresent = true;
         this.connected = true;
       }
-      this._setStatus(
-        this.remotePresent
-          ? '已连上对手 · 双方准备后由房主开始'
-          : '等待另一窗口进入联机大厅…（同机请再开一个 localhost:15180）'
-      );
-      this._refreshLobby();
       this._send({
         type: 'hello',
         role: this.mode,
@@ -283,14 +397,11 @@
       this._destroyed = false;
       this._kubee = true;
       this.roomCode = 'KUBEE';
-      this.phase = 'lobby';
+      this.skipSpawnGate = true;
       this.localReady = false;
       this.remoteReady = false;
       this.remotePresent = false;
       this.connected = false;
-      this._lobbyDone = false;
-      this._battlefieldEntered = false;
-      this._pendingStart = null;
       this._pendingEnter = null;
       this._cancelledStartSeed = null;
       this._pendingPrepCancel = null;
@@ -300,24 +411,26 @@
       this.spawnReadyRemote = false;
       this.mode = this._electKubeeRoleFromBus();
       this._hideCover();
-      this._openLobbyUI();
-      if (this.els.lobbyCode) this.els.lobbyCode.textContent = 'KUBEE';
+      if (this.els.lobbyOverlay) this.els.lobbyOverlay.classList.add('hidden');
       if (this.els.copyBtn) this.els.copyBtn.classList.add('hidden');
-      if (this.els.lobbyRole) {
-        this.els.lobbyRole.textContent =
-          '1v1 · Kubee · ' + (this.mode === 'host' ? '房主' : '访客');
-      }
       this._startBus();
-      this._busPublish();
-      this._ingestBus();
-      this._setStatus('Kubee 联机 · 等待另一窗口进入…');
+      if (this.mode === 'host') {
+        if (!this._rosterTeamOf(this._busClientId)) {
+          this.localTeam = 'ally';
+          this.humanRoster = rosterAdd(emptyRoster(), this._busClientId, 'ally');
+        }
+        if (!this._lobbyDone) this._launchInstantMatch();
+      } else if (!this._lobbyDone) {
+        this._busPublish();
+        this._ingestBus();
+        this._send({ type: 'joinRequest', fromId: this._busClientId });
+        this._toast('正在加入对局…');
+      }
       if (global.VF_KUBEE && global.VF_KUBEE.lobby) {
         this._applyKubeeLobby(global.VF_KUBEE.lobby);
       } else if (global.VF_KUBEE) {
         global.VF_KUBEE.pingParent();
       }
-      this._updateStatusFromFlags();
-      this._refreshLobby();
     },
 
     /** Re-broadcast lobby presence (used when backing out of class select). */
@@ -402,7 +515,7 @@
           const key = localStorage.key(i);
           if (!key || key.indexOf(BUS_PREFIX) !== 0) continue;
           const suffix = key.slice(BUS_PREFIX.length);
-          if (!suffix || /^(builds_|core_|dead_|dmg_)/.test(suffix)) continue;
+          if (!suffix || /^(builds_|core_|dead_|dmg_|net_|netcmd_)/.test(suffix)) continue;
           let state = null;
           try {
             state = JSON.parse(localStorage.getItem(key) || 'null');
@@ -415,6 +528,11 @@
             state.guest &&
             now - (state.guest.ts || 0) < BUS_TTL_MS
           );
+          const counts = rosterCounts(state.roster);
+          const listedHumans = Math.max(
+            counts.ally + counts.enemy,
+            1 + (guestAlive ? 1 : 0)
+          );
           out.push({
             code: String(state.code),
             name:
@@ -423,14 +541,14 @@
             map: (state.server && state.server.map) || '荒盆',
             mode: (state.server && state.server.mode) || 'conquest',
             modeLabel: (state.server && state.server.modeLabel) || '征服',
-            size: 2,
-            sizeLabel: '1 v 1',
-            players: 1 + (guestAlive ? 1 : 0),
-            capacity: 2,
+            size: HUMAN_CAP,
+            sizeLabel: '8 v 8',
+            players: Math.min(HUMAN_CAP, listedHumans),
+            capacity: HUMAN_CAP,
             ping: Math.max(1, Math.min(999, now - (state.host.ts || now))),
             official: false,
             password: false,
-            phase: state.phase || 'lobby',
+            phase: state.phase || 'play',
             createdAt: (state.server && state.server.createdAt) || state.ts || now,
           });
         }
@@ -497,7 +615,9 @@
         v: 2,
         code: this.roomCode,
         ts: now,
-        phase: this.phase || 'lobby',
+        phase: this.phase || 'play',
+        seed: this.matchSeed || prev.seed || null,
+        roster: this.humanRoster ? cloneRoster(this.humanRoster) : prev.roster || emptyRoster(),
         server:
           prev.server || {
             name: '社区对战服务器 [' + this.roomCode + ']',
@@ -603,6 +723,7 @@
       // Kubee same-PC: if two tabs both claimed host, demote the later id to guest
       if (
         this._isKubee() &&
+        !this._lobbyDone &&
         this.phase === 'lobby' &&
         this.mode === 'host' &&
         state.host &&
@@ -697,9 +818,26 @@
           this.remoteReady = false;
         }
         this.spawnReadyRemote = false;
-        if (this.phase === 'spawnWait' && this._spawnGateAutoReady) {
+        if (
+          this.phase === 'spawnWait' &&
+          this._spawnGateAutoReady &&
+          !this.skipSpawnGate
+        ) {
           this.remotePresent = false;
           this.returnToLobbyFromPrep(false, this.matchSeed);
+          return;
+        }
+        if (
+          this.mode === 'guest' &&
+          this._lobbyDone &&
+          !this._isKubee() &&
+          (this.phase === 'play' || this.phase === 'prep')
+        ) {
+          this._toast('房主已离开 · 对局结束');
+          this.leaveLobby();
+          if (global.VF && global.VF.openFrontlineHub) {
+            global.VF.openFrontlineHub();
+          }
           return;
         }
       }
@@ -711,29 +849,46 @@
         (prepCancel.t || 0) > this._lastPrepCancelAt
       ) {
         this._lastPrepCancelAt = prepCancel.t || now;
-        if (this.phase === 'prep' || this.phase === 'spawnWait') {
+        if (
+          this.phase === 'prep' &&
+          !this.skipSpawnGate
+        ) {
+          this.returnToLobbyFromPrep(false, prepCancel.seed);
+          return;
+        }
+        if (
+          this.phase === 'spawnWait' &&
+          !this.skipSpawnGate
+        ) {
           this.returnToLobbyFromPrep(false, prepCancel.seed);
           return;
         }
       }
 
-      // Lobby start (guest)
+      this._syncRosterFromBus(state);
+      if (this.mode === 'host') this._hostReconcilePresence(state, now);
+
       if (
         !this._lobbyDone &&
         this.mode === 'guest' &&
-        state.start &&
-        state.start.seed &&
-        state.start.seed !== this._cancelledStartSeed
+        this._rosterTeamOf(this._busClientId)
       ) {
-        this.matchSeed = state.start.seed;
-        this._beginMatchFromNet(state.start);
-        return;
+        const seed =
+          (state.start && state.start.seed) ||
+          state.seed ||
+          this.matchSeed;
+        if (seed != null && seed !== this._cancelledStartSeed) {
+          this.matchSeed = seed;
+          this._beginMatchFromNet(state.start || { seed: seed });
+          return;
+        }
       }
 
       // Shared battlefield enter
       if (
         this._lobbyDone &&
         !this._battlefieldEntered &&
+        !this.skipSpawnGate &&
         state.enter &&
         state.enter.seed
       ) {
@@ -811,7 +966,7 @@
       } else if (this.remoteReady) {
         this._setStatus('对手已准备 · 请点击准备');
       } else {
-        this._setStatus('对手已加入 · 双方准备后由房主开始');
+        this._setStatus('对手已加入 · 正在进入同一战场');
       }
     },
 
@@ -840,30 +995,33 @@
         return;
       }
       this.destroySession();
+      this._destroyed = false;
       this.mode = 'host';
-      this.phase = 'lobby';
+      this.skipSpawnGate = true;
+      this.localTeam = 'ally';
+      this.humanRoster = rosterAdd(emptyRoster(), this._busClientId, 'ally');
       this.localReady = false;
       this.remoteReady = false;
       this.remotePresent = false;
       this.connected = false;
-      this._lobbyDone = false;
       this._battlefieldEntered = false;
-      this._pendingStart = null;
       this._pendingEnter = null;
       this._cancelledStartSeed = null;
       this._pendingPrepCancel = null;
       this._lastPrepCancelAt = 0;
       this._lastNetCommandIds = null;
+      this._teamSwitchAt = 0;
+      this._teamSwitchCount = 0;
       this.spawnReadyLocal = false;
       this.spawnReadyRemote = false;
       this.roomCode = randomCode(6);
       this._hideCover();
-      this._openLobbyUI();
-      this._setStatus('房间已创建 · 等待对手加入…');
+      if (this.els.lobbyOverlay) this.els.lobbyOverlay.classList.add('hidden');
       this._startBus();
 
       if (!this._ensurePeerJs()) {
-        this._setStatus('房间已创建（本机同步）· 等待对手用房间码加入');
+        this._toast('房间已创建 · 正在进入战场');
+        this._launchInstantMatch();
         return;
       }
 
@@ -871,13 +1029,13 @@
       try {
         this.peer = new Peer(peerId, PEER_OPTS);
       } catch (_) {
-        this._setStatus('Peer 创建失败，仍可用本机房间码联机');
+        this._toast('Peer 创建失败，仍可用本机房间码联机');
+        this._launchInstantMatch();
         return;
       }
 
       this.peer.on('open', () => {
-        this._setStatus('等待对手加入… 把房间码发给对方');
-        this._refreshLobby();
+        this._launchInstantMatch();
       });
       this.peer.on('error', (err) => {
         const msg = (err && err.type) || (err && err.message) || 'error';
@@ -885,7 +1043,7 @@
           this.createRoom();
           return;
         }
-        this._setStatus('Peer 异常（' + msg + '），本机同步仍可用');
+        if (!this._lobbyDone) this._launchInstantMatch();
       });
       this.peer.on('connection', (conn) => {
         if (this.conn && this.conn.open) {
@@ -910,14 +1068,15 @@
       if (this.els.joinErr) this.els.joinErr.textContent = '';
 
       this.destroySession();
+      this._destroyed = false;
       this.mode = 'guest';
-      this.phase = 'lobby';
+      this.skipSpawnGate = true;
       this.roomCode = code;
+      this.humanRoster = emptyRoster();
       this.localReady = false;
       this.remoteReady = false;
       this.remotePresent = false;
       this.connected = false;
-      this._lobbyDone = false;
       this._battlefieldEntered = false;
       this._pendingStart = null;
       this._pendingEnter = null;
@@ -925,25 +1084,38 @@
       this._pendingPrepCancel = null;
       this._lastPrepCancelAt = 0;
       this._lastNetCommandIds = null;
+      this._teamSwitchAt = 0;
+      this._teamSwitchCount = 0;
       this.spawnReadyLocal = false;
       this.spawnReadyRemote = false;
 
       if (this.els.joinOverlay) this.els.joinOverlay.classList.add('hidden');
-      this._openLobbyUI();
-      this._setStatus('正在加入房间 ' + code + '…');
+      if (this.els.lobbyOverlay) this.els.lobbyOverlay.classList.add('hidden');
+      this._hideCover();
       this._startBus();
 
       const bus = this._readBus();
-      if (bus && bus.host && Date.now() - (bus.host.ts || 0) < BUS_TTL_MS) {
-        this.remotePresent = true;
-        this.connected = true;
-        this.remoteReady = !!bus.host.ready;
-        this._setStatus('已加入房间 · 请双方准备');
-        this._busPublish();
-        this._refreshLobby();
+      const hostAlive = !!(
+        bus &&
+        bus.host &&
+        Date.now() - (bus.host.ts || 0) < BUS_TTL_MS
+      );
+      if (!hostAlive) {
+        this._toast('房间不存在或已关闭');
+        this.leaveLobby();
+        return;
+      }
+      this.remotePresent = true;
+      this.connected = true;
+      this.matchSeed =
+        (bus.start && bus.start.seed) || bus.seed || this.matchSeed;
+      this._syncRosterFromBus(bus);
+      this._busPublish();
+      this._send({ type: 'joinRequest', fromId: this._busClientId });
+      if (this._rosterTeamOf(this._busClientId)) {
+        this._beginMatchFromNet(bus.start || { seed: this.matchSeed });
       } else {
-        this._setStatus('等待房主… 请确认房间码正确且房主在大厅');
-        this._busPublish();
+        this._toast('正在加入对局…');
       }
 
       if (!this._ensurePeerJs()) return;
@@ -976,6 +1148,9 @@
           ready: this.localReady,
           wallTime: Date.now(),
         });
+        if (this.mode === 'guest') {
+          this._send({ type: 'joinRequest' });
+        }
         this._busPublish();
         this._refreshLobby();
       };
@@ -1006,8 +1181,28 @@
             this._remoteClockOffset = Date.now() - data.wallTime;
           }
           if (typeof data.ready === 'boolean') this.remoteReady = data.ready;
+          if (this.mode === 'host') {
+            this._hostAssignPlayer(data.fromId, { sync: true });
+          }
           this._updateStatusFromFlags();
           this._refreshLobby();
+          break;
+        case 'joinRequest':
+          if (this.mode === 'host') this._hostAssignPlayer(data.fromId, { sync: true });
+          break;
+        case 'roster':
+          this._applyRosterPayload(data);
+          break;
+        case 'teamSwitch':
+          if (data.playerId && data.team) {
+            if (this.mode === 'host') this._hostApplyTeamSwitch(data.playerId, data.team);
+            else this._applyRosterPayload(data);
+          }
+          break;
+        case 'teamSwitchRequest':
+          if (this.mode === 'host') {
+            this._hostApplyTeamSwitch(data.fromId || data.playerId, data.team);
+          }
           break;
         case 'ready':
           this.remoteReady = !!data.ready;
@@ -1035,7 +1230,10 @@
           }
           break;
         case 'prepCancel':
-          if (this.phase === 'prep' || this.phase === 'spawnWait') {
+          if (
+            (this.phase === 'prep' || this.phase === 'spawnWait') &&
+            !this.skipSpawnGate
+          ) {
             this.returnToLobbyFromPrep(false, data.seed);
           }
           break;
@@ -1179,15 +1377,36 @@
         case 'start':
           if (!this._lobbyDone && data.seed !== this._cancelledStartSeed) {
             this.matchSeed = data.seed || Date.now();
+            if (data.roster) this._applyRosterPayload(data);
             this._beginMatchFromNet(data);
+          }
+          break;
+        case 'joinDenied':
+          this._toast(
+            data.reason === 'full' ? '房间已满（最多 8v8）' : '无法加入房间'
+          );
+          this.leaveLobby();
+          if (global.VF && global.VF.openFrontlineHub) {
+            global.VF.openFrontlineHub();
           }
           break;
         case 'leave':
           this.remotePresent = false;
           this.remoteReady = false;
           this.spawnReadyRemote = false;
-          if (this.phase === 'spawnWait' && this._spawnGateAutoReady) {
+          if (this.mode === 'host' && data.fromId) {
+            this._hostRemovePlayer(data.fromId);
+          }
+          if (
+            this.phase === 'spawnWait' &&
+            this._spawnGateAutoReady &&
+            !this.skipSpawnGate
+          ) {
             this.returnToLobbyFromPrep(false, this.matchSeed);
+            break;
+          }
+          if (this.phase === 'play' || this.skipSpawnGate) {
+            this._toast('一名玩家已离开 · AI 已补位');
             break;
           }
           this._setStatus('对手已离开房间');
@@ -1200,6 +1419,8 @@
     },
 
     _send(obj) {
+      if (!obj || typeof obj !== 'object') return;
+      if (!obj.fromId) obj.fromId = this._busClientId;
       if (this.conn && this.conn.open) {
         try {
           this.conn.send(obj);
@@ -1368,21 +1589,27 @@
     _beginMatchFromNet(data) {
       if (this._lobbyDone) return;
       this._lobbyDone = true;
+      this.skipSpawnGate = true;
       this.phase = 'prep';
       this.localReady = false;
       this.remoteReady = false;
       this.spawnReadyLocal = false;
       this.spawnReadyRemote = false;
-      // Keep bus alive for spawn gate + play sync
       if (this.els.lobbyOverlay) this.els.lobbyOverlay.classList.add('hidden');
       const isHost = this.mode === 'host';
+      const team =
+        this._rosterTeamOf(this._busClientId) ||
+        (isHost
+          ? (data && data.hostTeam) || 'ally'
+          : (data && data.guestTeam) || 'enemy');
+      this.localTeam = team;
       if (typeof this._onMatchStart === 'function') {
         this._onMatchStart({
           mode: 'pvp',
           role: this.mode,
           roomCode: this.roomCode,
-          seed: data.seed || this.matchSeed,
-          team: isHost ? data.hostTeam || 'ally' : data.guestTeam || 'enemy',
+          seed: (data && data.seed) || this.matchSeed,
+          team: team,
           isHost: isHost,
         });
       }
@@ -1619,7 +1846,7 @@
 
     _sanitizeRemoteLoadout(loadout) {
       if (!loadout || typeof loadout !== 'object') return null;
-      const expectedTeam = this.mode === 'host' ? 'enemy' : 'ally';
+      const expectedTeam = this._expectedRemoteTeam(loadout && loadout.team);
       const classes =
         (global.VF &&
           global.VF.Soldier &&
@@ -2668,8 +2895,13 @@
       try {
         const state = this._readBus();
         if (state && this.mode) {
-          if (this.mode === 'host') state.host = null;
-          else state.guest = null;
+        if (this.mode === 'host') {
+          state.host = null;
+          state.roster = emptyRoster();
+          state.phase = 'closed';
+        } else {
+          state.guest = null;
+        }
           state.start = null;
           state.enter = null;
           this._writeBus(state);
@@ -2727,7 +2959,274 @@
       this._pendingWinner = null;
       this._matchHud = null;
       this.matchTime = 0;
+      this.humanRoster = emptyRoster();
+      this.localTeam = 'ally';
+      this.skipSpawnGate = true;
+      this._teamSwitchAt = 0;
+      this._teamSwitchCount = 0;
+      this._lastGuestId = null;
       this._destroyed = false;
+    },
+
+    _normalizeNetId(id) {
+      if (id == null || id === '') return null;
+      const s = String(id);
+      if (this._isKubee() && s.indexOf('k_') !== 0) return 'k_' + s;
+      return s;
+    },
+
+    _rosterTeamOf(id) {
+      return rosterTeamOf(this.humanRoster, id);
+    },
+
+    getHumanCounts() {
+      return rosterCounts(this.humanRoster || emptyRoster());
+    },
+
+    _syncRosterFromBus(bus) {
+      if (!bus) return;
+      if (bus.roster) this.humanRoster = cloneRoster(bus.roster);
+      if (bus.seed && !this.matchSeed) this.matchSeed = bus.seed;
+      const team = this._rosterTeamOf(this._busClientId);
+      if (team) this.localTeam = team;
+    },
+
+    _expectedRemoteTeam(hint) {
+      const mine = this._busClientId;
+      const roster = this.humanRoster || emptyRoster();
+      const ids = (roster.ally || []).concat(roster.enemy || []);
+      for (let i = 0; i < ids.length; i++) {
+        if (String(ids[i]) !== String(mine)) {
+          return rosterTeamOf(roster, ids[i]) || hint || 'enemy';
+        }
+      }
+      if (hint === 'ally' || hint === 'enemy') return hint;
+      return this.mode === 'host' ? 'enemy' : 'ally';
+    },
+
+    _launchInstantMatch() {
+      if (this._lobbyDone) return;
+      if (this.mode !== 'host') return;
+      const seed = (Date.now() ^ ((Math.random() * 1e9) | 0)) >>> 0;
+      this.matchSeed = seed;
+      this.skipSpawnGate = true;
+      this._cancelledStartSeed = null;
+      if (!this._rosterTeamOf(this._busClientId)) {
+        this.localTeam = 'ally';
+        this.humanRoster = rosterAdd(
+          this.humanRoster || emptyRoster(),
+          this._busClientId,
+          'ally'
+        );
+      }
+      const payload = {
+        type: 'start',
+        seed: seed,
+        hostTeam: 'ally',
+        guestTeam: 'enemy',
+        fromId: this._busClientId,
+        roster: cloneRoster(this.humanRoster),
+      };
+      this._pendingStart = payload;
+      this._busPublish();
+      this._send(payload);
+      this._beginMatchFromNet(payload);
+    },
+
+    _broadcastRoster() {
+      const payload = {
+        type: 'roster',
+        roster: cloneRoster(this.humanRoster || emptyRoster()),
+        seed: this.matchSeed,
+        fromId: this._busClientId,
+      };
+      this._busPublish();
+      this._send(payload);
+    },
+
+    _applyRosterPayload(data) {
+      if (!data) return;
+      if (data.roster) this.humanRoster = cloneRoster(data.roster);
+      if (data.seed) this.matchSeed = data.seed;
+      const team = this._rosterTeamOf(this._busClientId);
+      if (team) {
+        const game = global.VF && global.VF.game;
+        const switched = team !== this.localTeam && this._lobbyDone;
+        this.localTeam = team;
+        if (switched && game && game.running) this._applyLocalTeamChange(team);
+      }
+      if (!this._lobbyDone && team) {
+        this._beginMatchFromNet({ seed: this.matchSeed, roster: this.humanRoster });
+      }
+      this._onRosterChanged();
+    },
+
+    _hostReconcilePresence(state, now) {
+      if (this.mode !== 'host' || this._isKubee()) return;
+      const guest = state && state.guest;
+      const guestAlive = !!(guest && now - (guest.ts || 0) < BUS_TTL_MS && guest.id);
+      if (guestAlive) {
+        this._lastGuestId = guest.id;
+        this._hostAssignPlayer(guest.id);
+      } else if (this._lastGuestId) {
+        this._hostRemovePlayer(this._lastGuestId);
+        this._lastGuestId = null;
+      }
+    },
+
+    _hostAssignPlayer(id, opts) {
+      if (this.mode !== 'host') return;
+      const pid = this._normalizeNetId(id);
+      if (!pid || pid === this._busClientId) return;
+      if (this._rosterTeamOf(pid)) {
+        if (opts && opts.sync) {
+          this._send({
+            type: 'roster',
+            roster: cloneRoster(this.humanRoster || emptyRoster()),
+            seed: this.matchSeed,
+          });
+          this._send({
+            type: 'start',
+            seed: this.matchSeed,
+            roster: cloneRoster(this.humanRoster || emptyRoster()),
+            hostTeam: 'ally',
+            guestTeam: 'enemy',
+          });
+        }
+        return;
+      }
+      const team = pickJoinTeam(this.getHumanCounts());
+      if (!team) {
+        this._send({ type: 'joinDenied', reason: 'full' });
+        return;
+      }
+      this.humanRoster = rosterAdd(this.humanRoster || emptyRoster(), pid, team);
+      if (!this._pendingStart) {
+        this._pendingStart = {
+          type: 'start',
+          seed: this.matchSeed,
+          roster: cloneRoster(this.humanRoster),
+          fromId: this._busClientId,
+        };
+      } else {
+        this._pendingStart.roster = cloneRoster(this.humanRoster);
+      }
+      this._broadcastRoster();
+      this._send({
+        type: 'start',
+        seed: this.matchSeed,
+        roster: cloneRoster(this.humanRoster),
+        hostTeam: 'ally',
+        guestTeam: 'enemy',
+      });
+      this._onRosterChanged();
+    },
+
+    _hostRemovePlayer(id) {
+      if (this.mode !== 'host') return;
+      const pid = this._normalizeNetId(id);
+      if (!pid || pid === this._busClientId) return;
+      if (!this._rosterTeamOf(pid)) return;
+      this.humanRoster = rosterRemove(this.humanRoster, pid);
+      this._broadcastRoster();
+      this._onRosterChanged();
+    },
+
+    _hostApplyTeamSwitch(id, team) {
+      if (this.mode !== 'host') return;
+      const pid = this._normalizeNetId(id);
+      if (!pid || (team !== 'ally' && team !== 'enemy')) return;
+      const from = this._rosterTeamOf(pid);
+      if (!from || from === team) return;
+      if (!canSwitchTeam(from, team, this.getHumanCounts())) return;
+      this.humanRoster = rosterAdd(this.humanRoster, pid, team);
+      this._broadcastRoster();
+      this._send({
+        type: 'teamSwitch',
+        playerId: pid,
+        team: team,
+        roster: cloneRoster(this.humanRoster),
+      });
+      if (pid === this._busClientId) this._applyLocalTeamChange(team);
+      this._onRosterChanged();
+    },
+
+    requestTeamSwitch() {
+      if (!this.roomCode || !this._lobbyDone) return false;
+      const game = global.VF && global.VF.game;
+      if (!game || game.mode !== 'pvp' || !game.running) return false;
+      const from = this.localTeam === 'enemy' ? 'enemy' : 'ally';
+      const to = from === 'ally' ? 'enemy' : 'ally';
+      const counts = this.getHumanCounts();
+      if (!canSwitchTeam(from, to, counts)) {
+        this._toast('目标阵营真人已满 8 人');
+        return false;
+      }
+      if (this._teamSwitchCount >= TEAM_SWITCH_MAX) {
+        this._toast('本局换边次数已用完');
+        return false;
+      }
+      const now = Date.now();
+      const wait = TEAM_SWITCH_COOLDOWN_SEC * 1000 - (now - (this._teamSwitchAt || 0));
+      if (this._teamSwitchAt && wait > 0) {
+        this._toast('换边冷却中 · ' + Math.ceil(wait / 1000) + 's');
+        return false;
+      }
+      this._teamSwitchAt = now;
+      this._teamSwitchCount += 1;
+      if (this.mode === 'host') {
+        this._hostApplyTeamSwitch(this._busClientId, to);
+      } else {
+        this._send({ type: 'teamSwitchRequest', fromId: this._busClientId, team: to });
+        this._toast('正在换边…');
+      }
+      return true;
+    },
+
+    _pickHqSpawn(team) {
+      const world = global.VF && global.VF.game && global.VF.game.world;
+      if (!world) return null;
+      const points = (world._spawnPoints && world._spawnPoints[team]) || [];
+      for (let i = 0; i < points.length; i++) {
+        if (points[i].fixed || points[i].kind === 'hq') return points[i];
+      }
+      return points[0] || null;
+    },
+
+    _applyLocalTeamChange(team) {
+      if (team !== 'ally' && team !== 'enemy') return;
+      this.localTeam = team;
+      const game = global.VF && global.VF.game;
+      if (!game) return;
+      if (game.pvp) game.pvp.team = team;
+      if (game.world && game.world.setPlayerTeam) game.world.setPlayerTeam(team);
+      if (game.player) game.player.team = team;
+      game.teamLocked = true;
+      game.lockedTeam = team;
+      const hq = this._pickHqSpawn(team);
+      if (hq && game.world && game.world.setSelectedSpawn) {
+        game.world.setSelectedSpawn(hq.id);
+      }
+      if (game.running && game.player) {
+        if (game.player.respawn) game.player.respawn();
+        if (game.player.applySelectedSpawn) game.player.applySelectedSpawn();
+      }
+      this._toast(
+        '已换至' + (team === 'enemy' ? '红方' : '蓝方') + ' · 主基地重生'
+      );
+    },
+
+    _onRosterChanged() {
+      const other = this._expectedRemoteTeam();
+      if (this.remoteLoadout) this.remoteLoadout.team = other;
+      if (this._lockedRemoteLoadout) this._lockedRemoteLoadout.team = other;
+      const game = global.VF && global.VF.game;
+      if (game && game.ai && game.ai.syncHumanCounts) {
+        game.ai.syncHumanCounts(this.getHumanCounts());
+      }
+      if (global.VF && global.VF.UI && global.VF.UI.syncTeamSwitchButton) {
+        global.VF.UI.syncTeamSwitchButton();
+      }
     },
 
     _toast(msg) {
@@ -2737,4 +3236,8 @@
 
   global.VF = global.VF || {};
   global.VF.Pvp = Pvp;
+  Pvp.pickJoinTeam = pickJoinTeam;
+  Pvp.canSwitchTeam = canSwitchTeam;
+  Pvp.HUMAN_CAP = HUMAN_CAP;
+  Pvp.HUMAN_PER_TEAM = HUMAN_PER_TEAM;
 })(typeof window !== 'undefined' ? window : globalThis);

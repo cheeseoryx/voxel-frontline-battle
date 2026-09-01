@@ -271,6 +271,7 @@
     VF.clearPreMatchMapView = clearPreMatchMapView;
     VF.openRedeployFromDeath = openRedeployFromDeath;
     VF.startConquest32 = startConquest32;
+    VF.openFrontlineHub = openFrontlineHub;
     if (VF.UI.setDeathHandlers) {
       VF.UI.setDeathHandlers({
         onRedeploy: function () {
@@ -664,6 +665,27 @@
         spawnVehicleImpact(end, def.kind === 'main-cannon' ? 0.55 : 0.14);
       }
     });
+    vehicles.on('vehicle-ram-break', function (event) {
+      const data = event.data || {};
+      const voxels = data.voxels || [];
+      const props = data.props || [];
+      const first = voxels[0] || props[0] || data.position;
+      if (first) {
+        const impact = new THREE.Vector3(
+          first.x + (voxels[0] ? 0.5 : 0),
+          first.y + (voxels[0] ? 0.5 : 0),
+          first.z + (voxels[0] ? 0.5 : 0)
+        );
+        spawnVehicleImpact(impact, 0.72);
+      }
+      if (!game.weapons || !game.weapons._syncWorldBreak) return;
+      for (let i = 0; i < voxels.length; i++) {
+        game.weapons._syncWorldBreak('break-voxel', voxels[i].x, voxels[i].y, voxels[i].z);
+      }
+      for (let i = 0; i < props.length; i++) {
+        game.weapons._syncWorldBreak('break-door', props[i].x, props[i].y, props[i].z);
+      }
+    });
     vehicles.on('vehicle-destroyed', function (event) {
       const p = event.data && event.data.position;
       if (!p) return;
@@ -965,6 +987,44 @@
     });
   }
 
+  function pvpSkipsPrep() {
+    return !!(game.mode === 'pvp' && VF.Pvp && VF.Pvp.skipSpawnGate);
+  }
+
+  function matchModeName() {
+    if (game.mode === 'pvp') return '征服 · 8 VS 8';
+    const teamSize = (VF.Feel && VF.Feel.ai && VF.Feel.ai.teamSize) || 32;
+    return '征服 · ' + teamSize + ' VS ' + teamSize;
+  }
+
+  function matchPlayerMax() {
+    if (game.mode === 'pvp') return (VF.Pvp && VF.Pvp.HUMAN_CAP) || 16;
+    const teamSize = (VF.Feel && VF.Feel.ai && VF.Feel.ai.teamSize) || 32;
+    return teamSize * 2;
+  }
+
+  function matchPlayerCount() {
+    if (game.mode === 'pvp' && VF.Pvp && typeof VF.Pvp.getHumanCounts === 'function') {
+      const counts = VF.Pvp.getHumanCounts();
+      return Math.max(1, (counts.ally || 0) + (counts.enemy || 0));
+    }
+    return matchPlayerMax();
+  }
+
+  function leavePvpToServerList() {
+    clearPreMatchMapView();
+    if (VF.UI && VF.UI.closeClassSelect) VF.UI.closeClassSelect();
+    if (VF.UI && VF.UI.closeSquadIntro) VF.UI.closeSquadIntro();
+    if (VF.UI && VF.UI.closeLoadoutCustomize) VF.UI.closeLoadoutCustomize();
+    if (VF.UI && VF.UI.closeSpawnSelect) VF.UI.closeSpawnSelect();
+    if (VF.Pvp && VF.Pvp.leaveLobby) VF.Pvp.leaveLobby();
+    game.mode = 'pve';
+    game.pvp = null;
+    game.teamLocked = false;
+    game.lockedTeam = null;
+    openFrontlineHub();
+  }
+
   function openClassSelect() {
     const overlay = document.getElementById('start-overlay');
     const tutorial = document.getElementById('tutorial-overlay');
@@ -988,14 +1048,8 @@
       (VF.IslandConquestMap && VF.IslandConquestMap.name) ||
       (game.world && game.world._mapName) ||
       '荒盆';
-    const pveTeamSize =
-      (VF.Feel && VF.Feel.ai && VF.Feel.ai.teamSize) || 32;
-    const playerMax = isPvp ? 2 : pveTeamSize * 2;
-    const playerCount = isPvp
-      ? VF.Pvp && VF.Pvp.remotePresent
-        ? 2
-        : 1
-      : playerMax;
+    const playerMax = matchPlayerMax();
+    const playerCount = matchPlayerCount();
     VF.UI.openClassSelect(
       function (classId) {
         if (game.player && game.player.applyClass) {
@@ -1009,13 +1063,14 @@
         }
         framePreMatchMapView();
         VF.UI.closeClassSelect();
-        openSquadIntro();
+        if (pvpSkipsPrep()) beginMatch();
+        else openSquadIntro();
       },
       function () {
         VF.UI.closeClassSelect();
         clearPreMatchMapView();
         if (game.mode === 'pvp' && VF.Pvp && VF.Pvp.roomCode) {
-          returnToPvpLobby();
+          leavePvpToServerList();
         } else {
           returnToHub();
         }
@@ -1023,12 +1078,10 @@
       preferredClass,
       {
         mapName: mapName,
-        modeName: isPvp
-          ? '征服 · 1 VS 1'
-          : '征服 · ' + pveTeamSize + ' VS ' + pveTeamSize,
+        modeName: matchModeName(),
         playerCount: playerCount,
         playerMax: playerMax,
-        playerState: isPvp ? '双方已就绪 · 等待部署' : '作战编制已就绪',
+        playerState: isPvp ? '对局进行中 · 可中途加入' : '作战编制已就绪',
         factionName: pvpTeam === 'enemy' ? '赤焰军团' : '和平军团',
         autoAdvanceSec: 10,
       }
@@ -1178,7 +1231,8 @@
       (game.world && game.world._mapName) ||
       '荒盆';
     const enterMatch = function () {
-      if (game.mode === 'pvp' && VF.Pvp && VF.Pvp.roomCode) {
+      if (pvpSkipsPrep()) beginMatch();
+      else if (game.mode === 'pvp' && VF.Pvp && VF.Pvp.roomCode) {
         openPvpSpawnGate(true);
       } else {
         beginMatch();
@@ -1190,9 +1244,7 @@
     }
     VF.UI.openSquadIntro(buildSquadIntroRoster(), enterMatch, {
       mapName: mapName,
-      modeName: isPvp
-        ? '征服 · 1 VS 1'
-        : '征服 · ' + teamSize + ' VS ' + teamSize,
+      modeName: matchModeName(),
       factionName: team === 'enemy' ? '赤焰军团' : '和平军团',
       durationSec: durationSec != null ? durationSec : 5,
       onBack: function () {
@@ -1223,9 +1275,7 @@
         (game.weapons && game.weapons.current) ||
         'ar',
       mapName: mapName,
-      modeName: isPvp
-        ? '征服 · 1 VS 1'
-        : '征服 · ' + teamSize + ' VS ' + teamSize,
+      modeName: matchModeName(),
       factionName: team === 'enemy' ? '赤焰军团' : '和平军团',
       onApply: function (selection) {
         const classId = selection.classId || 'assault';
@@ -1259,20 +1309,7 @@
   }
 
   function returnToPvpLobby() {
-    if (!VF.Pvp) return;
-    clearPreMatchMapView();
-    if (VF.Pvp.returnToLobbyFromPrep) {
-      VF.Pvp.returnToLobbyFromPrep(true);
-      return;
-    }
-    VF.Pvp.localReady = false;
-    VF.Pvp._send({ type: 'ready', ready: false });
-    if (VF.Pvp.mode === 'host') VF.Pvp._sendLobbySync();
-    VF.Pvp._refreshLobby();
-    VF.Pvp._setStatus('已返回大厅 · 重新准备后开始');
-    if (VF.Pvp.els && VF.Pvp.els.lobbyOverlay) {
-      VF.Pvp.els.lobbyOverlay.classList.remove('hidden');
-    }
+    leavePvpToServerList();
   }
 
   function startPvpMatch(info) {
@@ -1408,7 +1445,8 @@
       game.world,
       function () {
         try {
-          if (game.mode === 'pvp' && VF.Pvp && VF.Pvp.roomCode) {
+          if (pvpSkipsPrep()) beginMatch();
+          else if (game.mode === 'pvp' && VF.Pvp && VF.Pvp.roomCode) {
             openPvpSpawnGate();
           } else {
             beginMatch();
@@ -1643,8 +1681,9 @@
       }
       if (game.mode === 'pvp' && VF.Pvp) {
         VF.Pvp.phase = 'play';
+        VF.Pvp._battlefieldEntered = true;
         VF.Pvp.ensureRemoteAvatar(game.scene);
-        if (VF.UI.toast) VF.UI.toast('已进入同一战场 · 寻找对手');
+        if (VF.UI.toast) VF.UI.toast('已进入战场 · 8v8 征服');
       }
     } catch (err) {
       console.error('[VF] beginMatch', err);
@@ -1789,6 +1828,7 @@
       }
       if (game.mode === 'pvp' && VF.Pvp) {
         VF.Pvp.phase = 'play';
+        VF.Pvp._battlefieldEntered = true;
         VF.Pvp.ensureRemoteAvatar(game.scene);
         if (VF.Pvp.reportLocalRespawn) VF.Pvp.reportLocalRespawn();
       }

@@ -3044,7 +3044,13 @@
         return true;
       }
     }
-    if (this._terrainOverlapsBox && this._terrainOverlapsBox(box)) return true;
+    if (
+      !box.ignoreTerrain &&
+      this._terrainOverlapsBox &&
+      this._terrainOverlapsBox(box)
+    ) {
+      return true;
+    }
     return false;
   };
 

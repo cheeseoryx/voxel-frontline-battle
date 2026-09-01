@@ -19,6 +19,7 @@
   const MAX_QUADS_PER_MESH = 16000; // 64k vertices; safe for Uint16 indices
   const WALK_STEP = 0.35;
   const MAX_WALK_SLOPE = Math.PI * 0.28;
+  const MAX_DRIVE_SLOPE = Math.PI / 4;
   const SINK = 0.12;
   const MIN_TERRAIN_TOP = 1.1;
 
@@ -265,35 +266,55 @@
       return top > 0.5 && gy === Math.round(top) - 1 && t !== global.VF.BLOCK.AIR;
     };
 
+    /**
+     * Treat the vehicle as a rigid plank: sample the front bumper and rear
+     * bumper, then pose the hull on the line between those contacts.
+     * Local -Z is the nose. `y` is the mid-plank height, not a footprint average.
+     */
     proto.sampleDriveHeight = function (x, z, halfX, halfZ, yaw, maxStep) {
       maxStep = maxStep != null ? maxStep : 2.8;
       halfX = halfX != null ? halfX : 1.2;
       halfZ = halfZ != null ? halfZ : 2.4;
       const c = Math.cos(yaw || 0);
       const s = Math.sin(yaw || 0);
-      const pts = [
-        [0, 0],
-        [halfX, halfZ],
-        [halfX, -halfZ],
-        [-halfX, halfZ],
-        [-halfX, -halfZ],
-      ];
-      let minY = 1e9;
-      let maxY = -1e9;
-      let sum = 0;
-      for (let i = 0; i < pts.length; i++) {
-        const lx = pts[i][0];
-        const lz = pts[i][1];
-        const y = this.getTerrainTop(x + lx * c - lz * s, z + lx * s + lz * c);
-        sum += y;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
-      }
+      const widthXs = [-halfX, -halfX * 0.5, 0, halfX * 0.5, halfX];
+
+      const sampleLocal = (lx, lz) =>
+        this.getTerrainTop(x + lx * c - lz * s, z + lx * s + lz * c);
+
+      const sampleEdge = (lz) => {
+        let sum = 0;
+        let minY = 1e9;
+        let maxY = -1e9;
+        for (let i = 0; i < widthXs.length; i++) {
+          const y = sampleLocal(widthXs[i], lz);
+          sum += y;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+        return { avg: sum / widthXs.length, minY: minY, maxY: maxY };
+      };
+
+      const front = sampleEdge(-halfZ);
+      const rear = sampleEdge(halfZ);
+      const centerY = sampleLocal(0, 0);
+      const rise = front.avg - rear.avg;
+      const run = Math.max(0.1, halfZ * 2);
+      const longitudinalSlope = Math.atan2(Math.abs(rise), run);
+      const stepClimbable = Math.abs(rise) <= maxStep;
       return {
-        y: sum / pts.length,
-        minY: minY,
-        maxY: maxY,
-        climbable: maxY - minY <= maxStep,
+        y: (front.avg + rear.avg) * 0.5,
+        minY: Math.min(front.minY, rear.minY, centerY),
+        maxY: Math.max(front.maxY, rear.maxY, centerY),
+        centerY: centerY,
+        frontY: front.avg,
+        rearY: rear.avg,
+        frontMaxY: front.maxY,
+        rearMinY: rear.minY,
+        slope: longitudinalSlope,
+        climbable:
+          stepClimbable ||
+          longitudinalSlope <= MAX_DRIVE_SLOPE + 1e-4,
       };
     };
 

@@ -135,6 +135,155 @@
     return { x: x, z: z };
   }
 
+  // Must match Bases._buildBaseStructure: half=30, pad extends half+1.
+  const VEHICLE_POOL = {
+    baseHalf: 30,
+    padOuter: 31,
+    armorAlong: 42,
+    jeepAlong: 54,
+  };
+  VEHICLE_POOL.slots = [
+    { type: 'tank', along: VEHICLE_POOL.armorAlong, lateral: 0 },
+    { type: 'ifv', along: VEHICLE_POOL.armorAlong, lateral: -14 },
+    { type: 'ifv', along: VEHICLE_POOL.armorAlong, lateral: 14 },
+    { type: 'jeep', along: VEHICLE_POOL.jeepAlong, lateral: -20 },
+    { type: 'jeep', along: VEHICLE_POOL.jeepAlong, lateral: -8 },
+    { type: 'jeep', along: VEHICLE_POOL.jeepAlong, lateral: 8 },
+    { type: 'jeep', along: VEHICLE_POOL.jeepAlong, lateral: 20 },
+  ];
+
+  function yawForGate(gate) {
+    if (gate === '+z') return Math.PI;
+    if (gate === '-z') return 0;
+    if (gate === '+x') return -Math.PI / 2;
+    return Math.PI / 2;
+  }
+
+  function gatePoint(base, along, lateral) {
+    const gate = (base && base.gate) || '+z';
+    const x = base && base.x != null ? base.x : 0;
+    const z = base && base.z != null ? base.z : 0;
+    if (gate === '+z') return { x: x + lateral, z: z + along };
+    if (gate === '-z') return { x: x + lateral, z: z - along };
+    if (gate === '+x') return { x: x + along, z: z + lateral };
+    return { x: x - along, z: z + lateral };
+  }
+
+  function nudgeOutsideGate(world, base, along, lateral) {
+    const size = world && world.worldSize ? world.worldSize : 1024;
+    const minAlong = VEHICLE_POOL.padOuter + 6;
+    const tryAt = function (nextAlong, nextLateral) {
+      const p = gatePoint(base, nextAlong, nextLateral);
+      if (p.x < 16 || p.z < 16 || p.x >= size - 16 || p.z >= size - 16) return null;
+      if (!isLand(p.x, p.z, size) || isWater(p.x, p.z, size)) return null;
+      return p;
+    };
+    let found = tryAt(along, lateral);
+    if (found) return found;
+    for (let ds = 2; ds <= 24; ds += 2) {
+      const cands = [
+        [along, lateral + ds],
+        [along, lateral - ds],
+        [along + ds, lateral],
+        [along + ds, lateral + ds],
+        [along + ds, lateral - ds],
+      ];
+      for (let i = 0; i < cands.length; i++) {
+        if (cands[i][0] < minAlong) continue;
+        found = tryAt(cands[i][0], cands[i][1]);
+        if (found) return found;
+      }
+    }
+    return gatePoint(base, along, lateral);
+  }
+
+  function buildVehicleSpawns(world) {
+    const size = world && world.worldSize ? world.worldSize : 1024;
+    const planned = world && world._plannedBases;
+    const bases =
+      planned && planned.length >= 2
+        ? planned
+        : [
+            { x: size * HQ.ally.nx, z: size * HQ.ally.nz, gate: HQ.ally.gate },
+            { x: size * HQ.enemy.nx, z: size * HQ.enemy.nz, gate: HQ.enemy.gate },
+          ];
+    const teams = ['ally', 'enemy'];
+    const spawns = [];
+    for (let side = 0; side < teams.length; side++) {
+      const team = teams[side];
+      const base = {
+        x: bases[side].x,
+        z: bases[side].z,
+        gate: bases[side].gate || (team === 'ally' ? HQ.ally.gate : HQ.enemy.gate),
+      };
+      const yaw = yawForGate(base.gate);
+      const counts = { jeep: 0, ifv: 0, tank: 0 };
+      for (let i = 0; i < VEHICLE_POOL.slots.length; i++) {
+        const slot = VEHICLE_POOL.slots[i];
+        const p = nudgeOutsideGate(world, base, slot.along, slot.lateral);
+        const padR = slot.type === 'jeep' ? 6 : 8;
+        if (world && world._clearVehiclePad) world._clearVehiclePad(p.x, p.z, padR);
+        counts[slot.type] += 1;
+        spawns.push({
+          id: team + '-' + slot.type + '-' + counts[slot.type],
+          type: slot.type,
+          team: team,
+          x: p.x,
+          z: p.z,
+          yaw: yaw,
+          gate: base.gate,
+        });
+      }
+    }
+    return spawns;
+  }
+
+  function buildAiSpawns(world) {
+    const size = world && world.worldSize ? world.worldSize : 1024;
+    const planned = world && world._plannedBases;
+    const bases =
+      planned && planned.length >= 2
+        ? planned
+        : [
+            { x: size * HQ.ally.nx, z: size * HQ.ally.nz, gate: HQ.ally.gate },
+            { x: size * HQ.enemy.nx, z: size * HQ.enemy.nz, gate: HQ.enemy.gate },
+          ];
+    const aiAlly = [];
+    const aiEnemy = [];
+    const pushRing = function (list, cx, cz, n, r0, r1) {
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const r = r0 + ((i % 3) / 2) * (r1 - r0);
+        const x = cx + Math.cos(a) * r;
+        const z = cz + Math.sin(a) * r;
+        if (!isLand(x, z, size) || isWater(x, z, size)) continue;
+        list.push({ x: x, z: z, cx: x, cz: z });
+      }
+    };
+    const pushYard = function (list, base) {
+      const gate = (base && base.gate) || '+z';
+      let ox = 0;
+      let oz = 0;
+      if (gate === '+z') oz = 1;
+      else if (gate === '-z') oz = -1;
+      else if (gate === '+x') ox = 1;
+      else ox = -1;
+      pushRing(list, base.x + ox * 8, base.z + oz * 8, 14, 5, 13);
+      pushRing(list, base.x + ox * 16, base.z + oz * 16, 12, 5, 11);
+    };
+    pushYard(aiAlly, {
+      x: bases[0].x,
+      z: bases[0].z,
+      gate: bases[0].gate || HQ.ally.gate,
+    });
+    pushYard(aiEnemy, {
+      x: bases[1].x,
+      z: bases[1].z,
+      gate: bases[1].gate || HQ.enemy.gate,
+    });
+    return { ally: aiAlly, enemy: aiEnemy };
+  }
+
   function applyLayout(world) {
     const size = world.worldSize;
     world._mapLayout = LAYOUT;
@@ -325,58 +474,11 @@
       }
     }
 
-    const aiAlly = [];
-    const aiEnemy = [];
-    const pushRing = function (list, cx, cz, n, r0, r1) {
-      for (let i = 0; i < n; i++) {
-        const a = (i / n) * Math.PI * 2;
-        const r = r0 + ((i % 3) / 2) * (r1 - r0);
-        const x = cx + Math.cos(a) * r;
-        const z = cz + Math.sin(a) * r;
-        if (!isLand(x, z, size) || isWater(x, z, size)) continue;
-        list.push({ x: x, z: z, cx: x, cz: z });
-      }
-    };
-    pushRing(aiAlly, world._plannedBases[0].x, world._plannedBases[0].z + 22, 8, 15, 28);
-    pushRing(aiEnemy, world._plannedBases[1].x, world._plannedBases[1].z - 22, 8, 15, 28);
-    pushRing(aiAlly, flags[0].x, flags[0].z, 5, 14, 24);
-    pushRing(aiAlly, flags[1].x, flags[1].z, 4, 14, 24);
-    pushRing(aiEnemy, flags[4].x, flags[4].z, 5, 14, 24);
-    pushRing(aiEnemy, flags[5].x, flags[5].z, 4, 14, 24);
-    world._aiSpawns = { ally: aiAlly, enemy: aiEnemy };
-    if (g) g._mapKitAiSpawns = { ally: aiAlly.slice(), enemy: aiEnemy.slice() };
+    const aiSpawns = buildAiSpawns(world);
+    world._aiSpawns = aiSpawns;
+    if (g) g._mapKitAiSpawns = { ally: aiSpawns.ally.slice(), enemy: aiSpawns.enemy.slice() };
 
-    const vehicleSpawns = [];
-    const vehicleTypes = ['jeep', 'ifv', 'tank'];
-    const bases =
-      world._plannedBases && world._plannedBases.length >= 2
-        ? world._plannedBases
-        : [
-            { x: size * HQ.ally.nx, z: size * HQ.ally.nz },
-            { x: size * HQ.enemy.nx, z: size * HQ.enemy.nz },
-          ];
-    const teams = ['ally', 'enemy'];
-    for (let side = 0; side < teams.length; side++) {
-      const team = teams[side];
-      const inward = team === 'ally' ? 1 : -1;
-      const yaw = team === 'ally' ? Math.PI : 0;
-      for (let i = 0; i < vehicleTypes.length; i++) {
-        const p = nudgeLand(
-          world,
-          bases[side].x + (i - 1) * 10,
-          bases[side].z + inward * 21
-        );
-        if (world._clearVehiclePad) world._clearVehiclePad(p.x, p.z, 6);
-        vehicleSpawns.push({
-          id: team + '-' + vehicleTypes[i] + '-1',
-          type: vehicleTypes[i],
-          team: team,
-          x: p.x,
-          z: p.z,
-          yaw: yaw,
-        });
-      }
-    }
+    const vehicleSpawns = buildVehicleSpawns(world);
     world._vehicleSpawns = vehicleSpawns;
     if (g) g._mapKitVehicleSpawns = vehicleSpawns.slice();
   }
@@ -396,6 +498,9 @@
     landDist: landDist,
     applyLayout: applyLayout,
     stamp: stamp,
+    VEHICLE_POOL: VEHICLE_POOL,
+    buildVehicleSpawns: buildVehicleSpawns,
+    buildAiSpawns: buildAiSpawns,
   };
 
   global.VF = global.VF || {};

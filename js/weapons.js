@@ -128,7 +128,7 @@
       nameZh: 'RPG-7',
       caliber: '85mm HEAT',
       slot: 6,
-      damage: 200,
+      damage: 150,
       damageType: 'antiArmor',
       projectile: true,
       projectileSpeed: 38,

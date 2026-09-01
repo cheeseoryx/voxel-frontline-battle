@@ -402,7 +402,7 @@
         name: '主战坦克',
         silhouette: 'tank-a',
         available: true,
-        detail: '2 座重型装甲 · 防御提高 50% · 主炮 / 同轴机枪 / 炮手重机枪',
+        detail: '2 座 · 血量 1000 · 主炮 / 同轴机枪 / 炮手重机枪',
       },
       { name: '主战坦克 B', silhouette: 'tank-b' },
     ],

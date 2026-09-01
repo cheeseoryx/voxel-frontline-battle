@@ -194,6 +194,17 @@ ok(Net.checksum(tampered) !== sum, 'snapshot checksum did not detect ticket dive
 const duplicate = Object.assign({}, env, { seq: -1 });
 ok(!Net.validateEnvelope(duplicate).ok, 'invalid sequence was accepted');
 
+load('js/pvp.js', context);
+const Pvp = context.window.VF.Pvp;
+ok(Pvp.pickJoinTeam({ ally: 1, enemy: 0 }) === 'enemy', '1/0 should join red');
+ok(Pvp.pickJoinTeam({ ally: 1, enemy: 1 }) === 'enemy', 'equal counts should join red');
+ok(Pvp.pickJoinTeam({ ally: 1, enemy: 2 }) === 'ally', '1/2 should join blue');
+ok(Pvp.pickJoinTeam({ ally: 8, enemy: 5 }) === 'enemy', 'full blue should join red');
+ok(Pvp.pickJoinTeam({ ally: 8, enemy: 8 }) === null, '8/8 should reject join');
+ok(Pvp.canSwitchTeam('ally', 'enemy', { ally: 3, enemy: 7 }), 'switch allowed under 8');
+ok(!Pvp.canSwitchTeam('ally', 'enemy', { ally: 3, enemy: 8 }), 'switch blocked at 8');
+ok(!Pvp.canSwitchTeam('ally', 'ally', { ally: 1, enemy: 0 }), 'same-team switch rejected');
+
 const perfFlag = flag('neutral');
 const perfStart = performance.now();
 for (let i = 0; i < 100000; i++) {
@@ -207,6 +218,7 @@ console.log(
     {
       ok: true,
       rules: 'two-phase capture, contest, bleed, casualty, revive, sweep',
+      pvpRoster: 'balance 8v8, switch cap',
       squads: { ally: 8, enemy: 8, size: 4 },
       networkChecksum: sum,
       ruleSteps: 100000,
