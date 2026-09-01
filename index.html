@@ -1146,14 +1146,19 @@
     </div>
   </div>
 
-  <!-- Three.js (global THREE) — works with file:// -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <!-- Three.js (global THREE) — local bundle: three@0.160.0 + GLTFLoader/FBXLoader
+       + SkeletonUtils + EXRLoader/RGBELoader (built by scripts/three-global-entry.js) -->
+  <script src="js/vendor/three.gltf.global.js?v=rifle1"></script>
   <!-- PeerJS for 1v1 PVP rooms (WebRTC) -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
   <!-- Game modules (order matters) -->
   <!-- feel-config.js: KEEP on production (baked feel numbers) -->
   <script src="js/feel-config.js?v=scorch3"></script>
+  <!-- render-config.js/render-pipeline.js/render-scene.js: KEEP on production -->
+  <script src="js/render-config.js?v=2"></script>
+  <script src="js/render-pipeline.js?v=2"></script>
+  <script src="js/render-scene.js?v=2"></script>
   <script src="js/maps/island-conquest.js?v=vehicle3"></script>
   <script src="js/voxel-world.js?v=vehicle3"></script>
   <script src="js/terrain-fine.js?v=scorch3"></script>
@@ -1190,6 +1195,8 @@
   <script src="js/main.js?v=vehicle3"></script>
   <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
   <script src="js/feel-tuner.js?v=scorch3"></script>
+  <!-- render-tuner.js: F9 后处理参数调节（生产环境删除） -->
+  <script src="js/render-tuner.js?v=2"></script>
   <script src="js/map-editor.js?v=scorch3"></script>
 </body>
 </html>

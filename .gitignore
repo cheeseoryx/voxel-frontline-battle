@@ -5,3 +5,21 @@ node_modules
 .env
 .env.*
 !.env.example
+
+# Large source art. Several Anims/*.fbx exceed GitHub's 100MB per-file hard
+# limit, so committing them would fail the push outright — and large blobs are
+# effectively permanent once in history. Use Git LFS or external storage if
+# these ever need to be versioned.
+assets/Anims/
+assets/ual-standard/
+assets/*.zip
+assets/Soldier.glb
+
+# Local tooling / scratch output
+.workbuddy/
+_bones.json
+_fbx_skel.json
+_pose_dump.txt
+diag-*.html
+diag-*.png
+diag-*.txt

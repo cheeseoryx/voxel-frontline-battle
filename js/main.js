@@ -207,18 +207,28 @@
     scene.add(camera);
     game.camera = camera;
 
-    // Lighting — noon daylight
-    const ambient = new THREE.AmbientLight(0xd4e2f2, 0.62);
-    scene.add(ambient);
+    // Sky dome + sun + ambient, all driven by VF.RenderConfig (see
+    // render-scene.js). Falls back to fixed noon daylight if that fails.
+    game.renderScene = VF.createRenderScene ? VF.createRenderScene(scene) : null;
+    if (!game.renderScene) {
+      const ambient = new THREE.AmbientLight(0xd4e2f2, 0.62);
+      scene.add(ambient);
 
-    const sun = new THREE.DirectionalLight(0xfff2cc, 1.05);
-    sun.position.set(-60, 45, 25);
-    sun.castShadow = false;
-    scene.add(sun);
+      const sun = new THREE.DirectionalLight(0xfff2cc, 1.05);
+      sun.position.set(-60, 45, 25);
+      sun.castShadow = false;
+      scene.add(sun);
 
-    const fill = new THREE.DirectionalLight(0x5a8ac8, 0.28);
-    fill.position.set(40, 20, -30);
-    scene.add(fill);
+      const fill = new THREE.DirectionalLight(0x5a8ac8, 0.28);
+      fill.position.set(40, 20, -30);
+      scene.add(fill);
+    }
+
+    // Post-processing pipeline (Composer + Pass system; falls back to direct
+    // renderer.render when RenderConfig.enabled is false or init fails).
+    if (VF.createRenderPipeline) {
+      game.pipeline = VF.createRenderPipeline(renderer, window.innerWidth, window.innerHeight);
+    }
 
     // Voxel world
     game.world = new VF.VoxelWorld(scene);
@@ -1880,6 +1890,7 @@
     game.camera.aspect = window.innerWidth / window.innerHeight;
     game.camera.updateProjectionMatrix();
     game.renderer.setSize(window.innerWidth, window.innerHeight);
+    if (game.pipeline) game.pipeline.setSize(window.innerWidth, window.innerHeight);
     if (VF.Hub) VF.Hub.onResize();
   }
 
@@ -2173,7 +2184,14 @@
       VF.Hub.update(dt);
       VF.Hub.render();
     } else {
-      game.renderer.render(game.scene, game.camera);
+      // Sky/sun/ambient are scene objects — they must be pushed from config
+      // BEFORE the scene is drawn, whichever render path we then take.
+      if (game.renderScene) game.renderScene.sync();
+      if (VF.RenderConfig && VF.RenderConfig.enabled && game.pipeline) {
+        game.pipeline.render(game.scene, game.camera, dt);
+      } else {
+        game.renderer.render(game.scene, game.camera);
+      }
     }
   }
 
