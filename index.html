@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>体素战争</title>
-  <link rel="stylesheet" href="style.css?v=pvp8v8" />
+  <link rel="stylesheet" href="style.css?v=bfhud2" />
 </head>
 <body>
   <button id="audio-toggle" type="button" title="静音" aria-label="切换声音" aria-pressed="false">
@@ -299,11 +299,12 @@
 
   <!-- Game HUD -->
   <div id="hud" class="hidden">
-    <!-- Top left: circular mini-map -->
+    <!-- Bottom left: Battlefield-style square mini-map -->
     <div id="minimap-wrap">
-      <canvas id="minimap" width="128" height="128"></canvas>
-      <span class="hud-label">MAP · M</span>
+      <canvas id="minimap" width="210" height="210"></canvas>
+      <span id="minimap-zone" class="hud-label">荒盆</span>
     </div>
+    <div id="squad-rail" class="squad-rail" aria-label="小队"></div>
 
     <!-- Top center: blue core | pixel clock | red core -->
     <div id="mission-row">
@@ -343,25 +344,36 @@
     </div>
     <div id="flag-strip" class="flag-strip hidden" aria-label="占领点"></div>
 
-    <!-- Battlefield-style conquest HUD -->
+    <!-- Battlefield-style conquest HUD: tickets | compass | tickets, diamonds below -->
     <div id="cq-hud" class="cq-hud hidden">
-      <div class="cq-tickets ally">
-        <span id="cq-ticket-ally">1000</span>
-        <div class="cq-ticket-track"><i id="cq-fill-ally"></i></div>
+      <div class="cq-score-row">
+        <div class="cq-tickets ally">
+          <span id="cq-ticket-ally">1000</span>
+        </div>
+        <div class="cq-center">
+          <canvas id="cq-compass" class="cq-compass" width="560" height="36" aria-hidden="true"></canvas>
+          <div class="cq-score-track" aria-hidden="true">
+            <i id="cq-fill-ally"></i>
+            <i id="cq-fill-enemy"></i>
+          </div>
+        </div>
+        <div class="cq-tickets enemy">
+          <span id="cq-ticket-enemy">1000</span>
+        </div>
       </div>
       <div id="cq-flags" class="cq-flags" aria-label="占领点"></div>
-      <div class="cq-tickets enemy">
-        <div class="cq-ticket-track"><i id="cq-fill-enemy"></i></div>
-        <span id="cq-ticket-enemy">1000</span>
-      </div>
       <div id="cq-clock" class="cq-clock">45:00</div>
     </div>
     <div id="cq-sweep" class="cq-sweep hidden" aria-live="polite"></div>
     <div id="cq-capture" class="cq-capture hidden">
-      <canvas id="cq-capture-ring" width="168" height="168"></canvas>
-      <div id="cq-capture-letter">A</div>
+      <div class="cq-capture-diamond"><span id="cq-capture-letter">A</span></div>
+      <div class="cq-capture-bar" aria-hidden="true">
+        <i id="cq-capture-fill-ally"></i>
+        <i id="cq-capture-fill-enemy"></i>
+      </div>
+      <canvas id="cq-capture-ring" class="hidden" width="168" height="168"></canvas>
       <div id="cq-capture-status">占领中</div>
-      <div id="cq-capture-counts">友 0 · 敌 0</div>
+      <div id="cq-capture-counts">0 vs 0</div>
     </div>
     <div id="cq-markers" class="cq-markers" aria-hidden="true"></div>
     <div id="cq-command" class="cq-command hidden">
@@ -436,8 +448,10 @@
       </div>
     </div>
 
-    <!-- Class skills: active + passive (vanguard / medic / ghost / juggernaut) -->
-    <div id="skill-hud" class="hidden">
+    <div id="interact-hint" class="hidden">按 <kbd>E</kbd> 拾取</div>
+
+    <!-- Class skills omitted from combat HUD (no class abilities) -->
+    <div id="skill-hud" class="hidden" hidden>
       <div class="skill-slot" id="skill-active" title="">
         <div class="skill-icon-wrap">
           <div class="skill-icon skill-icon-c4" data-skill-icon="vanguard" aria-hidden="true">
@@ -524,7 +538,6 @@
         <span>掩体建材</span>
         <strong id="block-count">0</strong>
       </div>
-        <div id="interact-hint" class="hidden">按 <kbd>E</kbd> 拾取</div>
     </div>
 
     <!-- Bottom right: infantry and engineer weapon slots -->
@@ -561,8 +574,8 @@
       </div>
     </div>
 
-    <!-- Universal dash (all classes) — above ammo -->
-    <div id="dash-hud">
+    <!-- Dash kept for keybind, hidden from weapon cluster -->
+    <div id="dash-hud" class="hidden" hidden>
       <div class="skill-slot" id="skill-dash" title="冲刺 — V · 沿准星方向三维突进（球形范围 · CD 10s）">
         <div class="skill-icon-wrap">
           <div class="skill-icon skill-icon-dash" aria-hidden="true">
@@ -581,6 +594,7 @@
     <!-- Ammo readout near hotbar -->
     <div id="ammo">
       <span id="ammo-mag">45</span><span class="ammo-sep">/</span><span id="ammo-reserve">180</span>
+      <span id="weapon-silhouette" class="weapon-silhouette ar" aria-hidden="true"></span>
       <span id="ammo-reload" class="hidden">换弹</span>
     </div>
 
@@ -1189,7 +1203,7 @@
   <script src="js/net-simulation.js?v=vehicle3"></script>
   <script src="js/match-flow.js?v=scorch3"></script>
   <script src="js/soldier-menu.js?v=vehicle3"></script>
-  <script src="js/ui.js?v=pvp8v8"></script>
+  <script src="js/ui.js?v=bfhud2"></script>
   <script src="js/audio.js?v=scorch3"></script>
   <script src="js/atmosphere.js?v=scorch3"></script>
   <script src="js/config.js?v=scorch3"></script>

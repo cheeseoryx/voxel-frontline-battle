@@ -24,6 +24,7 @@
         ammoMag: document.getElementById('ammo-mag'),
         ammoReserve: document.getElementById('ammo-reserve'),
         ammoReload: document.getElementById('ammo-reload'),
+        weaponSilhouette: document.getElementById('weapon-silhouette'),
         vehicleHud: document.getElementById('vehicle-hud'),
         vehicleHudName: document.getElementById('vehicle-hud-name'),
         vehicleHudArmor: document.getElementById('vehicle-hud-armor'),
@@ -56,6 +57,8 @@
         hotbarSlots: document.querySelectorAll('#hotbar .slot'),
         interactHint: document.getElementById('interact-hint'),
         minimap: document.getElementById('minimap'),
+        minimapZone: document.getElementById('minimap-zone'),
+        squadRail: document.getElementById('squad-rail'),
         bigMap: document.getElementById('big-map'),
         mapOverlay: document.getElementById('map-overlay'),
         inventory: document.getElementById('inventory'),
@@ -100,6 +103,7 @@
         ticketEnemy: document.getElementById('ticket-enemy'),
         flagStrip: document.getElementById('flag-strip'),
         cqHud: document.getElementById('cq-hud'),
+        cqCompass: document.getElementById('cq-compass'),
         cqTicketAlly: document.getElementById('cq-ticket-ally'),
         cqTicketEnemy: document.getElementById('cq-ticket-enemy'),
         cqFillAlly: document.getElementById('cq-fill-ally'),
@@ -112,6 +116,8 @@
         cqCaptureLetter: document.getElementById('cq-capture-letter'),
         cqCaptureStatus: document.getElementById('cq-capture-status'),
         cqCaptureCounts: document.getElementById('cq-capture-counts'),
+        cqCaptureFillAlly: document.getElementById('cq-capture-fill-ally'),
+        cqCaptureFillEnemy: document.getElementById('cq-capture-fill-enemy'),
         cqMarkers: document.getElementById('cq-markers'),
         cqCommand: document.getElementById('cq-command'),
         cqCommandText: document.getElementById('cq-command-text'),
@@ -356,8 +362,16 @@
     },
 
     updateAmmo(mag, reserve) {
-      this.els.ammoMag.textContent = mag;
+      const magText = mag < 10 ? '0' + mag : String(mag);
+      this.els.ammoMag.textContent = magText;
       this.els.ammoReserve.textContent = reserve;
+      const weaponId =
+        (global.VF.game && global.VF.game.weapons && global.VF.game.weapons.current) ||
+        'ar';
+      if (this.els.weaponSilhouette) {
+        this.els.weaponSilhouette.className =
+          'weapon-silhouette ' + (weaponId === 'sg' || weaponId === 'sr' || weaponId === 'rpg' ? weaponId : 'ar');
+      }
     },
 
     updateVehicleHud(player, vehicles) {
@@ -581,173 +595,13 @@
     },
 
     updateSkill(info) {
-      const hud = this.els.skillHud;
-      if (!hud) return;
-      if (!info) {
-        hud.classList.add('hidden');
-        return;
-      }
-      hud.classList.remove('hidden');
-      const classId = info.classId || 'assault';
-      const skillId =
-        classId === 'assault'
-          ? 'vanguard'
-          : classId === 'support'
-            ? 'medic'
-            : classId === 'recon'
-              ? 'ghost'
-              : classId;
-      hud.classList.toggle('skill-vanguard', skillId === 'vanguard');
-      hud.classList.toggle('skill-medic', skillId === 'medic');
-      hud.classList.toggle('skill-ghost', skillId === 'ghost');
-      hud.classList.toggle('skill-juggernaut', skillId === 'juggernaut');
-      hud.classList.toggle('skill-raider', skillId === 'raider');
-      hud.classList.toggle('skill-engineer', skillId === 'engineer');
-
-      // Swap icons
-      hud.querySelectorAll('[data-skill-icon]').forEach(function (el) {
-        el.classList.toggle('hidden', el.getAttribute('data-skill-icon') !== skillId);
-      });
-
-      const active = this.els.skillActive;
-      const passive = this.els.skillPassive;
-      const overlay = this.els.skillCdOverlay;
-      const num = this.els.skillCdNum;
-      const buff = this.els.skillBuffRing;
-      const pTime = this.els.skillPassiveTime;
-      const pNum = this.els.skillPassiveTimeNum;
-
-      if (active) {
-        active.title =
-          skillId === 'medic'
-            ? '修复装置 — 按住 G 选择地面位置，松手部署（CD 15s）'
-            : skillId === 'ghost'
-              ? '隐身 — 按 G 进入隐形 6s，移速+30%（CD 28s）；破隐后首枪+40'
-              : skillId === 'juggernaut'
-                ? '防暴盾 — 按 G 展开能量盾（280耐久·8s·移速-35%·CD24s）'
-                : skillId === 'raider'
-                  ? '电磁脉冲 — 按 G 向前方60°圆锥发射（28m·核心12×12×6·CD30s）'
-                  : skillId === 'engineer'
-                    ? '加特林炮塔 — 按住 G 部署 / 炮塔在场时点 G 收回（12物料·120HP·CD40s）'
-                    : 'C4 炸药 — 按住 G 瞄准抛物线，松手投掷';
-        active.classList.toggle('ready', !!info.ready && !info.pending && !info.aiming && !info.flying);
-        active.classList.toggle('pending', !!info.pending || !!info.flying);
-        active.classList.toggle('aiming', !!info.aiming);
-        active.classList.toggle(
-          'cooldown',
-          !info.ready && !info.pending && !info.aiming && !info.flying && info.cooldown > 0
-        );
-      }
-      if (passive) {
-        passive.title =
-          skillId === 'medic'
-            ? '被动：开局获得 50 护盾'
-            : skillId === 'ghost'
-              ? '被动：从背后攻击敌人时伤害 +30%'
-              : skillId === 'juggernaut'
-                ? '被动：受到的子弹伤害 -6%'
-                : skillId === 'raider'
-                  ? '被动：击杀敌人或破坏防御建筑时额外掉落 30% 备弹与物料'
-                  : skillId === 'engineer'
-                    ? '被动：放置的建筑耐久 +50% · 开局 20 物料'
-                    : '被动：切枪/换弹+15% · C4起爆移速+20%·3s';
-        passive.classList.toggle('buffed', !!info.speedBuff || !!info.ambushReady);
-        passive.classList.toggle('has-shield', !!info.passiveShield && skillId === 'medic');
-        passive.classList.toggle('ambush-ready', !!info.ambushReady);
-        passive.classList.toggle('riot-active', !!info.riotHp);
-        passive.classList.toggle('loot-bonus', !!info.lootBonus);
-        passive.classList.toggle('build-durability', !!info.buildDurability);
-      }
-      if (buff) buff.classList.toggle('hidden', !info.speedBuff && !info.ambushReady);
-
-      if (pTime && pNum) {
-        if (info.riotHp > 0) {
-          pTime.classList.remove('hidden');
-          pNum.textContent = String(info.riotHp);
-        } else if (info.speedBuff && info.buffTime > 0 && skillId !== 'juggernaut') {
-          pTime.classList.remove('hidden');
-          pNum.textContent = info.buffTime.toFixed(1);
-        } else if (info.ambushReady) {
-          pTime.classList.remove('hidden');
-          pNum.textContent = '+40';
-        } else if (info.passiveShield && info.shieldAmount && skillId === 'medic') {
-          pTime.classList.remove('hidden');
-          pNum.textContent = String(info.shieldAmount);
-        } else if (info.bulletResist) {
-          pTime.classList.remove('hidden');
-          pNum.textContent = '-6%';
-        } else if (info.lootBonus) {
-          pTime.classList.remove('hidden');
-          pNum.textContent = '+30%';
-        } else if (info.buildDurability) {
-          pTime.classList.remove('hidden');
-          pNum.textContent = '+50%';
-        } else {
-          pTime.classList.add('hidden');
-          pNum.textContent = '';
-        }
-      }
-
-      if (overlay && num) {
-        if (info.aiming) {
-          overlay.classList.add('hidden');
-          overlay.classList.remove('fuse');
-          num.textContent = '';
-        } else if (info.flying) {
-          overlay.classList.remove('hidden');
-          overlay.classList.add('fuse');
-          num.textContent = '…';
-        } else if (info.turretAmmo > 0) {
-          overlay.classList.remove('hidden');
-          overlay.classList.add('fuse');
-          num.textContent = String(info.turretAmmo);
-        } else if (info.pending && info.fuse > 0) {
-          overlay.classList.remove('hidden');
-          overlay.classList.add('fuse');
-          num.textContent = info.fuse.toFixed(1);
-        } else if (info.cooldown > 0) {
-          overlay.classList.remove('hidden');
-          overlay.classList.remove('fuse');
-          num.textContent = String(Math.ceil(info.cooldown));
-        } else {
-          overlay.classList.add('hidden');
-          overlay.classList.remove('fuse');
-          num.textContent = '';
-        }
-      }
+      if (this.els.skillHud) this.els.skillHud.classList.add('hidden');
+      if (this.els.dashHud) this.els.dashHud.classList.add('hidden');
     },
 
-    /** Universal dash skill (all classes) */
+    /** Dash remains bound to V; the skill cluster is hidden from the weapon HUD. */
     updateDash(info) {
-      const slot = this.els.skillDash;
-      const overlay = this.els.dashCdOverlay;
-      const num = this.els.dashCdNum;
-      const hud = this.els.dashHud;
-      if (!slot) return;
-      if (hud) hud.classList.remove('hidden');
-      if (!info) {
-        slot.classList.remove('ready', 'cooldown', 'dashing');
-        if (overlay) overlay.classList.add('hidden');
-        return;
-      }
-      slot.classList.toggle('ready', !!info.ready && !info.dashing);
-      slot.classList.toggle('cooldown', !info.ready && !info.dashing);
-      slot.classList.toggle('dashing', !!info.dashing);
-      if (overlay && num) {
-        if (info.dashing) {
-          overlay.classList.remove('hidden');
-          overlay.classList.add('fuse');
-          num.textContent = '»';
-        } else if (info.cooldown > 0) {
-          overlay.classList.remove('hidden');
-          overlay.classList.remove('fuse');
-          num.textContent = String(Math.ceil(info.cooldown));
-        } else {
-          overlay.classList.add('hidden');
-          overlay.classList.remove('fuse');
-          num.textContent = '';
-        }
-      }
+      if (this.els.dashHud) this.els.dashHud.classList.add('hidden');
     },
 
     updateWave(wave, seconds) {
@@ -849,8 +703,16 @@
       if (this.els.missionPercent) this.els.missionPercent.textContent = String(enemyTickets);
       const youPct = Math.max(0, Math.min(1, you / max));
       const themPct = Math.max(0, Math.min(1, them / max));
-      if (this.els.cqFillAlly) this.els.cqFillAlly.style.transform = 'scaleX(' + youPct + ')';
-      if (this.els.cqFillEnemy) this.els.cqFillEnemy.style.transform = 'scaleX(' + themPct + ')';
+      const total = Math.max(1, you + them);
+      const youShare = you / total;
+      if (this.els.cqFillAlly) {
+        this.els.cqFillAlly.style.width = youShare * 100 + '%';
+        this.els.cqFillAlly.style.transform = 'none';
+      }
+      if (this.els.cqFillEnemy) {
+        this.els.cqFillEnemy.style.width = (1 - youShare) * 100 + '%';
+        this.els.cqFillEnemy.style.transform = 'none';
+      }
       const allyBox = this.els.cqHud && this.els.cqHud.querySelector('.cq-tickets.ally');
       const enemyBox = this.els.cqHud && this.els.cqHud.querySelector('.cq-tickets.enemy');
       const allyBleedAmt = extra.bleedAlly != null ? extra.bleedAlly : 0;
@@ -955,47 +817,86 @@
       if (this.els.cqCaptureLetter) this.els.cqCaptureLetter.textContent = flag.letter || '';
       if (this.els.cqCaptureStatus) this.els.cqCaptureStatus.textContent = status;
       if (this.els.cqCaptureCounts) {
-        this.els.cqCaptureCounts.textContent = '友 ' + (friendN || 0) + ' · 敌 ' + (foeN || 0);
+        this.els.cqCaptureCounts.textContent = (friendN || 0) + ' vs ' + (foeN || 0);
       }
-      const canvas = this.els.cqCaptureRing;
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      const w = canvas.width;
-      const h = canvas.height;
-      const cx = w * 0.5;
-      const cy = h * 0.5;
-      const r = 68;
-      ctx.clearRect(0, 0, w, h);
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-      ctx.lineWidth = 12;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-      ctx.lineWidth = 4;
-      ctx.stroke();
       const t = Math.max(0, Math.min(1, Math.abs(flag.capture || 0)));
       const towardFriend =
         (flag.capture || 0) >= 0 ? playerTeam === 'ally' : playerTeam === 'enemy';
-      const col = flag.contested ? '#ffe08a' : towardFriend ? '#4aa3ff' : '#e24b3c';
-      if (t > 0.001) {
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * t);
-        ctx.strokeStyle = col;
-        ctx.lineWidth = 8;
-        ctx.lineCap = 'butt';
-        ctx.stroke();
-      }
+      const col = flag.contested ? '#ffe08a' : towardFriend ? '#4aa7ff' : '#ff6a32';
       box.style.setProperty('--cq-cap-col', col);
+      let friendShare = 0.5;
+      if (flag.owner === playerTeam) friendShare = 0.72 + t * 0.28;
+      else if (flag.owner && flag.owner !== 'neutral') friendShare = 0.28 - t * 0.28;
+      else friendShare = towardFriend ? 0.5 + t * 0.5 : 0.5 - t * 0.5;
+      friendShare = Math.max(0.08, Math.min(0.92, friendShare));
+      if (this.els.cqCaptureFillAlly) this.els.cqCaptureFillAlly.style.width = friendShare * 100 + '%';
+      if (this.els.cqCaptureFillEnemy) {
+        this.els.cqCaptureFillEnemy.style.width = (1 - friendShare) * 100 + '%';
+      }
     },
 
     _drawCqMarkers(flags, camera, player, playerTeam) {
       const wrap = this.els.cqMarkers;
       if (!wrap) return;
-      // World-space flag sprites already show the letter; hide the duplicate HUD pins.
-      while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
+      if (!camera || !player || !global.THREE || !flags || !flags.length) {
+        if (wrap._html) {
+          wrap._html = '';
+          wrap.innerHTML = '';
+        }
+        return;
+      }
+      const w = wrap.clientWidth || window.innerWidth;
+      const h = wrap.clientHeight || window.innerHeight;
+      if (!this._cqNdc) this._cqNdc = new global.THREE.Vector3();
+      const v = this._cqNdc;
+      const px = player.object.position.x;
+      const pz = player.object.position.z;
+      const bits = [];
+      for (let i = 0; i < flags.length; i++) {
+        const f = flags[i];
+        const fy = (f.mesh && f.mesh.position && f.mesh.position.y) || f.y || 6;
+        v.set(f.x, fy + 3.4, f.z).project(camera);
+        if (v.z > 1 || v.z < -1) continue;
+        let x = (v.x * 0.5 + 0.5) * w;
+        let y = (-v.y * 0.5 + 0.5) * h;
+        const dx = f.x - px;
+        const dz = f.z - pz;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist < 12) continue;
+        const kind = this._cqFlagKind(f, playerTeam);
+        const status =
+          kind === 'friend'
+            ? '防守'
+            : kind === 'foe'
+              ? '进攻'
+              : kind === 'contest'
+                ? '争夺'
+                : '占领';
+        const edge = x < 22 || y < 72 || x > w - 22 || y > h - 86;
+        x = Math.max(20, Math.min(w - 20, x));
+        y = Math.max(72, Math.min(h - 78, y));
+        bits.push(
+          '<div class="cq-marker ' +
+            kind +
+            (edge ? ' edge' : '') +
+            '" style="transform:translate(' +
+            Math.round(x / 2) * 2 +
+            'px,' +
+            Math.round(y / 2) * 2 +
+            'px) translate(-50%,-100%)"><i></i><b>' +
+            (f.letter || '') +
+            '</b><em>' +
+            status +
+            '</em><em>' +
+            Math.round(dist) +
+            'm</em></div>'
+        );
+      }
+      const html = bits.join('');
+      if (wrap._html !== html) {
+        wrap._html = html;
+        wrap.innerHTML = html;
+      }
     },
 
     setObjective(text) {
@@ -4636,22 +4537,173 @@
       }, 1400);
     },
 
-    /** Circular tactical minimap — terrain throttled, entities every frame */
+    _headingDeg(yaw) {
+      return (((-yaw) * 180) / Math.PI % 360 + 360) % 360;
+    },
+
+    _drawCompass(yaw) {
+      const canvas = this.els.cqCompass;
+      if (!canvas) return;
+      if (this.els.cqHud && this.els.cqHud.classList.contains('hidden')) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      const heading = this._headingDeg(yaw || 0);
+      const span = 110;
+      const pxPerDeg = w / span;
+      const labels = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.fillStyle = 'rgba(244,248,251,0.92)';
+      ctx.font = '700 10px "Segoe UI", "Microsoft YaHei", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      for (let deg = 0; deg < 360; deg += 15) {
+        let delta = deg - heading;
+        if (delta > 180) delta -= 360;
+        if (delta < -180) delta += 360;
+        if (Math.abs(delta) > span / 2 + 4) continue;
+        const x = w * 0.5 + delta * pxPerDeg;
+        const major = deg % 90 === 0;
+        ctx.beginPath();
+        ctx.moveTo(x, major ? 2 : 8);
+        ctx.lineTo(x, major ? 14 : 12);
+        ctx.stroke();
+        if (major) {
+          ctx.fillText(labels[deg] || String(deg), x, 16);
+        } else if (deg % 30 === 0) {
+          ctx.fillStyle = 'rgba(244,248,251,0.55)';
+          ctx.fillText(String(deg), x, 16);
+          ctx.fillStyle = 'rgba(244,248,251,0.92)';
+        }
+      }
+      ctx.fillStyle = '#ffe08a';
+      ctx.beginPath();
+      ctx.moveTo(w * 0.5, 0);
+      ctx.lineTo(w * 0.5 - 4, 7);
+      ctx.lineTo(w * 0.5 + 4, 7);
+      ctx.closePath();
+      ctx.fill();
+    },
+
+    _classGlyph(classId) {
+      if (classId === 'engineer') return '工';
+      if (classId === 'support') return '援';
+      if (classId === 'recon') return '侦';
+      return '突';
+    },
+
+    _updateSquadRail(player) {
+      const rail = this.els.squadRail;
+      if (!rail || !player) return;
+      const game = global.VF && global.VF.game;
+      const squads = global.VF && global.VF.Squads;
+      const myId = player.entityId || 'player-local';
+      const squad = squads && squads.getSquadFor ? squads.getSquadFor(player) : null;
+      const memberIds =
+        squad && squad.memberIds && squad.memberIds.length ? squad.memberIds : [myId];
+      let html = '';
+      for (let i = 0; i < memberIds.length; i++) {
+        const id = memberIds[i];
+        const ent =
+          squads && squads.getEntity
+            ? squads.getEntity(id, game)
+            : id === myId
+              ? player
+              : null;
+        const isSelf = id === myId || !!(ent && ent === player);
+        const alive = !ent || (ent.alive !== false && !ent.dead && !ent.downed);
+        const hp = ent
+          ? Math.max(
+              0,
+              Math.min(
+                1,
+                (ent.health != null ? ent.health : ent.hp || 0) /
+                  (ent.maxHealth || ent.maxHp || 100)
+              )
+            )
+          : 1;
+        const name = isSelf
+          ? '你'
+          : (ent && (ent.displayName || ent.name)) || '小队 ' + (i + 1);
+        const glyph = this._classGlyph(ent && ent.classId);
+        html +=
+          '<div class="squad-rail-row' +
+          (isSelf ? ' is-self' : '') +
+          (alive ? '' : ' is-down') +
+          '"><span class="squad-class">' +
+          glyph +
+          '</span><span class="squad-meta"><span class="squad-name">' +
+          name +
+          '</span><span class="squad-hp"><i style="transform:scaleX(' +
+          (alive ? hp : 0) +
+          ')"></i></span></span></div>';
+      }
+      if (rail._html !== html) {
+        rail._html = html;
+        rail.innerHTML = html;
+      }
+    },
+
+    _updateMinimapZone(player, world) {
+      const el = this.els.minimapZone;
+      if (!el || !player || !world) return;
+      const flags = world._conquestFlags || world._kitFlags || [];
+      let best = null;
+      let bestD = 48 * 48;
+      const px = player.object.position.x;
+      const pz = player.object.position.z;
+      for (let i = 0; i < flags.length; i++) {
+        const f = flags[i];
+        const dx = f.x - px;
+        const dz = f.z - pz;
+        const d = dx * dx + dz * dz;
+        if (d < bestD) {
+          bestD = d;
+          best = f;
+        }
+      }
+      const mapName =
+        (world && world._mapName) ||
+        (global.VF.IslandConquestMap && global.VF.IslandConquestMap.name) ||
+        '荒盆';
+      el.textContent = best ? best.letter + ' · ' + mapName : mapName;
+    },
+
+    _drawMinimapDiamond(ctx, x, y, size, fill, stroke) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(Math.PI / 4);
+      if (fill) {
+        ctx.fillStyle = fill;
+        ctx.fillRect(-size, -size, size * 2, size * 2);
+      }
+      if (stroke) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(-size, -size, size * 2, size * 2);
+      }
+      ctx.restore();
+    },
+
+    /** North-up square satellite minimap — no fog of war. */
     drawMinimap(player, world, enemies, resources, allies) {
       const ctx = this.minimapCtx;
+      if (!ctx || !this.els.minimap || !player || !world) return;
       const w = this.els.minimap.width;
       const h = this.els.minimap.height;
       const cx = w / 2;
       const cy = h / 2;
-      const scale = 1.1;
+      const extent = 42;
+      const scale = cx / extent;
       const px = player.object.position.x;
       const pz = player.object.position.z;
       const now = performance.now();
       const moved =
         !this._mmLastPos ||
-        Math.abs(px - this._mmLastPos.x) > 1.5 ||
-        Math.abs(pz - this._mmLastPos.z) > 1.5;
-      const needTerrain = !this._mmTerrain || moved || now - (this._mmTerrainAt || 0) > 500;
+        Math.abs(px - this._mmLastPos.x) > 1.2 ||
+        Math.abs(pz - this._mmLastPos.z) > 1.2;
+      const needTerrain = !this._mmTerrain || moved || now - (this._mmTerrainAt || 0) > 420;
 
       if (needTerrain) {
         if (!this._mmTerrain) {
@@ -4660,20 +4712,13 @@
           this._mmTerrain.height = h;
         }
         const tctx = this._mmTerrain.getContext('2d');
-        tctx.clearRect(0, 0, w, h);
-        tctx.fillStyle = '#0c1018';
+        tctx.fillStyle = '#1a2420';
         tctx.fillRect(0, 0, w, h);
-        tctx.save();
-        tctx.beginPath();
-        tctx.arc(cx, cy, w / 2 - 1, 0, Math.PI * 2);
-        tctx.clip();
-
-        const radius = 28;
         const AIR = global.VF.BLOCK.AIR;
         const WATER = global.VF.BLOCK.WATER;
-        for (let dz = -radius; dz < radius; dz += 3) {
-          for (let dx = -radius; dx < radius; dx += 3) {
-            if (dx * dx + dz * dz > radius * radius) continue;
+        const step = 2;
+        for (let dz = -extent; dz < extent; dz += step) {
+          for (let dx = -extent; dx < extent; dx += step) {
             const wx = Math.floor(px + dx);
             const wz = Math.floor(pz + dz);
             if (wx < 0 || wz < 0 || wx >= world.worldSize || wz >= world.worldSize) continue;
@@ -4681,11 +4726,11 @@
             if (gy < 1) gy = 4;
             let t = world.get(wx, gy, wz);
             if (t === AIR) t = world.get(wx, gy - 1, wz);
-            let col = '#3a4a30';
+            let col = '#3d5a34';
             const layout = global.VF && global.VF.IslandConquestMap;
-            if (layout && layout.isWater && layout.isWater(wx, wz, world.worldSize)) col = '#8ed6ec';
+            if (layout && layout.isWater && layout.isWater(wx, wz, world.worldSize)) col = '#2a6a7a';
             else if (t === WATER) col = '#1a4a6a';
-            else if (t === global.VF.BLOCK.ROAD || t === global.VF.BLOCK.ASPHALT) col = '#22252a';
+            else if (t === global.VF.BLOCK.ROAD || t === global.VF.BLOCK.ASPHALT) col = '#2a2e34';
             else if (t === global.VF.BLOCK.METAL) col = '#6a9ccc';
             else if (t === global.VF.BLOCK.BRICK) col = '#8a3a2a';
             else if (t === global.VF.BLOCK.PLASTER) col = '#c8c0b0';
@@ -4694,77 +4739,33 @@
             else if (t === global.VF.BLOCK.CONCRETE || t === global.VF.BLOCK.STONE) col = '#4a4e54';
             else if (t === global.VF.BLOCK.RUST) col = '#6a3a20';
             tctx.fillStyle = col;
-            tctx.fillRect(cx + dx * scale, cy + dz * scale, 3, 3);
+            tctx.fillRect(cx + dx * scale, cy + dz * scale, step * scale + 0.5, step * scale + 0.5);
           }
         }
-        tctx.restore();
         this._mmTerrainAt = now;
         this._mmLastPos = { x: px, z: pz };
       }
 
       ctx.clearRect(0, 0, w, h);
       ctx.drawImage(this._mmTerrain, 0, 0);
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(cx, cy, w / 2 - 1, 0, Math.PI * 2);
-      ctx.clip();
 
-      if (world._allyBasePos) {
-        const ab = world._allyBasePos;
-        ctx.fillStyle = '#33aaff';
-        ctx.beginPath();
-        ctx.arc(cx + (ab.x - px) * scale, cy + (ab.z - pz) * scale, 3.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      if (world._enemyBasePos) {
-        const eb = world._enemyBasePos;
-        ctx.fillStyle = '#ff3344';
-        ctx.beginPath();
-        ctx.arc(cx + (eb.x - px) * scale, cy + (eb.z - pz) * scale, 3.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      if (world._spawnPoints && world._spawnPoints.all) {
-        for (let i = 0; i < world._spawnPoints.all.length; i++) {
-          const s = world._spawnPoints.all[i];
-          const mx = cx + (s.x - px) * scale;
-          const my = cy + (s.z - pz) * scale;
-          if (mx < 4 || my < 4 || mx > w - 4 || my > h - 4) continue;
-          ctx.fillStyle = s.team === 'ally' ? '#4aa3ff' : '#ff5566';
-          ctx.beginPath();
-          ctx.arc(mx, my, s.id === world._selectedSpawnId ? 3.5 : 2.5, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
+      const pTeam = this._playerTeam();
+      const squads = global.VF && global.VF.Squads;
+      const myId = player.entityId || 'player-local';
 
       const cFlags = world._conquestFlags || world._kitFlags;
       if (cFlags && cFlags.length) {
-        const pTeam = this._playerTeam();
         for (let i = 0; i < cFlags.length; i++) {
           const f = cFlags[i];
           const mx = cx + (f.x - px) * scale;
           const my = cy + (f.z - pz) * scale;
-          if (mx < 4 || my < 4 || mx > w - 4 || my > h - 4) continue;
+          if (mx < 6 || my < 6 || mx > w - 6 || my > h - 6) continue;
           const kind = this._cqFlagKind(f, pTeam);
-          ctx.beginPath();
-          if (kind === 'foe') {
-            ctx.save();
-            ctx.translate(mx, my);
-            ctx.rotate(Math.PI / 4);
-            ctx.fillStyle = '#ff5566';
-            ctx.fillRect(-3, -3, 6, 6);
-            ctx.restore();
-          } else if (kind === 'neutral') {
-            ctx.strokeStyle = '#e8e4dc';
-            ctx.lineWidth = 1.4;
-            ctx.arc(mx, my, 4.2, 0, Math.PI * 2);
-            ctx.stroke();
-          } else {
-            ctx.fillStyle = kind === 'contest' ? '#ffe08a' : '#4aa3ff';
-            ctx.arc(mx, my, 4.2, 0, Math.PI * 2);
-            ctx.fill();
-          }
-          ctx.fillStyle = kind === 'neutral' ? '#e8e4dc' : '#1a1612';
+          const fill =
+            kind === 'foe' ? '#ff6a32' : kind === 'friend' ? '#3b9eff' : kind === 'contest' ? '#ffe08a' : null;
+          const stroke = kind === 'neutral' ? '#e8e4dc' : '#041018';
+          this._drawMinimapDiamond(ctx, mx, my, 4.2, fill, stroke);
+          ctx.fillStyle = kind === 'neutral' ? '#e8e4dc' : '#041018';
           ctx.font = 'bold 8px "Segoe UI", "Microsoft YaHei", sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
@@ -4776,7 +4777,6 @@
         global.VF && global.VF.Vehicles && global.VF.Vehicles.getAll
           ? global.VF.Vehicles.getAll()
           : [];
-      const pTeam = this._playerTeam();
       for (let i = 0; i < vehicles.length; i++) {
         const vehicle = vehicles[i];
         const mx = cx + (vehicle.position.x - px) * scale;
@@ -4796,62 +4796,59 @@
         ctx.restore();
       }
 
-      if (resources) {
-        for (let i = 0; i < resources.length; i++) {
-          const r = resources[i];
-          ctx.fillStyle = r.type === 'core' ? '#7dffc8' : '#c4a574';
-          ctx.fillRect(
-            cx + (r.mesh.position.x - px) * scale - 1,
-            cy + (r.mesh.position.z - pz) * scale - 1,
-            3,
-            3
-          );
-        }
-      }
+      const paintUnit = (unit, color, size) => {
+        if (!unit || !unit.alive || !unit.mesh) return;
+        const mx = cx + (unit.mesh.position.x - px) * scale;
+        const my = cy + (unit.mesh.position.z - pz) * scale;
+        if (mx < 3 || my < 3 || mx > w - 3 || my > h - 3) return;
+        ctx.fillStyle = color;
+        ctx.fillRect(mx - size, my - size, size * 2, size * 2);
+      };
 
       if (allies) {
         for (let i = 0; i < allies.length; i++) {
           const a = allies[i];
-          if (!a.alive) continue;
-          ctx.fillStyle = a.team === 'ally' ? '#4aa3ff' : '#ff5566';
-          ctx.fillRect(
-            cx + (a.mesh.position.x - px) * scale - 2,
-            cy + (a.mesh.position.z - pz) * scale - 2,
-            4,
-            4
-          );
+          const squadmate = !!(squads && squads.areSquadmates && squads.areSquadmates(myId, a));
+          paintUnit(a, squadmate ? '#8dff7a' : '#4aa7ff', squadmate ? 2.4 : 2);
         }
       }
-
       if (enemies) {
         for (let i = 0; i < enemies.length; i++) {
           const e = enemies[i];
-          if (!e.alive) continue;
-          ctx.fillStyle = e.team === 'ally' ? '#4aa3ff' : '#ff5566';
-          ctx.fillRect(
-            cx + (e.mesh.position.x - px) * scale - 1.5,
-            cy + (e.mesh.position.z - pz) * scale - 1.5,
-            3,
-            3
-          );
+          if (!e.alive || !e.mesh) continue;
+          const mx = cx + (e.mesh.position.x - px) * scale;
+          const my = cy + (e.mesh.position.z - pz) * scale;
+          if (mx < 3 || my < 3 || mx > w - 3 || my > h - 3) continue;
+          this._drawMinimapDiamond(ctx, mx, my, 2.2, '#ff5a3a', null);
         }
       }
 
-      // Player — tip matches look / W forward (-sin yaw, -cos yaw)
-      ctx.fillStyle = '#ffe8d4';
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(-(player.yaw || 0));
+      ctx.fillStyle = '#f4f8fb';
       ctx.beginPath();
-      ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+      ctx.moveTo(0, -7);
+      ctx.lineTo(4.5, 5);
+      ctx.lineTo(0, 2.5);
+      ctx.lineTo(-4.5, 5);
+      ctx.closePath();
+      ctx.fillStyle = '#f4f8fb';
       ctx.fill();
-      const yaw = player.yaw;
-      const tipX = -Math.sin(yaw) * 8;
-      const tipY = -Math.cos(yaw) * 8;
-      ctx.strokeStyle = '#ff9a4a';
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + tipX, cy + tipY);
+      ctx.strokeStyle = '#041018';
+      ctx.lineWidth = 1.2;
       ctx.stroke();
-
       ctx.restore();
+
+      ctx.fillStyle = 'rgba(244,248,251,0.78)';
+      ctx.font = '700 10px "Segoe UI", "Microsoft YaHei", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText('N', cx, 5);
+
+      this._drawCompass(player.yaw);
+      this._updateSquadRail(player);
+      this._updateMinimapZone(player, world);
     },
   };
 
