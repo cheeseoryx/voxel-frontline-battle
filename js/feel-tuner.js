@@ -163,10 +163,10 @@
 
   const WEAPON_IDS = ['ar', 'sg', 'sr'];
   const WEAPON_FIELDS = [
-    { key: 'recoil', label: '后坐力', min: 0, max: 0.4, step: 0.005 },
-    { key: 'spread', label: '腰射散布', min: 0, max: 0.25, step: 0.001 },
-    { key: 'adsSpread', label: 'ADS 散布', min: 0, max: 0.15, step: 0.001 },
-    { key: 'fireRate', label: '射速(秒/发)', min: 0.05, max: 2, step: 0.01 },
+    { key: 'verticalRecoil', label: '垂直后坐力', min: 0, max: 8, step: 0.01 },
+    { key: 'horizontalRecoil', label: '横向后坐力', min: 0, max: 6, step: 0.01 },
+    { key: 'accuracy', label: '准确度', min: 0, max: 100, step: 0.1 },
+    { key: 'fireRate', label: '射速(RPM)', min: 15, max: 1200, step: 1 },
   ];
 
   function ensureFeel() {
@@ -216,12 +216,34 @@
     }
   }
 
+  function migrateWeaponDraft(weapons) {
+    if (!weapons) return;
+    const ids = ['ar', 'sg', 'sr', 'rpg'];
+    for (let i = 0; i < ids.length; i++) {
+      const ov = weapons[ids[i]];
+      if (!ov) continue;
+      if (ov.fireRate != null && ov.fireRate > 0 && ov.fireRate <= 5) {
+        ov.fireRate = 60 / ov.fireRate;
+      }
+      if (ov.verticalRecoil == null && ov.recoil != null) {
+        ov.verticalRecoil = ov.recoil / 0.048;
+      }
+      if (ov.horizontalRecoil == null && ov.verticalRecoil != null) {
+        ov.horizontalRecoil = ov.verticalRecoil * 0.54;
+      }
+      if (ov.accuracy == null && ov.spread != null) {
+        ov.accuracy = (1 - ov.spread / 0.12) * 100;
+      }
+    }
+  }
+
   function loadDraft() {
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (!raw) return;
       const parsed = JSON.parse(raw);
       deepAssign(global.VF.Feel, parsed);
+      migrateWeaponDraft(global.VF.Feel && global.VF.Feel.weapons);
     } catch (e) {
       /* ignore */
     }

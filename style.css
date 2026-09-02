@@ -7643,12 +7643,20 @@ body.stealthed::before {
   line-height: 1.55;
 }
 
+.loadout-customize-brief .loadout-customize-weapon-stats {
+  max-width: 340px;
+  margin-top: 10px;
+  color: rgba(112, 202, 230, 0.9);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
 .loadout-customize-stage {
   position: absolute;
   z-index: 3;
   top: 52px;
   right: 18vw;
-  bottom: 112px;
+  bottom: 176px;
   left: 27vw;
   pointer-events: none;
 }
@@ -7667,8 +7675,8 @@ body.stealthed::before {
   bottom: 0;
   left: 0;
   display: grid;
-  min-height: 116px;
-  grid-template-columns: 180px minmax(280px, 1fr) minmax(180px, 260px) 128px;
+  min-height: 168px;
+  grid-template-columns: 180px minmax(380px, 1.5fr) minmax(160px, 240px) 128px;
   align-items: end;
   gap: 10px;
   padding: 12px clamp(20px, 3vw, 44px);
@@ -7728,14 +7736,18 @@ body.stealthed::before {
 
 .loadout-customize-weapons {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+  max-height: 148px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .loadout-weapon-option {
   position: relative;
   display: grid;
-  height: 62px;
+  height: 48px;
   min-width: 0;
   grid-template-columns: minmax(48px, 0.8fr) minmax(54px, 1fr);
   align-items: center;
@@ -7870,18 +7882,22 @@ body.stealthed::before {
   }
 
   .loadout-customize-stage {
-    bottom: 102px;
+    bottom: 154px;
   }
 
   .loadout-customize-footer {
-    min-height: 104px;
+    min-height: 148px;
     padding-block: 8px;
+  }
+
+  .loadout-customize-weapons {
+    max-height: 112px;
   }
 
   .loadout-class-option,
   .loadout-weapon-option,
   .loadout-customize-equipment .deploy-gear-slot {
-    height: 56px;
+    height: 44px;
   }
 }
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>体素战争</title>
-  <link rel="stylesheet" href="style.css?v=bfhud6" />
+  <link rel="stylesheet" href="style.css?v=bfhud7" />
 </head>
 <body>
   <button id="audio-toggle" type="button" title="静音" aria-label="切换声音" aria-pressed="false">
@@ -824,6 +824,7 @@
         <h1 id="loadout-customize-class-name">突击兵</h1>
         <strong id="loadout-customize-class-role">进攻与突破</strong>
         <p id="loadout-customize-class-blurb"></p>
+        <p id="loadout-customize-weapon-stats" class="loadout-customize-weapon-stats"></p>
       </aside>
 
       <main class="loadout-customize-stage">
@@ -1208,7 +1209,7 @@
 
   <!-- Game modules (order matters) -->
   <!-- feel-config.js: KEEP on production (baked feel numbers) -->
-  <script src="js/feel-config.js?v=scorch3"></script>
+  <script src="js/feel-config.js?v=wstat2"></script>
   <!-- render-config.js/render-pipeline.js/render-scene.js: KEEP on production -->
   <script src="js/render-config.js?v=2"></script>
   <script src="js/render-pipeline.js?v=2"></script>
@@ -1218,17 +1219,19 @@
   <script src="js/terrain-fine.js?v=scorch3"></script>
   <script src="js/world-outskirts.js?v=scorch3"></script>
   <script src="js/bases.js?v=scorch3"></script>
-  <script src="js/vehicles.js?v=vehicle3"></script>
-  <script src="js/soldier.js?v=scorch3"></script>
-  <script src="js/player.js?v=vehicle3"></script>
-  <script src="js/weapons.js?v=vehicle3"></script>
+  <script src="js/vehicles.js?v=wstat2"></script>
+  <script src="js/weapon-viewmodels.js?v=wstat2"></script>
+  <script src="js/soldier.js?v=wstat2"></script>
+  <script src="js/player.js?v=wstat2"></script>
+  <script src="js/weapon-catalog.js?v=wstat3"></script>
+  <script src="js/weapons.js?v=wstat3"></script>
   <script src="js/skills.js?v=vehicle3"></script>
   <script src="js/building.js?v=vehicle3"></script>
   <script src="js/tower-designer.js?v=scorch3"></script>
   <script src="js/hub.js?v=scorch4"></script>
-  <script src="js/economy.js?v=scorch3"></script>
+  <script src="js/economy.js?v=wstat3"></script>
   <script src="js/lobby.js?v=scorch4"></script>
-  <script src="js/range.js?v=scorch4"></script>
+  <script src="js/range.js?v=wstat2"></script>
   <script src="js/ai.js?v=pvp8v8"></script>
   <script src="js/conquest.js?v=vehicle3"></script>
   <script src="js/revive.js?v=vehicle3"></script>
@@ -1239,8 +1242,8 @@
   <script src="js/net-protocol.js?v=vehicle3"></script>
   <script src="js/net-simulation.js?v=vehicle3"></script>
   <script src="js/match-flow.js?v=scorch3"></script>
-  <script src="js/soldier-menu.js?v=vehicle3"></script>
-  <script src="js/ui.js?v=bfhud6"></script>
+  <script src="js/soldier-menu.js?v=wstat3"></script>
+  <script src="js/ui.js?v=bfhud8"></script>
   <script src="js/audio.js?v=scorch3"></script>
   <script src="js/atmosphere.js?v=scorch3"></script>
   <script src="js/config.js?v=scorch3"></script>
@@ -1248,7 +1251,7 @@
   <script src="js/pvp.js?v=pvp8v8"></script>
   <script src="js/main.js?v=pvp8v8"></script>
   <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
-  <script src="js/feel-tuner.js?v=scorch3"></script>
+  <script src="js/feel-tuner.js?v=wstat1"></script>
   <!-- render-tuner.js: F9 后处理参数调节（生产环境删除） -->
   <script src="js/render-tuner.js?v=2"></script>
   <script src="js/map-editor.js?v=scorch3"></script>

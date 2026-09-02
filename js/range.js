@@ -312,7 +312,7 @@
   Range.prototype._refillAmmo = function () {
     const w = this._weapons();
     if (!w || !w.state) return;
-    const ids = ['ar', 'sg', 'sr'];
+    const ids = Object.keys(w.state);
     for (let i = 0; i < ids.length; i++) {
       const id = ids[i];
       const def = global.VF.WEAPONS && global.VF.WEAPONS[id];
@@ -459,7 +459,9 @@
     player.pitch = 0;
     player.onGround = true;
 
-    weapons.equip('ar');
+    const preferred =
+      (global.VF.game && global.VF.game.preferredWeaponId) || 'ar';
+    weapons.equip(preferred);
     this._refillAmmo();
 
     this._score = 0;

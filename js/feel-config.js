@@ -89,22 +89,16 @@
   },
   weapons: {
     ar: {
-      recoil: 0.062,
-      spread: 0.032,
-      adsSpread: 0.01,
-      fireRate: 0.1
+      verticalRecoil: 1.29,
+      horizontalRecoil: 0.7,
+      accuracy: 73.33,
+      fireRate: 600
     },
     sg: {
-      recoil: 0.17,
-      spread: 0.1,
-      adsSpread: 0.06,
-      fireRate: 0.8
-    },
-    sr: {
-      recoil: 0.15,
-      spread: 0.035,
-      adsSpread: 0.001,
-      fireRate: 0.95
+      verticalRecoil: 3.54,
+      horizontalRecoil: 1.9,
+      accuracy: 16.67,
+      fireRate: 75
     }
   },
   crosshair: {

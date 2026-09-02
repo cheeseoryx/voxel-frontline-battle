@@ -68,29 +68,14 @@
 
     // First-person voxel soldier (shared palette with squad)
     this.classId = 'assault';
+    this._heldMode = 'weapon';
+    this.buildViewModel = null;
     if (global.VF.Soldier) {
-      const vm = global.VF.Soldier.createViewModel(this.classId);
-      this.viewModel = vm.root;
-      this.gunNode = vm.gun;
-      this.muzzle = vm.muzzle;
-      this.muzzleFlash = vm.flash;
-      this.rightArm = vm.rightArm;
-      this.leftArm = vm.leftArm;
-      this._hipPos = vm.root.position.clone();
-      this._adsPos = new THREE.Vector3(0.08, -0.26, -0.4);
+      this._rebuildWeaponViewModel(this.classId, 'ar');
     } else {
       this.viewModel = this._createSoldierViewModel();
+      camera.add(this.viewModel);
     }
-    camera.add(this.viewModel);
-
-    this._weaponViewModel = this.viewModel;
-    this._weaponGunNode = this.gunNode;
-    this._weaponMuzzle = this.muzzle;
-    this._weaponFlash = this.muzzleFlash;
-    this._weaponHip = this._hipPos.clone();
-    this._weaponAds = this._adsPos.clone();
-    this._heldMode = 'weapon'; // 'weapon' | 'build'
-    this.buildViewModel = null;
 
     this._bobTime = 0;
     this._swayBlend = 0;
@@ -117,6 +102,43 @@
     this._bindInput();
   }
 
+  /** Rebuild FPS arms + gun to match class and equipped weapon. */
+  Player.prototype._rebuildWeaponViewModel = function (classId, weaponId) {
+    if (!global.VF.Soldier) return;
+    const wasBuild = this._heldMode === 'build';
+    if (this._weaponViewModel && this._weaponViewModel.parent) {
+      this._weaponViewModel.parent.remove(this._weaponViewModel);
+    } else if (this.viewModel && this.viewModel.parent && this.viewModel !== this.buildViewModel) {
+      this.viewModel.parent.remove(this.viewModel);
+    }
+    const vm = global.VF.Soldier.createViewModel(classId, weaponId);
+    this._weaponViewModel = vm.root;
+    this._weaponGunNode = vm.gun;
+    this._weaponMuzzle = vm.muzzle;
+    this._weaponFlash = vm.flash;
+    this.rightArm = vm.rightArm;
+    this.leftArm = vm.leftArm;
+    this._hipPos = vm.root.position.clone();
+    this._adsPos = new THREE.Vector3(0.08, -0.26, -0.4);
+    this._weaponHip = this._hipPos.clone();
+    this._weaponAds = this._adsPos.clone();
+    this._gunRest = null;
+    if (this.camera) this.camera.add(this._weaponViewModel);
+    if (!wasBuild) {
+      this.viewModel = this._weaponViewModel;
+      this.gunNode = this._weaponGunNode;
+      this.muzzle = this._weaponMuzzle;
+      this.muzzleFlash = this._weaponFlash;
+    } else if (this._weaponViewModel) {
+      this._weaponViewModel.visible = false;
+    }
+  };
+
+  Player.prototype.applyWeaponModel = function (weaponId) {
+    if (!global.VF.Soldier) return;
+    this._rebuildWeaponViewModel(this.classId, weaponId);
+  };
+
   /** Swap first-person arms / gun look to match selected class */
   Player.prototype.applyClass = function (classId) {
     if (!classId || !global.VF.Soldier) return;
@@ -125,28 +147,11 @@
     }
     this.classId = classId;
     const wasBuild = this._heldMode === 'build';
-    if (this._weaponViewModel && this._weaponViewModel.parent) {
-      this._weaponViewModel.parent.remove(this._weaponViewModel);
-    } else if (this.viewModel && this.viewModel.parent && this.viewModel !== this.buildViewModel) {
-      this.viewModel.parent.remove(this.viewModel);
-    }
-    const vm = global.VF.Soldier.createViewModel(classId);
-    this.viewModel = vm.root;
-    this.gunNode = vm.gun;
-    this.muzzle = vm.muzzle;
-    this.muzzleFlash = vm.flash;
-    this.rightArm = vm.rightArm;
-    this.leftArm = vm.leftArm;
-    this._hipPos = vm.root.position.clone();
-    this._adsPos = new THREE.Vector3(0.08, -0.26, -0.4);
-    this._gunRest = null;
-    this._weaponViewModel = this.viewModel;
-    this._weaponGunNode = this.gunNode;
-    this._weaponMuzzle = this.muzzle;
-    this._weaponFlash = this.muzzleFlash;
-    this._weaponHip = this._hipPos.clone();
-    this._weaponAds = this._adsPos.clone();
-    this.camera.add(this.viewModel);
+    const weaponId =
+      (global.VF.game && global.VF.game.weapons && global.VF.game.weapons.current) ||
+      (global.VF.game && global.VF.game.preferredWeaponId) ||
+      'ar';
+    this._rebuildWeaponViewModel(classId, weaponId);
     this._heldMode = 'weapon';
     if (wasBuild) this.setHeldMode('build');
     if (global.VF.game && global.VF.game.weapons) {
@@ -901,10 +906,11 @@
     }
     this._recoilWasRecovering = recovering;
 
+    const weaponDef = this._weaponDef && this._weaponDef();
+    const control = weaponDef && weaponDef.control != null ? weaponDef.control : 0.87;
+    const controlMul = control / 0.87;
     const spring = recovering
-      ? v.recoverSpring != null
-        ? v.recoverSpring
-        : 90
+      ? (v.recoverSpring != null ? v.recoverSpring : 90) * controlMul
       : v.fireSpring != null
         ? v.fireSpring
         : 10;
@@ -969,24 +975,26 @@
     return w && w.getDef ? w.getDef() : null;
   };
 
-  Player.prototype.applyRecoil = function (amount) {
+  Player.prototype.applyRecoil = function (vertical, horizontal) {
     const v = feelGroup('view');
     const g = feelGroup('gun');
     this._recoilIdleTimer = 0;
-    // Recoverable view punch (mouse pitch/yaw stay put)
     const pitchMul = v.pitchMul != null ? v.pitchMul : 0.55;
     const velMul = v.velMul != null ? v.velMul : 22;
     const yawMul = v.yawMul != null ? v.yawMul : 0.34;
-    this._viewPunchPitch = (this._viewPunchPitch || 0) + amount * pitchMul;
-    this._viewPunchPitchVel = (this._viewPunchPitchVel || 0) + amount * velMul;
-    const yawJitter = (Math.random() - 0.5) * amount * yawMul;
-    this._viewPunchYaw = (this._viewPunchYaw || 0) + yawJitter;
-    this._viewPunchYawVel = (this._viewPunchYawVel || 0) + yawJitter * 12;
-    // Gun kick (separate spring)
-    this._recoilVel = (this._recoilVel || 0) + amount * (g.velMul != null ? g.velMul : 38);
+    const vert = vertical != null ? vertical : 0;
+    const horiz =
+      horizontal != null
+        ? horizontal * (Math.random() < 0.5 ? -1 : 1)
+        : (Math.random() - 0.5) * vert;
+    this._viewPunchPitch = (this._viewPunchPitch || 0) + vert * pitchMul;
+    this._viewPunchPitchVel = (this._viewPunchPitchVel || 0) + vert * velMul;
+    this._viewPunchYaw = (this._viewPunchYaw || 0) + horiz * yawMul;
+    this._viewPunchYawVel = (this._viewPunchYawVel || 0) + horiz * yawMul * 12;
+    this._recoilVel = (this._recoilVel || 0) + vert * (g.velMul != null ? g.velMul : 38);
     const kickMul = g.kickMul != null ? g.kickMul : 3.4;
     const kickMax = g.kickMax != null ? g.kickMax : 0.85;
-    this._recoilKick = Math.min(kickMax, (this._recoilKick || 0) + amount * kickMul);
+    this._recoilKick = Math.min(kickMax, (this._recoilKick || 0) + vert * kickMul);
     this._syncCameraLook();
     this._applyGunRecoilPose(0);
   };
@@ -1089,6 +1097,9 @@
     }
 
     const felt = dmg;
+    if (source && source.playerArmorDamage > 0 && this.armor > 0) {
+      this.armor = Math.max(0, this.armor - source.playerArmorDamage);
+    }
     if (this.armor > 0 && dmg > 0) {
       const absorb = Math.min(this.armor, dmg * 0.55);
       this.armor -= absorb;
@@ -1367,7 +1378,10 @@
       this.velocity.y = 0;
       this.velocity.z = 0;
     } else {
-      const speed = baseSpeed * speedMul;
+      const heldDef =
+        this._heldMode !== 'build' && this._weaponDef ? this._weaponDef() : null;
+      const weaponRun = heldDef && heldDef.runSpeed != null ? heldDef.runSpeed : 1;
+      const speed = baseSpeed * speedMul * weaponRun;
       this.velocity.x = mx * speed;
       this.velocity.z = mz * speed;
     }
@@ -1426,7 +1440,10 @@
     const weapons = global.VF.game && global.VF.game.weapons;
     const reloadW = weapons && weapons.getReloadAnim ? weapons.getReloadAnim() : 0;
     const adsTarget = this.aiming && this._heldMode !== 'build' && reloadW < 0.05 ? 1 : 0;
-    this._adsBlend += (adsTarget - this._adsBlend) * Math.min(1, dt * 12);
+    const adsDef = this._weaponDef && this._weaponDef();
+    const adsTime = adsDef && adsDef.adsTime != null ? adsDef.adsTime : 0.25;
+    const adsRate = 3 / Math.max(0.08, adsTime);
+    this._adsBlend += (adsTarget - this._adsBlend) * Math.min(1, dt * adsRate);
 
     // Run sway: gun follows footsteps (side + vertical + light roll)
     const wantSway = moving && reloadW < 0.2 ? 1 : 0;

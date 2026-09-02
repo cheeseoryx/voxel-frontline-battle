@@ -46,18 +46,19 @@
 
   const WEAPON_CATALOG = [
     { name: 'AKM', category: 'assault', silhouette: 'rifle', rank: 0, gameId: 'ar' },
-    { name: 'ACR', category: 'assault', silhouette: 'rifle-modern', rank: 110 },
-    { name: 'AK-74', category: 'assault', silhouette: 'rifle', rank: 0 },
-    { name: 'AUG A3', category: 'assault', silhouette: 'bullpup', rank: 75 },
-    { name: 'FAMAS', category: 'assault', silhouette: 'bullpup-compact', rank: 95 },
-    { name: 'SG550', category: 'assault', silhouette: 'rifle-long', rank: 80 },
-    { name: 'F2000', category: 'assault', silhouette: 'bullpup-heavy', rank: 35 },
+    { name: 'ACR', category: 'assault', silhouette: 'rifle-modern', rank: 110, gameId: 'acr' },
+    { name: 'AK-74', category: 'assault', silhouette: 'rifle', rank: 0, gameId: 'ak74' },
+    { name: 'AUG A3', category: 'assault', silhouette: 'bullpup', rank: 75, gameId: 'auga3' },
+    { name: 'FAMAS', category: 'assault', silhouette: 'bullpup-compact', rank: 95, gameId: 'famas' },
+    { name: 'SG550', category: 'assault', silhouette: 'rifle-long', rank: 80, gameId: 'sg550' },
+    { name: 'F2000', category: 'assault', silhouette: 'bullpup-heavy', rank: 35, gameId: 'f2000' },
     {
       name: 'AK15',
       category: 'assault',
       also: ['battle'],
       silhouette: 'ak15',
       rank: 15,
+      gameId: 'ak15',
     },
     {
       name: 'SCAR-H',
@@ -65,44 +66,45 @@
       also: ['battle'],
       silhouette: 'scar-h',
       rank: 50,
+      gameId: 'scarh',
     },
-    { name: 'FAL', category: 'assault', also: ['battle'], silhouette: 'fal', rank: 140 },
-    { name: 'G3', category: 'assault', also: ['battle'], silhouette: 'g3', rank: 90 },
+    { name: 'FAL', category: 'assault', also: ['battle'], silhouette: 'fal', rank: 140, gameId: 'fal' },
+    { name: 'G3', category: 'assault', also: ['battle'], silhouette: 'g3', rank: 90, gameId: 'g3' },
 
-    { name: 'G36C', category: 'carbine', silhouette: 'carbine', rank: 120 },
-    { name: 'M4A1', category: 'carbine', silhouette: 'carbine-stock', rank: 0 },
-    { name: 'AS VAL', category: 'carbine', silhouette: 'suppressed', rank: 105 },
-    { name: 'GROZA', category: 'carbine', silhouette: 'bullpup-compact', rank: 55 },
-    { name: 'HK419', category: 'carbine', silhouette: 'carbine', rank: 135 },
-    { name: 'AK5C', category: 'carbine', silhouette: 'carbine-stock', rank: 145 },
+    { name: 'G36C', category: 'carbine', silhouette: 'carbine', rank: 120, gameId: 'g36c' },
+    { name: 'M4A1', category: 'carbine', silhouette: 'carbine-stock', rank: 0, gameId: 'm4a1' },
+    { name: 'AS VAL', category: 'carbine', silhouette: 'suppressed', rank: 105, gameId: 'asval' },
+    { name: 'GROZA', category: 'carbine', silhouette: 'bullpup-compact', rank: 55, gameId: 'groza' },
+    { name: 'HK419', category: 'carbine', silhouette: 'carbine', rank: 135, gameId: 'hk419' },
+    { name: 'AK5C', category: 'carbine', silhouette: 'carbine-stock', rank: 145, gameId: 'ak5c' },
 
-    { name: 'HONEY BADGER', category: 'smg', silhouette: 'suppressed-compact', rank: 65 },
-    { name: 'MP7', category: 'smg', silhouette: 'smg-compact', rank: 0 },
-    { name: 'PP2000', category: 'smg', silhouette: 'smg-wire', rank: 25 },
-    { name: 'P90', category: 'smg', silhouette: 'p90', rank: 125 },
-    { name: 'KRISS VECTOR', category: 'smg', silhouette: 'vector', rank: 70 },
-    { name: 'UMP-45', category: 'smg', silhouette: 'smg-stock', rank: 0 },
-    { name: 'MP5', category: 'smg', silhouette: 'smg-stock', rank: 90 },
-    { name: 'PP-19', category: 'smg', silhouette: 'smg-drum', rank: 45 },
-    { name: 'SCORPION EVO', category: 'smg', silhouette: 'smg-modern', rank: 150 },
+    { name: 'HONEY BADGER', category: 'smg', silhouette: 'suppressed-compact', rank: 65, gameId: 'honeybadger' },
+    { name: 'MP7', category: 'smg', silhouette: 'smg-compact', rank: 0, gameId: 'mp7' },
+    { name: 'PP2000', category: 'smg', silhouette: 'smg-wire', rank: 25, gameId: 'pp2000' },
+    { name: 'P90', category: 'smg', silhouette: 'p90', rank: 125, gameId: 'p90' },
+    { name: 'KRISS VECTOR', category: 'smg', silhouette: 'vector', rank: 70, gameId: 'vector' },
+    { name: 'UMP-45', category: 'smg', silhouette: 'smg-stock', rank: 0, gameId: 'ump45' },
+    { name: 'MP5', category: 'smg', silhouette: 'smg-stock', rank: 90, gameId: 'mp5' },
+    { name: 'PP-19', category: 'smg', silhouette: 'smg-drum', rank: 45, gameId: 'pp19' },
+    { name: 'SCORPION EVO', category: 'smg', silhouette: 'smg-modern', rank: 150, gameId: 'scorpionevo' },
 
-    { name: 'L86A1', category: 'lmg', silhouette: 'lmg-bullpup', rank: 0 },
-    { name: 'MG36', category: 'lmg', silhouette: 'lmg-box', rank: 50 },
-    { name: 'RPK16', category: 'lmg', silhouette: 'lmg-rifle', rank: 35 },
-    { name: 'M249', category: 'lmg', silhouette: 'lmg-belt', rank: 20 },
-    { name: 'ULTIMAX 100', category: 'lmg', silhouette: 'lmg-drum', rank: 120 },
+    { name: 'L86A1', category: 'lmg', silhouette: 'lmg-bullpup', rank: 0, gameId: 'l86a1' },
+    { name: 'MG36', category: 'lmg', silhouette: 'lmg-box', rank: 50, gameId: 'mg36' },
+    { name: 'RPK16', category: 'lmg', silhouette: 'lmg-rifle', rank: 35, gameId: 'rpk16' },
+    { name: 'M249', category: 'lmg', silhouette: 'lmg-belt', rank: 20, gameId: 'm249' },
+    { name: 'ULTIMAX 100', category: 'lmg', silhouette: 'lmg-drum', rank: 120, gameId: 'ultimax100' },
 
-    { name: 'M110', category: 'dmr', silhouette: 'dmr', rank: 40 },
-    { name: 'MK14 EBR', category: 'dmr', silhouette: 'dmr-long', rank: 60 },
-    { name: 'MK20', category: 'dmr', silhouette: 'dmr-modern', rank: 10 },
+    { name: 'M110', category: 'dmr', silhouette: 'dmr', rank: 40, gameId: 'm110' },
+    { name: 'MK14 EBR', category: 'dmr', silhouette: 'dmr-long', rank: 60, gameId: 'mk14ebr' },
+    { name: 'MK20', category: 'dmr', silhouette: 'dmr-modern', rank: 10, gameId: 'mk20' },
     { name: 'SVD', category: 'dmr', silhouette: 'dmr-svd', rank: 0, gameId: 'sr' },
 
-    { name: 'L96', category: 'sniper', silhouette: 'sniper', rank: 65 },
-    { name: 'SSG 69', category: 'sniper', silhouette: 'sniper-classic', rank: 0 },
-    { name: 'SV-98', category: 'sniper', silhouette: 'sniper', rank: 30 },
-    { name: 'M200', category: 'sniper', silhouette: 'sniper-heavy', rank: 100 },
-    { name: 'MSR', category: 'sniper', silhouette: 'sniper-modern', rank: 130 },
-    { name: 'REM 700', category: 'sniper', silhouette: 'sniper-classic', rank: 85 },
+    { name: 'L96', category: 'sniper', silhouette: 'sniper', rank: 65, gameId: 'l96' },
+    { name: 'SSG 69', category: 'sniper', silhouette: 'sniper-classic', rank: 0, gameId: 'ssg69' },
+    { name: 'SV-98', category: 'sniper', silhouette: 'sniper', rank: 30, gameId: 'sv98' },
+    { name: 'M200', category: 'sniper', silhouette: 'sniper-heavy', rank: 100, gameId: 'm200' },
+    { name: 'MSR', category: 'sniper', silhouette: 'sniper-modern', rank: 130, gameId: 'msr' },
+    { name: 'REM 700', category: 'sniper', silhouette: 'sniper-classic', rank: 85, gameId: 'rem700' },
 
     {
       name: 'Remington 870',
@@ -115,13 +117,13 @@
     { name: 'KS-23', category: 'shotgun', silhouette: 'shotgun', rank: 110 },
     { name: 'SAIGA-12', category: 'shotgun', silhouette: 'smg-drum', rank: 135 },
 
-    { name: 'M9', category: 'pistol', silhouette: 'pistol', rank: 0 },
-    { name: 'USP', category: 'pistol', silhouette: 'pistol', rank: 60 },
-    { name: 'MP 443', category: 'pistol', silhouette: 'pistol-compact', rank: 0 },
-    { name: 'GLOCK 18', category: 'pistol', silhouette: 'machine-pistol', rank: 80 },
-    { name: 'UNICA', category: 'pistol', silhouette: 'revolver', rank: 40 },
-    { name: 'DESERT EAGLE', category: 'pistol', silhouette: 'pistol-heavy', rank: 120 },
-    { name: 'RSH-12', category: 'pistol', silhouette: 'revolver-heavy', rank: 120 },
+    { name: 'M9', category: 'pistol', silhouette: 'pistol', rank: 0, gameId: 'm9' },
+    { name: 'USP', category: 'pistol', silhouette: 'pistol', rank: 60, gameId: 'usp' },
+    { name: 'MP 443', category: 'pistol', silhouette: 'pistol-compact', rank: 0, gameId: 'mp443' },
+    { name: 'GLOCK 18', category: 'pistol', silhouette: 'machine-pistol', rank: 80, gameId: 'glock18' },
+    { name: 'UNICA', category: 'pistol', silhouette: 'revolver', rank: 40, gameId: 'unica' },
+    { name: 'DESERT EAGLE', category: 'pistol', silhouette: 'pistol-heavy', rank: 120, gameId: 'deserteagle' },
+    { name: 'RSH-12', category: 'pistol', silhouette: 'revolver-heavy', rank: 120, gameId: 'rsh12' },
   ];
 
   const GADGET_CATEGORY = {
@@ -1137,17 +1139,15 @@
             name: weapon.name,
             svg: weaponSilhouette(weapon.silhouette),
             line1:
-              '等级 ' +
-              weapon.rank +
-              (live && live.caliber ? ' · ' + live.caliber : ''),
+              (live && live.caliber ? live.caliber + ' · ' : '') + '可使用',
             line2: live
               ? '伤害 ' +
                 live.damage +
-                ' · 弹匣 ' +
-                live.magSize +
-                ' · 射程 ' +
-                live.range +
-                'm'
+                ' · 射速 ' +
+                live.fireRate +
+                ' · 换弹 ' +
+                live.reloadTime +
+                's'
               : '最高连杀 0 · 0 击杀',
             available: !!live,
           };

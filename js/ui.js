@@ -193,6 +193,7 @@
         loadoutCustomizeClassName: document.getElementById('loadout-customize-class-name'),
         loadoutCustomizeClassRole: document.getElementById('loadout-customize-class-role'),
         loadoutCustomizeClassBlurb: document.getElementById('loadout-customize-class-blurb'),
+        loadoutCustomizeWeaponStats: document.getElementById('loadout-customize-weapon-stats'),
         loadoutCustomizeClasses: document.getElementById('loadout-customize-classes'),
         loadoutCustomizeWeapons: document.getElementById('loadout-customize-weapons'),
         loadoutCustomizeEquipment: document.getElementById('loadout-customize-equipment'),
@@ -368,10 +369,7 @@
       const weaponId =
         (global.VF.game && global.VF.game.weapons && global.VF.game.weapons.current) ||
         'ar';
-      if (this.els.weaponSilhouette) {
-        this.els.weaponSilhouette.className =
-          'weapon-silhouette ' + (weaponId === 'sg' || weaponId === 'sr' || weaponId === 'rpg' ? weaponId : 'ar');
-      }
+      if (this.setEquippedWeapon) this.setEquippedWeapon(weaponId);
     },
 
     updateVehicleHud(player, vehicles) {
@@ -1103,6 +1101,24 @@
       if (this.els.deathOverlay) this.els.deathOverlay.classList.add('hidden');
     },
 
+    setEquippedWeapon(id) {
+      const def = global.VF.WEAPONS && global.VF.WEAPONS[id];
+      if (this.els.hotbarSlots) {
+        this.els.hotbarSlots.forEach((el) => {
+          if (Number(el.dataset.slot) !== 1) return;
+          if (!def || id === 'sg' || id === 'sr' || id === 'rpg') return;
+          const nameEl = el.querySelector('.slot-name');
+          if (nameEl) nameEl.textContent = def.nameZh || def.name || id;
+          el.title = (def.nameZh || def.name || id) + ' (1)';
+        });
+      }
+      if (this.els.weaponSilhouette) {
+        this.els.weaponSilhouette.className =
+          'weapon-silhouette ' +
+          (id === 'sg' || id === 'sr' || id === 'rpg' ? id : 'ar');
+      }
+    },
+
     setHotbarSlot(slotNum) {
       this.els.hotbarSlots.forEach((el) => {
         el.classList.toggle('active', Number(el.dataset.slot) === slotNum);
@@ -1111,15 +1127,9 @@
 
     syncWeaponLocks() {
       if (!this.els.hotbarSlots) return;
-      const owns = function (id) {
-        if (!global.VF.Economy || !global.VF.Economy.ownsWeapon) return true;
-        return global.VF.Economy.ownsWeapon(id);
-      };
       this.els.hotbarSlots.forEach((el) => {
         const slot = Number(el.dataset.slot);
-        if (slot === 2) el.classList.toggle('locked', !owns('sg'));
-        else if (slot === 3) el.classList.toggle('locked', !owns('sr'));
-        else if (slot === 6) {
+        if (slot === 6) {
           const g = global.VF && global.VF.game;
           const engineer = !!(
             g &&
@@ -2458,12 +2468,28 @@
       }
     },
 
+    _weaponIconKind(id, def) {
+      if (id === 'sg' || (def && def.category === 'shotgun')) return 'shotgun';
+      if (id === 'rpg') return 'rpg';
+      if (def && def.category === 'pistol') return 'pistol';
+      return 'rifle';
+    },
+
+    _loadoutWeaponOrder() {
+      const order = ['ar', 'sg'];
+      const extra = (global.VF && global.VF.WEAPON_LOADOUT_ORDER) || ['sr'];
+      for (let i = 0; i < extra.length; i++) {
+        if (order.indexOf(extra[i]) < 0) order.push(extra[i]);
+      }
+      return order;
+    },
+
     _buildLoadoutCustomizeWeapons() {
       const root = this.els.loadoutCustomizeWeapons;
       if (!root) return;
       root.innerHTML = '';
       const defs = (global.VF && global.VF.WEAPONS) || {};
-      const order = ['ar', 'sg', 'sr'];
+      const order = this._loadoutWeaponOrder();
       for (let i = 0; i < order.length; i++) {
         const id = order[i];
         const def = defs[id];
@@ -2480,13 +2506,15 @@
         button.title = owned ? def.nameZh || def.name : '尚未解锁';
         const icon = document.createElement('span');
         icon.className = 'loadout-weapon-icon';
-        icon.innerHTML = this._deployGearSvg(id === 'sg' ? 'shotgun' : 'rifle');
+        icon.innerHTML = this._deployGearSvg(this._weaponIconKind(id, def));
         const copy = document.createElement('span');
         copy.className = 'loadout-weapon-copy';
         const name = document.createElement('strong');
         name.textContent = def.nameZh || def.name || id.toUpperCase();
         const detail = document.createElement('small');
-        detail.textContent = owned ? def.caliber || '' : '未解锁';
+        detail.textContent = owned
+          ? (def.caliber || '') + ' · 弹匣 ' + def.magSize
+          : '未解锁';
         copy.appendChild(name);
         copy.appendChild(detail);
         button.appendChild(icon);
@@ -2535,6 +2563,26 @@
             button.classList.toggle('selected', selected);
             button.setAttribute('aria-pressed', selected ? 'true' : 'false');
           });
+      }
+      if (this.els.loadoutCustomizeWeaponStats) {
+        const def =
+          ((global.VF && global.VF.WEAPONS) || {})[this._loadoutDraftWeaponId];
+        if (def) {
+          const rate =
+            def.boltSpeed != null
+              ? '栓动 ' + Number(def.boltSpeed).toFixed(2) + 's'
+              : '射速 ' + Math.round(def.fireRate);
+          this.els.loadoutCustomizeWeaponStats.textContent =
+            def.name +
+            ' · 弹匣 ' +
+            def.magSize +
+            ' · 伤害 ' +
+            def.damage +
+            ' · ' +
+            rate;
+        } else {
+          this.els.loadoutCustomizeWeaponStats.textContent = '';
+        }
       }
       this._syncDeployClassDetails(info);
     },
@@ -3122,7 +3170,27 @@
           { kind: 'cloak', name: '低可见装置' },
         ],
       };
-      const kit = kits[info.id] || kits.assault;
+      const kit = (kits[info.id] || kits.assault).map((item) => Object.assign({}, item));
+      const selectedWeaponId =
+        this.loadoutCustomizeOpen && this._loadoutDraftWeaponId
+          ? this._loadoutDraftWeaponId
+          : global.VF.game && global.VF.game.preferredWeaponId
+            ? global.VF.game.preferredWeaponId
+            : global.VF.game && global.VF.game.weapons
+              ? global.VF.game.weapons.current
+              : 'ar';
+      const selectedDef = ((global.VF && global.VF.WEAPONS) || {})[selectedWeaponId];
+      if (selectedDef && kit[0] && kit[0].primary) {
+        kit[0] = {
+          kind: this._weaponIconKind(selectedWeaponId, selectedDef),
+          name: selectedDef.nameZh || selectedDef.name,
+          primary: true,
+          weaponId: selectedWeaponId,
+        };
+        for (let i = kit.length - 1; i > 0; i--) {
+          if (kit[i].weaponId === selectedWeaponId) kit.splice(i, 1);
+        }
+      }
       const strips = [
         this.els.deployLoadoutStrip,
         this.els.classDeployLoadout,

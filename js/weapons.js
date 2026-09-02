@@ -1,6 +1,12 @@
 /**
  * weapons.js — Weapon definitions, shooting, recoil, muzzle flash, impacts
  * Hotbar slots 1–3: AKM, Remington 870, SVD (ids ar/sg/sr kept for save compat)
+ *
+ * Infantry guns use the same 16 base-stat kinds as the loadout inspect panel:
+ * damage, playerArmorDamage, lightArmorDamage, verticalRecoil, horizontalRecoil,
+ * firstShotRecoil, muzzleVelocity, accuracy, fireRate (RPM), soundRange,
+ * muzzleFlash, control, adsTime, runSpeed, reloadTime, switchSpeed
+ * plus a damage-over-distance graph (falloffStart / falloffEnd / minDamage).
  */
 (function (global) {
   'use strict';
@@ -10,6 +16,11 @@
   const TRACER_MAX = 48;
   const TRACER_LIFE = 0.14;
   const TRACER_FADE = 0.05;
+  const RECOIL_KICK_SCALE = 0.048;
+  const ACCURACY_SPREAD_MAX = 0.12;
+  const FIRST_SHOT_RESET = 0.38;
+  const SWITCH_BASE_SEC = 0.15;
+  const LEGACY_FIRE_RATE_SEC_MAX = 5;
 
   /** Enemy type → ammo pool */
   const ENEMY_AMMO_TYPE = {
@@ -17,6 +28,103 @@
     heavy: 'sg',
     ranged: 'sr',
   };
+
+  const WEAPON_BASE_STATS = [
+    { key: 'damage', label: '伤害', decimals: 2 },
+    { key: 'playerArmorDamage', label: 'Player Armor Damage', decimals: 2 },
+    { key: 'lightArmorDamage', label: '对轻型装甲载具造成的伤害', decimals: 2 },
+    { key: 'verticalRecoil', label: '垂直后坐力', decimals: 2 },
+    { key: 'horizontalRecoil', label: '横向后坐力', decimals: 2 },
+    { key: 'firstShotRecoil', label: '首发后坐力', decimals: 2 },
+    { key: 'muzzleVelocity', label: '枪口初速', decimals: 2 },
+    { key: 'accuracy', label: '准确度', decimals: 2 },
+    { key: 'fireRate', label: '射速', decimals: 0 },
+    { key: 'soundRange', label: '枪声传播距离', decimals: 0 },
+    { key: 'muzzleFlash', label: '枪口火焰', decimals: 2 },
+    { key: 'control', label: '控制', decimals: 2 },
+    { key: 'adsTime', label: '瞄准耗时', decimals: 2 },
+    { key: 'runSpeed', label: '奔跑速度', decimals: 2 },
+    { key: 'reloadTime', label: '换弹时间', decimals: 2 },
+    { key: 'switchSpeed', label: '切换速度', decimals: 2 },
+  ];
+
+  const WEAPON_STAT_KEYS = WEAPON_BASE_STATS.map(function (row) {
+    return row.key;
+  });
+
+  function fireInterval(def) {
+    const rpm = def && def.fireRate;
+    if (!(rpm > 0)) return 0.1;
+    if (rpm <= LEGACY_FIRE_RATE_SEC_MAX) return rpm;
+    return 60 / rpm;
+  }
+
+  function spreadFromAccuracy(accuracy) {
+    const a = Math.max(0, Math.min(100, accuracy != null ? accuracy : 70));
+    return ACCURACY_SPREAD_MAX * (1 - a / 100);
+  }
+
+  function adsSpreadMul(def) {
+    const scope = def && def.scope;
+    if (scope === 'sniper') return 0.03;
+    if (scope === 'optic') return 0.31;
+    return 0.6;
+  }
+
+  function recoilKicks(def, adsBlend, firstShot) {
+    const adsMul = def.adsRecoilMul != null ? def.adsRecoilMul : 0.4;
+    const ads = 1 - (adsBlend || 0) * (1 - adsMul);
+    const first = firstShot ? (def.firstShotRecoil != null ? def.firstShotRecoil : 1) : 1;
+    const scale = RECOIL_KICK_SCALE * ads * first;
+    return {
+      vertical: (def.verticalRecoil != null ? def.verticalRecoil : 1.3) * scale,
+      horizontal: (def.horizontalRecoil != null ? def.horizontalRecoil : 0.7) * scale,
+    };
+  }
+
+  function applyStatOverrides(base, ov) {
+    const out = Object.assign({}, base);
+    if (!ov) return out;
+    for (let i = 0; i < WEAPON_STAT_KEYS.length; i++) {
+      const k = WEAPON_STAT_KEYS[i];
+      if (ov[k] != null) out[k] = ov[k];
+    }
+    [
+      'falloffStart',
+      'falloffEnd',
+      'minDamage',
+      'adsRecoilMul',
+      'adsSpread',
+      'spread',
+      'recoil',
+    ].forEach(function (k) {
+      if (ov[k] != null) out[k] = ov[k];
+    });
+    if (ov.verticalRecoil == null && ov.recoil != null) {
+      out.verticalRecoil = ov.recoil / RECOIL_KICK_SCALE;
+    }
+    if (ov.accuracy == null && ov.spread != null) {
+      out.accuracy = (1 - ov.spread / ACCURACY_SPREAD_MAX) * 100;
+    }
+    if (ov.fireRate != null && ov.fireRate > 0 && ov.fireRate <= LEGACY_FIRE_RATE_SEC_MAX) {
+      out.fireRate = 60 / ov.fireRate;
+    }
+    return out;
+  }
+
+  function formatWeaponBaseStats(def) {
+    if (!def) return [];
+    return WEAPON_BASE_STATS.map(function (row) {
+      const raw = def[row.key];
+      const n = raw == null ? 0 : Number(raw);
+      return {
+        key: row.key,
+        label: row.label,
+        value: n,
+        text: n.toFixed(row.decimals),
+      };
+    });
+  }
 
   const WEAPONS = {
     ar: {
@@ -27,24 +135,34 @@
       caliber: '7.62×39mm',
       slot: 1,
       damage: 22,
+      playerArmorDamage: 0,
+      lightArmorDamage: 4,
+      verticalRecoil: 1.29,
+      horizontalRecoil: 0.7,
+      firstShotRecoil: 1,
+      muzzleVelocity: 715,
+      accuracy: 73.33,
+      fireRate: 600,
+      soundRange: 600,
+      muzzleFlash: 0.4,
+      control: 0.87,
+      adsTime: 0.25,
+      runSpeed: 1,
+      reloadTime: 1.65,
+      switchSpeed: 1,
       damageType: 'bullet',
-      fireRate: 0.1, // ~600 rpm cyclic
       magSize: 30,
       reserve: 150,
-      spread: 0.032,
-      adsSpread: 0.01,
       range: 95,
-      recoil: 0.062,
       adsRecoilMul: 0.4,
       pellets: 1,
       breakChance: 0.55,
       automatic: true,
-      reloadTime: 1.65,
       ammoColor: 0xffaa44,
       ammoLabel: 'AKM',
       falloffStart: 35,
       falloffEnd: 90,
-      minDamageScale: 0.55,
+      minDamage: 12.1,
       coreFalloffStart: 18,
       coreFalloffEnd: 48,
       coreMinDamageScale: 0.12,
@@ -52,6 +170,8 @@
       adsFov: 40,
       scope: 'optic',
       adsSens: 0.7,
+      category: 'assault',
+      modelStyle: 'ak',
     },
     sg: {
       id: 'sg',
@@ -61,24 +181,34 @@
       caliber: '12ga 00 Buck',
       slot: 2,
       damage: 14,
+      playerArmorDamage: 0,
+      lightArmorDamage: 2,
+      verticalRecoil: 3.54,
+      horizontalRecoil: 1.9,
+      firstShotRecoil: 1,
+      muzzleVelocity: 400,
+      accuracy: 16.67,
+      fireRate: 75,
+      soundRange: 500,
+      muzzleFlash: 0.7,
+      control: 0.55,
+      adsTime: 0.32,
+      runSpeed: 0.97,
+      reloadTime: 2.15,
+      switchSpeed: 0.9,
       damageType: 'bullet',
-      fireRate: 0.8,
       magSize: 7,
       reserve: 35,
-      spread: 0.1,
-      adsSpread: 0.06,
       range: 36,
-      recoil: 0.17,
       adsRecoilMul: 0.5,
       pellets: 8,
       breakChance: 0.7,
       automatic: false,
-      reloadTime: 2.15,
       ammoColor: 0xff6644,
       ammoLabel: '870',
       falloffStart: 10,
       falloffEnd: 32,
-      minDamageScale: 0.35,
+      minDamage: 4.9,
       coreFalloffStart: 6,
       coreFalloffEnd: 20,
       coreMinDamageScale: 0.08,
@@ -86,6 +216,8 @@
       adsFov: 52,
       scope: 'holo',
       adsSens: 0.85,
+      category: 'shotgun',
+      modelStyle: 'shotgun',
     },
     sr: {
       id: 'sr',
@@ -95,24 +227,34 @@
       caliber: '7.62×54R',
       slot: 3,
       damage: 88,
+      playerArmorDamage: 8,
+      lightArmorDamage: 10,
+      verticalRecoil: 3.13,
+      horizontalRecoil: 1.2,
+      firstShotRecoil: 1.2,
+      muzzleVelocity: 830,
+      accuracy: 70.83,
+      fireRate: 63,
+      soundRange: 750,
+      muzzleFlash: 0.55,
+      control: 0.65,
+      adsTime: 0.28,
+      runSpeed: 0.95,
+      reloadTime: 2.45,
+      switchSpeed: 0.85,
       damageType: 'bullet',
-      fireRate: 0.95,
       magSize: 10,
       reserve: 40,
-      spread: 0.035,
-      adsSpread: 0.001,
       range: 160,
-      recoil: 0.15,
       adsRecoilMul: 0.32,
       pellets: 1,
       breakChance: 0.9,
       automatic: false,
-      reloadTime: 2.45,
       ammoColor: 0x66aaff,
       ammoLabel: 'SVD',
       falloffStart: 55,
       falloffEnd: 150,
-      minDamageScale: 0.65,
+      minDamage: 57.2,
       coreFalloffStart: 20,
       coreFalloffEnd: 50,
       coreMinDamageScale: 0.1,
@@ -129,27 +271,49 @@
       caliber: '85mm HEAT',
       slot: 6,
       damage: 150,
+      playerArmorDamage: 0,
+      lightArmorDamage: 150,
+      verticalRecoil: 4.58,
+      horizontalRecoil: 2.2,
+      firstShotRecoil: 1,
+      muzzleVelocity: 120,
+      accuracy: 95,
+      fireRate: 19,
+      soundRange: 900,
+      muzzleFlash: 1.2,
+      control: 0.45,
+      adsTime: 0.3,
+      runSpeed: 0.9,
+      reloadTime: 3.2,
+      switchSpeed: 0.7,
       damageType: 'antiArmor',
       projectile: true,
       projectileSpeed: 38,
       magSize: 1,
       reserve: 2,
-      spread: 0.006,
-      adsSpread: 0.002,
       range: 240,
-      recoil: 0.22,
       adsRecoilMul: 0.7,
       pellets: 1,
       automatic: false,
-      fireRate: 3.2,
-      reloadTime: 3.2,
       ammoColor: 0xff8844,
       ammoLabel: 'RPG',
+      falloffStart: 240,
+      falloffEnd: 240,
+      minDamage: 150,
       adsFov: 46,
       scope: 'holo',
       adsSens: 0.72,
+      modelStyle: 'rpg',
     },
   };
+
+  if (global.VF.WEAPON_CATALOG) {
+    const catalog = global.VF.WEAPON_CATALOG;
+    Object.keys(catalog).forEach(function (id) {
+      if (id === 'svd') return;
+      WEAPONS[id] = catalog[id];
+    });
+  }
 
   function Weapons(player, world, scene) {
     this.player = player;
@@ -157,13 +321,15 @@
     this.scene = scene;
     this.raycaster = new THREE.Raycaster();
     this.current = 'ar';
-    this.state = {
-      ar: { mag: WEAPONS.ar.magSize, reserve: WEAPONS.ar.reserve },
-      sg: { mag: WEAPONS.sg.magSize, reserve: WEAPONS.sg.reserve },
-      sr: { mag: WEAPONS.sr.magSize, reserve: WEAPONS.sr.reserve },
-      rpg: { mag: WEAPONS.rpg.magSize, reserve: WEAPONS.rpg.reserve },
-    };
+    this.state = {};
+    const selfState = this;
+    Object.keys(WEAPONS).forEach(function (id) {
+      const d = WEAPONS[id];
+      selfState.state[id] = { mag: d.magSize, reserve: d.reserve };
+    });
     this.cooldown = 0;
+    this._burstCount = 0;
+    this._lastShotAt = 0;
     this.firing = false;
     this.reloading = false;
     this.reloadTimer = 0;
@@ -181,6 +347,9 @@
     this._tmpUp = new THREE.Vector3(0, 1, 0);
     this._tracerGeo = null;
     this._bind();
+    if (this.player && this.player.applyWeaponModel) {
+      this.player.applyWeaponModel(this.current);
+    }
   }
 
   /** Add reserve ammo for a weapon; capped at AMMO_RESERVE_MAX. Returns amount actually added. */
@@ -250,7 +419,11 @@
       ) {
         return;
       }
-      if (e.code === 'Digit1') self.equip('ar');
+      if (e.code === 'Digit1') {
+        const primary =
+          (global.VF.game && global.VF.game.preferredWeaponId) || 'ar';
+        self.equip(WEAPONS[primary] ? primary : 'ar');
+      }
       if (e.code === 'Digit2') self.equip('sg');
       if (e.code === 'Digit3') self.equip('sr');
       if (e.code === 'Digit6') self.equip('rpg');
@@ -282,14 +455,20 @@
     if (this.reloading) this._cancelReload();
     this.current = id;
     this.mode = 'weapon';
-    this.cooldown = 0.15 / (global.VF.Skills ? global.VF.Skills.getWeaponSpeedMul(this.player) : 1);
+    this._burstCount = 0;
+    this._lastShotAt = 0;
+    const switchSpeed = WEAPONS[id].switchSpeed != null ? WEAPONS[id].switchSpeed : 1;
+    const skillMul = global.VF.Skills ? global.VF.Skills.getWeaponSpeedMul(this.player) : 1;
+    this.cooldown = SWITCH_BASE_SEC / Math.max(0.2, switchSpeed) / skillMul;
     if (global.VF.Audio) global.VF.Audio.play('ui');
     if (global.VF.game && global.VF.game.building) {
       global.VF.game.building.exitMode();
     }
     if (this.player && this.player.setHeldMode) this.player.setHeldMode('weapon');
+    if (this.player && this.player.applyWeaponModel) this.player.applyWeaponModel(id);
     if (global.VF.UI) {
       global.VF.UI.setHotbarSlot(WEAPONS[id].slot);
+      if (global.VF.UI.setEquippedWeapon) global.VF.UI.setEquippedWeapon(id);
       const ammo = this.state[id];
       if (ammo && global.VF.UI.updateAmmo) {
         global.VF.UI.updateAmmo(ammo.mag, ammo.reserve);
@@ -318,41 +497,39 @@
     if (!owns(this.current)) {
       this.current = 'ar';
       this._restyleGun('ar');
+      if (this.player && this.player.applyWeaponModel) this.player.applyWeaponModel('ar');
       if (global.VF.UI) global.VF.UI.setHotbarSlot(WEAPONS.ar.slot);
     }
     if (global.VF.UI && global.VF.UI.syncWeaponLocks) global.VF.UI.syncWeaponLocks();
   };
 
   Weapons.prototype._restyleGun = function (id) {
-    const gun = this.player.gunNode;
+    const gun = this.player && this.player.gunNode;
     if (!gun) return;
-    // Scale cue per weapon type
-    if (id === 'rpg') gun.scale.set(1.25, 1.45, 1.5);
-    else if (id === 'sg') gun.scale.set(1.15, 1.1, 0.85);
-    else if (id === 'sr') gun.scale.set(0.95, 0.95, 1.35);
+    if (id === 'rpg') gun.scale.set(1.05, 1.05, 1.05);
     else gun.scale.set(1, 1, 1);
   };
 
   Weapons.prototype.getDef = function () {
-    const base = WEAPONS[this.current];
-    if (!base) return WEAPONS.ar;
+    const base = WEAPONS[this.current] || WEAPONS.ar;
     const ov =
       global.VF &&
       global.VF.Feel &&
       global.VF.Feel.weapons &&
       global.VF.Feel.weapons[this.current];
-    if (!ov) return base;
-    const out = Object.assign({}, base);
-    if (ov.recoil != null) out.recoil = ov.recoil;
-    if (ov.adsRecoilMul != null) out.adsRecoilMul = ov.adsRecoilMul;
-    if (ov.spread != null) out.spread = ov.spread;
-    if (ov.adsSpread != null) out.adsSpread = ov.adsSpread;
-    if (ov.fireRate != null) out.fireRate = ov.fireRate;
-    return out;
+    return applyStatOverrides(base, ov);
+  };
+
+  Weapons.prototype._ensureAmmo = function (weaponId) {
+    if (this.state[weaponId]) return this.state[weaponId];
+    const def = WEAPONS[weaponId];
+    if (!def) return null;
+    this.state[weaponId] = { mag: def.magSize, reserve: def.reserve };
+    return this.state[weaponId];
   };
 
   Weapons.prototype.getAmmo = function () {
-    return this.state[this.current];
+    return this._ensureAmmo(this.current);
   };
 
   Weapons.prototype.tryFire = function () {
@@ -391,7 +568,7 @@
       this.player._lastCombatAt = performance.now();
       this.player._reviveProtection = 0;
     }
-    this.cooldown = def.fireRate;
+    this.cooldown = fireInterval(def);
     // Capture aim BEFORE recoil so hitscan matches the crosshair
     const origin = this.player.getEyePosition();
     const baseDir = this.player.getLookDirection();
@@ -449,18 +626,20 @@
         : this.player.aiming
           ? 1
           : 0;
-    const feelAds =
-      global.VF.Feel && global.VF.Feel.view && global.VF.Feel.view.adsRecoilMul;
-    const adsMul =
-      def.adsRecoilMul != null ? def.adsRecoilMul : feelAds != null ? feelAds : 0.4;
-    const recoilAmt = def.recoil * (1 - adsBlend * (1 - adsMul));
-    this.player.applyRecoil(recoilAmt);
+    const nowSec = performance.now() * 0.001;
+    if (!this._lastShotAt || nowSec - this._lastShotAt > FIRST_SHOT_RESET) {
+      this._burstCount = 0;
+    }
+    this._lastShotAt = nowSec;
+    const kicks = recoilKicks(def, adsBlend, this._burstCount === 0);
+    this._burstCount += 1;
+    this.player.applyRecoil(kicks.vertical, kicks.horizontal);
     // Soft fire shake — keep mild so FX doesn't outrun the shot
     if (this.player.addShake) {
       const sh = (global.VF.Feel && global.VF.Feel.shake) || {};
       const base = sh.fireBase != null ? sh.fireBase : 0.01;
       const mul = sh.fireRecoilMul != null ? sh.fireRecoilMul : 0.12;
-      this.player.addShake((base + def.recoil * mul) * (1 - adsBlend * (1 - adsMul)));
+      this.player.addShake(base + kicks.vertical * mul);
     }
 
     if (global.VF.Audio) {
@@ -682,8 +861,10 @@
   }
 
   Weapons.prototype._muzzleFlashAt = function (worldPos, dir) {
+    const def = this.getDef();
+    const flash = def && def.muzzleFlash != null ? def.muzzleFlash : 0.4;
     spawnMuzzleFlash(this.player && this.player.muzzle, {
-      size: 0.11,
+      size: 0.28 * flash,
       intensity: 14,
       life: 0.036,
       worldPos: worldPos,
@@ -700,7 +881,11 @@
   Weapons.prototype._fireRays = function (def, origin, baseDir, muzzlePos) {
     origin = origin || this.player.getEyePosition();
     baseDir = baseDir || this.player.getLookDirection();
-    const spread = this.player.aiming ? def.adsSpread : def.spread;
+    const hipSpread =
+      def.spread != null ? def.spread : spreadFromAccuracy(def.accuracy);
+    const adsSpread =
+      def.adsSpread != null ? def.adsSpread : hipSpread * adsSpreadMul(def);
+    const spread = this.player.aiming ? adsSpread : hipSpread;
     if (muzzlePos) {
       this._tmpMuzzle.copy(muzzlePos);
     } else if (this.player.muzzle && this.player.muzzle.getWorldPosition) {
@@ -722,17 +907,18 @@
     }
   };
 
-  /** Damage after distance falloff (full until falloffStart, then down to min scale) */
+  /** Damage after distance falloff (full until falloffStart, then down to minDamage) */
   Weapons.prototype._damageAtRange = function (def, dist) {
     const start = def.falloffStart != null ? def.falloffStart : 20;
     const end = def.falloffEnd != null ? def.falloffEnd : Math.max(start + 1, def.range * 0.85);
-    const minS = def.minDamageScale != null ? def.minDamageScale : 0.25;
-    let scale = 1;
-    if (dist > start) {
-      if (dist >= end) scale = minS;
-      else scale = 1 - ((dist - start) / (end - start)) * (1 - minS);
-    }
-    return Math.max(1, Math.round(def.damage * scale));
+    const minDmg =
+      def.minDamage != null
+        ? def.minDamage
+        : def.damage * (def.minDamageScale != null ? def.minDamageScale : 0.25);
+    if (dist <= start) return Math.max(1, Math.round(def.damage));
+    if (dist >= end) return Math.max(1, Math.round(minDmg));
+    const t = (dist - start) / Math.max(0.01, end - start);
+    return Math.max(1, Math.round(def.damage + (minDmg - def.damage) * t));
   };
 
   /**
@@ -985,16 +1171,28 @@
       }
       this._spawnImpact(bestAction.hit.point, 0xff6688, 0.55);
     } else if (bestAction.type === 'vehicle') {
-      const applied = global.VF.Vehicles.applyDamage(
-        bestAction.hit.vehicle,
-        dmg,
-        {
-          damageType: def.damageType || 'bullet',
-          source: this.player,
-          sourceId: this.player.entityId || 'player-local',
-          weaponId: def.id,
-        }
-      );
+      const vehicle = bestAction.hit.vehicle;
+      let vehDmg = 0;
+      let vehType = def.damageType || 'bullet';
+      if (def.damageType === 'antiArmor') {
+        vehDmg = dmg;
+        vehType = 'antiArmor';
+      } else if (vehicle && vehicle.armorClass === 'light') {
+        vehDmg = def.lightArmorDamage != null ? def.lightArmorDamage : 0;
+        vehType = 'lightArmor';
+      } else if (vehicle && vehicle.armorClass === 'heavy') {
+        vehDmg = def.heavyArmorDamage != null ? def.heavyArmorDamage : 0;
+        vehType = 'heavyArmor';
+      }
+      const applied =
+        vehDmg > 0
+          ? global.VF.Vehicles.applyDamage(vehicle, vehDmg, {
+              damageType: vehType,
+              source: this.player,
+              sourceId: this.player.entityId || 'player-local',
+              weaponId: def.id,
+            })
+          : 0;
       this._spawnImpact(
         bestAction.hit.point,
         applied > 0 ? 0xff8a3d : 0xaab5b8,
@@ -1598,6 +1796,9 @@
 
   global.VF = global.VF || {};
   global.VF.WEAPONS = WEAPONS;
+  global.VF.WEAPON_BASE_STATS = WEAPON_BASE_STATS;
+  global.VF.weaponFireInterval = fireInterval;
+  global.VF.formatWeaponBaseStats = formatWeaponBaseStats;
   global.VF.AMMO_RESERVE_MAX = AMMO_RESERVE_MAX;
   global.VF.AMMO_DROP_AMOUNT = AMMO_DROP_AMOUNT;
   global.VF.ENEMY_AMMO_TYPE = ENEMY_AMMO_TYPE;

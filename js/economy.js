@@ -51,17 +51,19 @@
       id: 'sg',
       kind: 'weapon',
       name: 'Remington 870',
-      price: 200,
+      price: 0,
       weaponId: 'sg',
-      desc: '永久解锁 · 12ga 00 Buck · 热键 2',
+      free: true,
+      desc: '默认配备 · 12ga 00 Buck · 热键 2',
     },
     sr: {
       id: 'sr',
       kind: 'weapon',
       name: 'SVD',
-      price: 350,
+      price: 0,
       weaponId: 'sr',
-      desc: '永久解锁 · 7.62×54R · 热键 3',
+      free: true,
+      desc: '默认配备 · 7.62×54R · 热键 3',
     },
     cable: {
       id: 'cable',
@@ -238,9 +240,7 @@
   }
 
   function ownsWeapon(id) {
-    if (id === 'ar') return true;
-    const m = getMeta();
-    return m.ownedWeapons.indexOf(id) >= 0;
+    return !!id;
   }
 
   function ownsModule(id) {

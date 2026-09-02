@@ -2319,7 +2319,13 @@
   VehicleSystem.prototype.applyDamage = function (vehicleOrId, rawDamage, meta) {
     const vehicle = this.getById(vehicleOrId);
     meta = meta || {};
-    if (!vehicle || !vehicle.alive || meta.damageType !== 'antiArmor') return 0;
+    if (!vehicle || !vehicle.alive) return 0;
+    const isAntiArmor = meta.damageType === 'antiArmor';
+    const isLightChip =
+      meta.damageType === 'lightArmor' && vehicle.armorClass === 'light';
+    const isHeavyChip =
+      meta.damageType === 'heavyArmor' && vehicle.armorClass === 'heavy';
+    if (!isAntiArmor && !isLightChip && !isHeavyChip) return 0;
     if (
       global.VF &&
       global.VF.MatchFlow &&

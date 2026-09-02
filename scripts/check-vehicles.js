@@ -317,6 +317,27 @@ function run() {
   );
   ok(ifv.hp === 600 && tank.hp === 1000, 'ignored damage changed vehicle HP');
   ok(
+    Vehicles.applyDamage(ifv, 4, { damageType: 'lightArmor' }) === 4,
+    'light armor chip did not apply to IFV'
+  );
+  ok(ifv.hp === 596, 'IFV HP after light armor chip is incorrect');
+  ok(
+    Vehicles.applyDamage(tank, 4, { damageType: 'lightArmor' }) === 0,
+    'light armor chip affected a tank'
+  );
+  ok(tank.hp === 1000, 'tank HP changed from light armor chip');
+  ok(
+    Vehicles.applyDamage(tank, 5, { damageType: 'heavyArmor' }) === 5,
+    'heavy armor chip did not apply to tank'
+  );
+  ok(tank.hp === 995, 'tank HP after heavy armor chip is incorrect');
+  ok(
+    Vehicles.applyDamage(ifv, 5, { damageType: 'heavyArmor' }) === 0,
+    'heavy armor chip affected IFV'
+  );
+  tank.hp = 1000;
+  ifv.hp = 600;
+  ok(
     Vehicles.applyDamage(ifv, 200, { damageType: 'antiArmor', weaponId: 'rpg' }) === 200,
     'RPG damage against light armor was not 200'
   );

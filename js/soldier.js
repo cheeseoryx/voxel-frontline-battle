@@ -800,7 +800,7 @@
 
   /** FPS arms + full rifle — all meshes stay in front of camera (-Z) */
   /** FPS viewmodel — detailed voxel rifle + articulated hands (ref: lower-right hipfire) */
-  function createViewModel(classId) {
+  function createViewModel(classId, weaponId) {
     classId = normalizeClassId(classId);
     const root = new THREE.Group();
     root.name = 'SoldierViewModel';
@@ -830,15 +830,29 @@
     }
 
     const long = classId === 'recon';
-    const thick = classId === 'support';
     const b = viewBox;
-    const dark = 0x1a1e24;
-    const mid = 0x2e343c;
-    const rail = 0x22262c;
-
-    const gun = new THREE.Group();
-    gun.name = 'ViewGun';
-    gun.frustumCulled = false;
+    const weaponDef =
+      (weaponId && global.VF.WEAPONS && global.VF.WEAPONS[weaponId]) ||
+      (weaponId && global.VF.WEAPON_CATALOG && global.VF.WEAPON_CATALOG[weaponId]) ||
+      null;
+    let gun;
+    let muzzle;
+    let flash;
+    const useCatalogGun =
+      !!(weaponDef && global.VF.WeaponViewModels && global.VF.WeaponViewModels.buildGun);
+    if (useCatalogGun) {
+      const built = global.VF.WeaponViewModels.buildGun(weaponDef);
+      gun = built.gun;
+      muzzle = built.muzzle;
+      flash = built.flash;
+    } else {
+      const thick = classId === 'support';
+      const dark = 0x1a1e24;
+      const mid = 0x2e343c;
+      const rail = 0x22262c;
+      gun = new THREE.Group();
+      gun.name = 'ViewGun';
+      gun.frustumCulled = false;
 
     // ---- Stock (camo voxels) ----
     addCamoVolume(gun, 0.02, 0.02, 0.34, 4, 3, 5, 0.048, camo);
@@ -896,6 +910,17 @@
     gun.add(b(0.06, 0.02, 0.1, dark, 0.02, -0.08, 0.02));
     gun.add(b(0.02, 0.08, 0.02, dark, 0.02, -0.12, -0.02));
 
+      muzzle = new THREE.Object3D();
+      muzzle.name = 'Muzzle';
+      muzzle.position.set(0, 0.04, muzZ - 0.055);
+      gun.add(muzzle);
+      flash = new THREE.PointLight(0xffaa44, 0, 8);
+      flash.name = 'MuzzleFlash';
+      muzzle.add(flash);
+      gun.position.set(0.05, -0.05, -0.1);
+      gun.rotation.set(0.1, 0.16, 0.05);
+    }
+
     // ========== RIGHT HAND (grip) — palm + fingers ==========
     const rHand = new THREE.Group();
     rHand.name = 'ViewRightHand';
@@ -925,20 +950,26 @@
     lHand.add(b(0.035, 0.035, 0.05, skinDark, -0.09, 0.02, 0.08));
     lHand.position.set(-0.08, -0.1, long ? -0.32 : -0.28);
     lHand.rotation.set(0.2, -0.35, 0.4);
+    const style = weaponDef && weaponDef.modelStyle;
+    const cat = weaponDef && weaponDef.category;
+    if (
+      style === 'pistol' ||
+      style === 'machine-pistol' ||
+      style === 'pistol-heavy' ||
+      style === 'revolver' ||
+      style === 'revolver-heavy' ||
+      cat === 'pistol'
+    ) {
+      lHand.visible = false;
+    } else if (style === 'rpg') {
+      lHand.position.set(-0.08, -0.06, -0.2);
+    } else if (style === 'shotgun' || cat === 'smg') {
+      lHand.position.set(-0.08, -0.1, -0.22);
+    } else if (style && style.indexOf('sniper') === 0) {
+      lHand.position.set(-0.08, -0.1, -0.36);
+    }
     gun.add(lHand);
 
-    const muzzle = new THREE.Object3D();
-    muzzle.name = 'Muzzle';
-    // Tip of the muzzle brake (same Y as barrel centerline)
-    muzzle.position.set(0, 0.04, muzZ - 0.055);
-    gun.add(muzzle);
-    const flash = new THREE.PointLight(0xffaa44, 0, 8);
-    flash.name = 'MuzzleFlash';
-    muzzle.add(flash);
-
-    // Natural hip angle: slight inward yaw, mild pitch — not extreme corner push
-    gun.position.set(0.05, -0.05, -0.1);
-    gun.rotation.set(0.1, 0.16, 0.05);
     root.add(gun);
 
     // ========== RIGHT ARM (sleeve + forearm → grip) ==========
