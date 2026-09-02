@@ -3253,7 +3253,15 @@ canvas {
   display: none !important;
 }
 #hud.vehicle-active .cq-command {
-  bottom: 132px;
+  top: 108px;
+  bottom: auto;
+}
+#hud.vehicle-active .cq-capture {
+  top: 26%;
+  bottom: auto;
+}
+#hud.vehicle-active #interact-hint {
+  display: none !important;
 }
 .cq-sweep.win { color: #7ec8ff; border-color: rgba(126, 200, 255, 0.45); }
 .cq-sweep.fail { color: #ff8a7a; border-color: rgba(255, 138, 122, 0.5); }
@@ -3307,12 +3315,12 @@ canvas {
 }
 #cq-capture-fill-ally {
   left: 0;
-  width: 50%;
+  width: 0;
   background: #3b9eff;
 }
 #cq-capture-fill-enemy {
   right: 0;
-  width: 50%;
+  width: 0;
   background: #ff6a32;
 }
 #cq-capture-ring { display: none !important; }
@@ -3763,7 +3771,7 @@ canvas {
 #vehicle-reticle {
   position: absolute;
   inset: 0;
-  z-index: 8;
+  z-index: 16;
   pointer-events: none;
   color: #f4f8fa;
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
@@ -3792,6 +3800,8 @@ canvas {
   display: block;
   font-style: normal;
 }
+
+#vehicle-reticle .vr-dot {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -4948,7 +4958,9 @@ canvas {
 }
 
 .vehicle-jeep .vehicle-hud-weapon-panel,
-.vehicle-jeep .vehicle-hud-controls [data-hint="turret"] {
+.vehicle-jeep .vehicle-hud-controls [data-hint="turret"],
+.vehicle-hud.vehicle-unarmed .vehicle-hud-weapon-panel,
+.vehicle-hud.role-passenger .vehicle-hud-weapon-panel {
   display: none;
 }
 
@@ -4961,8 +4973,20 @@ canvas {
   display: none;
 }
 
-.vehicle-jeep .vehicle-hud-status {
+.vehicle-jeep .vehicle-hud-status,
+.vehicle-hud.vehicle-unarmed .vehicle-hud-status,
+.vehicle-hud.role-passenger .vehicle-hud-status {
   bottom: 24px;
+}
+
+#hud.vehicle-personal .vehicle-hud-status {
+  bottom: 118px;
+}
+#hud.vehicle-personal .vehicle-hud-dock {
+  bottom: 72px;
+}
+#hud.vehicle-personal .vehicle-hud-weapon-panel {
+  display: none;
 }
 
 .vehicle-jeep .vehicle-hud-seats,
@@ -4982,7 +5006,8 @@ canvas {
   }
 
   #hud.vehicle-active .cq-command {
-    bottom: 148px;
+    top: 108px;
+    bottom: auto;
   }
 }
 

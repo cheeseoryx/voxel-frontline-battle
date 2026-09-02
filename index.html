@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>体素战争</title>
-  <link rel="stylesheet" href="style.css?v=bfhud2" />
+  <link rel="stylesheet" href="style.css?v=bfhud6" />
 </head>
 <body>
   <button id="audio-toggle" type="button" title="静音" aria-label="切换声音" aria-pressed="false">
@@ -426,6 +426,41 @@
       </span>
     </div>
 
+    <div id="vehicle-reticle" class="hidden" aria-hidden="true">
+      <div class="vr-tpv">
+        <i class="vr-dot"></i>
+        <i class="vr-arm n"></i>
+        <i class="vr-arm e"></i>
+        <i class="vr-arm s"></i>
+        <i class="vr-arm w"></i>
+        <i class="vr-box tl"></i>
+        <i class="vr-box tr"></i>
+        <i class="vr-box bl"></i>
+        <i class="vr-box br"></i>
+      </div>
+      <div class="vr-fpv">
+        <div class="vr-monitor"></div>
+        <div class="vr-vignette"></div>
+        <div class="vr-stadia-v"></div>
+        <div class="vr-stadia-h"></div>
+        <i class="vr-bracket tl"></i>
+        <i class="vr-bracket tr"></i>
+        <i class="vr-bracket bl"></i>
+        <i class="vr-bracket br"></i>
+        <i class="vr-center"></i>
+        <b class="vr-range" id="vehicle-reticle-range">-- M</b>
+        <span class="vr-pitch" id="vehicle-reticle-pitch">0°</span>
+        <div class="vr-side left" id="vehicle-reticle-left">
+          <span>稳定系统 就绪</span>
+          <span>热成像 就绪</span>
+        </div>
+        <div class="vr-side right">
+          <b id="vehicle-reticle-speed">0 KPH</b>
+          <span id="vehicle-reticle-ready">—</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Scope overlay (RMB ADS) -->
     <div id="scope-overlay" class="hidden" aria-hidden="true">
       <div class="scope-vignette"></div>
@@ -599,16 +634,18 @@
     </div>
 
     <div id="vehicle-hud" class="vehicle-hud hidden" aria-live="polite">
-      <div class="vehicle-hud-controls">
-        <span><kbd>SHIFT</kbd> 增压加速</span>
-        <span><kbd>CTRL</kbd> 缓慢移动</span>
-        <span><kbd>V</kbd> 锁定炮塔</span>
-        <span><kbd>C</kbd> 视角</span>
-        <span><kbd>E</kbd> 退出</span>
-      </div>
-      <div class="vehicle-hud-seat-block">
-        <div class="vehicle-hud-seat" id="vehicle-hud-seat">驾驶员 · F1</div>
-        <div class="vehicle-hud-seats" id="vehicle-hud-seats"></div>
+      <div class="vehicle-hud-dock">
+        <div class="vehicle-hud-controls">
+          <span data-hint="boost"><kbd>SHIFT</kbd> 增压加速</span>
+          <span data-hint="slow"><kbd>CTRL</kbd> 缓慢移动</span>
+          <span data-hint="turret"><kbd>V</kbd> 锁定炮塔</span>
+          <span data-hint="camera"><kbd>C</kbd> 视角</span>
+          <span data-hint="exit"><kbd>E</kbd> 退出</span>
+        </div>
+        <div class="vehicle-hud-seat-block">
+          <div class="vehicle-hud-seat" id="vehicle-hud-seat">驾驶员 · F1</div>
+          <div class="vehicle-hud-seats" id="vehicle-hud-seats"></div>
+        </div>
       </div>
       <div class="vehicle-hud-status">
         <div class="vehicle-hud-head">
@@ -1203,7 +1240,7 @@
   <script src="js/net-simulation.js?v=vehicle3"></script>
   <script src="js/match-flow.js?v=scorch3"></script>
   <script src="js/soldier-menu.js?v=vehicle3"></script>
-  <script src="js/ui.js?v=bfhud2"></script>
+  <script src="js/ui.js?v=bfhud6"></script>
   <script src="js/audio.js?v=scorch3"></script>
   <script src="js/atmosphere.js?v=scorch3"></script>
   <script src="js/config.js?v=scorch3"></script>

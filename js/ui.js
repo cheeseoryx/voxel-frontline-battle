@@ -404,7 +404,9 @@
           'vehicle-tank',
           'role-driver',
           'role-gunner',
-          'role-passenger'
+          'role-passenger',
+          'vehicle-unarmed',
+          'vehicle-no-fpv'
         );
         this.els.vehicleHud.classList.add('vehicle-' + vehicle.type);
         this.els.vehicleHud.classList.add(
@@ -419,8 +421,13 @@
         vehicles.canUseVehicleFirstPerson &&
         vehicles.canUseVehicleFirstPerson(player)
       );
+      const available = vehicles.getWeaponsForRole
+        ? vehicles.getWeaponsForRole(vehicle, player.vehicleRole)
+        : [];
+      const armed = available.length > 0;
       if (this.els.vehicleHud) {
         this.els.vehicleHud.classList.toggle('vehicle-no-fpv', !canVehicleFpv);
+        this.els.vehicleHud.classList.toggle('vehicle-unarmed', !armed);
       }
       if (this.els.hud) {
         this.els.hud.classList.add('vehicle-active');
@@ -434,7 +441,11 @@
         );
       }
       if (this.els.vehicleReticle) {
-        const showReticle = !personal;
+        const showReticle =
+          !personal &&
+          (player.vehicleRole === 'driver' ||
+            player.vehicleRole === 'gunner' ||
+            armed);
         this.els.vehicleReticle.classList.toggle('hidden', !showReticle);
         this.els.vehicleReticle.setAttribute(
           'aria-hidden',
@@ -509,9 +520,6 @@
           this.els.vehicleHudSeats.innerHTML = seats;
         }
       }
-      const available = vehicles.getWeaponsForRole
-        ? vehicles.getWeaponsForRole(vehicle, player.vehicleRole)
-        : [];
       const index = Math.min(
         player.vehicleWeaponIndex || 0,
         Math.max(0, available.length - 1)
@@ -523,15 +531,23 @@
           : null;
       const weaponState = weaponId && vehicle.weapons[weaponId];
       if (this.els.vehicleHud) {
-        this.els.vehicleHud
-          .querySelectorAll('.vehicle-hud-weapon-slots i')
-          .forEach(function (slot, slotIndex) {
+        const slotWrap = this.els.vehicleHud.querySelector('.vehicle-hud-weapon-slots');
+        if (slotWrap) {
+          const slotN = Math.max(available.length, 1);
+          if (slotWrap._slotN !== slotN) {
+            slotWrap._slotN = slotN;
+            let slotHtml = '';
+            for (let s = 0; s < slotN; s++) slotHtml += '<i>' + (s + 1) + '</i>';
+            slotWrap.innerHTML = slotHtml;
+          }
+          slotWrap.querySelectorAll('i').forEach(function (slot, slotIndex) {
             slot.classList.toggle(
               'active',
               slotIndex === index && slotIndex < available.length
             );
             slot.classList.toggle('unused', slotIndex >= available.length);
           });
+        }
       }
       if (this.els.vehicleHudWeapon) {
         this.els.vehicleHudWeapon.textContent = personal
@@ -822,16 +838,21 @@
       const t = Math.max(0, Math.min(1, Math.abs(flag.capture || 0)));
       const towardFriend =
         (flag.capture || 0) >= 0 ? playerTeam === 'ally' : playerTeam === 'enemy';
+      const hasFoe = (foeN || 0) > 0;
       const col = flag.contested ? '#ffe08a' : towardFriend ? '#4aa7ff' : '#ff6a32';
       box.style.setProperty('--cq-cap-col', col);
       let friendShare = 0.5;
-      if (flag.owner === playerTeam) friendShare = 0.72 + t * 0.28;
-      else if (flag.owner && flag.owner !== 'neutral') friendShare = 0.28 - t * 0.28;
-      else friendShare = towardFriend ? 0.5 + t * 0.5 : 0.5 - t * 0.5;
-      friendShare = Math.max(0.08, Math.min(0.92, friendShare));
+      if (flag.owner === playerTeam) friendShare = hasFoe ? 0.72 + t * 0.28 : 1;
+      else if (flag.owner && flag.owner !== 'neutral') {
+        friendShare = hasFoe ? 0.28 - t * 0.28 : towardFriend ? t : 0;
+      } else {
+        friendShare = towardFriend ? t : 0;
+      }
+      friendShare = Math.max(0, Math.min(1, friendShare));
+      const enemyShare = hasFoe ? Math.max(0, 1 - friendShare) : 0;
       if (this.els.cqCaptureFillAlly) this.els.cqCaptureFillAlly.style.width = friendShare * 100 + '%';
       if (this.els.cqCaptureFillEnemy) {
-        this.els.cqCaptureFillEnemy.style.width = (1 - friendShare) * 100 + '%';
+        this.els.cqCaptureFillEnemy.style.width = enemyShare * 100 + '%';
       }
     },
 
