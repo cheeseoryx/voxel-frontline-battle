@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>体素战争</title>
-  <link rel="stylesheet" href="style.css?v=bfhud7" />
+  <link rel="stylesheet" href="style.css?v=arsenal1" />
 </head>
 <body>
   <button id="audio-toggle" type="button" title="静音" aria-label="切换声音" aria-pressed="false">
@@ -724,7 +724,7 @@
             <span class="class-skill-tip-desc" id="class-skill-tip-desc"></span>
           </div>
         </div>
-        <p class="class-deploy-inspect"><kbd>C</kbd> 检视详细内容</p>
+        <p class="class-deploy-inspect">点击武器栏更换装备 · <kbd>C</kbd> 打开装备</p>
       </aside>
 
       <main class="class-stage" id="class-stage">
@@ -921,6 +921,53 @@
           <span class="cover-btn-icon play" aria-hidden="true"></span>
           <span>完成建造</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weapon / equipment arsenal (opened from loadout strips) -->
+  <div id="arsenal-overlay" class="hidden" role="dialog" aria-label="装备">
+    <div class="arsenal-shell">
+      <div class="arsenal-grain" aria-hidden="true"></div>
+      <header class="arsenal-top">
+        <button type="button" id="arsenal-back" class="arsenal-back" aria-label="返回">
+          <span aria-hidden="true">‹</span>
+        </button>
+        <h1 id="arsenal-title">选择主要武器</h1>
+        <div id="arsenal-slots" class="arsenal-slots" role="tablist" aria-label="装备栏"></div>
+      </header>
+      <div class="arsenal-main">
+        <aside class="arsenal-info">
+          <p class="arsenal-tags" id="arsenal-tags"></p>
+          <h2 id="arsenal-name"></h2>
+          <p class="arsenal-flavor" id="arsenal-flavor"></p>
+          <p class="arsenal-desc" id="arsenal-desc"></p>
+          <button type="button" id="arsenal-equip" class="arsenal-equip">
+            <kbd>Space</kbd>
+            <span class="arsenal-equip-ico" aria-hidden="true"></span>
+            <span id="arsenal-equip-label">装备</span>
+          </button>
+        </aside>
+        <div class="arsenal-stage">
+          <span class="arsenal-stage-glow" aria-hidden="true"></span>
+          <canvas id="arsenal-canvas" width="960" height="540"></canvas>
+          <div id="arsenal-stage-fallback" class="arsenal-stage-fallback" hidden></div>
+        </div>
+      </div>
+      <div class="arsenal-bottom">
+        <div class="arsenal-picker">
+          <nav id="arsenal-cats" class="arsenal-cats" aria-label="武器分类"></nav>
+          <div id="arsenal-list" class="arsenal-list" role="listbox" aria-label="可选装备"></div>
+        </div>
+        <aside class="arsenal-stats" aria-label="数值对比">
+          <div id="arsenal-headline" class="arsenal-headline"></div>
+          <div id="arsenal-bars" class="arsenal-bars"></div>
+          <div id="arsenal-detail" class="arsenal-detail"></div>
+          <div class="arsenal-falloff">
+            <span>当前选中枪械数值与衰减</span>
+            <svg id="arsenal-falloff" viewBox="0 0 320 96" preserveAspectRatio="none"></svg>
+          </div>
+        </aside>
       </div>
     </div>
   </div>
@@ -1175,23 +1222,65 @@
     </div>
   </div>
 
-  <!-- Death overlay -->
-  <div id="death-overlay" class="hidden" role="dialog" aria-labelledby="death-title">
-    <div class="end-card end-card--fail">
+  <!-- Downed HUD (Battlefield-style). Fallback end-card only for match-over modes. -->
+  <div id="death-overlay" class="hidden" aria-live="polite">
+    <div class="downed-fx" aria-hidden="true"></div>
+    <div id="downed-stage" class="downed-stage">
+      <div class="downed-center">
+        <div class="downed-acts">
+          <div class="downed-act downed-act-call">
+            <button type="button" id="death-call-btn" class="downed-act-btn">
+              <span class="downed-med-cross" aria-hidden="true">+</span>
+              <span id="death-call-label">减缓失血</span> <kbd>E</kbd>
+            </button>
+            <span id="downed-nearest" class="downed-nearest"></span>
+          </div>
+          <div class="downed-heart" aria-hidden="true">
+            <span id="downed-bleed-ring" class="downed-bleed-ring"></span>
+            <svg class="downed-heart-svg" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="20" fill="none" stroke="currentColor" stroke-width="1.6"/>
+              <polyline points="16,32 24,32 28,22 36,42 40,32 50,32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="downed-act downed-act-skip">
+            <button type="button" id="death-btn" class="downed-act-btn downed-skip-btn">
+              <kbd>空格</kbd> 跳过（按住）
+            </button>
+            <span class="downed-skip-track"><i id="downed-skip-fill"></i></span>
+          </div>
+        </div>
+        <div class="downed-medics">
+          <div class="downed-medics-title">附近的医护兵</div>
+          <ul id="downed-medic-list"></ul>
+        </div>
+        <p id="death-sub" class="downed-bleed-text"></p>
+      </div>
+      <aside class="downed-killcard" id="downed-killcard">
+        <div class="downed-killer-row">
+          <span id="downed-killer-name">—</span>
+          <span id="downed-killer-rank">—</span>
+        </div>
+        <div id="downed-killer-gun" class="downed-killer-gun"></div>
+        <div class="downed-killer-weapon">
+          <strong id="downed-killer-weapon">—</strong>
+          <span id="downed-killer-wtype"></span>
+        </div>
+        <button type="button" id="downed-dmg-btn" class="downed-dmg-btn"><kbd>F</kbd> 伤害记录</button>
+        <div id="downed-dmg-log" class="downed-dmg-log hidden"></div>
+      </aside>
+    </div>
+    <div id="death-end-card" class="end-card end-card--fail hidden">
       <div class="end-card-badge" aria-hidden="true">
         <svg class="end-card-icon" viewBox="0 0 16 16" width="28" height="28" shape-rendering="crispEdges">
           <path fill="currentColor" d="M5 2h6v1h1v1h1v4h-1v1H4V8H3V4h1V3h1V2zm1 3v2h1V5H6zm3 0v2h1V5H9zM5 10h1v1h4v-1h1v2H5v-2z"/>
         </svg>
       </div>
       <h1 id="death-title">你已阵亡</h1>
-      <p class="end-card-sub" id="death-sub">血量耗尽 · 等待重新部署</p>
+      <p class="end-card-sub" id="death-end-sub">血量耗尽 · 等待重新部署</p>
       <div class="end-card-rule" aria-hidden="true"></div>
       <p class="end-card-flavor" id="death-flavor">选个出生点再上！</p>
       <div class="end-card-actions">
-        <button id="death-call-btn" type="button" class="end-card-btn end-card-btn--ghost hidden">
-          呼叫救援
-        </button>
-        <button id="death-btn" type="button" class="end-card-btn">
+        <button id="death-end-btn" type="button" class="end-card-btn">
           重新部署<span class="end-card-btn-arrow" aria-hidden="true">›</span>
         </button>
         <button id="death-hub-btn" type="button" class="end-card-btn end-card-btn--ghost">
@@ -1209,10 +1298,10 @@
 
   <!-- Game modules (order matters) -->
   <!-- feel-config.js: KEEP on production (baked feel numbers) -->
-  <script src="js/feel-config.js?v=wstat2"></script>
+  <script src="js/feel-config.js?v=downed3"></script>
   <!-- render-config.js/render-pipeline.js/render-scene.js: KEEP on production -->
   <script src="js/render-config.js?v=2"></script>
-  <script src="js/render-pipeline.js?v=2"></script>
+  <script src="js/render-pipeline.js?v=downed1"></script>
   <script src="js/render-scene.js?v=2"></script>
   <script src="js/maps/island-conquest.js?v=vehicle3"></script>
   <script src="js/voxel-world.js?v=vehicle3"></script>
@@ -1222,9 +1311,9 @@
   <script src="js/vehicles.js?v=wstat2"></script>
   <script src="js/weapon-viewmodels.js?v=wstat2"></script>
   <script src="js/soldier.js?v=wstat2"></script>
-  <script src="js/player.js?v=wstat2"></script>
+  <script src="js/player.js?v=downed1"></script>
   <script src="js/weapon-catalog.js?v=wstat3"></script>
-  <script src="js/weapons.js?v=wstat3"></script>
+  <script src="js/weapons.js?v=arsenal1"></script>
   <script src="js/skills.js?v=vehicle3"></script>
   <script src="js/building.js?v=vehicle3"></script>
   <script src="js/tower-designer.js?v=scorch3"></script>
@@ -1234,7 +1323,7 @@
   <script src="js/range.js?v=wstat2"></script>
   <script src="js/ai.js?v=pvp8v8"></script>
   <script src="js/conquest.js?v=vehicle3"></script>
-  <script src="js/revive.js?v=vehicle3"></script>
+  <script src="js/revive.js?v=downed3"></script>
   <script src="js/squads.js?v=scorch3"></script>
   <script src="js/gadgets.js?v=vehicle3"></script>
   <script src="js/scoring.js?v=vehicle3"></script>
@@ -1242,14 +1331,15 @@
   <script src="js/net-protocol.js?v=vehicle3"></script>
   <script src="js/net-simulation.js?v=vehicle3"></script>
   <script src="js/match-flow.js?v=scorch3"></script>
-  <script src="js/soldier-menu.js?v=wstat3"></script>
-  <script src="js/ui.js?v=bfhud8"></script>
+  <script src="js/soldier-menu.js?v=arsenal1"></script>
+  <script src="js/arsenal.js?v=arsenal1"></script>
+  <script src="js/ui.js?v=arsenal1"></script>
   <script src="js/audio.js?v=scorch3"></script>
   <script src="js/atmosphere.js?v=scorch3"></script>
   <script src="js/config.js?v=scorch3"></script>
   <script src="js/kubee-bridge.js?v=scorch3"></script>
-  <script src="js/pvp.js?v=pvp8v8"></script>
-  <script src="js/main.js?v=pvp8v8"></script>
+  <script src="js/pvp.js?v=downed1"></script>
+  <script src="js/main.js?v=arsenal1"></script>
   <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
   <script src="js/feel-tuner.js?v=wstat1"></script>
   <!-- render-tuner.js: F9 后处理参数调节（生产环境删除） -->

@@ -86,7 +86,24 @@
         deathFlavor: document.getElementById('death-flavor'),
         deathBtn: document.getElementById('death-btn'),
         deathCallBtn: document.getElementById('death-call-btn'),
+        deathCallLabel: document.getElementById('death-call-label'),
         deathHubBtn: document.getElementById('death-hub-btn'),
+        deathEndCard: document.getElementById('death-end-card'),
+        deathEndBtn: document.getElementById('death-end-btn'),
+        deathEndSub: document.getElementById('death-end-sub'),
+        downedStage: document.getElementById('downed-stage'),
+        downedMedicList: document.getElementById('downed-medic-list'),
+        downedSkipFill: document.getElementById('downed-skip-fill'),
+        downedBleedRing: document.getElementById('downed-bleed-ring'),
+        downedNearest: document.getElementById('downed-nearest'),
+        downedKillcard: document.getElementById('downed-killcard'),
+        downedKillerName: document.getElementById('downed-killer-name'),
+        downedKillerRank: document.getElementById('downed-killer-rank'),
+        downedKillerGun: document.getElementById('downed-killer-gun'),
+        downedKillerWeapon: document.getElementById('downed-killer-weapon'),
+        downedKillerWtype: document.getElementById('downed-killer-wtype'),
+        downedDmgBtn: document.getElementById('downed-dmg-btn'),
+        downedDmgLog: document.getElementById('downed-dmg-log'),
         spawnOverlay: document.getElementById('spawn-overlay'),
         spawnMap: document.getElementById('spawn-map'),
         spawnBtnsAlly: document.getElementById('spawn-btns-ally'),
@@ -210,14 +227,18 @@
       this.squadIntroOpen = false;
       this.loadoutCustomizeOpen = false;
       this.modeSelectOpen = false;
+      this.arsenalOpen = false;
       this.selectedClassId = null;
       this._lastHp = 100;
       this.scoreboardOpen = false;
       this._spawnMapCamera = { zoom: 1, panX: 0, panY: 0 };
       this._spawnMapDrag = null;
       this._deathHandlers = { onRedeploy: null, onCallout: null, onHub: null };
+      this._skipMouseHold = false;
+      this._downedDmgOpen = false;
       this._bindDeathButtons();
       this._bindTeamSwitchButton();
+      if (global.VF.Arsenal && global.VF.Arsenal.init) global.VF.Arsenal.init();
     },
 
     _bindTeamSwitchButton() {
@@ -247,9 +268,28 @@
 
     _bindDeathButtons() {
       const self = this;
-      if (this.els.deathBtn && !this.els.deathBtn._vfBound) {
-        this.els.deathBtn._vfBound = true;
-        this.els.deathBtn.addEventListener('click', function (e) {
+      const bindSkipHold = function (el) {
+        if (!el || el._vfSkipBound) return;
+        el._vfSkipBound = true;
+        const start = function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          self._skipMouseHold = true;
+        };
+        const stop = function () {
+          self._skipMouseHold = false;
+        };
+        el.addEventListener('mousedown', start);
+        el.addEventListener('mouseup', stop);
+        el.addEventListener('mouseleave', stop);
+        el.addEventListener('touchstart', start, { passive: false });
+        el.addEventListener('touchend', stop);
+        el.addEventListener('touchcancel', stop);
+      };
+      bindSkipHold(this.els.deathBtn);
+      if (this.els.deathEndBtn && !this.els.deathEndBtn._vfBound) {
+        this.els.deathEndBtn._vfBound = true;
+        this.els.deathEndBtn.addEventListener('click', function (e) {
           e.preventDefault();
           e.stopPropagation();
           if (self._deathHandlers.onRedeploy) self._deathHandlers.onRedeploy();
@@ -269,6 +309,14 @@
           e.preventDefault();
           e.stopPropagation();
           if (self._deathHandlers.onHub) self._deathHandlers.onHub();
+        });
+      }
+      if (this.els.downedDmgBtn && !this.els.downedDmgBtn._vfBound) {
+        this.els.downedDmgBtn._vfBound = true;
+        this.els.downedDmgBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          self.toggleDownedDamageLog();
         });
       }
     },
@@ -1037,68 +1085,253 @@
 
     showDeath(title, sub, flavor) {
       this._downedMode = false;
-      if (this.els.deathSub) {
-        this.els.deathSub.textContent = sub || '血量耗尽 · 等待重新部署';
+      this._skipMouseHold = false;
+      this._setDownedLook(false);
+      if (this.els.deathOverlay) {
+        this.els.deathOverlay.classList.add('is-endcard');
+        this.els.deathOverlay.classList.remove('hidden');
+      }
+      if (this.els.deathEndCard) this.els.deathEndCard.classList.remove('hidden');
+      if (this.els.downedStage) this.els.downedStage.classList.add('hidden');
+      const h1 = this.els.deathEndCard && this.els.deathEndCard.querySelector('h1');
+      if (h1) h1.textContent = title || '你已阵亡';
+      if (this.els.deathEndSub) {
+        this.els.deathEndSub.textContent = sub || '血量耗尽 · 等待重新部署';
       }
       if (this.els.deathFlavor) {
         this.els.deathFlavor.textContent = flavor || '选个出生点再上！';
       }
-      if (this.els.deathOverlay) {
-        const h1 = this.els.deathOverlay.querySelector('h1');
-        if (h1) h1.textContent = title || '你已阵亡';
-        this.els.deathOverlay.classList.remove('hidden');
-      }
-      if (this.els.deathBtn) {
-        this.els.deathBtn.disabled = false;
-        this.els.deathBtn.innerHTML =
-          '重新部署<span class="end-card-btn-arrow" aria-hidden="true">›</span>';
-      }
-      if (this.els.deathCallBtn) this.els.deathCallBtn.classList.add('hidden');
       document.exitPointerLock && document.exitPointerLock();
     },
 
-    showDowned(seconds) {
+    showDowned(seconds, extra) {
       this._downedMode = true;
+      this._skipMouseHold = false;
+      this._downedDmgOpen = false;
+      this._setDownedLook(true);
       if (this.els.deathOverlay) {
-        const h1 = this.els.deathOverlay.querySelector('h1');
-        if (h1) h1.textContent = '你已倒地';
-        this.els.deathOverlay.classList.remove('hidden');
+        this.els.deathOverlay.classList.remove('hidden', 'is-endcard');
       }
-      if (this.els.deathSub) {
-        this.els.deathSub.textContent = '救援窗口 ' + Math.max(0, Math.ceil(seconds || 0)) + ' 秒';
-      }
-      if (this.els.deathFlavor) {
-        this.els.deathFlavor.textContent = '等待队友救援，或放弃并重新部署';
-      }
-      if (this.els.deathBtn) {
-        this.els.deathBtn.disabled = false;
-        this.els.deathBtn.innerHTML =
-          '放弃<span class="end-card-btn-arrow" aria-hidden="true">›</span>';
-      }
+      if (this.els.deathEndCard) this.els.deathEndCard.classList.add('hidden');
+      if (this.els.downedStage) this.els.downedStage.classList.remove('hidden');
       if (this.els.deathCallBtn) {
-        this.els.deathCallBtn.textContent = '呼叫救援';
-        this.els.deathCallBtn.classList.remove('hidden');
+        this.els.deathCallBtn.disabled = false;
+        this.els.deathCallBtn.classList.remove('is-called', 'is-bleed-slow');
       }
-      document.exitPointerLock && document.exitPointerLock();
+      if (this.els.deathCallLabel) this.els.deathCallLabel.textContent = '减缓失血';
+      if (this.els.downedDmgLog) this.els.downedDmgLog.classList.add('hidden');
+      this.updateDowned(
+        extra && typeof extra === 'object'
+          ? Object.assign({ remaining: seconds }, extra)
+          : { remaining: seconds }
+      );
     },
 
     updateDowned(seconds, reviveProgress, called) {
       if (!this._downedMode) return;
+      const info =
+        seconds && typeof seconds === 'object'
+          ? seconds
+          : {
+              remaining: seconds,
+              reviveProgress: reviveProgress,
+              called: called,
+            };
+      const left = Math.max(
+        0,
+        Math.ceil((info.remaining || 0) / Math.max(0.05, info.bleedMul == null ? 1 : info.bleedMul))
+      );
+      const revivePct = Math.round(Math.min(1, info.reviveProgress || 0) * 100);
+      const slowed = (info.bleedMul == null ? 1 : info.bleedMul) < 0.999;
       if (this.els.deathSub) {
-        const left = Math.max(0, Math.ceil(seconds || 0));
-        const revive =
-          reviveProgress > 0 ? ' · 复活 ' + Math.round(Math.min(1, reviveProgress) * 100) + '%' : '';
-        this.els.deathSub.textContent = '救援窗口 ' + left + ' 秒' + revive;
+        this.els.deathSub.textContent =
+          (slowed ? '失血减缓 · ' : '') +
+          '救援窗口 ' +
+          left +
+          ' 秒' +
+          (revivePct > 0 ? ' · 复活 ' + revivePct + '%' : '');
       }
       if (this.els.deathCallBtn) {
-        this.els.deathCallBtn.textContent = called ? '已呼叫救援' : '呼叫救援';
-        this.els.deathCallBtn.disabled = !!called;
+        this.els.deathCallBtn.disabled = false;
+        this.els.deathCallBtn.classList.toggle('is-bleed-slow', slowed);
+        this.els.deathCallBtn.classList.toggle('is-called', false);
       }
+      if (this.els.deathCallLabel) {
+        this.els.deathCallLabel.textContent = slowed ? '恢复失血' : '减缓失血';
+      }
+      if (this.els.downedStage) {
+        this.els.downedStage.classList.toggle('is-bleed-slow', slowed);
+      }
+      const duration = Math.max(0.01, info.duration || 28);
+      const bleed = Math.max(0, Math.min(1, (info.remaining || 0) / duration));
+      if (this.els.downedBleedRing) {
+        this.els.downedBleedRing.style.setProperty('--downed-bleed', bleed * 100 + '%');
+      }
+      const skipNeed = Math.max(0.2, info.skipNeed || 1.2);
+      const skip = Math.max(0, Math.min(1, (info.skipHold || 0) / skipNeed));
+      if (this.els.downedSkipFill) {
+        this.els.downedSkipFill.style.width = skip * 100 + '%';
+      }
+      this._renderDownedMedics(info.medics || []);
+      if (info.killer) this._renderDownedKiller(info.killer);
+      if (this._downedDmgOpen) this._renderDownedDamageLog();
     },
 
     hideDeath() {
       this._downedMode = false;
-      if (this.els.deathOverlay) this.els.deathOverlay.classList.add('hidden');
+      this._skipMouseHold = false;
+      this._downedDmgOpen = false;
+      this._setDownedLook(false);
+      if (this.els.deathOverlay) {
+        this.els.deathOverlay.classList.add('hidden');
+        this.els.deathOverlay.classList.remove('is-endcard');
+      }
+    },
+
+    toggleDownedDamageLog() {
+      this._downedDmgOpen = !this._downedDmgOpen;
+      if (this.els.downedDmgLog) {
+        this.els.downedDmgLog.classList.toggle('hidden', !this._downedDmgOpen);
+      }
+      if (this._downedDmgOpen) this._renderDownedDamageLog();
+    },
+
+    _setDownedLook(on) {
+      const hud = this.els.hud || document.getElementById('hud');
+      if (hud) hud.classList.toggle('hud-downed', !!on);
+      document.body.classList.toggle('downed-view', !!on);
+      const g = global.VF && global.VF.game;
+      const canvas = g && g.renderer && g.renderer.domElement;
+      const pipelineOn = !(global.VF.RenderConfig && global.VF.RenderConfig.enabled === false);
+      if (on) {
+        global.VF.RenderGameplay = {
+          colorGrade: {
+            enabled: true,
+            saturation: 0.07,
+            contrast: 1.16,
+            lift: -0.05,
+            gain: 0.9,
+          },
+          vignette: { enabled: true, intensity: 0.72, radius: 0.46, smoothness: 0.58 },
+          film: { enabled: true, grain: 0.048, aberration: 0.0032 },
+        };
+      } else if (global.VF) {
+        global.VF.RenderGameplay = null;
+      }
+      if (canvas) canvas.classList.toggle('downed-world', !!on && !pipelineOn);
+    },
+
+    _weaponCategoryLabel(def) {
+      const cat = def && def.category;
+      const map = {
+        assault: '突击步枪',
+        battle: '战斗步枪',
+        carbine: '卡宾枪',
+        smg: '冲锋枪',
+        lmg: '轻机枪',
+        dmr: '精确射手步枪',
+        sniper: '狙击步枪',
+        pistol: '手枪',
+        shotgun: '霰弹枪',
+      };
+      if (map[cat]) return map[cat];
+      if (def && def.id === 'rpg') return '火箭筒';
+      return '';
+    },
+
+    _renderDownedMedics(list) {
+      const root = this.els.downedMedicList;
+      if (!root) return;
+      if (!list || !list.length) {
+        const html = '<li class="medic-empty">附近没有医护兵</li>';
+        if (root._html !== html) {
+          root._html = html;
+          root.innerHTML = html;
+        }
+        if (this.els.downedNearest) this.els.downedNearest.textContent = '';
+        return;
+      }
+      let html = '';
+      for (let i = 0; i < list.length; i++) {
+        const m = list[i];
+        const meters = Math.max(1, Math.round(m.dist || 0));
+        const pad = String(meters).padStart(3, '0');
+        html +=
+          '<li><span class="medic-dist">' +
+          pad +
+          ' 米</span><span class="medic-name">' +
+          (m.name || '队友') +
+          '</span><span class="medic-plus"' +
+          (m.isSupport ? '' : ' style="opacity:.35"') +
+          '>+</span></li>';
+      }
+      if (root._html !== html) {
+        root._html = html;
+        root.innerHTML = html;
+      }
+      if (this.els.downedNearest) {
+        this.els.downedNearest.textContent =
+          Math.max(1, Math.round(list[0].dist || 0)) + ' 米';
+      }
+    },
+
+    _renderDownedKiller(killer) {
+      killer = killer || {};
+      if (this.els.downedKillerName) {
+        this.els.downedKillerName.textContent = killer.name || '未知';
+      }
+      if (this.els.downedKillerRank) {
+        this.els.downedKillerRank.textContent =
+          killer.rank != null ? String(killer.rank) : '—';
+      }
+      const defs = (global.VF && global.VF.WEAPONS) || {};
+      const def = killer.weaponId ? defs[killer.weaponId] : null;
+      if (this.els.downedKillerWeapon) {
+        this.els.downedKillerWeapon.textContent =
+          (def && (def.nameZh || def.name)) || killer.weaponName || '—';
+      }
+      if (this.els.downedKillerWtype) {
+        this.els.downedKillerWtype.textContent = this._weaponCategoryLabel(def);
+      }
+      if (this.els.downedKillerGun) {
+        const kind = this._weaponIconKind(killer.weaponId, def);
+        const svg = this._deployGearSvg(kind);
+        if (this.els.downedKillerGun._html !== svg) {
+          this.els.downedKillerGun._html = svg;
+          this.els.downedKillerGun.innerHTML = svg;
+        }
+      }
+    },
+
+    _renderDownedDamageLog() {
+      const root = this.els.downedDmgLog;
+      if (!root) return;
+      const scoring = global.VF && global.VF.Scoring;
+      const game = global.VF && global.VF.game;
+      const id =
+        (game && game.player && (game.player.entityId || 'player-local')) || 'player-local';
+      const list = (scoring && scoring.damage && scoring.damage[id]) || [];
+      if (!list.length) {
+        root.innerHTML = '<div>暂无伤害记录</div>';
+        return;
+      }
+      const revive = global.VF && global.VF.Revive;
+      let html = '';
+      const start = Math.max(0, list.length - 6);
+      for (let i = list.length - 1; i >= start; i--) {
+        const entry = list[i];
+        const name =
+          revive && revive.entityName
+            ? revive.entityName(entry.attackerId)
+            : entry.attackerId || '未知';
+        html +=
+          '<div><span>' +
+          name +
+          '</span><span class="dmg-amt">' +
+          Math.round(entry.amount) +
+          '</span></div>';
+      }
+      root.innerHTML = html;
     },
 
     setEquippedWeapon(id) {
@@ -1390,6 +1623,7 @@
         this.squadIntroOpen ||
         this.loadoutCustomizeOpen ||
         this.modeSelectOpen ||
+        this.arsenalOpen ||
         towerOpen ||
         rangeOpen
       );
@@ -1440,6 +1674,7 @@
 
     closeModeSelect() {
       this.modeSelectOpen = false;
+      this.closeArsenal();
       this.closeServerBrowser();
       if (global.VF.SoldierMenu && global.VF.SoldierMenu.hide) {
         global.VF.SoldierMenu.hide();
@@ -1712,6 +1947,7 @@
 
     closeClassSelect() {
       this.classSelectOpen = false;
+      this.closeArsenal();
       if (this._classAutoTimer) {
         clearInterval(this._classAutoTimer);
         this._classAutoTimer = null;
@@ -1927,7 +2163,7 @@
       bindSkillHover(this.els.classSkillActive, 'active');
       bindSkillHover(this.els.classSkillPassive, 'passive');
       global.addEventListener('keydown', (e) => {
-        if (!this.classSelectOpen || e.repeat) return;
+        if (!this.classSelectOpen || e.repeat || this.arsenalOpen) return;
         if (e.code === 'Escape' && this.els.classCancel) {
           e.preventDefault();
           this.els.classCancel.click();
@@ -1936,9 +2172,7 @@
           this.els.classConfirm.click();
         } else if (e.code === 'KeyC') {
           e.preventDefault();
-          const classes = (global.VF.Soldier && global.VF.Soldier.CLASSES) || [];
-          const info = classes.find((item) => item.id === this.selectedClassId);
-          if (info && this.toast) this.toast(info.blurb || info.role || info.label);
+          this.openArsenal({ slot: 'primary' });
         }
       });
     },
@@ -2169,6 +2403,7 @@
 
     closeSquadIntro() {
       this.squadIntroOpen = false;
+      this.closeArsenal();
       if (this._squadIntroTimer) {
         clearInterval(this._squadIntroTimer);
         this._squadIntroTimer = null;
@@ -2226,7 +2461,7 @@
         });
       }
       global.addEventListener('keydown', (e) => {
-        if (!this.squadIntroOpen || e.repeat) return;
+        if (!this.squadIntroOpen || e.repeat || this.arsenalOpen) return;
         if (e.code === 'Escape') {
           e.preventDefault();
           this._backFromSquadIntro();
@@ -2385,6 +2620,18 @@
 
     /* ---------- Loadout customization ---------- */
 
+    openArsenal(opts) {
+      if (global.VF.Arsenal && global.VF.Arsenal.show) {
+        global.VF.Arsenal.show(opts || {});
+      }
+    },
+
+    closeArsenal() {
+      if (global.VF.Arsenal && global.VF.Arsenal.hide) {
+        global.VF.Arsenal.hide();
+      }
+    },
+
     openLoadoutCustomize(opts) {
       opts = opts || {};
       if (!this.els.loadoutCustomizeOverlay) {
@@ -2433,6 +2680,7 @@
 
     closeLoadoutCustomize() {
       this.loadoutCustomizeOpen = false;
+      this.closeArsenal();
       if (this.els.loadoutCustomizeOverlay) {
         this.els.loadoutCustomizeOverlay.classList.add('hidden');
       }
@@ -2603,7 +2851,7 @@
         });
       }
       global.addEventListener('keydown', (e) => {
-        if (!this.loadoutCustomizeOpen || e.repeat) return;
+        if (!this.loadoutCustomizeOpen || e.repeat || this.arsenalOpen) return;
         if (e.code === 'Escape') {
           e.preventDefault();
           this._finishLoadoutCustomize(false);
@@ -2886,6 +3134,7 @@
 
     closeSpawnSelect() {
       this.spawnSelectOpen = false;
+      this.closeArsenal();
       this._spawnRedeploy = false;
       this._deployUnlockAt = 0;
       this._spawnMapDrag = null;
@@ -3120,6 +3369,10 @@
           '<svg viewBox="0 0 48 36" aria-hidden="true"><path d="M24 3l16 7v10c0 8-7 13-16 15C15 33 8 28 8 20V10z"/><path d="M17 20l5 5 10-12" fill="none"/></svg>',
         knife:
           '<svg viewBox="0 0 68 30" aria-hidden="true"><path d="M4 19h17l4-5 36-10-8 12-27 7-5-3H4z"/><rect x="7" y="16" width="15" height="8"/></svg>',
+        optic:
+          '<svg viewBox="0 0 48 32" aria-hidden="true"><rect x="6" y="12" width="22" height="8"/><circle cx="34" cy="16" r="8" fill="none"/><circle cx="34" cy="16" r="3"/></svg>',
+        muzzle:
+          '<svg viewBox="0 0 64 28" aria-hidden="true"><path d="M4 12h34l8-6h14v16H46l-8-6H4z"/></svg>',
       };
       return (
         icons[kind] ||
@@ -3140,94 +3393,37 @@
       if (this.els.deployClassRole) {
         this.els.deployClassRole.textContent = info.role || info.blurb || '';
       }
-      const kits = {
-        assault: [
-          { kind: 'rifle', name: 'AKM', primary: true, weaponId: 'ar' },
-          { kind: 'shotgun', name: 'Remington 870', weaponId: 'sg' },
-          { kind: 'rifle', name: 'SVD', weaponId: 'sr' },
-          { kind: 'charge', name: '突破炸药' },
-          { kind: 'knife', name: '战斗刀' },
-        ],
-        engineer: [
-          { kind: 'rifle', name: 'AKM', primary: true, weaponId: 'ar' },
-          { kind: 'shotgun', name: 'Remington 870', weaponId: 'sg' },
-          { kind: 'rifle', name: 'SVD', weaponId: 'sr' },
-          { kind: 'rpg', name: 'RPG-7' },
-          { kind: 'turret', name: '自动炮塔' },
-        ],
-        support: [
-          { kind: 'rifle', name: 'AKM', primary: true, weaponId: 'ar' },
-          { kind: 'shotgun', name: 'Remington 870', weaponId: 'sg' },
-          { kind: 'rifle', name: 'SVD', weaponId: 'sr' },
-          { kind: 'medkit', name: '医疗装置' },
-          { kind: 'knife', name: '战斗刀' },
-        ],
-        recon: [
-          { kind: 'rifle', name: 'AKM', primary: true, weaponId: 'ar' },
-          { kind: 'shotgun', name: 'Remington 870', weaponId: 'sg' },
-          { kind: 'rifle', name: 'SVD', weaponId: 'sr' },
-          { kind: 'binoculars', name: '观察镜' },
-          { kind: 'cloak', name: '低可见装置' },
-        ],
-      };
-      const kit = (kits[info.id] || kits.assault).map((item) => Object.assign({}, item));
-      const selectedWeaponId =
-        this.loadoutCustomizeOpen && this._loadoutDraftWeaponId
-          ? this._loadoutDraftWeaponId
-          : global.VF.game && global.VF.game.preferredWeaponId
-            ? global.VF.game.preferredWeaponId
-            : global.VF.game && global.VF.game.weapons
-              ? global.VF.game.weapons.current
-              : 'ar';
-      const selectedDef = ((global.VF && global.VF.WEAPONS) || {})[selectedWeaponId];
-      if (selectedDef && kit[0] && kit[0].primary) {
-        kit[0] = {
-          kind: this._weaponIconKind(selectedWeaponId, selectedDef),
-          name: selectedDef.nameZh || selectedDef.name,
-          primary: true,
-          weaponId: selectedWeaponId,
-        };
-        for (let i = kit.length - 1; i > 0; i--) {
-          if (kit[i].weaponId === selectedWeaponId) kit.splice(i, 1);
-        }
-      }
+      const kit =
+        global.VF.Arsenal && global.VF.Arsenal.getStripItems
+          ? global.VF.Arsenal.getStripItems(info)
+          : [
+              { kind: 'rifle', name: 'AKM', arsenalSlot: 'primary', itemId: 'ar' },
+              { kind: 'pistol', name: 'M9', arsenalSlot: 'secondary', itemId: 'm9' },
+              { kind: 'optic', name: '全息瞄具', arsenalSlot: 'attachment1', itemId: 'holo' },
+              { kind: 'muzzle', name: '原厂枪口', arsenalSlot: 'attachment2', itemId: 'stock' },
+              { kind: 'grenade', name: '白色烟雾弹', arsenalSlot: 'grenade', itemId: 'smoke' },
+              { kind: 'knife', name: '战斗刀', arsenalSlot: 'melee', itemId: 'knife' },
+            ];
       const strips = [
         this.els.deployLoadoutStrip,
         this.els.classDeployLoadout,
         this.els.squadIntroLoadout,
         this.els.loadoutCustomizeEquipment,
+        document.getElementById('soldier-loadout-strip'),
       ].filter(Boolean);
-      const currentWeapon =
-        this.loadoutCustomizeOpen && this._loadoutDraftWeaponId
-          ? this._loadoutDraftWeaponId
-          : global.VF.game && global.VF.game.weapons
-            ? global.VF.game.weapons.current
-            : 'ar';
-      const orderedKit = kit.filter((item) => {
-        return (
-          !item.weaponId ||
-          !global.VF.Economy ||
-          !global.VF.Economy.ownsWeapon ||
-          global.VF.Economy.ownsWeapon(item.weaponId)
-        );
-      });
-      const selectedIndex = orderedKit.findIndex(
-        (item) => item.weaponId === currentWeapon
-      );
-      if (selectedIndex > 0) {
-        orderedKit.unshift(orderedKit.splice(selectedIndex, 1)[0]);
-      }
       for (let s = 0; s < strips.length; s++) {
         const strip = strips[s];
         strip.innerHTML = '';
-        for (let i = 0; i < orderedKit.length; i++) {
-          const item = orderedKit[i];
-          const slot = document.createElement('span');
+        for (let i = 0; i < kit.length; i++) {
+          const item = kit[i];
+          const slot = document.createElement('button');
+          slot.type = 'button';
           slot.className =
-            'deploy-gear-slot' + (i === 0 && item.weaponId ? ' primary' : '');
-          slot.title = item.name;
+            'deploy-gear-slot' + (item.arsenalSlot === 'primary' ? ' primary' : '');
+          slot.title = (item.slotLabel ? item.slotLabel + ' · ' : '') + item.name;
+          slot.dataset.arsenalSlot = item.arsenalSlot || 'primary';
+          if (item.itemId) slot.dataset.itemId = item.itemId;
           if (item.weaponId) slot.dataset.weaponId = item.weaponId;
-          if (item.weaponId === currentWeapon) slot.classList.add('equipped');
           slot.innerHTML = this._deployGearSvg(item.kind);
           const label = document.createElement('small');
           label.textContent = item.name;
@@ -3573,7 +3769,7 @@
         if (w) this.drawSpawnSelectMap(w);
       });
       global.addEventListener('keydown', (e) => {
-        if (!this.spawnSelectOpen || e.repeat) return;
+        if (!this.spawnSelectOpen || e.repeat || this.arsenalOpen) return;
         const tag = e.target && e.target.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
         if (e.code === 'Escape' && this.els.spawnCancel) {

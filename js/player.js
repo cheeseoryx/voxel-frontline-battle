@@ -836,7 +836,12 @@
   };
 
   Player.prototype.getEyeHeight = function () {
-    return THREE.MathUtils.lerp(EYE_HEIGHT, EYE_CROUCH, this._crouchBlend || 0);
+    const stand = THREE.MathUtils.lerp(EYE_HEIGHT, EYE_CROUCH, this._crouchBlend || 0);
+    if (!this.downed) return stand;
+    const target = 0.34;
+    const b = this._downedBlend == null ? 1 : this._downedBlend;
+    const from = this._downedEyeFrom != null ? this._downedEyeFrom : stand;
+    return THREE.MathUtils.lerp(from, target, b);
   };
 
   Player.prototype.getBodyHeight = function () {
@@ -1112,6 +1117,16 @@
     if (attackerId) {
       this._lastDamagerId = attackerId;
       this._lastDamagerTeam = source.team || null;
+      this._lastDamagerWeaponId =
+        source.weaponId ||
+        source.current ||
+        (source.type === 'heavy'
+          ? 'sg'
+          : source.type === 'ranged'
+            ? 'sr'
+            : source.type === 'infantry'
+              ? 'ar'
+              : this._lastDamagerWeaponId || null);
       if (global.VF.Scoring && global.VF.Scoring.recordDamage) {
         global.VF.Scoring.recordDamage(
           attackerId,
@@ -1218,8 +1233,7 @@
 
     const g = global.VF.game;
     const pveConquest = !!(g && global.VF.Conquest && global.VF.Conquest.active);
-    document.exitPointerLock && document.exitPointerLock();
-    if (this.setPointerLock) this.setPointerLock(false);
+    const eyeFrom = this.getEyeHeight();
 
     if (
       pveConquest &&
@@ -1227,8 +1241,15 @@
       global.VF.Revive.downPlayer &&
       global.VF.Revive.downPlayer(this)
     ) {
+      this._downedEyeFrom = eyeFrom;
+      this._downedBlend = 0;
+      this.aiming = false;
+      this._hideViewModels(true);
       return;
     }
+
+    document.exitPointerLock && document.exitPointerLock();
+    if (this.setPointerLock) this.setPointerLock(false);
 
     if (global.VF.Conquest && global.VF.Conquest.onPlayerDown) {
       const team = this.team || (this.world && this.world._playerTeam) || 'ally';
@@ -1270,6 +1291,10 @@
     this._reviveProtection = 0;
     this._lastDamagerId = null;
     this._lastDamagerTeam = null;
+    this._lastDamagerWeaponId = null;
+    this._downedBlend = 0;
+    this._downedEyeFrom = null;
+    this._hideViewModels(false);
     this.health = this.maxHealth || 100;
     this.armor = Math.min(this.maxArmor || 100, 50);
     this.velocity.set(0, 0, 0);
@@ -1292,7 +1317,33 @@
     }
   };
 
+  Player.prototype._hideViewModels = function (hide) {
+    const nodes = [this.viewModel, this._weaponViewModel, this.buildViewModel];
+    for (let i = 0; i < nodes.length; i++) {
+      if (nodes[i]) nodes[i].visible = !hide;
+    }
+  };
+
+  Player.prototype._updateDowned = function (dt) {
+    this._downedBlend = Math.min(1, (this._downedBlend || 0) + dt / 0.36);
+    this.aiming = false;
+    this._adsBlend = Math.max(0, (this._adsBlend || 0) - dt * 8);
+    this._hideViewModels(true);
+    this._updateViewPunch(dt);
+    this._syncCameraLook();
+    const eye = this.getEyePosition();
+    this.camera.position.set(eye.x, eye.y, eye.z);
+    if (this.camera.fov !== HIP_FOV) {
+      this.camera.fov = HIP_FOV;
+      this.camera.updateProjectionMatrix();
+    }
+  };
+
   Player.prototype.update = function (dt) {
+    if (this.downed) {
+      this._updateDowned(dt);
+      return;
+    }
     if (this.dead) return;
     if (this.vehicleId && this._updateVehicleRide(dt)) return;
     if (this._vehicleExitCool > 0) {

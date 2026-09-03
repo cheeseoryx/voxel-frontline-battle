@@ -116,7 +116,18 @@ vec3 vfLinearToSRGB(vec3 c) {
 
   function cfgOf(key, fallback) {
     const root = global.VF.RenderConfig || {};
-    return (key ? root[key] : root) || fallback || {};
+    const base = (key ? root[key] : root) || fallback || {};
+    const ovRoot = global.VF.RenderGameplay;
+    const ov = ovRoot && key ? ovRoot[key] : null;
+    if (!ov) return base;
+    const out = {};
+    for (const k in base) {
+      if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k];
+    }
+    for (const k in ov) {
+      if (Object.prototype.hasOwnProperty.call(ov, k)) out[k] = ov[k];
+    }
+    return out;
   }
   function num(v, d) {
     return typeof v === 'number' && isFinite(v) ? v : d;

@@ -304,6 +304,7 @@
       scope: 'holo',
       adsSens: 0.72,
       modelStyle: 'rpg',
+      category: 'launcher',
     },
   };
 
@@ -424,7 +425,13 @@
           (global.VF.game && global.VF.game.preferredWeaponId) || 'ar';
         self.equip(WEAPONS[primary] ? primary : 'ar');
       }
-      if (e.code === 'Digit2') self.equip('sg');
+      if (e.code === 'Digit2') {
+        const secondary =
+          (global.VF.game && global.VF.game.preferredSecondaryId) ||
+          (global.VF.game && global.VF.game.loadout && global.VF.game.loadout.secondary) ||
+          'm9';
+        self.equip(WEAPONS[secondary] ? secondary : 'sg');
+      }
       if (e.code === 'Digit3') self.equip('sr');
       if (e.code === 'Digit6') self.equip('rpg');
       if (e.code === 'KeyR') self.reload();

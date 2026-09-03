@@ -910,6 +910,11 @@
           })
           .join('') +
         '</div>' +
+        '<div class="soldier-loadout-block">' +
+        '<h3>当前装备</h3>' +
+        '<p>点击武器栏进入装备界面</p>' +
+        '<div id="soldier-loadout-strip" class="deploy-loadout-strip" aria-label="当前装备"></div>' +
+        '</div>' +
         '<div class="soldier-favorites">' +
         this._summaryCard({
           title: '最爱武器',
@@ -949,6 +954,9 @@
         Math.max(1, Math.floor(finite(p.score) / 1000) + 1) +
         '</b><span>↑</span></div>' +
         '</section>';
+      if (global.VF.UI && global.VF.UI._syncDeployClassDetails) {
+        global.VF.UI._syncDeployClassDetails(classInfo);
+      }
     },
 
     _summaryCard(config) {
@@ -1150,6 +1158,8 @@
                 's'
               : '最高连杀 0 · 0 击杀',
             available: !!live,
+            gameId: weapon.gameId,
+            arsenalSlot: weapon.category === 'pistol' ? 'secondary' : 'primary',
           };
         }),
         'weapon'
@@ -1173,6 +1183,8 @@
             line1: gadget.rank > 0 ? '解锁等级 ' + gadget.rank : '基础装备',
             line2: gadget.detail,
             available: !!gadget.gameId,
+            gameId: gadget.gameId,
+            arsenalSlot: gadget.category === 'throwable' ? 'grenade' : '',
           };
         }),
         'gadget'
@@ -1226,7 +1238,22 @@
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const card = document.createElement('article');
-        card.className = 'soldier-item-card' + (item.available ? '' : ' unavailable');
+        card.className =
+          'soldier-item-card' +
+          (item.available ? '' : ' unavailable') +
+          (item.gameId && item.arsenalSlot ? ' clickable' : '');
+        if (item.gameId && item.arsenalSlot) {
+          card.dataset.gameId = item.gameId;
+          if (item.arsenalSlot) card.dataset.arsenalSlot = item.arsenalSlot;
+          card.addEventListener('click', function () {
+            if (!global.VF.UI || !global.VF.UI.openArsenal) return;
+            global.VF.UI.openArsenal({
+              slot: card.dataset.arsenalSlot || 'primary',
+              itemId: card.dataset.gameId,
+              source: 'soldier',
+            });
+          });
+        }
         const name = document.createElement('h3');
         name.textContent = item.name;
         const icon = document.createElement('div');

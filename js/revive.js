@@ -14,6 +14,9 @@
       reviveRange: F && F.reviveRange != null ? F.reviveRange : 2.5,
       protectionSec: F && F.protectionSec != null ? F.protectionSec : 1.5,
       dragRange: F && F.dragRange != null ? F.dragRange : 2.2,
+      skipHoldSec: F && F.skipHoldSec != null ? F.skipHoldSec : 1.2,
+      medicListRange: F && F.medicListRange != null ? F.medicListRange : 180,
+      bleedSlowMul: F && F.bleedSlowMul != null ? F.bleedSlowMul : 0.5,
     };
   }
 
@@ -36,6 +39,40 @@
     const dy = pa.y - pb.y;
     const dz = pa.z - pb.z;
     return dx * dx + dy * dy + dz * dz;
+  }
+
+  function CLASS_ZH(classId) {
+    if (classId === 'engineer') return '工程兵';
+    if (classId === 'support' || classId === 'medic') return '支援兵';
+    if (classId === 'recon') return '侦察兵';
+    return '突击兵';
+  }
+
+  function entityName(entityOrId) {
+    const game = global.VF && global.VF.game;
+    let entity = entityOrId;
+    if (typeof entityOrId === 'string') {
+      const squads = global.VF && global.VF.Squads;
+      entity = squads && squads.getEntity ? squads.getEntity(entityOrId, game) : null;
+      if (!entity && entityOrId === 'remote-player') return '敌方玩家';
+      if (!entity && entityOrId === 'combat-area') return '作战区域';
+      if (!entity && entityOrId === 'hq-security') return '总部防卫';
+      if (!entity) return entityOrId || '未知';
+    }
+    if (!entity) return '未知';
+    if (entity.displayName || entity.name) return entity.displayName || entity.name;
+    if (game && game.player && entity === game.player) return '你';
+    if (!entity.isAI && entity.object && !entity.mesh) return '你';
+    const tag = CLASS_ZH(entity.classId);
+    const digits = String(entity.entityId || '').replace(/\D/g, '');
+    return tag + (digits ? '-' + digits.slice(-2) : '');
+  }
+
+  function rankFromId(id) {
+    const s = String(id || 'x');
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) | 0;
+    return 40 + Math.abs(h) % 360;
   }
 
   function ReviveSystem() {
@@ -99,13 +136,35 @@
       status: 'pending',
       killerId: player._lastDamagerId || null,
       killerTeam: player._lastDamagerTeam || null,
+      killerWeaponId: player._lastDamagerWeaponId || null,
+      skipHold: 0,
+      bleedMul: 1,
+      _eWas: true,
+      _fWas: true,
+      _spaceArmed: false,
     };
     player.downed = true;
     player.downState = state;
     player._cqTicketPending = false;
     this._playerState = state;
-    if (global.VF.UI && global.VF.UI.showDowned) global.VF.UI.showDowned(state.remaining);
+    if (global.VF.UI && global.VF.UI.showDowned) {
+      global.VF.UI.showDowned(state.remaining, this._downedUiPayload(state));
+    }
     if (C && C._emit) C._emit('soldier-downed', { subjectId: 'player-local', team: teamOf(player) });
+    return true;
+  };
+
+  ReviveSystem.prototype.toggleBleedSlow = function () {
+    const state = this._playerState;
+    if (!state || state.status !== 'pending') return false;
+    const cfg = config();
+    const slow = cfg.bleedSlowMul != null ? cfg.bleedSlowMul : 0.5;
+    const slowed = (state.bleedMul || 1) <= slow + 0.001;
+    state.bleedMul = slowed ? 1 : slow;
+    if (!slowed) this.callForHelp();
+    else if (global.VF.UI && global.VF.UI.updateDowned) {
+      global.VF.UI.updateDowned(this._downedUiPayload(state));
+    }
     return true;
   };
 
@@ -122,7 +181,7 @@
       });
     }
     if (global.VF.UI && global.VF.UI.updateDowned) {
-      global.VF.UI.updateDowned(state.remaining, state.reviveProgress, true);
+      global.VF.UI.updateDowned(this._downedUiPayload(state));
     }
     return true;
   };
@@ -131,7 +190,6 @@
     const state = this._playerState;
     if (!state || state.status !== 'pending') return false;
     this._finalizePlayer(state, 'give-up');
-    if (global.VF.openRedeployFromDeath) global.VF.openRedeployFromDeath();
     return true;
   };
 
@@ -165,9 +223,8 @@
       };
     }
     this._playerState = null;
-    if (global.VF.UI && global.VF.UI.showDeath) {
-      global.VF.UI.showDeath('你已阵亡', '伤亡已确认 · 部署时消耗 1 增援', '选择安全位置重新部署');
-    }
+    if (global.VF.UI && global.VF.UI.hideDeath) global.VF.UI.hideDeath();
+    if (global.VF.openRedeployFromDeath) global.VF.openRedeployFromDeath();
     return true;
   };
 
@@ -189,6 +246,7 @@
     player.health = Math.max(1, Math.round((player.maxHealth || 100) * (config().reviveHealth / 100)));
     player._reviveProtection = config().protectionSec;
     player.velocity.set(0, 0, 0);
+    if (player._hideViewModels) player._hideViewModels(false);
     this._playerState = null;
     if (global.VF.UI) {
       if (global.VF.UI.hideDeath) global.VF.UI.hideDeath();
@@ -378,8 +436,30 @@
   ReviveSystem.prototype._tickPlayer = function (dt, game) {
     const state = this._playerState;
     if (!state || state.status !== 'pending') return;
-    state.remaining = Math.max(0, state.remaining - dt);
-    const reviver = this._nearestLivingAI(game, state.entity, config().reviveRange);
+    const cfg = config();
+    const player = state.entity;
+    const keys = (player && player.keys) || {};
+    const ui = global.VF && global.VF.UI;
+    const eDown = !!keys['KeyE'];
+    if (eDown && !state._eWas) this.toggleBleedSlow();
+    state._eWas = eDown;
+    const fDown = !!keys['KeyF'];
+    if (fDown && !state._fWas && ui && ui.toggleDownedDamageLog) ui.toggleDownedDamageLog();
+    state._fWas = fDown;
+    const holdingKey = !!(keys['Space'] || (ui && ui._skipMouseHold));
+    if (!state._spaceArmed) {
+      if (!holdingKey) state._spaceArmed = true;
+    } else {
+      if (holdingKey) state.skipHold = (state.skipHold || 0) + dt;
+      else state.skipHold = 0;
+    }
+    if ((state.skipHold || 0) >= cfg.skipHoldSec) {
+      this.giveUpPlayer();
+      return;
+    }
+    const bleedMul = state.bleedMul == null ? 1 : state.bleedMul;
+    state.remaining = Math.max(0, state.remaining - dt * bleedMul);
+    const reviver = this._nearestLivingAI(game, state.entity, cfg.reviveRange);
     if (reviver) {
       state.reviverId = reviver.entityId;
       state.reviveProgress += dt / this._reviveDuration(reviver);
@@ -396,12 +476,66 @@
       return;
     }
     const now = performance.now();
-    if (!this._lastUiAt || now - this._lastUiAt > 100) {
+    if (!this._lastUiAt || now - this._lastUiAt > 80) {
       this._lastUiAt = now;
-      if (global.VF.UI && global.VF.UI.updateDowned) {
-        global.VF.UI.updateDowned(state.remaining, state.reviveProgress, state.called);
-      }
+      if (ui && ui.updateDowned) ui.updateDowned(this._downedUiPayload(state));
     }
+  };
+
+  ReviveSystem.prototype.entityName = function (entityOrId) {
+    return entityName(entityOrId);
+  };
+
+  ReviveSystem.prototype.listNearbyMedics = function (player, limit) {
+    const game = global.VF && global.VF.game;
+    const cfg = config();
+    const maxRange = cfg.medicListRange || 180;
+    const maxSq = maxRange * maxRange;
+    const out = [];
+    if (!player || !game || !game.ai) return out;
+    const list = teamOf(player) === 'enemy' ? game.ai.red : game.ai.blue;
+    for (let i = 0; i < list.length; i++) {
+      const unit = list[i];
+      if (!unit || !unit.alive || unit.downed || !this._canRevive(unit, player)) continue;
+      const d2 = distanceSq(unit, player);
+      if (d2 > maxSq) continue;
+      out.push({
+        id: unit.entityId,
+        name: entityName(unit),
+        dist: Math.sqrt(d2),
+        classId: unit.classId,
+        isSupport: this._isSupport(unit),
+      });
+    }
+    out.sort(function (a, b) {
+      return a.dist - b.dist;
+    });
+    return out.slice(0, limit || 5);
+  };
+
+  ReviveSystem.prototype._killerCard = function (state) {
+    const id = state && state.killerId;
+    return {
+      id: id || null,
+      name: id ? entityName(id) : '未知',
+      rank: id ? rankFromId(id) : '—',
+      weaponId: (state && state.killerWeaponId) || null,
+    };
+  };
+
+  ReviveSystem.prototype._downedUiPayload = function (state) {
+    const cfg = config();
+    return {
+      remaining: state.remaining,
+      duration: state.duration || cfg.bleedSec,
+      reviveProgress: state.reviveProgress,
+      called: state.called,
+      bleedMul: state.bleedMul == null ? 1 : state.bleedMul,
+      skipHold: state.skipHold || 0,
+      skipNeed: cfg.skipHoldSec,
+      medics: this.listNearbyMedics(state.entity, 5),
+      killer: this._killerCard(state),
+    };
   };
 
   ReviveSystem.prototype._tickAIState = function (state, dt, game) {

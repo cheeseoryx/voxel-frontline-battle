@@ -2800,6 +2800,9 @@
         team:
           (this._lockedRemoteLoadout && this._lockedRemoteLoadout.team) ||
           (this.mode === 'host' ? 'enemy' : 'ally'),
+        weaponId:
+          (this._lockedRemoteLoadout && this._lockedRemoteLoadout.weaponId) ||
+          null,
       };
       if (game.player.takeDamage) game.player.takeDamage(dmg, from, source);
       else {

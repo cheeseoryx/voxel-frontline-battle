@@ -141,7 +141,10 @@
     reviveHealth: 35,
     reviveRange: 2.5,
     protectionSec: 1.5,
-    dragRange: 2.2
+    dragRange: 2.2,
+    skipHoldSec: 1.2,
+    medicListRange: 180,
+    bleedSlowMul: 0.5
   }
 };
 

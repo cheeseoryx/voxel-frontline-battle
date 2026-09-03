@@ -279,7 +279,7 @@
           openRedeployFromDeath();
         },
         onCallout: function () {
-          if (VF.Revive && VF.Revive.callForHelp) VF.Revive.callForHelp();
+          if (VF.Revive && VF.Revive.toggleBleedSlow) VF.Revive.toggleBleedSlow();
         },
         onHub: function () {
           returnFromDeathToHub();
@@ -1280,6 +1280,8 @@
       onApply: function (selection) {
         const classId = selection.classId || 'assault';
         game.preferredWeaponId = selection.weaponId || 'ar';
+        if (!game.loadout) game.loadout = {};
+        game.loadout.primary = game.preferredWeaponId;
         game.playerClass = classId;
         if (game.player && game.player.applyClass) game.player.applyClass(classId);
         if (VF.UI) VF.UI.selectedClassId = classId;
@@ -1301,6 +1303,8 @@
     if (game.weapons.equip) game.weapons.equip(requested);
     if (game.weapons.syncOwnedLoadout) game.weapons.syncOwnedLoadout();
     game.preferredWeaponId = game.weapons.current || 'ar';
+    if (!game.loadout) game.loadout = {};
+    game.loadout.primary = game.preferredWeaponId;
     const ammo =
       game.weapons.state && game.weapons.state[game.preferredWeaponId];
     if (ammo && VF.UI && VF.UI.updateAmmo) {
@@ -1725,7 +1729,6 @@
     if (matchAlreadyEnded()) return;
     if (VF.UI && VF.UI.hideDeath) VF.UI.hideDeath();
 
-    // Keep existing map / cores — do not call prepareMatchMap
     if (game.mode === 'pvp' && game.pvp && game.pvp.team && game.world.setPlayerTeam) {
       game.world.setPlayerTeam(game.pvp.team);
     } else if (game.teamLocked && game.lockedTeam && game.world.setPlayerTeam) {
@@ -1743,7 +1746,7 @@
         VF.UI.closeSpawnSelect();
         if (matchAlreadyEnded()) return;
         if (VF.UI && VF.UI.showDeath) {
-          VF.UI.showDeath('你已阵亡', '血量耗尽 · 等待重新部署', '选个出生点再上！');
+          VF.UI.showDeath('你已阵亡', '选择部署点后进入战场', '主基地或已占领旗帜均可部署');
         }
       },
       { redeploy: true, countdown: (VF.CONQUEST && VF.CONQUEST.DEPLOY_COUNTDOWN) || 5 }
@@ -1892,6 +1895,7 @@
       if (e.code !== 'Tab') return;
       e.preventDefault();
       if (!game.running) return;
+      if (game.player && game.player.downed) return;
       if (VF.UI.mapOpen) VF.UI.setMapOpen(false);
       if (VF.UI.spawnSelectOpen) return;
       if (VF.Conquest && VF.Conquest.active && VF.UI.toggleScoreboard) {
@@ -1911,6 +1915,7 @@
     document.addEventListener('keydown', (e) => {
       if (e.code !== 'KeyM') return;
       if (!game.running) return;
+      if (game.player && game.player.downed) return;
       e.preventDefault();
       if (VF.UI.inventoryOpen) {
         VF.UI.inventoryOpen = false;
@@ -2054,7 +2059,9 @@
     ) {
       game.vehicles.update(dt, game);
     }
-    const playerCanAct = game.running && !menuOpen && game.player && !game.player.dead;
+    const playerDowned = !!(game.player && game.player.downed);
+    const playerCanAct =
+      game.running && !menuOpen && game.player && (!game.player.dead || playerDowned);
 
     if (playerCanAct) {
       try {
@@ -2063,7 +2070,7 @@
         console.error('[VF] player.update', err);
         if (game.player.unstuckFromWorld) game.player.unstuckFromWorld();
       }
-      if (!game.levelEditing) {
+      if (!game.levelEditing && !playerDowned) {
         if (game.player.locked) {
           game.weapons.update(dt);
           if (game.skills) game.skills.update(dt);
@@ -2087,11 +2094,13 @@
       }
 
       VF.UI.setAiming(
-        game.player.aiming && game.weapons.mode === 'weapon',
+        !playerDowned &&
+          game.player.aiming &&
+          game.weapons.mode === 'weapon',
         game.weapons.getDef && game.weapons.getDef().scope,
-        game.player._adsBlend || 0
+        playerDowned ? 0 : game.player._adsBlend || 0
       );
-      if (!game.levelEditing) {
+      if (!game.levelEditing && !playerDowned) {
         const mountedVehicle =
           game.vehicles && game.player.vehicleId
             ? game.vehicles.getById(game.player.vehicleId)
@@ -2130,9 +2139,11 @@
         }
         VF.UI.updateResources(game.player.cores, game.player.blocks);
         VF.UI.updateVitals(game.player.health, game.player.armor);
-      } else {
+      } else if (game.levelEditing) {
         VF.UI.setInteractHint(false);
         if (VF.MapEditor && VF.MapEditor.update) VF.MapEditor.update();
+      } else {
+        VF.UI.setInteractHint(false);
       }
 
       if (game.weapons.mode === 'weapon' && game.building.active) {
