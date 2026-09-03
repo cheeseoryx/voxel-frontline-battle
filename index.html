@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>体素战争</title>
-  <link rel="stylesheet" href="style.css?v=gadget1" />
+  <link rel="stylesheet" href="style.css?v=skill3" />
 </head>
 <body>
   <button id="audio-toggle" type="button" title="静音" aria-label="切换声音" aria-pressed="false">
@@ -235,7 +235,7 @@
             <li><kbd>Shift</kbd> — 冲刺 · <kbd>Ctrl</kbd> — 蹲下（蹲下不能冲刺，头顶有障碍时松开也不会站起）</li>
             <li><kbd>空格</kbd> — 跳跃 · 鼠标 — 视角 · <kbd>Esc</kbd> — 释放鼠标</li>
             <li><kbd>左键</kbd> — 射击 · <kbd>右键</kbd> — 瞄准（ADS，散布更小）</li>
-            <li><kbd>R</kbd> — 换弹 · <kbd>V</kbd> — 冲刺（准星方向） · <kbd>G</kbd> — 投掷物 · <kbd>X</kbd> — 兵种主动技能 · <kbd>Tab</kbd> — 计分板 · <kbd>M</kbd> — 大地图</li>
+            <li><kbd>R</kbd> — 换弹 · <kbd>V</kbd> — 冲刺（准星方向） · <kbd>G</kbd> — 投掷物 · <kbd>X</kbd> — 兵种技能 · <kbd>Q</kbd> — 标记敌人 · <kbd>Tab</kbd> — 计分板 · <kbd>M</kbd> — 大地图</li>
             <li><kbd>E</kbd> — 拾取部署核 / 掩体建材 · <kbd>F</kbd> — 乘坐滑索</li>
           </ul>
         </section>
@@ -258,12 +258,21 @@
           <p>切到建造时，手上的枪会换成灰色石块；半透明预览对准地面后左键放置。建材与核心在地图上以发光方块出现。</p>
         </section>
         <section class="tutorial-section">
+          <h2>兵种技能</h2>
+          <ul>
+            <li>突击兵 <kbd>X</kbd> 战斗兴奋剂：快速回血，冷却 60 秒，每条命 1 个，重生立即刷新</li>
+            <li>支援兵 <kbd>X</kbd> 急救装置：对倒地队友按住 3 秒拉起，恢复 50% 生命，松开需重读，无冷却</li>
+            <li>机枪兵 <kbd>X</kbd> 修复装置：靠近载具按住维修（10 点/秒），准星旁显示载具血量</li>
+            <li>全兵种 <kbd>Q</kbd> 标记准星上的敌人（地图揭露 1 秒）；侦察兵标记持续 5 秒</li>
+          </ul>
+        </section>
+        <section class="tutorial-section">
           <h2>战场与士兵</h2>
           <ul>
             <li>双方各 32 名作战单位（含你）；缺额由 AI 补齐。友军不会攻击你</li>
             <li>士兵会去空旗、守己旗、挤进争夺圈，近敌时交火</li>
             <li>阵亡后打开部署图，只能点主基地或已占领的旗帜，短倒计时后出发</li>
-            <li>小地图：字母为占领点颜色，亮点为友军，箭头是你；大地图按 <kbd>M</kbd></li>
+            <li>小地图：字母为占领点颜色，亮点为友军，箭头是你；<kbd>Q</kbd> 标记的敌人会短暂高亮；大地图按 <kbd>M</kbd></li>
           </ul>
         </section>
         <section class="tutorial-section">
@@ -427,6 +436,17 @@
       </span>
     </div>
 
+    <div id="repair-hud" class="hidden" aria-hidden="true">
+      <div class="repair-icon" aria-hidden="true"></div>
+      <div id="repair-hp" class="repair-hp"></div>
+      <div id="repair-dist">5米</div>
+    </div>
+    <div id="revive-assist" class="hidden" aria-hidden="true">
+      <span id="revive-assist-label">拉起队友</span>
+      <div class="revive-assist-track"><i id="revive-assist-fill"></i></div>
+    </div>
+    <div id="stim-overlay" class="hidden" aria-hidden="true"></div>
+
     <div id="vehicle-reticle" class="hidden" aria-hidden="true">
       <div class="vr-tpv">
         <i class="vr-dot"></i>
@@ -486,8 +506,8 @@
 
     <div id="interact-hint" class="hidden">按 <kbd>E</kbd> 拾取</div>
 
-    <!-- Class skills omitted from combat HUD (no class abilities) -->
-    <div id="skill-hud" class="hidden" hidden>
+    <!-- Class skills -->
+    <div id="skill-hud">
       <div class="skill-slot" id="skill-active" title="">
         <div class="skill-icon-wrap">
           <div class="skill-icon skill-icon-c4" data-skill-icon="vanguard" aria-hidden="true">
@@ -1314,13 +1334,13 @@
   <script src="js/terrain-fine.js?v=scorch3"></script>
   <script src="js/world-outskirts.js?v=scorch3"></script>
   <script src="js/bases.js?v=scorch3"></script>
-  <script src="js/vehicles.js?v=wstat2"></script>
+  <script src="js/vehicles.js?v=skill2"></script>
   <script src="js/weapon-viewmodels.js?v=wstat2"></script>
-  <script src="js/soldier.js?v=gadget1"></script>
+  <script src="js/soldier.js?v=skill3"></script>
   <script src="js/player.js?v=gadget1"></script>
   <script src="js/weapon-catalog.js?v=wstat3"></script>
-  <script src="js/weapons.js?v=gadget1"></script>
-  <script src="js/skills.js?v=gadget1"></script>
+  <script src="js/weapons.js?v=skill3"></script>
+  <script src="js/skills.js?v=skill3"></script>
   <script src="js/building.js?v=gadget1"></script>
   <script src="js/tower-designer.js?v=scorch3"></script>
   <script src="js/hub.js?v=scorch4"></script>
@@ -1329,23 +1349,23 @@
   <script src="js/range.js?v=wstat2"></script>
   <script src="js/ai.js?v=gadget1"></script>
   <script src="js/conquest.js?v=vehicle3"></script>
-  <script src="js/revive.js?v=downed3"></script>
+  <script src="js/revive.js?v=skill2"></script>
   <script src="js/squads.js?v=scorch3"></script>
   <script src="js/gadgets.js?v=gadget1"></script>
   <script src="js/scoring.js?v=vehicle3"></script>
-  <script src="js/comms.js?v=scorch3"></script>
+  <script src="js/comms.js?v=skill3"></script>
   <script src="js/net-protocol.js?v=vehicle3"></script>
   <script src="js/net-simulation.js?v=vehicle3"></script>
   <script src="js/match-flow.js?v=scorch3"></script>
   <script src="js/soldier-menu.js?v=arsenal1"></script>
   <script src="js/arsenal.js?v=gadget1"></script>
-  <script src="js/ui.js?v=gadget1"></script>
+  <script src="js/ui.js?v=skill3"></script>
   <script src="js/audio.js?v=scorch3"></script>
   <script src="js/atmosphere.js?v=scorch3"></script>
   <script src="js/config.js?v=scorch3"></script>
   <script src="js/kubee-bridge.js?v=scorch3"></script>
   <script src="js/pvp.js?v=downed1"></script>
-  <script src="js/main.js?v=gadget1"></script>
+  <script src="js/main.js?v=skill3"></script>
   <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
   <script src="js/feel-tuner.js?v=wstat1"></script>
   <!-- render-tuner.js: F9 后处理参数调节（生产环境删除） -->

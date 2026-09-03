@@ -2316,7 +2316,27 @@
     return best;
   };
 
-  VehicleSystem.prototype.applyDamage = function (vehicleOrId, rawDamage, meta) {
+      VehicleSystem.prototype.repair = function (vehicleOrId, amount) {
+        const vehicle = this.getById(vehicleOrId);
+        amount = Math.max(0, finite(amount, 0));
+        if (!vehicle || !vehicle.alive || !(amount > 0)) return 0;
+        const before = vehicle.hp;
+        vehicle.hp = Math.min(vehicle.maxHp, before + amount);
+        const gained = vehicle.hp - before;
+        if (gained > 0) {
+          this._emit('vehicle-repaired', {
+            vehicleId: vehicle.id,
+            vehicleType: vehicle.type,
+            team: vehicle.team,
+            amount: gained,
+            hp: vehicle.hp,
+            maxHp: vehicle.maxHp,
+          });
+        }
+        return gained;
+      };
+
+      VehicleSystem.prototype.applyDamage = function (vehicleOrId, rawDamage, meta) {
     const vehicle = this.getById(vehicleOrId);
     meta = meta || {};
     if (!vehicle || !vehicle.alive) return 0;

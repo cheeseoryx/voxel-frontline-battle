@@ -404,6 +404,14 @@
         return;
       }
       if (self.mode !== 'weapon') return;
+      if (
+        global.VF.game &&
+        global.VF.game.skills &&
+        global.VF.game.skills.isChanneling &&
+        global.VF.game.skills.isChanneling()
+      ) {
+        return;
+      }
       self.firing = true;
       self.tryFire();
     });
@@ -563,6 +571,14 @@
       return;
     }
     if (this.mode !== 'weapon') return;
+    if (
+      global.VF.game &&
+      global.VF.game.skills &&
+      global.VF.game.skills.isChanneling &&
+      global.VF.game.skills.isChanneling()
+    ) {
+      return;
+    }
     if (this.reloading) return;
     if (this.cooldown > 0) return;
     const def = this.getDef();

@@ -1,6 +1,6 @@
 /**
  * skills.js — Class active/passive abilities
- * Assault breach charge · Support heal · Recon infiltration · Engineer turret
+ * Assault stimulant · Support revive · Recon mark · Engineer repair
  */
 (function (global) {
   'use strict';
@@ -8,23 +8,11 @@
   const VANGUARD = {
     id: 'assault',
     key: 'KeyX',
-    cooldown: 24,
-    fuse: 1.5,
-    dmgInner: 120,
-    dmgNear: 80,
-    dmgFar: 60,
-    radiusInner: 3.5,
-    radiusMid: 5.5,
-    radiusOuter: 7.5,
-    blastRadius: 5.5,
-    speedBuff: 1.2,
-    speedBuffDur: 3,
+    cooldown: 60,
+    healDuration: 1.0,
+    healAmount: 100,
     weaponSpeed: 1.15,
-    throwSpeed: 22,
-    gravity: 16,
-    maxFlight: 4.5,
-    previewSteps: 40,
-    simDt: 1 / 40,
+    fuse: 3,
   };
 
   /** All classes — dash far enough to clear the river (~width 18–26). */
@@ -47,13 +35,16 @@
   const MEDIC = {
     id: 'support',
     key: 'KeyX',
-    cooldown: 15,
-    duration: 8,
+    reviveSec: 3,
+    reviveHealth: 50,
+    reviveRange: 2.8,
+    startShield: 50,
+    cooldown: 0,
+    duration: 12,
+    healRadius: 6,
+    healPerSec: 8,
     placeRange: 8,
     placeRay: 16,
-    healRadius: 5.5,
-    healPerSec: 14,
-    startShield: 50,
   };
 
   const GHOST = {
@@ -98,18 +89,20 @@
   const ENGINEER = {
     id: 'engineer',
     key: 'KeyX',
-    cooldown: 40,
-    blockCost: 12,
-    startBlocks: 20, // enough to deploy once after match start
+    repairPerSec: 10,
+    repairRange: 5,
+    startBlocks: 20,
+    buildDurabilityMul: 1.5,
     placeRange: 10,
     placeRay: 18,
     turretHp: 120,
     turretDmg: 9,
-    fireInterval: 1.0, // 60 RPM
+    fireInterval: 1.0,
     ammo: 120,
     range: 38,
-    buildDurabilityMul: 1.5, // +50% hits-to-break on placed builds
-    recallRefund: 8, // blocks returned when packing up a live turret
+    recallRefund: 8,
+    blockCost: 12,
+    cooldown: 0,
   };
 
   const SKILL_KEY = 'KeyX';
@@ -135,6 +128,11 @@
     this.stealthTimer = 0;
     this.aiming = false;
     this._aimKeyDown = false;
+    this._skillHeld = false;
+    this.stim = null;
+    this.reviveProgress = 0;
+    this.reviveTarget = null;
+    this.repairTarget = null;
     this._fx = [];
     this._dashRibbons = [];
     this._preview = null;
@@ -147,7 +145,8 @@
     const self = this;
     document.addEventListener('keydown', function (e) {
       if (global.VF.Range && global.VF.Range.isOpen) return;
-      if (self.player && self.player.vehicleId) return;
+      if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return;
+      if (self.player && (self.player.vehicleId || self.player.dead || self.player.downed)) return;
       if (e.code === DASH.key && !e.repeat) {
         if (!self._canDash()) return;
         e.preventDefault();
@@ -158,35 +157,18 @@
       const kind = self._activeClassSkill();
       if (!kind) return;
       e.preventDefault();
+      self._skillHeld = true;
       if (kind === 'vanguard') {
-        if (self.cooldown > 0 || self.pending) {
-          if (global.VF.UI && global.VF.UI.toast) {
-            global.VF.UI.toast(self.pending ? 'C4 已投出' : 'C4 冷却中');
-          }
-          return;
-        }
-        self._aimKeyDown = true;
-        self.aiming = true;
+        self._skillHeld = false;
+        self.tryStimulant();
       } else if (kind === 'medic') {
-        if (self.cooldown > 0) {
-          if (global.VF.UI && global.VF.UI.toast) {
-            global.VF.UI.toast('修复装置冷却中');
-          }
-          return;
-        }
-        self._aimKeyDown = true;
-        self.aiming = true;
+        self._beginReviveHold();
+      } else if (kind === 'engineer') {
+        self._beginRepairHold();
       } else if (kind === 'ghost') {
-        if (self.cooldown > 0 || self.stealthTimer > 0) {
-          if (global.VF.UI && global.VF.UI.toast) {
-            global.VF.UI.toast(
-              self.stealthTimer > 0 ? '已处于隐形' : '隐身冷却中'
-            );
-          }
-          return;
-        }
-        self.tryGhostStealth();
+        self._skillHeld = false;
       } else if (kind === 'juggernaut') {
+        self._skillHeld = false;
         if (self.cooldown > 0 || self.riotShield) {
           if (global.VF.UI && global.VF.UI.toast) {
             global.VF.UI.toast(
@@ -197,6 +179,7 @@
         }
         self.tryRiotShield();
       } else if (kind === 'raider') {
+        self._skillHeld = false;
         if (self.cooldown > 0) {
           if (global.VF.UI && global.VF.UI.toast) {
             global.VF.UI.toast('电磁脉冲冷却中');
@@ -204,60 +187,44 @@
           return;
         }
         self.tryEmpPulse();
-      } else if (kind === 'engineer') {
-        // Live turret: tap X to pack up
-        if (self._hasLiveTurret()) {
-          self._recallTurret();
-          return;
-        }
-        if (self.cooldown > 0) {
-          if (global.VF.UI && global.VF.UI.toast) {
-            global.VF.UI.toast('炮塔冷却中');
-          }
-          return;
-        }
-        if ((self.player.blocks || 0) < ENGINEER.blockCost) {
-          if (global.VF.UI && global.VF.UI.toast) {
-            global.VF.UI.toast('需要 ' + ENGINEER.blockCost + ' 体素物料');
-          }
-          return;
-        }
-        self._aimKeyDown = true;
-        self.aiming = true;
       }
     });
     document.addEventListener('keyup', function (e) {
       if (e.code !== SKILL_KEY) return;
+      self._skillHeld = false;
+      if (self.reviveProgress > 0 || self.reviveTarget) {
+        self.reviveProgress = 0;
+        self.reviveTarget = null;
+        if (global.VF.UI && global.VF.UI.updateReviveAssist) {
+          global.VF.UI.updateReviveAssist(null);
+        }
+      }
+      if (self.repairTarget) {
+        self.repairTarget = null;
+        if (global.VF.UI && global.VF.UI.updateRepairHud) {
+          global.VF.UI.updateRepairHud(null);
+        }
+      }
       if (!self._aimKeyDown) return;
       self._aimKeyDown = false;
       if (!self.aiming) return;
       self.aiming = false;
-      const kind = self._activeClassSkill();
-      if (kind === 'vanguard') {
-        self._hidePreview();
-        if (!self._canUseVanguard()) return;
-        if (self.cooldown > 0 || self.pending) return;
-        self._throwC4();
-      } else if (kind === 'medic') {
-        self._hideMedicPreview();
-        if (!self._canUseMedic()) return;
-        if (self.cooldown > 0) return;
-        self._deployHealDevice();
-      } else if (kind === 'engineer') {
-        self._hideTurretPreview();
-        if (!self._canUseEngineer()) return;
-        if (self.cooldown > 0) return;
-        self._deployTurret();
-      } else {
-        self._hidePreview();
-        self._hideMedicPreview();
-        self._hideTurretPreview();
-      }
+      self._hidePreview();
+      self._hideMedicPreview();
+      self._hideTurretPreview();
     });
     document.addEventListener('pointerlockchange', function () {
       if (!document.pointerLockElement) {
         self.aiming = false;
         self._aimKeyDown = false;
+        self._skillHeld = false;
+        self.reviveProgress = 0;
+        self.reviveTarget = null;
+        self.repairTarget = null;
+        if (global.VF.UI) {
+          if (global.VF.UI.updateRepairHud) global.VF.UI.updateRepairHud(null);
+          if (global.VF.UI.updateReviveAssist) global.VF.UI.updateReviveAssist(null);
+        }
         self._hidePreview();
         self._hideMedicPreview();
         self._hideTurretPreview();
@@ -266,7 +233,9 @@
   };
 
   Skills.prototype._activeClassSkill = function () {
-    if (!this.player || !this.player.locked || this.player.dead) return null;
+    if (!this.player || !this.player.locked || this.player.dead || this.player.downed) {
+      return null;
+    }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return null;
     const id = this.player.classId;
     if (id === VANGUARD.id) return 'vanguard';
@@ -279,7 +248,9 @@
   };
 
   Skills.prototype._canDash = function () {
-    if (!this.player || !this.player.locked || this.player.dead) return false;
+    if (!this.player || !this.player.locked || this.player.dead || this.player.downed) {
+      return false;
+    }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
     if (this.player.zipRide) return false;
     if (this.dash) return false;
@@ -287,21 +258,27 @@
   };
 
   Skills.prototype._canUseVanguard = function () {
-    if (!this.player || !this.player.locked || this.player.dead) return false;
+    if (!this.player || !this.player.locked || this.player.dead || this.player.downed) {
+      return false;
+    }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
     if (this.player.classId !== VANGUARD.id) return false;
     return true;
   };
 
   Skills.prototype._canUseMedic = function () {
-    if (!this.player || !this.player.locked || this.player.dead) return false;
+    if (!this.player || !this.player.locked || this.player.dead || this.player.downed) {
+      return false;
+    }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
     if (this.player.classId !== MEDIC.id) return false;
     return true;
   };
 
   Skills.prototype._canUseGhost = function () {
-    if (!this.player || !this.player.locked || this.player.dead) return false;
+    if (!this.player || !this.player.locked || this.player.dead || this.player.downed) {
+      return false;
+    }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
     if (this.player.classId !== GHOST.id) return false;
     return true;
@@ -309,6 +286,251 @@
 
   Skills.prototype._canUse = function () {
     return this._canUseVanguard();
+  };
+
+  Skills.prototype.isChanneling = function () {
+    return !!(this.reviveTarget || this.repairTarget);
+  };
+
+  Skills.prototype.tryStimulant = function () {
+    if (!this._canUseVanguard()) return false;
+    if (this.stim) return false;
+    if (this.cooldown > 0) {
+      if (global.VF.UI && global.VF.UI.toast) {
+        global.VF.UI.toast('战斗兴奋剂冷却中 · ' + Math.ceil(this.cooldown) + 's');
+      }
+      return false;
+    }
+    const player = this.player;
+    const maxHp = player.maxHealth || 100;
+    if (player.health >= maxHp) {
+      if (global.VF.UI && global.VF.UI.toast) {
+        global.VF.UI.toast('生命值已满');
+      }
+      return false;
+    }
+    this.stim = {
+      remain: VANGUARD.healDuration,
+      rate: VANGUARD.healAmount / VANGUARD.healDuration,
+    };
+    this.cooldown = VANGUARD.cooldown;
+    if (global.VF.Audio && global.VF.Audio.play) global.VF.Audio.play('ui');
+    if (global.VF.UI && global.VF.UI.toast) global.VF.UI.toast('战斗兴奋剂');
+    this._syncHud();
+    return true;
+  };
+
+  Skills.prototype._tickStimulant = function (dt) {
+    if (!this.stim || !this.player) return;
+    const player = this.player;
+    if (player.dead || player.downed) {
+      this.stim = null;
+      if (global.VF.UI && global.VF.UI.setStimOverlay) global.VF.UI.setStimOverlay(false);
+      return;
+    }
+    const maxHp = player.maxHealth || 100;
+    const heal = this.stim.rate * dt;
+    player.health = Math.min(maxHp, player.health + heal);
+    this.stim.remain -= dt;
+    if (global.VF.UI && global.VF.UI.updateVitals) {
+      global.VF.UI.updateVitals(player.health, player.armor);
+    }
+    if (global.VF.UI && global.VF.UI.setStimOverlay) {
+      global.VF.UI.setStimOverlay(true, this.stim.remain / VANGUARD.healDuration);
+    }
+    if (this.stim.remain <= 0 || player.health >= maxHp) {
+      this.stim = null;
+      if (global.VF.UI && global.VF.UI.setStimOverlay) global.VF.UI.setStimOverlay(false);
+    }
+  };
+
+  Skills.prototype._nearestDownedAlly = function () {
+    const game = global.VF && global.VF.game;
+    const revive = global.VF && global.VF.Revive;
+    const player = this.player;
+    if (!game || !revive || !revive.getDowned || !player) return null;
+    const team = player.team || (game.world && game.world._playerTeam) || 'ally';
+    const list = revive.getDowned(team) || [];
+    const origin = player.object && player.object.position;
+    if (!origin) return null;
+    const maxR = MEDIC.reviveRange;
+    const maxSq = maxR * maxR;
+    let best = null;
+    let bestSq = maxSq;
+    for (let i = 0; i < list.length; i++) {
+      const state = list[i];
+      if (!state || state.status !== 'pending' || !state.entity) continue;
+      if (state.entity === player) continue;
+      const pos =
+        (state.entity.mesh && state.entity.mesh.position) ||
+        (state.entity.object && state.entity.object.position);
+      if (!pos) continue;
+      const dx = pos.x - origin.x;
+      const dy = pos.y - origin.y;
+      const dz = pos.z - origin.z;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 < bestSq) {
+        bestSq = d2;
+        best = state;
+      }
+    }
+    return best;
+  };
+
+  Skills.prototype._beginReviveHold = function () {
+    if (!this._canUseMedic()) {
+      this._skillHeld = false;
+      return;
+    }
+    const target = this._nearestDownedAlly();
+    if (!target) {
+      this._skillHeld = false;
+      this.reviveTarget = null;
+      this.reviveProgress = 0;
+      if (global.VF.UI && global.VF.UI.toast) {
+        global.VF.UI.toast('附近没有倒地队友');
+      }
+      if (global.VF.UI && global.VF.UI.updateReviveAssist) {
+        global.VF.UI.updateReviveAssist(null);
+      }
+      return;
+    }
+    this.reviveTarget = target;
+    this.reviveProgress = 0;
+  };
+
+  Skills.prototype._tickRevive = function (dt) {
+    if (!this.player || !this._skillHeld || this.player.classId !== MEDIC.id || this.player.dead || this.player.downed) {
+      if (this.reviveTarget || this.reviveProgress) {
+        this.reviveTarget = null;
+        this.reviveProgress = 0;
+        if (global.VF.UI && global.VF.UI.updateReviveAssist) {
+          global.VF.UI.updateReviveAssist(null);
+        }
+      }
+      return;
+    }
+    const target = this._nearestDownedAlly();
+    if (!target) {
+      this._skillHeld = false;
+      this.reviveTarget = null;
+      this.reviveProgress = 0;
+      if (global.VF.UI && global.VF.UI.updateReviveAssist) {
+        global.VF.UI.updateReviveAssist(null);
+      }
+      return;
+    }
+    if (this.reviveTarget !== target) {
+      this.reviveTarget = target;
+      this.reviveProgress = 0;
+    }
+    this.reviveProgress += dt / MEDIC.reviveSec;
+    if (global.VF.UI && global.VF.UI.updateReviveAssist) {
+      global.VF.UI.updateReviveAssist({
+        progress: Math.min(1, this.reviveProgress),
+        name: global.VF.Revive && global.VF.Revive.entityName
+          ? global.VF.Revive.entityName(target.entity)
+          : '队友',
+      });
+    }
+    if (this.reviveProgress >= 1) {
+      const revive = global.VF.Revive;
+      const opts = { healthFrac: MEDIC.reviveHealth / 100 };
+      if (target.kind === 'player' && revive.revivePlayer) {
+        revive.revivePlayer(this.player, opts);
+      } else if (revive.reviveAI) {
+        revive.reviveAI(target, this.player, opts);
+      }
+      this.reviveProgress = 0;
+      this.reviveTarget = null;
+      this._skillHeld = false;
+      if (global.VF.UI && global.VF.UI.updateReviveAssist) {
+        global.VF.UI.updateReviveAssist(null);
+      }
+    }
+  };
+
+  Skills.prototype._beginRepairHold = function () {
+    if (!this._canUseEngineer()) {
+      this._skillHeld = false;
+      return;
+    }
+    const vehicle = this._nearestRepairVehicle();
+    if (!vehicle) {
+      this._skillHeld = false;
+      if (global.VF.UI && global.VF.UI.toast) {
+        global.VF.UI.toast('靠近友方载具后维修');
+      }
+      this.repairTarget = null;
+      if (global.VF.UI && global.VF.UI.updateRepairHud) global.VF.UI.updateRepairHud(null);
+      return;
+    }
+    this.repairTarget = vehicle;
+  };
+
+  Skills.prototype._nearestRepairVehicle = function () {
+    const game = global.VF && global.VF.game;
+    const vehicles = game && game.vehicles;
+    const player = this.player;
+    if (!vehicles || !vehicles.findNearby || !player || !player.object) return null;
+    const team = player.team || (game.world && game.world._playerTeam) || 'ally';
+    const list = vehicles.findNearby(player, ENGINEER.repairRange, team);
+    return list && list[0] ? list[0] : null;
+  };
+
+  Skills.prototype._tickRepair = function (dt) {
+    if (!this.player || !this._skillHeld || this.player.classId !== ENGINEER.id || this.player.dead || this.player.downed) {
+      if (this.repairTarget) {
+        this.repairTarget = null;
+        if (global.VF.UI && global.VF.UI.updateRepairHud) global.VF.UI.updateRepairHud(null);
+      }
+      return;
+    }
+    const vehicle = this._nearestRepairVehicle();
+    if (!vehicle) {
+      this.repairTarget = null;
+      if (global.VF.UI && global.VF.UI.updateRepairHud) global.VF.UI.updateRepairHud(null);
+      return;
+    }
+    this.repairTarget = vehicle;
+    if (vehicle.hp < vehicle.maxHp && gameVehiclesRepair(vehicle, ENGINEER.repairPerSec * dt)) {
+      this._repairSpark(vehicle, dt);
+    }
+    const origin = this.player.object.position;
+    const dist = Math.hypot(
+      vehicle.position.x - origin.x,
+      vehicle.position.z - origin.z
+    );
+    if (global.VF.UI && global.VF.UI.updateRepairHud) {
+      global.VF.UI.updateRepairHud({
+        hp: vehicle.hp,
+        maxHp: vehicle.maxHp,
+        dist: dist,
+        name: (vehicle.def && vehicle.def.nameZh) || '载具',
+      });
+    }
+  };
+
+  function gameVehiclesRepair(vehicle, amount) {
+    const vehicles = global.VF && global.VF.game && global.VF.game.vehicles;
+    if (vehicles && vehicles.repair) return vehicles.repair(vehicle, amount) > 0;
+    if (!vehicle || !vehicle.alive) return false;
+    const before = vehicle.hp;
+    vehicle.hp = Math.min(vehicle.maxHp, vehicle.hp + amount);
+    return vehicle.hp > before;
+  }
+
+  Skills.prototype._repairSpark = function (vehicle, dt) {
+    this._repairSparkAcc = (this._repairSparkAcc || 0) + (dt || 0);
+    if (this._repairSparkAcc < 0.12) return;
+    this._repairSparkAcc = 0;
+    const game = global.VF && global.VF.game;
+    if (!game || !game.weapons || !game.weapons._spawnImpact) return;
+    const p = this.player.getEyePosition();
+    const dir = this.player.getLookDirection();
+    const pt = p.clone().addScaledVector(dir, 1.4);
+    pt.y = Math.min(pt.y, (vehicle.position.y || 0) + 1.2);
+    game.weapons._spawnImpact(pt, 0xff7722, 0.16);
   };
 
   Skills.prototype.isStealthed = function () {
@@ -329,6 +551,11 @@
     this.dash = null;
     this.aiming = false;
     this._aimKeyDown = false;
+    this._skillHeld = false;
+    this.stim = null;
+    this.reviveProgress = 0;
+    this.reviveTarget = null;
+    this.repairTarget = null;
     this._clearPending();
     this._clearHealDevice();
     this._clearStealth(true);
@@ -344,6 +571,11 @@
     }
     this.applyMatchPassives();
     this._syncHud();
+    if (global.VF.UI) {
+      if (global.VF.UI.updateRepairHud) global.VF.UI.updateRepairHud(null);
+      if (global.VF.UI.updateReviveAssist) global.VF.UI.updateReviveAssist(null);
+      if (global.VF.UI.setStimOverlay) global.VF.UI.setStimOverlay(false);
+    }
   };
 
   /** Match-start passives (medic shield etc.) */
@@ -517,7 +749,9 @@
   };
 
   Skills.prototype._canUseJuggernaut = function () {
-    if (!this.player || !this.player.locked || this.player.dead) return false;
+    if (!this.player || !this.player.locked || this.player.dead || this.player.downed) {
+      return false;
+    }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
     if (this.player.classId !== JUGGERNAUT.id) return false;
     return true;
@@ -791,7 +1025,9 @@
   };
 
   Skills.prototype._canUseRaider = function () {
-    if (!this.player || !this.player.locked || this.player.dead) return false;
+    if (!this.player || !this.player.locked || this.player.dead || this.player.downed) {
+      return false;
+    }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
     if (this.player.classId !== RAIDER.id) return false;
     return true;
@@ -1916,6 +2152,9 @@
   Skills.prototype.update = function (dt) {
     if (this.cooldown > 0) this.cooldown = Math.max(0, this.cooldown - dt);
     if (this.dashCooldown > 0) this.dashCooldown = Math.max(0, this.dashCooldown - dt);
+    this._tickStimulant(dt);
+    this._tickRevive(dt);
+    this._tickRepair(dt);
 
     // Ghost stealth ticks even if a speed-buff decrement runs; stealth owns its timer
     const ghostStealth = this.stealthTimer > 0 || (this.player && this.player.stealthed);
@@ -2492,7 +2731,9 @@
   /* ---------- Engineer: gatling turret ---------- */
 
   Skills.prototype._canUseEngineer = function () {
-    if (!this.player || !this.player.locked || this.player.dead) return false;
+    if (!this.player || !this.player.locked || this.player.dead || this.player.downed) {
+      return false;
+    }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
     if (this.player.classId !== ENGINEER.id) return false;
     return true;
@@ -2916,38 +3157,35 @@
     if (!global.VF.UI || !global.VF.UI.updateSkill) return;
     const id = this.player && this.player.classId;
     if (id === VANGUARD.id) {
-      const inFlight = this.pending && this.pending.phase === 'flight';
-      const fusing = this.pending && this.pending.phase === 'fuse';
-      const buffT = this.player.skillSpeedBuffTimer || 0;
       global.VF.UI.updateSkill({
-        classId: 'vanguard',
-        name: 'C4',
-        key: 'G',
-        ready: this.cooldown <= 0 && !this.pending,
+        classId: 'assault',
+        name: '战斗兴奋剂',
+        key: 'X',
+        ready: this.cooldown <= 0 && !this.stim,
         cooldown: this.cooldown,
         maxCooldown: VANGUARD.cooldown,
-        pending: !!fusing,
-        aiming: !!this.aiming,
-        flying: !!inFlight,
-        fuse: fusing ? this.pending.fuse : 0,
-        speedBuff: buffT > 0,
-        buffTime: buffT,
+        pending: !!this.stim,
+        aiming: false,
+        flying: false,
+        fuse: this.stim ? this.stim.remain : 0,
+        speedBuff: false,
+        buffTime: 0,
+        charges: this.cooldown <= 0 && !this.stim ? 1 : 0,
       });
       return;
     }
     if (id === MEDIC.id) {
-      const deviceLife = this.healDevice ? this.healDevice.life : 0;
       global.VF.UI.updateSkill({
-        classId: 'medic',
-        name: '修复装置',
-        key: 'G',
-        ready: this.cooldown <= 0 && !this.aiming,
-        cooldown: this.cooldown,
-        maxCooldown: MEDIC.cooldown,
-        pending: deviceLife > 0,
-        aiming: !!this.aiming,
+        classId: 'support',
+        name: '急救装置',
+        key: 'X',
+        ready: true,
+        cooldown: 0,
+        maxCooldown: 0,
+        pending: !!this.reviveTarget,
+        aiming: !!this.reviveTarget,
         flying: false,
-        fuse: deviceLife,
+        fuse: this.reviveProgress,
         speedBuff: false,
         buffTime: 0,
         passiveShield: true,
@@ -2956,22 +3194,19 @@
       return;
     }
     if (id === GHOST.id) {
-      const stealthed = this.stealthTimer > 0;
-      const ambush = !!(this.player && this.player.ghostAmbushShot);
       global.VF.UI.updateSkill({
-        classId: 'ghost',
-        name: '隐身',
-        key: 'G',
-        ready: this.cooldown <= 0 && !stealthed,
-        cooldown: this.cooldown,
-        maxCooldown: GHOST.cooldown,
-        pending: stealthed,
+        classId: 'recon',
+        name: '强化标记',
+        key: 'Q',
+        ready: true,
+        cooldown: 0,
+        maxCooldown: 0,
+        pending: false,
         aiming: false,
         flying: false,
-        fuse: stealthed ? this.stealthTimer : 0,
-        speedBuff: stealthed || ambush,
-        buffTime: stealthed ? this.stealthTimer : 0,
-        ambushReady: ambush,
+        fuse: 0,
+        speedBuff: false,
+        buffTime: 0,
       });
       return;
     }
@@ -3014,27 +3249,20 @@
       return;
     }
     if (id === ENGINEER.id) {
-      const live = this.turrets.filter(function (t) {
-        return t && t.alive;
-      });
-      const t0 = live[0];
-      const canRecall = live.length > 0;
       global.VF.UI.updateSkill({
         classId: 'engineer',
-        name: canRecall ? '收回炮塔' : '加特林炮塔',
-        key: 'G',
-        ready: canRecall || (this.cooldown <= 0 && !this.aiming),
-        cooldown: canRecall ? 0 : this.cooldown,
-        maxCooldown: ENGINEER.cooldown,
-        pending: canRecall,
-        aiming: !!this.aiming,
+        name: '修复装置',
+        key: 'X',
+        ready: true,
+        cooldown: 0,
+        maxCooldown: 0,
+        pending: !!this.repairTarget,
+        aiming: !!this.repairTarget,
         flying: false,
-        fuse: t0 ? t0.ammo / ENGINEER.ammo : 0,
+        fuse: 0,
         speedBuff: false,
         buffTime: 0,
         buildDurability: true,
-        turretHp: t0 ? Math.round(t0.hp) : 0,
-        turretAmmo: t0 ? t0.ammo : 0,
       });
       return;
     }

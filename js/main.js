@@ -2112,25 +2112,49 @@
           game.vehicles && !mountedVehicle
             ? game.vehicles.findNearby(
                 game.player,
-                4.5,
+                5,
                 game.player.team || game.world._playerTeam || 'ally'
               )[0]
             : null;
         const nearCollect = game.building.getNearbyHint();
         const nearZip = game.player.findNearbyZipline && game.player.findNearbyZipline(7.5);
+        let downedAllyNear = false;
+        if (
+          game.player.classId === 'support' &&
+          VF.Revive &&
+          VF.Revive.getDowned
+        ) {
+          const team = game.player.team || game.world._playerTeam || 'ally';
+          const list = VF.Revive.getDowned(team) || [];
+          const origin = game.player.object && game.player.object.position;
+          for (let i = 0; origin && i < list.length; i++) {
+            const state = list[i];
+            const ent = state && state.entity;
+            if (!ent || ent === game.player) continue;
+            const pos =
+              (ent.mesh && ent.mesh.position) || (ent.object && ent.object.position);
+            if (!pos) continue;
+            if (Math.hypot(pos.x - origin.x, pos.y - origin.y, pos.z - origin.z) <= 2.8) {
+              downedAllyNear = true;
+              break;
+            }
+          }
+        }
         if (mountedVehicle) {
           VF.UI.setInteractHint(
             true,
             '按 <kbd>E</kbd> 下车 · <kbd>F1–F6</kbd> 换座'
           );
-        } else if (
-          nearbyVehicle &&
-          game.vehicles.getOpenSeat(nearbyVehicle)
-        ) {
-          VF.UI.setInteractHint(
-            true,
-            '按 <kbd>E</kbd> 进入' + nearbyVehicle.def.nameZh
-          );
+        } else if (nearbyVehicle && game.vehicles.getOpenSeat(nearbyVehicle)) {
+          let msg = '按 <kbd>E</kbd> 进入' + nearbyVehicle.def.nameZh;
+          if (game.player.classId === 'engineer') {
+            msg += ' · 按住 <kbd>X</kbd> 维修';
+          }
+          VF.UI.setInteractHint(true, msg);
+        } else if (nearbyVehicle && game.player.classId === 'engineer') {
+          VF.UI.setInteractHint(true, '按住 <kbd>X</kbd> 维修载具');
+        } else if (downedAllyNear) {
+          VF.UI.setInteractHint(true, '按住 <kbd>X</kbd> 拉起队友');
         } else if (nearCollect) {
           VF.UI.setInteractHint(true, '按 <kbd>E</kbd> 拾取');
         } else if (nearZip) {

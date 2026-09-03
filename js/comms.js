@@ -18,7 +18,7 @@
     document.addEventListener('keydown', function (event) {
       if (event.code !== 'KeyQ' || event.repeat) return;
       const g = global.VF && global.VF.game;
-      if (!g || !g.running || !g.player || g.player.dead || !g.player.locked || g.levelEditing) return;
+      if (!g || !g.running || !g.player || g.player.dead || g.player.downed || !g.player.locked || g.levelEditing) return;
       if (g.building && g.building.active) return;
       if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return;
       event.preventDefault();
@@ -58,32 +58,58 @@
 
   CommsSystem.prototype.ping = function (game) {
     const t = performance.now();
-    if (t - this._lastPingAt < 850) return null;
-    this._lastPingAt = t;
+    if (t - this._lastPingAt < 400) return null;
     const player = game.player;
     const origin = player.getEyePosition();
     const dir = player.getLookDirection();
-    let kind = 'move';
+    const isRecon = player.classId === 'recon';
+    const durationMs = isRecon ? 5000 : 1000;
+    const durationSec = durationMs / 1000;
+    let kind = null;
     let targetId = null;
     let point = null;
+    let targetTeam = null;
+
     if (game.ai && game.ai.raycastEnemies) {
-      const hit = game.ai.raycastEnemies(origin, dir, 100);
+      const hit = game.ai.raycastEnemies(origin, dir, 160);
       if (hit && hit.enemy) {
         kind = 'enemy';
         targetId = hit.enemy.entityId;
-        hit.enemy.spottedUntil = t + 7000;
+        hit.enemy.spottedUntil = t + durationMs;
         hit.enemy.spottedBy = player.entityId || 'player-local';
         point = hit.point.clone();
+        targetTeam = hit.enemy.team || 'enemy';
       }
     }
-    if (!point) {
-      point = origin.clone().addScaledVector(dir, 60);
-      const gy =
-        game.world && game.world.getWalkHeight
-          ? game.world.getWalkHeight(point.x, point.z)
-          : point.y;
-      point.y = gy + 0.12;
+    if (!point && global.VF.Pvp && global.VF.Pvp.raycastRemote) {
+      const remote = global.VF.Pvp.raycastRemote(origin, dir, 160);
+      const st = global.VF.Pvp.remoteState;
+      const myTeam = player.team || (game.world && game.world._playerTeam) || 'ally';
+      const theirTeam = (st && st.team) || (global.VF.Pvp.remoteLoadout && global.VF.Pvp.remoteLoadout.team);
+      if (remote && st && theirTeam && theirTeam !== myTeam) {
+        kind = 'enemy';
+        targetId = 'remote-player';
+        st.spottedUntil = t + durationMs;
+        point = remote.point.clone();
+        targetTeam = theirTeam;
+      }
     }
+    if (!point && game.vehicles && game.vehicles.raycast) {
+      const vehHit = game.vehicles.raycast(origin, dir, 160);
+      const myTeam = player.team || (game.world && game.world._playerTeam) || 'ally';
+      if (vehHit && vehHit.vehicle && vehHit.vehicle.team && vehHit.vehicle.team !== myTeam) {
+        kind = 'enemy';
+        targetId = vehHit.vehicle.id;
+        vehHit.vehicle.spottedUntil = t + durationMs;
+        point = new THREE.Vector3(vehHit.point.x, vehHit.point.y, vehHit.point.z);
+        targetTeam = vehHit.vehicle.team;
+      }
+    }
+    if (!point || kind !== 'enemy') {
+      if (global.VF.UI && global.VF.UI.toast) global.VF.UI.toast('对准敌人后按 Q 标记');
+      return null;
+    }
+    this._lastPingAt = t;
     const team = player.team || game.world._playerTeam || 'ally';
     const id =
       ((global.VF.Conquest && global.VF.Conquest.matchId) || 'local') +
@@ -102,8 +128,9 @@
       x: point.x,
       y: point.y,
       z: point.z,
-      life: kind === 'enemy' ? 7 : 8,
+      life: durationSec,
       mesh: mesh,
+      targetTeam: targetTeam,
     };
     this.pings.push(ping);
     game.world._pings = this.pings;
@@ -118,9 +145,8 @@
         });
       }
     }
-    this._tryIssueOrder(player, point);
     if (global.VF.UI && global.VF.UI.toast) {
-      global.VF.UI.toast(kind === 'enemy' ? '敌军已标记' : '战术位置已标记');
+      global.VF.UI.toast(isRecon ? '强化标记 · 5 秒' : '已标记敌军 · 1 秒');
     }
     return ping;
   };

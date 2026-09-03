@@ -657,8 +657,98 @@
     },
 
     updateSkill(info) {
-      if (this.els.skillHud) this.els.skillHud.classList.add('hidden');
-      if (this.els.dashHud) this.els.dashHud.classList.add('hidden');
+      const hud = this.els.skillHud;
+      if (!hud) return;
+      if (!info) {
+        hud.classList.add('hidden');
+        return;
+      }
+      hud.classList.remove('hidden');
+      hud.hidden = false;
+      const iconId =
+        info.classId === 'assault'
+          ? 'medic'
+          : info.classId === 'support'
+            ? 'medic'
+            : info.classId === 'recon'
+              ? 'ghost'
+              : info.classId === 'engineer'
+                ? 'engineer'
+                : info.classId;
+      hud.querySelectorAll('[data-skill-icon]').forEach((el) => {
+        if (el.closest('#skill-passive')) return;
+        el.classList.toggle('hidden', el.getAttribute('data-skill-icon') !== iconId);
+      });
+      const bind = this.els.skillActive && this.els.skillActive.querySelector('.skill-keybind');
+      if (bind) bind.textContent = info.key || 'X';
+      if (this.els.skillActive) {
+        this.els.skillActive.classList.toggle('ready', !!info.ready);
+        this.els.skillActive.classList.toggle('cooldown', !info.ready && info.cooldown > 0);
+        this.els.skillActive.classList.toggle('pending', !!info.pending);
+        this.els.skillActive.classList.toggle('aiming', !!info.aiming);
+        this.els.skillActive.title = (info.name || '') + (info.key ? ' · ' + info.key : '');
+      }
+      const overlay = this.els.skillCdOverlay;
+      const num = this.els.skillCdNum;
+      if (overlay && num) {
+        const onCd = info.cooldown > 0 && info.maxCooldown > 0;
+        overlay.classList.toggle('hidden', !onCd);
+        if (onCd) num.textContent = String(Math.ceil(info.cooldown));
+      }
+    },
+
+    updateRepairHud(info) {
+      const el = document.getElementById('repair-hud');
+      const bar = document.getElementById('repair-hp');
+      const dist = document.getElementById('repair-dist');
+      if (!el) return;
+      if (!info) {
+        el.classList.add('hidden');
+        el.setAttribute('aria-hidden', 'true');
+        return;
+      }
+      el.classList.remove('hidden');
+      el.setAttribute('aria-hidden', 'false');
+      const segs = 22;
+      const filled = Math.round((Math.max(0, info.hp) / Math.max(1, info.maxHp)) * segs);
+      if (bar && bar.childElementCount !== segs) {
+        let html = '';
+        for (let i = 0; i < segs; i++) html += '<i></i>';
+        bar.innerHTML = html;
+      }
+      if (bar) {
+        const nodes = bar.children;
+        for (let i = 0; i < nodes.length; i++) {
+          nodes[i].classList.toggle('on', i < filled);
+        }
+      }
+      if (dist) dist.textContent = Math.max(0, Math.round(info.dist)) + '米';
+    },
+
+    updateReviveAssist(info) {
+      const el = document.getElementById('revive-assist');
+      const fill = document.getElementById('revive-assist-fill');
+      const label = document.getElementById('revive-assist-label');
+      if (!el) return;
+      if (!info) {
+        el.classList.add('hidden');
+        return;
+      }
+      el.classList.remove('hidden');
+      if (label) label.textContent = info.name ? '拉起 ' + info.name : '拉起队友';
+      if (fill) fill.style.width = Math.round(Math.max(0, Math.min(1, info.progress)) * 100) + '%';
+    },
+
+    setStimOverlay(on, strength) {
+      const el = document.getElementById('stim-overlay');
+      if (!el) return;
+      if (!on) {
+        el.classList.add('hidden');
+        el.style.opacity = '';
+        return;
+      }
+      el.classList.remove('hidden');
+      el.style.opacity = String(0.35 + Math.max(0, Math.min(1, strength != null ? strength : 1)) * 0.65);
     },
 
     /** Dash remains bound to V; the skill cluster is hidden from the weapon HUD. */
@@ -4696,8 +4786,9 @@
         for (let i = 0; i < enemies.length; i++) {
           const e = enemies[i];
           if (!e.alive) continue;
+          if (!(e.spottedUntil && e.spottedUntil > performance.now())) continue;
           const p = toMap(e.mesh.position.x, e.mesh.position.z);
-          ctx.fillStyle = e.team === 'ally' ? '#4aa3ff' : '#ff5566';
+          ctx.fillStyle = '#ffdd55';
           ctx.fillRect(p.x - 3, p.y - 3, 6, 6);
         }
       }
@@ -4735,6 +4826,7 @@
         }
       }
 
+      const now = performance.now();
       const vehicles =
         global.VF && global.VF.Vehicles && global.VF.Vehicles.getAll
           ? global.VF.Vehicles.getAll()
@@ -4742,15 +4834,19 @@
       const playerTeam = this._playerTeam();
       for (let i = 0; i < vehicles.length; i++) {
         const vehicle = vehicles[i];
+        if (!vehicle || !vehicle.position) continue;
+        const friendly = vehicle.team === playerTeam;
+        const spotted = !!(vehicle.spottedUntil && vehicle.spottedUntil > now);
+        if (!friendly && !spotted && vehicle.alive) continue;
         const p = toMap(vehicle.position.x, vehicle.position.z);
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(-(vehicle.yaw || 0));
         ctx.fillStyle = !vehicle.alive
           ? 'rgba(150,155,158,0.42)'
-          : vehicle.team === playerTeam
+          : friendly
             ? '#59c6e8'
-            : '#ef665b';
+            : '#ffdd55';
         ctx.fillRect(-5, -8, 10, 16);
         ctx.fillStyle = '#f5fafb';
         ctx.fillRect(-1.5, -8, 3, 4);
@@ -4875,7 +4971,7 @@
     },
 
     _classGlyph(classId) {
-      if (classId === 'engineer') return '工';
+      if (classId === 'engineer') return '机';
       if (classId === 'support') return '援';
       if (classId === 'recon') return '侦';
       return '突';
@@ -5067,6 +5163,10 @@
           : [];
       for (let i = 0; i < vehicles.length; i++) {
         const vehicle = vehicles[i];
+        if (!vehicle || !vehicle.position) continue;
+        const friendly = vehicle.team === pTeam;
+        const spotted = !!(vehicle.spottedUntil && vehicle.spottedUntil > now);
+        if (!friendly && !spotted && vehicle.alive) continue;
         const mx = cx + (vehicle.position.x - px) * scale;
         const my = cy + (vehicle.position.z - pz) * scale;
         if (mx < 5 || my < 5 || mx > w - 5 || my > h - 5) continue;
@@ -5075,9 +5175,9 @@
         ctx.rotate(-(vehicle.yaw || 0));
         ctx.fillStyle = !vehicle.alive
           ? 'rgba(150,155,158,0.42)'
-          : vehicle.team === pTeam
+          : friendly
             ? '#59c6e8'
-            : '#ef665b';
+            : '#ffdd55';
         ctx.fillRect(-3.5, -5, 7, 10);
         ctx.fillStyle = '#f5fafb';
         ctx.fillRect(-1, -5, 2, 3);
@@ -5104,18 +5204,27 @@
         for (let i = 0; i < enemies.length; i++) {
           const e = enemies[i];
           if (!e.alive || !e.mesh) continue;
+          const spotted = !!(e.spottedUntil && e.spottedUntil > now);
+          if (!spotted) continue;
           const mx = cx + (e.mesh.position.x - px) * scale;
           const my = cy + (e.mesh.position.z - pz) * scale;
           if (mx < 3 || my < 3 || mx > w - 3 || my > h - 3) continue;
-          const spotted = !!(e.spottedUntil && e.spottedUntil > now);
-          this._drawMinimapDiamond(
-            ctx,
-            mx,
-            my,
-            spotted ? 3.2 : 2.2,
-            spotted ? '#ffdd55' : '#ff5a3a',
-            spotted ? '#041018' : null
-          );
+          this._drawMinimapDiamond(ctx, mx, my, 3.2, '#ffdd55', '#041018');
+        }
+      }
+
+      const pvp = global.VF && global.VF.Pvp;
+      const remote = pvp && pvp.remoteState;
+      if (remote && remote.alive !== false && remote.spottedUntil && remote.spottedUntil > now) {
+        const myTeam = this._playerTeam();
+        const theirTeam =
+          remote.team || (pvp.remoteLoadout && pvp.remoteLoadout.team) || 'enemy';
+        if (theirTeam !== myTeam && remote.x != null && remote.z != null) {
+          const mx = cx + (remote.x - px) * scale;
+          const my = cy + (remote.z - pz) * scale;
+          if (mx >= 3 && my >= 3 && mx <= w - 3 && my <= h - 3) {
+            this._drawMinimapDiamond(ctx, mx, my, 3.2, '#ffdd55', '#041018');
+          }
         }
       }
 

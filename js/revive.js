@@ -42,7 +42,7 @@
   }
 
   function CLASS_ZH(classId) {
-    if (classId === 'engineer') return '工程兵';
+    if (classId === 'engineer') return '机枪兵';
     if (classId === 'support' || classId === 'medic') return '支援兵';
     if (classId === 'recon') return '侦察兵';
     return '突击兵';
@@ -228,7 +228,7 @@
     return true;
   };
 
-  ReviveSystem.prototype.revivePlayer = function (reviver) {
+  ReviveSystem.prototype.revivePlayer = function (reviver, opts) {
     const state = this._playerState;
     if (!state || state.status !== 'pending') return false;
     state.status = 'revived';
@@ -239,11 +239,13 @@
       });
     }
     const player = state.entity;
+    const frac =
+      opts && opts.healthFrac != null ? opts.healthFrac : config().reviveHealth / 100;
     player.downed = false;
     player.downState = null;
     player.dead = false;
     player.alive = true;
-    player.health = Math.max(1, Math.round((player.maxHealth || 100) * (config().reviveHealth / 100)));
+    player.health = Math.max(1, Math.round((player.maxHealth || 100) * frac));
     player._reviveProtection = config().protectionSec;
     player.velocity.set(0, 0, 0);
     if (player._hideViewModels) player._hideViewModels(false);
@@ -365,7 +367,7 @@
     return true;
   };
 
-  ReviveSystem.prototype.reviveAI = function (state, reviver) {
+  ReviveSystem.prototype.reviveAI = function (state, reviver, opts) {
     if (!state || state.status !== 'pending') return false;
     state.status = 'revived';
     const unit = state.entity;
@@ -375,10 +377,12 @@
         reviverId: (reviver && (reviver.entityId || reviver.id)) || 'player-local',
       });
     }
+    const frac =
+      opts && opts.healthFrac != null ? opts.healthFrac : config().reviveHealth / 100;
     unit.downed = false;
     unit.downState = null;
     unit.alive = true;
-    unit.hp = Math.max(1, Math.round((unit.maxHp || 100) * (config().reviveHealth / 100)));
+    unit.hp = Math.max(1, Math.round((unit.maxHp || 100) * frac));
     unit.state = 'patrol';
     unit._reviveProtection = config().protectionSec;
     if (unit.mesh) {
@@ -545,11 +549,13 @@
     let reviver = null;
     const player = game && game.player;
     const cfg = config();
+    const playerIsSupport = player && player.classId === 'support';
     const playerCan =
       player &&
       player.alive &&
       !player.dead &&
       !player.vehicleId &&
+      !playerIsSupport &&
       this._canRevive(player, unit) &&
       distanceSq(player, unit) <= cfg.reviveRange * cfg.reviveRange;
     if (playerCan && player.keys && player.keys['KeyE']) {

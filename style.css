@@ -2711,6 +2711,9 @@ canvas {
 #hud.hud-downed #hotbar-extra,
 #hud.hud-downed #flash-overlay,
 #hud.hud-downed #crosshair,
+#hud.hud-downed #repair-hud,
+#hud.hud-downed #revive-assist,
+#hud.hud-downed #stim-overlay,
 #hud.hud-downed #skill-hud,
 #hud.hud-downed #interact-hint,
 #hud.hud-downed #cq-command,
@@ -5154,10 +5157,152 @@ canvas {
   display: none !important;
 }
 
-#skill-hud,
-#dash-hud,
 #skill-hud.hidden,
 #dash-hud.hidden {
+  display: none !important;
+}
+
+#skill-hud {
+  position: absolute;
+  bottom: 22px;
+  right: 502px;
+  display: flex;
+  gap: 8px;
+  z-index: 6;
+  pointer-events: none;
+}
+
+#skill-passive {
+  display: none;
+}
+
+#repair-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  pointer-events: none;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  text-shadow: 0 1px 2px #041018;
+}
+
+#repair-hud.hidden {
+  display: none !important;
+}
+
+.repair-icon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  transform: translate(-50%, calc(-100% - 22px));
+  background: #2ecc71;
+  box-shadow: 0 0 0 1px rgba(4, 16, 8, 0.85);
+}
+
+.repair-icon::before,
+.repair-icon::after {
+  content: '';
+  position: absolute;
+  background: #f4f8fb;
+}
+
+.repair-icon::before {
+  left: 3px;
+  top: 3px;
+  width: 11px;
+  height: 3px;
+  box-shadow: 0 4px 0 #f4f8fb, 2px 7px 0 #f4f8fb;
+}
+
+.repair-icon::after {
+  left: 7px;
+  top: 3px;
+  width: 3px;
+  height: 12px;
+  transform: rotate(-35deg);
+}
+
+.repair-hp {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, 18px);
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  margin-top: 0;
+}
+
+.repair-hp i {
+  display: block;
+  width: 3px;
+  height: 10px;
+  background: rgba(180, 200, 190, 0.28);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+
+.repair-hp i.on {
+  background: #3adf6a;
+  box-shadow: 0 0 4px rgba(46, 204, 113, 0.7);
+}
+
+#repair-dist {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, 32px);
+  margin-top: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #f4f8fb;
+}
+
+#revive-assist {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 42px);
+  transform: translateX(-50%);
+  z-index: 12;
+  width: 180px;
+  pointer-events: none;
+  text-align: center;
+  color: #e8f4ff;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px #041018;
+}
+
+#revive-assist.hidden {
+  display: none !important;
+}
+
+.revive-assist-track {
+  margin-top: 6px;
+  height: 6px;
+  background: rgba(8, 12, 18, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+#revive-assist-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #3adf6a;
+}
+
+#stim-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, rgba(80, 220, 120, 0.18), transparent 62%);
+}
+
+#stim-overlay.hidden {
   display: none !important;
 }
 
