@@ -2096,8 +2096,11 @@
       VF.UI.setAiming(
         !playerDowned &&
           game.player.aiming &&
-          game.weapons.mode === 'weapon',
-        game.weapons.getDef && game.weapons.getDef().scope,
+          (game.weapons.mode === 'weapon' ||
+            (VF.Gadgets && VF.Gadgets.isBinoculars && VF.Gadgets.isBinoculars())),
+        VF.Gadgets && VF.Gadgets.isBinoculars && VF.Gadgets.isBinoculars()
+          ? 'optic'
+          : game.weapons.getDef && game.weapons.getDef().scope,
         playerDowned ? 0 : game.player._adsBlend || 0
       );
       if (!game.levelEditing && !playerDowned) {

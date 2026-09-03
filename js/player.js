@@ -1315,6 +1315,9 @@
     if (global.VF.UI && global.VF.UI.updateVitals) {
       global.VF.UI.updateVitals(this.health, this.armor);
     }
+    if (global.VF.Gadgets && global.VF.Gadgets.resetLife) {
+      global.VF.Gadgets.resetLife(global.VF.game);
+    }
   };
 
   Player.prototype._hideViewModels = function (hide) {
@@ -1432,7 +1435,11 @@
       const heldDef =
         this._heldMode !== 'build' && this._weaponDef ? this._weaponDef() : null;
       const weaponRun = heldDef && heldDef.runSpeed != null ? heldDef.runSpeed : 1;
-      const speed = baseSpeed * speedMul * weaponRun;
+      const knifeMul =
+        global.VF.Gadgets && global.VF.Gadgets.holdingKnife && global.VF.Gadgets.holdingKnife()
+          ? 1.08
+          : 1;
+      const speed = baseSpeed * speedMul * weaponRun * knifeMul;
       this.velocity.x = mx * speed;
       this.velocity.z = mz * speed;
     }
@@ -1490,7 +1497,13 @@
     // ADS / held-item base pose (no ADS while reloading)
     const weapons = global.VF.game && global.VF.game.weapons;
     const reloadW = weapons && weapons.getReloadAnim ? weapons.getReloadAnim() : 0;
-    const adsTarget = this.aiming && this._heldMode !== 'build' && reloadW < 0.05 ? 1 : 0;
+    let adsTarget = this.aiming && this._heldMode !== 'build' && reloadW < 0.05 ? 1 : 0;
+    if (adsTarget && weapons && weapons.mode !== 'weapon') {
+      adsTarget =
+        global.VF.Gadgets && global.VF.Gadgets.isBinoculars && global.VF.Gadgets.isBinoculars()
+          ? 1
+          : 0;
+    }
     const adsDef = this._weaponDef && this._weaponDef();
     const adsTime = adsDef && adsDef.adsTime != null ? adsDef.adsTime : 0.25;
     const adsRate = 3 / Math.max(0.08, adsTime);
@@ -1584,8 +1597,18 @@
     const def = this._weaponDef && this._weaponDef();
     const cam = feelGroup('camera');
     const hipFov = cam.hipFov != null ? cam.hipFov : HIP_FOV;
-    const adsFov =
-      def && def.adsFov != null ? def.adsFov : cam.adsFov != null ? cam.adsFov : ADS_FOV;
+    const binos =
+      this.aiming &&
+      global.VF.Gadgets &&
+      global.VF.Gadgets.isBinoculars &&
+      global.VF.Gadgets.isBinoculars();
+    const adsFov = binos
+      ? 16
+      : def && def.adsFov != null
+        ? def.adsFov
+        : cam.adsFov != null
+          ? cam.adsFov
+          : ADS_FOV;
     let targetFov = THREE.MathUtils.lerp(hipFov, adsFov, this._adsBlend);
     if (this._fovPunch) {
       // Hit punch recovers faster (~90ms); hurt widen a touch slower

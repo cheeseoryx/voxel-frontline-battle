@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>体素战争</title>
-  <link rel="stylesheet" href="style.css?v=arsenal1" />
+  <link rel="stylesheet" href="style.css?v=gadget1" />
 </head>
 <body>
   <button id="audio-toggle" type="button" title="静音" aria-label="切换声音" aria-pressed="false">
@@ -235,26 +235,27 @@
             <li><kbd>Shift</kbd> — 冲刺 · <kbd>Ctrl</kbd> — 蹲下（蹲下不能冲刺，头顶有障碍时松开也不会站起）</li>
             <li><kbd>空格</kbd> — 跳跃 · 鼠标 — 视角 · <kbd>Esc</kbd> — 释放鼠标</li>
             <li><kbd>左键</kbd> — 射击 · <kbd>右键</kbd> — 瞄准（ADS，散布更小）</li>
-            <li><kbd>R</kbd> — 换弹 · <kbd>V</kbd> — 冲刺（准星方向） · <kbd>G</kbd> — 先锋 C4（按住瞄准） · <kbd>Tab</kbd> — 计分板 · <kbd>M</kbd> — 大地图</li>
+            <li><kbd>R</kbd> — 换弹 · <kbd>V</kbd> — 冲刺（准星方向） · <kbd>G</kbd> — 投掷物 · <kbd>X</kbd> — 兵种主动技能 · <kbd>Tab</kbd> — 计分板 · <kbd>M</kbd> — 大地图</li>
             <li><kbd>E</kbd> — 拾取部署核 / 掩体建材 · <kbd>F</kbd> — 乘坐滑索</li>
           </ul>
         </section>
         <section class="tutorial-section">
-          <h2>武器栏（1–3）</h2>
+          <h2>武器与装备（1–6）</h2>
           <ul>
-            <li><kbd>1</kbd> AKM — 7.62×39mm，全自动中近距离压制</li>
-            <li><kbd>2</kbd> Remington 870 — 12ga 鹿弹，近距离高伤多弹丸</li>
-            <li><kbd>3</kbd> SVD — 7.62×54R，远距离高伤点杀</li>
+            <li><kbd>1</kbd> 主武器 · <kbd>2</kbd> 副武器</li>
+            <li><kbd>3</kbd> <kbd>4</kbd> 配件：急救箱 / C4 / 弹药箱 / RPG-7 / 望远镜（所有兵种）</li>
+            <li><kbd>5</kbd> 投掷物栏（破片 / 闪光 / 烟雾）· 按 <kbd>G</kbd> 投出，每条命 2 发</li>
+            <li><kbd>6</kbd> 近战（战斗刀 / 大锤）</li>
           </ul>
           <p>第一人称会显示枪身与双手；跑步时枪会随步伐轻微摆动。击杀敌人掉落弹药箱，走近自动拾取。</p>
         </section>
         <section class="tutorial-section">
-          <h2>建造（4–5）</h2>
+          <h2>建造（B / N）</h2>
           <ul>
-            <li><kbd>4</kbd> 掩体 — 消耗建材，摆放短墙</li>
-            <li><kbd>5</kbd> 防御塔 — 消耗 1 个<strong>部署核</strong>（开局自带 1 个），放置你在大厅设计器里搭好的塔与滑索</li>
+            <li><kbd>B</kbd> 掩体 — 消耗建材，摆放短墙；再按一次取消</li>
+            <li><kbd>N</kbd> 防御塔 — 消耗 1 个<strong>部署核</strong>（开局自带 1 个），放置你在大厅设计器里搭好的塔与滑索</li>
           </ul>
-          <p>切到 4/5 时，手上的枪会换成灰色石块；半透明预览对准地面后左键放置。建材与核心在地图上以发光方块出现。</p>
+          <p>切到建造时，手上的枪会换成灰色石块；半透明预览对准地面后左键放置。建材与核心在地图上以发光方块出现。</p>
         </section>
         <section class="tutorial-section">
           <h2>战场与士兵</h2>
@@ -523,7 +524,7 @@
             <span id="skill-cd-num"></span>
           </div>
         </div>
-        <div class="skill-keybind">G</div>
+        <div class="skill-keybind">X</div>
       </div>
       <div class="skill-slot" id="skill-passive" title="">
         <div class="skill-icon-wrap">
@@ -582,32 +583,37 @@
         <span class="slot-icon weapon-ar"></span>
         <span class="slot-name">AKM</span>
       </div>
-      <div class="slot" data-slot="2" title="Remington 870 (2)">
+      <div class="slot" data-slot="2" title="副武器 (2)">
         <span class="slot-key">2</span>
         <span class="slot-icon weapon-sg"></span>
-        <span class="slot-name">870</span>
+        <span class="slot-name">M9</span>
       </div>
-      <div class="slot" data-slot="3" title="SVD (3)">
+      <div class="slot gadget-slot" data-slot="3" title="急救箱 (3)">
         <span class="slot-key">3</span>
-        <span class="slot-icon weapon-sr"></span>
-        <span class="slot-name">SVD</span>
+        <span class="slot-icon gadget-medkit"></span>
+        <span class="slot-name">急救箱</span>
       </div>
-      <div class="slot build" data-slot="4" title="Cover / 掩体 (4)">
+      <div class="slot gadget-slot" data-slot="4" title="弹药箱 (4)">
         <span class="slot-key">4</span>
-        <span class="slot-icon cover-icon"></span>
-        <span class="slot-name">掩体</span>
+        <span class="slot-icon gadget-ammo"></span>
+        <span class="slot-name">弹药箱</span>
       </div>
-      <div class="slot build" data-slot="5" title="防御塔 (5) — 消耗部署核">
+      <div class="slot" data-slot="5" title="破片手榴弹 (5) · 按 G 投掷">
         <span class="slot-key">5</span>
-        <span class="slot-icon tower-b"></span>
-        <span class="slot-name">防御塔</span>
+        <span class="slot-icon gadget-frag"></span>
+        <span class="slot-name">破片</span>
       </div>
-      <div class="slot locked" data-slot="6" title="RPG-7 反装甲武器 (6) — 工程兵">
+      <div class="slot" data-slot="6" title="战斗刀 (6)">
         <span class="slot-key">6</span>
-        <span class="slot-icon weapon-rpg"></span>
-        <span class="slot-name">RPG</span>
+        <span class="slot-icon gadget-knife"></span>
+        <span class="slot-name">近战</span>
       </div>
     </div>
+    <div id="hotbar-extra" aria-hidden="true">
+      <span id="throwable-count">G 2</span>
+      <span id="gadget-ammo" class="hidden">C4 2</span>
+    </div>
+    <div id="flash-overlay" class="hidden" aria-hidden="true"></div>
 
     <!-- Dash kept for keybind, hidden from weapon cluster -->
     <div id="dash-hud" class="hidden" hidden>
@@ -1310,36 +1316,36 @@
   <script src="js/bases.js?v=scorch3"></script>
   <script src="js/vehicles.js?v=wstat2"></script>
   <script src="js/weapon-viewmodels.js?v=wstat2"></script>
-  <script src="js/soldier.js?v=wstat2"></script>
-  <script src="js/player.js?v=downed1"></script>
+  <script src="js/soldier.js?v=gadget1"></script>
+  <script src="js/player.js?v=gadget1"></script>
   <script src="js/weapon-catalog.js?v=wstat3"></script>
-  <script src="js/weapons.js?v=arsenal1"></script>
-  <script src="js/skills.js?v=vehicle3"></script>
-  <script src="js/building.js?v=vehicle3"></script>
+  <script src="js/weapons.js?v=gadget1"></script>
+  <script src="js/skills.js?v=gadget1"></script>
+  <script src="js/building.js?v=gadget1"></script>
   <script src="js/tower-designer.js?v=scorch3"></script>
   <script src="js/hub.js?v=scorch4"></script>
   <script src="js/economy.js?v=wstat3"></script>
   <script src="js/lobby.js?v=scorch4"></script>
   <script src="js/range.js?v=wstat2"></script>
-  <script src="js/ai.js?v=pvp8v8"></script>
+  <script src="js/ai.js?v=gadget1"></script>
   <script src="js/conquest.js?v=vehicle3"></script>
   <script src="js/revive.js?v=downed3"></script>
   <script src="js/squads.js?v=scorch3"></script>
-  <script src="js/gadgets.js?v=vehicle3"></script>
+  <script src="js/gadgets.js?v=gadget1"></script>
   <script src="js/scoring.js?v=vehicle3"></script>
   <script src="js/comms.js?v=scorch3"></script>
   <script src="js/net-protocol.js?v=vehicle3"></script>
   <script src="js/net-simulation.js?v=vehicle3"></script>
   <script src="js/match-flow.js?v=scorch3"></script>
   <script src="js/soldier-menu.js?v=arsenal1"></script>
-  <script src="js/arsenal.js?v=arsenal1"></script>
-  <script src="js/ui.js?v=arsenal1"></script>
+  <script src="js/arsenal.js?v=gadget1"></script>
+  <script src="js/ui.js?v=gadget1"></script>
   <script src="js/audio.js?v=scorch3"></script>
   <script src="js/atmosphere.js?v=scorch3"></script>
   <script src="js/config.js?v=scorch3"></script>
   <script src="js/kubee-bridge.js?v=scorch3"></script>
   <script src="js/pvp.js?v=downed1"></script>
-  <script src="js/main.js?v=arsenal1"></script>
+  <script src="js/main.js?v=gadget1"></script>
   <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
   <script src="js/feel-tuner.js?v=wstat1"></script>
   <!-- render-tuner.js: F9 后处理参数调节（生产环境删除） -->

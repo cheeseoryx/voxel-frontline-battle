@@ -7,7 +7,7 @@
 
   const VANGUARD = {
     id: 'assault',
-    key: 'KeyG',
+    key: 'KeyX',
     cooldown: 24,
     fuse: 1.5,
     dmgInner: 120,
@@ -46,7 +46,7 @@
 
   const MEDIC = {
     id: 'support',
-    key: 'KeyG',
+    key: 'KeyX',
     cooldown: 15,
     duration: 8,
     placeRange: 8,
@@ -58,7 +58,7 @@
 
   const GHOST = {
     id: 'recon',
-    key: 'KeyG',
+    key: 'KeyX',
     cooldown: 28,
     duration: 6,
     speedBuff: 1.3,
@@ -69,7 +69,7 @@
 
   const JUGGERNAUT = {
     id: 'juggernaut',
-    key: 'KeyG',
+    key: 'KeyX',
     cooldown: 24,
     duration: 8,
     hp: 280,
@@ -83,7 +83,7 @@
 
   const RAIDER = {
     id: 'raider',
-    key: 'KeyG',
+    key: 'KeyX',
     cooldown: 30,
     range: 28,
     halfAngleDeg: 30, // 60° cone total (3D)
@@ -97,7 +97,7 @@
 
   const ENGINEER = {
     id: 'engineer',
-    key: 'KeyG',
+    key: 'KeyX',
     cooldown: 40,
     blockCost: 12,
     startBlocks: 20, // enough to deploy once after match start
@@ -112,7 +112,7 @@
     recallRefund: 8, // blocks returned when packing up a live turret
   };
 
-  const SKILL_KEY = 'KeyG';
+  const SKILL_KEY = 'KeyX';
 
   const _tmpOrigin = new THREE.Vector3();
   const _tmpDir = new THREE.Vector3();
@@ -205,7 +205,7 @@
         }
         self.tryEmpPulse();
       } else if (kind === 'engineer') {
-        // Live turret: tap G to pack up
+        // Live turret: tap X to pack up
         if (self._hasLiveTurret()) {
           self._recallTurret();
           return;
@@ -2668,7 +2668,7 @@
     if (global.VF.Audio) global.VF.Audio.play('build');
     if (global.VF.UI && global.VF.UI.toast) {
       global.VF.UI.toast(
-        '加特林炮塔已部署 · HP' + ENGINEER.turretHp + ' · 弹药' + ENGINEER.ammo + ' · 再按 G 收回'
+        '加特林炮塔已部署 · HP' + ENGINEER.turretHp + ' · 弹药' + ENGINEER.ammo + ' · 再按 X 收回'
       );
     }
     this._syncHud();

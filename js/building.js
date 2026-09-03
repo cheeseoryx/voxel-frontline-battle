@@ -67,8 +67,17 @@
       if (!self.player.locked) return;
       if (self.player.vehicleId) return;
       if (global.VF.Range && global.VF.Range.isOpen) return;
-      if (e.code === 'Digit4') self.enterMode('a');
-      if (e.code === 'Digit5') self.enterMode('b');
+      if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return;
+      if (e.code === 'KeyB') {
+        e.preventDefault();
+        if (self.active && self.buildType === 'a') self.exitMode();
+        else self.enterMode('a');
+      }
+      if (e.code === 'KeyN') {
+        e.preventDefault();
+        if (self.active && self.buildType === 'b') self.exitMode();
+        else self.enterMode('b');
+      }
       if (e.code === 'KeyE') self.tryCollect();
       // Rotate cover with Q / R while in build mode
       if (self.active && (e.code === 'KeyQ' || e.code === 'KeyR')) {
@@ -102,15 +111,25 @@
       if (w._cancelReload) w._cancelReload();
       w.mode = 'build';
     }
-    if (global.VF.UI) global.VF.UI.setHotbarSlot(BUILDABLES[type].slot);
     if (this.player && this.player.setHeldMode) this.player.setHeldMode('build');
+    if (global.VF.Gadgets && global.VF.Gadgets._setMeleeView) {
+      global.VF.Gadgets._setMeleeView(false);
+    }
+    if (global.VF.UI && global.VF.UI.toast) {
+      global.VF.UI.toast(type === 'b' ? '防御塔 · 再按 N 取消' : '掩体 · 再按 B 取消');
+    }
     this._ensureGhost();
   };
 
   Building.prototype.exitMode = function () {
     this.active = false;
     if (this.ghost) this.ghost.visible = false;
+    const w = global.VF.game && global.VF.game.weapons;
+    if (w && w.mode === 'build') w.mode = 'weapon';
     if (this.player && this.player.setHeldMode) this.player.setHeldMode('weapon');
+    if (global.VF.Gadgets && global.VF.Gadgets._syncHeldVisual) {
+      global.VF.Gadgets._syncHeldVisual(global.VF.game);
+    }
   };
 
   Building.prototype._ensureGhost = function () {

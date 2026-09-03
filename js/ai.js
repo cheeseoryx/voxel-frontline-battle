@@ -1562,6 +1562,7 @@
     let hitChance = (unit.accuracy != null ? unit.accuracy : 0.55) * feel.accuracyMul;
     if (dist < 10) hitChance *= 1.15;
     else if (dist < 16) hitChance *= 1.05;
+    if (unit.flashedUntil && unit.flashedUntil > performance.now()) hitChance *= 0.12;
     hitChance = Math.min(0.95, Math.max(0.08, hitChance));
     const didHit = Math.random() <= hitChance;
     if (global.VF.spawnTracer) {

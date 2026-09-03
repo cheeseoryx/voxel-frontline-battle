@@ -1362,16 +1362,11 @@
       if (!this.els.hotbarSlots) return;
       this.els.hotbarSlots.forEach((el) => {
         const slot = Number(el.dataset.slot);
-        if (slot === 6) {
-          const g = global.VF && global.VF.game;
-          const engineer = !!(
-            g &&
-            g.player &&
-            g.player.classId === 'engineer'
-          );
-          el.classList.toggle('locked', !engineer);
-        }
+        if (slot >= 3) el.classList.remove('locked');
       });
+      if (global.VF.Gadgets && global.VF.Gadgets.syncHud) {
+        global.VF.Gadgets.syncHud(global.VF.game);
+      }
     },
 
     /**
@@ -3369,6 +3364,14 @@
           '<svg viewBox="0 0 48 36" aria-hidden="true"><path d="M24 3l16 7v10c0 8-7 13-16 15C15 33 8 28 8 20V10z"/><path d="M17 20l5 5 10-12" fill="none"/></svg>',
         knife:
           '<svg viewBox="0 0 68 30" aria-hidden="true"><path d="M4 19h17l4-5 36-10-8 12-27 7-5-3H4z"/><rect x="7" y="16" width="15" height="8"/></svg>',
+        sledge:
+          '<svg viewBox="0 0 68 32" aria-hidden="true"><path d="M8 18h22l3-8h24v16H33l-3-6H8z"/><rect x="6" y="16" width="18" height="8"/></svg>',
+        frag:
+          '<svg viewBox="0 0 48 36" aria-hidden="true"><path d="M17 8h17l4 7v13l-5 6H17l-6-6V15z"/><path d="M20 3h11v6H20zM30 2h9v3h-9z"/></svg>',
+        flash:
+          '<svg viewBox="0 0 48 36" aria-hidden="true"><path d="M17 10h14l4 6v12l-5 6H18l-6-6V16z"/><path d="M24 2l3 7h-6zM8 18h6M34 18h6M12 8l4 4M32 8l-4 4"/></svg>',
+        smoke:
+          '<svg viewBox="0 0 48 36" aria-hidden="true"><path d="M18 14h14l3 5v11l-4 5H19l-5-5V19z"/><path d="M16 8c4-6 14-6 18 0M12 12c5-4 16-4 22 0"/></svg>',
         optic:
           '<svg viewBox="0 0 48 32" aria-hidden="true"><rect x="6" y="12" width="22" height="8"/><circle cx="34" cy="16" r="8" fill="none"/><circle cx="34" cy="16" r="3"/></svg>',
         muzzle:
@@ -3399,9 +3402,9 @@
           : [
               { kind: 'rifle', name: 'AKM', arsenalSlot: 'primary', itemId: 'ar' },
               { kind: 'pistol', name: 'M9', arsenalSlot: 'secondary', itemId: 'm9' },
-              { kind: 'optic', name: '全息瞄具', arsenalSlot: 'attachment1', itemId: 'holo' },
-              { kind: 'muzzle', name: '原厂枪口', arsenalSlot: 'attachment2', itemId: 'stock' },
-              { kind: 'grenade', name: '白色烟雾弹', arsenalSlot: 'grenade', itemId: 'smoke' },
+              { kind: 'medkit', name: '急救箱', arsenalSlot: 'gadget1', itemId: 'medkit' },
+              { kind: 'ammo', name: '弹药箱', arsenalSlot: 'gadget2', itemId: 'ammo' },
+              { kind: 'frag', name: '破片手榴弹', arsenalSlot: 'grenade', itemId: 'frag' },
               { kind: 'knife', name: '战斗刀', arsenalSlot: 'melee', itemId: 'knife' },
             ];
       const strips = [
@@ -5104,7 +5107,15 @@
           const mx = cx + (e.mesh.position.x - px) * scale;
           const my = cy + (e.mesh.position.z - pz) * scale;
           if (mx < 3 || my < 3 || mx > w - 3 || my > h - 3) continue;
-          this._drawMinimapDiamond(ctx, mx, my, 2.2, '#ff5a3a', null);
+          const spotted = !!(e.spottedUntil && e.spottedUntil > now);
+          this._drawMinimapDiamond(
+            ctx,
+            mx,
+            my,
+            spotted ? 3.2 : 2.2,
+            spotted ? '#ffdd55' : '#ff5a3a',
+            spotted ? '#041018' : null
+          );
         }
       }
 

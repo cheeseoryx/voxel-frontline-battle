@@ -8,18 +8,18 @@
   const DEFAULT_LOADOUT = {
     primary: 'ar',
     secondary: 'm9',
-    attachment1: 'holo',
-    attachment2: 'stock',
-    grenade: 'smoke',
+    gadget1: 'medkit',
+    gadget2: 'ammo',
+    grenade: 'frag',
     melee: 'knife',
   };
 
   const SLOTS = [
     { id: 'primary', title: '选择主要武器', label: '主要武器' },
     { id: 'secondary', title: '选择副武器', label: '副武器' },
-    { id: 'attachment1', title: '选择配件 1', label: '配件 1' },
-    { id: 'attachment2', title: '选择配件 2', label: '配件 2' },
-    { id: 'grenade', title: '选择手雷', label: '手雷' },
+    { id: 'gadget1', title: '选择配件 1', label: '配件 1' },
+    { id: 'gadget2', title: '选择配件 2', label: '配件 2' },
+    { id: 'grenade', title: '选择投掷物', label: '投掷物' },
     { id: 'melee', title: '选择近战', label: '近战' },
   ];
 
@@ -93,115 +93,11 @@
     },
     launcher: {
       label: '发射器',
-      tags: ['反装甲', '高爆', '工程兵'],
+      tags: ['反装甲', '高爆', '配件'],
       flavor: '破甲一击',
-      blurb: '反载具与工事破坏，对步兵容错低且备弹极少。',
+      blurb: '反载具火箭筒作为 3/4 号配件装备，所有兵种均可使用。',
     },
   };
-
-  const ATTACHMENTS_1 = [
-    {
-      id: 'iron',
-      name: '机械瞄具',
-      kind: 'optic',
-      flavor: '最快获取',
-      desc: '无额外倍率，瞄准最快，适合近距离与高机动交火。',
-    },
-    {
-      id: 'holo',
-      name: '全息瞄具',
-      kind: 'optic',
-      flavor: '清晰窗景',
-      desc: '中近距离快速获取目标，视野开阔、遮挡少。',
-    },
-    {
-      id: 'optic',
-      name: '光学瞄具',
-      kind: 'optic',
-      flavor: '中距锁定',
-      desc: '中距离精确射击，适合点射与点名射手角色。',
-    },
-    {
-      id: 'sniper',
-      name: '狙击镜',
-      kind: 'optic',
-      flavor: '远距观察',
-      desc: '高倍率远距离观察与精确瞄准，近战视野受限。',
-    },
-  ];
-
-  const ATTACHMENTS_2 = [
-    {
-      id: 'stock',
-      name: '原厂枪口',
-      kind: 'muzzle',
-      flavor: '出厂配置',
-      desc: '保持出厂后坐、焰口与枪声，无额外惩罚。',
-    },
-    {
-      id: 'compensator',
-      name: '制退器',
-      kind: 'muzzle',
-      flavor: '压后坐',
-      desc: '抑制垂直后坐，连发更稳，枪声与焰口保持明显。',
-    },
-    {
-      id: 'suppressor',
-      name: '消音器',
-      kind: 'muzzle',
-      flavor: '隐蔽射击',
-      desc: '降低枪声传播距离，便于侧翼渗透，略增枪管长度。',
-    },
-  ];
-
-  const GRENADES = [
-    {
-      id: 'frag',
-      name: '破片手榴弹',
-      kind: 'grenade',
-      flavor: '范围杀伤',
-      desc: '延时爆炸并造成范围破片伤害，适合清房与抛投死角。',
-    },
-    {
-      id: 'impact',
-      name: '冲击手榴弹',
-      kind: 'grenade',
-      flavor: '碰炸',
-      desc: '碰撞后立即引爆，适合点杀掩体后的目标。',
-    },
-    {
-      id: 'smoke',
-      name: '白色烟雾弹',
-      kind: 'grenade',
-      flavor: '遮断视线',
-      desc: '遮断视线并掩护小队推进或复活倒地队友。',
-      gameId: 'smoke',
-    },
-    {
-      id: 'flash',
-      name: '闪光弹',
-      kind: 'grenade',
-      flavor: '致盲干扰',
-      desc: '短暂致盲并干扰附近敌军，为突入创造窗口。',
-    },
-  ];
-
-  const MELEE = [
-    {
-      id: 'knife',
-      name: '战斗刀',
-      kind: 'knife',
-      flavor: '标准近战',
-      desc: '步兵标准近战武器，无声、快速，用于最后近身。',
-    },
-    {
-      id: 'bayonet',
-      name: '刺刀',
-      kind: 'knife',
-      flavor: '枪下加刃',
-      desc: '加装于步枪的近战刃，突刺距离略长。',
-    },
-  ];
 
   const HEADLINE = [
     { key: 'damage', label: '伤害', better: 'higher' },
@@ -277,12 +173,17 @@
   }
 
   function getState() {
+    if (global.VF.Gadgets && global.VF.Gadgets.ensureLoadout) {
+      const state = global.VF.Gadgets.ensureLoadout();
+      const g = global.VF && global.VF.game;
+      if (g && g.preferredWeaponId) state.primary = g.preferredWeaponId;
+      if (g && g.preferredSecondaryId) state.secondary = g.preferredSecondaryId;
+      return state;
+    }
     const g = global.VF && global.VF.game;
     const store = g || global.VF;
     if (!store.loadout) {
       store.loadout = Object.assign({}, DEFAULT_LOADOUT);
-      if (g && g.preferredWeaponId) store.loadout.primary = g.preferredWeaponId;
-      if (g && g.preferredSecondaryId) store.loadout.secondary = g.preferredSecondaryId;
     }
     if (g && g.preferredWeaponId) store.loadout.primary = g.preferredWeaponId;
     if (g && g.preferredSecondaryId) store.loadout.secondary = g.preferredSecondaryId;
@@ -316,7 +217,7 @@
   function isOwned(item) {
     if (!item) return false;
     if (item.owned === false) return false;
-    if (item.id === 'rpg') return classId() === 'engineer';
+    if (item.id === 'rpg') return true;
     if (item.weapon && global.VF.Economy && global.VF.Economy.ownsWeapon) {
       return !!global.VF.Economy.ownsWeapon(item.id);
     }
@@ -342,19 +243,34 @@
     };
   }
 
+  function gadgetCatalog() {
+    return (global.VF.Gadgets && global.VF.Gadgets.GADGET_CATALOG) || [];
+  }
+
+  function grenadeCatalog() {
+    return (global.VF.Gadgets && global.VF.Gadgets.GRENADE_CATALOG) || [];
+  }
+
+  function meleeCatalog() {
+    return (global.VF.Gadgets && global.VF.Gadgets.MELEE_CATALOG) || [];
+  }
+
   function staticList(slot) {
-    if (slot === 'attachment1') return ATTACHMENTS_1.map(function (row) {
-      return catalogItem(slot, row);
-    });
-    if (slot === 'attachment2') return ATTACHMENTS_2.map(function (row) {
-      return catalogItem(slot, row);
-    });
-    if (slot === 'grenade') return GRENADES.map(function (row) {
-      return catalogItem(slot, row);
-    });
-    if (slot === 'melee') return MELEE.map(function (row) {
-      return catalogItem(slot, row);
-    });
+    if (slot === 'gadget1' || slot === 'gadget2') {
+      return gadgetCatalog().map(function (row) {
+        return catalogItem(slot, row);
+      });
+    }
+    if (slot === 'grenade') {
+      return grenadeCatalog().map(function (row) {
+        return catalogItem(slot, row);
+      });
+    }
+    if (slot === 'melee') {
+      return meleeCatalog().map(function (row) {
+        return catalogItem(slot, row);
+      });
+    }
     return [];
   }
 
@@ -377,7 +293,6 @@
     for (let i = 0; i < order.length; i++) push(order[i]);
     if (slot === 'primary') {
       push('sg');
-      push('rpg');
     }
     if (slot === 'secondary') {
       push('m9');
@@ -724,7 +639,10 @@
       const item = findItem(slot, id);
       if (!item || !isOwned(item)) return false;
       const state = getState();
+      const prev = state[slot];
       state[slot] = item.id;
+      if (slot === 'gadget1' && state.gadget2 === item.id) state.gadget2 = prev;
+      if (slot === 'gadget2' && state.gadget1 === item.id) state.gadget1 = prev;
       const g = global.VF && global.VF.game;
       const ui = global.VF && global.VF.UI;
       if (slot === 'primary') {
@@ -746,6 +664,15 @@
         const curDef = cur ? weapons()[cur] : null;
         if (g && g.weapons && g.weapons.equip && curDef && curDef.category === 'pistol') {
           g.weapons.equip(item.id);
+        }
+      }
+      if (g && global.VF.Gadgets && global.VF.Gadgets.syncHud) {
+        global.VF.Gadgets.syncHud(g);
+        if (
+          global.VF.Gadgets.hand === slot ||
+          ((slot === 'gadget1' || slot === 'gadget2') && item.id === 'rpg' && global.VF.Gadgets.hand === slot)
+        ) {
+          global.VF.Gadgets.selectLoadoutSlot(g, slot);
         }
       }
       if (ui && ui._syncDeployClassDetails) {

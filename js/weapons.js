@@ -1,6 +1,6 @@
 /**
  * weapons.js — Weapon definitions, shooting, recoil, muzzle flash, impacts
- * Hotbar slots 1–3: AKM, Remington 870, SVD (ids ar/sg/sr kept for save compat)
+ * Infantry loadout: 1 primary · 2 secondary · 3–4 gadgets · 5 throwables · 6 melee
  *
  * Infantry guns use the same 16 base-stat kinds as the loadout inspect panel:
  * damage, playerArmorDamage, lightArmorDamage, verticalRecoil, horizontalRecoil,
@@ -432,19 +432,23 @@
           'm9';
         self.equip(WEAPONS[secondary] ? secondary : 'sg');
       }
-      if (e.code === 'Digit3') self.equip('sr');
-      if (e.code === 'Digit6') self.equip('rpg');
       if (e.code === 'KeyR') self.reload();
     });
   };
 
   Weapons.prototype.equip = function (id) {
     if (!WEAPONS[id]) return;
-    if (id === 'rpg' && (!this.player || this.player.classId !== 'engineer')) {
-      if (global.VF.UI && global.VF.UI.toast) {
-        global.VF.UI.toast('RPG-7 仅工程兵可用');
+    if (id === 'rpg') {
+      const rangeOpenRpg = global.VF.Range && global.VF.Range.isOpen;
+      const allowed =
+        rangeOpenRpg ||
+        (global.VF.Gadgets && global.VF.Gadgets.hasRpg && global.VF.Gadgets.hasRpg());
+      if (!allowed) {
+        if (global.VF.UI && global.VF.UI.toast) {
+          global.VF.UI.toast('请在装备栏 3 或 4 装配 RPG-7');
+        }
+        return;
       }
-      return;
     }
     const rangeOpen = global.VF.Range && global.VF.Range.isOpen;
     if (
@@ -458,6 +462,9 @@
         global.VF.UI.toast('未解锁 · 前往大厅商城购买');
       }
       return;
+    }
+    if (id !== 'rpg' && global.VF.Gadgets && global.VF.Gadgets.onWeaponEquip) {
+      global.VF.Gadgets.onWeaponEquip();
     }
     if (this.reloading) this._cancelReload();
     this.current = id;
@@ -474,7 +481,13 @@
     if (this.player && this.player.setHeldMode) this.player.setHeldMode('weapon');
     if (this.player && this.player.applyWeaponModel) this.player.applyWeaponModel(id);
     if (global.VF.UI) {
-      global.VF.UI.setHotbarSlot(WEAPONS[id].slot);
+      let slotNum = 1;
+      if (id === 'rpg' && global.VF.Gadgets && global.VF.Gadgets.rpgHotbarSlot) {
+        slotNum = global.VF.Gadgets.rpgHotbarSlot();
+      } else if (WEAPONS[id] && WEAPONS[id].category === 'pistol') {
+        slotNum = 2;
+      }
+      global.VF.UI.setHotbarSlot(slotNum);
       if (global.VF.UI.setEquippedWeapon) global.VF.UI.setEquippedWeapon(id);
       const ammo = this.state[id];
       if (ammo && global.VF.UI.updateAmmo) {
@@ -491,9 +504,9 @@
         ? function (id) {
             if (id === 'rpg') {
               return !!(
-                global.VF.game &&
-                global.VF.game.player &&
-                global.VF.game.player.classId === 'engineer'
+                global.VF.Gadgets &&
+                global.VF.Gadgets.hasRpg &&
+                global.VF.Gadgets.hasRpg()
               );
             }
             return global.VF.Economy.ownsWeapon(id);
@@ -505,7 +518,7 @@
       this.current = 'ar';
       this._restyleGun('ar');
       if (this.player && this.player.applyWeaponModel) this.player.applyWeaponModel('ar');
-      if (global.VF.UI) global.VF.UI.setHotbarSlot(WEAPONS.ar.slot);
+      if (global.VF.UI) global.VF.UI.setHotbarSlot(1);
     }
     if (global.VF.UI && global.VF.UI.syncWeaponLocks) global.VF.UI.syncWeaponLocks();
   };
