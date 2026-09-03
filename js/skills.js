@@ -253,6 +253,7 @@
     }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
     if (this.player.zipRide) return false;
+    if (this.player.prone || this.player.slide || this.player.vault) return false;
     if (this.dash) return false;
     return true;
   };
@@ -289,7 +290,9 @@
   };
 
   Skills.prototype.isChanneling = function () {
-    return !!(this.reviveTarget || this.repairTarget);
+    if (this.reviveTarget || this.repairTarget) return true;
+    if (this.player && this.player.vault) return true;
+    return false;
   };
 
   Skills.prototype.tryStimulant = function () {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>体素战争</title>
-  <link rel="stylesheet" href="style.css?v=skill3" />
+  <link rel="stylesheet" href="style.css?v=armor1" />
 </head>
 <body>
   <button id="audio-toggle" type="button" title="静音" aria-label="切换声音" aria-pressed="false">
@@ -232,11 +232,12 @@
           <h2>基本操作</h2>
           <ul>
             <li><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> — 移动</li>
-            <li><kbd>Shift</kbd> — 冲刺 · <kbd>Ctrl</kbd> — 蹲下（蹲下不能冲刺，头顶有障碍时松开也不会站起）</li>
-            <li><kbd>空格</kbd> — 跳跃 · 鼠标 — 视角 · <kbd>Esc</kbd> — 释放鼠标</li>
+            <li><kbd>Shift</kbd> — 冲刺（耗体力） · <kbd>Ctrl</kbd> — 蹲下；冲刺中点 <kbd>Ctrl</kbd> 滑铲</li>
+            <li><kbd>Z</kbd> — 趴下 / 起身 · <kbd>空格</kbd> — 跳跃；移动中对腰高障碍翻越；趴下时起身</li>
+            <li>鼠标 — 视角 · <kbd>Esc</kbd> — 释放鼠标</li>
             <li><kbd>左键</kbd> — 射击 · <kbd>右键</kbd> — 瞄准（ADS，散布更小）</li>
             <li><kbd>R</kbd> — 换弹 · <kbd>V</kbd> — 冲刺（准星方向） · <kbd>G</kbd> — 投掷物 · <kbd>X</kbd> — 兵种技能 · <kbd>Q</kbd> — 标记敌人 · <kbd>Tab</kbd> — 计分板 · <kbd>M</kbd> — 大地图</li>
-            <li><kbd>E</kbd> — 拾取部署核 / 掩体建材 · <kbd>F</kbd> — 乘坐滑索</li>
+            <li><kbd>E</kbd> — 拾取部署核 / 掩体建材 · 靠近载具时进入；开车撞到敌人会使其倒地 · <kbd>F</kbd> — 乘坐滑索</li>
           </ul>
         </section>
         <section class="tutorial-section">
@@ -287,7 +288,7 @@
         <section class="tutorial-section">
           <h2>生存提示</h2>
           <ul>
-            <li>血量偏低时找掩体周旋；蹲下可缩小暴露面</li>
+            <li>血量偏低时找掩体周旋；蹲下或趴下可缩小暴露面</li>
             <li>远距离打核心请用瞄准（右键）提高精度</li>
             <li>1v1 中仅摧毁敌方核心可获胜；阵亡后可重新部署</li>
             <li>卡顿时可降低浏览器缩放或关闭其他标签页</li>
@@ -387,7 +388,7 @@
     </div>
     <div id="cq-markers" class="cq-markers" aria-hidden="true"></div>
     <div id="cq-command" class="cq-command hidden">
-      <span id="cq-command-text">Q 标记 · X 职业装备 · Z 烟雾</span>
+      <span id="cq-command-text">Q 标记 · X 职业装备 · Z 趴下</span>
       <button type="button" id="cq-team-switch" class="cq-team-switch hidden">换边 (T)</button>
     </div>
 
@@ -403,6 +404,16 @@
         <span id="armor-blocks">████████</span>
         <span id="armor-num">50</span>
       </div>
+      <div id="stamina-row" class="hidden">
+        <span class="vital-label">体力</span>
+        <span id="stamina-track"><i id="stamina-fill"></i></span>
+      </div>
+    </div>
+
+    <div id="kill-feed" aria-live="polite"></div>
+    <div id="hurt-dirs" aria-hidden="true">
+      <i data-i="0"></i><i data-i="1"></i><i data-i="2"></i><i data-i="3"></i>
+      <i data-i="4"></i><i data-i="5"></i><i data-i="6"></i><i data-i="7"></i>
     </div>
 
     <!-- Legacy wave panel kept hidden (timer moved to match-clock) -->
@@ -1324,7 +1335,7 @@
 
   <!-- Game modules (order matters) -->
   <!-- feel-config.js: KEEP on production (baked feel numbers) -->
-  <script src="js/feel-config.js?v=downed3"></script>
+  <script src="js/feel-config.js?v=move2"></script>
   <!-- render-config.js/render-pipeline.js/render-scene.js: KEEP on production -->
   <script src="js/render-config.js?v=2"></script>
   <script src="js/render-pipeline.js?v=downed1"></script>
@@ -1334,40 +1345,41 @@
   <script src="js/terrain-fine.js?v=scorch3"></script>
   <script src="js/world-outskirts.js?v=scorch3"></script>
   <script src="js/bases.js?v=scorch3"></script>
-  <script src="js/vehicles.js?v=skill2"></script>
+  <script src="js/vehicles.js?v=ram1"></script>
   <script src="js/weapon-viewmodels.js?v=wstat2"></script>
-  <script src="js/soldier.js?v=skill3"></script>
-  <script src="js/player.js?v=gadget1"></script>
+  <script src="js/soldier.js?v=move1"></script>
+  <script src="js/hitboxes.js?v=move1"></script>
+  <script src="js/player.js?v=move2"></script>
   <script src="js/weapon-catalog.js?v=wstat3"></script>
-  <script src="js/weapons.js?v=skill3"></script>
-  <script src="js/skills.js?v=skill3"></script>
+  <script src="js/weapons.js?v=armor1"></script>
+  <script src="js/skills.js?v=move1"></script>
   <script src="js/building.js?v=gadget1"></script>
   <script src="js/tower-designer.js?v=scorch3"></script>
   <script src="js/hub.js?v=scorch4"></script>
   <script src="js/economy.js?v=wstat3"></script>
   <script src="js/lobby.js?v=scorch4"></script>
   <script src="js/range.js?v=wstat2"></script>
-  <script src="js/ai.js?v=gadget1"></script>
+  <script src="js/ai.js?v=move1"></script>
   <script src="js/conquest.js?v=vehicle3"></script>
-  <script src="js/revive.js?v=skill2"></script>
+  <script src="js/revive.js?v=move1"></script>
   <script src="js/squads.js?v=scorch3"></script>
-  <script src="js/gadgets.js?v=gadget1"></script>
-  <script src="js/scoring.js?v=vehicle3"></script>
+  <script src="js/gadgets.js?v=move1"></script>
+  <script src="js/scoring.js?v=move1"></script>
   <script src="js/comms.js?v=skill3"></script>
   <script src="js/net-protocol.js?v=vehicle3"></script>
   <script src="js/net-simulation.js?v=vehicle3"></script>
   <script src="js/match-flow.js?v=scorch3"></script>
   <script src="js/soldier-menu.js?v=arsenal1"></script>
   <script src="js/arsenal.js?v=gadget1"></script>
-  <script src="js/ui.js?v=skill3"></script>
+  <script src="js/ui.js?v=armor1"></script>
   <script src="js/audio.js?v=scorch3"></script>
   <script src="js/atmosphere.js?v=scorch3"></script>
   <script src="js/config.js?v=scorch3"></script>
   <script src="js/kubee-bridge.js?v=scorch3"></script>
-  <script src="js/pvp.js?v=downed1"></script>
-  <script src="js/main.js?v=skill3"></script>
+  <script src="js/pvp.js?v=move1"></script>
+  <script src="js/main.js?v=move2"></script>
   <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
-  <script src="js/feel-tuner.js?v=wstat1"></script>
+  <script src="js/feel-tuner.js?v=move2"></script>
   <!-- render-tuner.js: F9 后处理参数调节（生产环境删除） -->
   <script src="js/render-tuner.js?v=2"></script>
   <script src="js/map-editor.js?v=scorch3"></script>

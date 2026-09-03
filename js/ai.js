@@ -895,9 +895,24 @@
   AI.prototype._raycastTeam = function (list, origin, dir, range) {
     let best = null;
     let bestDist = range;
+    const HB = global.VF && global.VF.Hitboxes;
     for (let i = 0; i < list.length; i++) {
       const e = list[i];
       if (!e.alive || e.vehicleId != null) continue;
+      if (HB && HB.raycast) {
+        const hit = HB.raycast(e, origin, dir, bestDist);
+        if (hit && hit.dist < bestDist) {
+          bestDist = hit.dist;
+          best = {
+            enemy: e,
+            unit: e,
+            point: hit.point,
+            dist: hit.dist,
+            part: hit.part,
+          };
+        }
+        continue;
+      }
       const center = e.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0));
       const to = center.clone().sub(origin);
       const proj = to.dot(dir);
@@ -906,14 +921,14 @@
       const radius = e.type === 'heavy' ? 1.25 : 1.0;
       if (closest.distanceTo(center) < radius) {
         bestDist = proj;
-        best = { enemy: e, unit: e, point: closest, dist: proj };
+        best = { enemy: e, unit: e, point: closest, dist: proj, part: 'torso' };
       }
     }
     return best;
   };
 
-  AI.prototype.damageEnemy = function (enemy, dmg, hitDir) {
-    return this._damageUnit(enemy, dmg, hitDir, true, this.player);
+  AI.prototype.damageEnemy = function (enemy, dmg, hitDir, meta) {
+    return this._damageUnit(enemy, dmg, hitDir, true, this.player, meta);
   };
 
   AI.prototype._restoreOnFoot = function (unit) {
@@ -976,7 +991,7 @@
     return dismounted;
   };
 
-  AI.prototype._damageUnit = function (unit, dmg, hitDir, fromPlayer, attacker) {
+  AI.prototype._damageUnit = function (unit, dmg, hitDir, fromPlayer, attacker, meta) {
     if (!unit || !unit.alive) return { killed: false, dmg: 0 };
     if (unit._reviveProtection > 0) return { killed: false, dmg: 0 };
     const sourceTeam =
@@ -989,6 +1004,11 @@
       return { killed: false, dmg: 0 };
     }
     unit._lastCombatAt = performance.now();
+    if (meta && meta.part) unit._lastHitPart = meta.part;
+    if (meta && meta.weaponId) unit._lastHitWeaponId = meta.weaponId;
+    else if (attacker && (attacker.weaponId || attacker.current)) {
+      unit._lastHitWeaponId = attacker.weaponId || attacker.current;
+    }
     const before = unit.hp;
     unit.hp -= dmg;
     const applied = Math.min(before, Math.max(0, dmg));
@@ -1001,7 +1021,8 @@
         unit.entityId,
         applied,
         attacker && attacker.team,
-        unit.team
+        unit.team,
+        (meta && meta.part) || unit._lastHitPart || null
       );
     }
 
@@ -1062,6 +1083,7 @@
           attackerTeam: (attacker && attacker.team) || (fromPlayer ? this.world._playerTeam : null),
         })
       ) {
+        this._pushCombatFeed(unit, attacker, attackerId, fromPlayer, 'down', meta);
         return { killed: true, downed: true, dmg: applied };
       }
       unit.alive = false;
@@ -1112,6 +1134,7 @@
           );
         }
       }
+      this._pushCombatFeed(unit, attacker, attackerId, fromPlayer, 'kill', meta);
       return { killed: true, dmg: applied };
     }
     return { killed: false, dmg: applied };
@@ -1140,6 +1163,38 @@
       const msg = n < MK_LABELS.length ? MK_LABELS[n] : n + '连杀';
       global.VF.UI.toast(msg);
     }
+  };
+
+  AI.prototype._pushCombatFeed = function (unit, attacker, attackerId, fromPlayer, kind, meta) {
+    if (!global.VF.UI || !global.VF.UI.pushKillFeed || !unit) return;
+    const pos = unit.mesh && unit.mesh.position;
+    const weaponId =
+      (meta && meta.weaponId) ||
+      unit._lastHitWeaponId ||
+      (attacker && (attacker.weaponId || attacker.current)) ||
+      (attacker && attacker.type === 'heavy'
+        ? 'sg'
+        : attacker && attacker.type === 'ranged'
+          ? 'sr'
+          : 'ar');
+    global.VF.UI.pushKillFeed({
+      killerId: attackerId || (fromPlayer ? 'player-local' : null),
+      killerName: null,
+      killerTeam:
+        (attacker && attacker.team) ||
+        (fromPlayer && this.world && this.world._playerTeam) ||
+        null,
+      victimId: unit.entityId,
+      victimName: null,
+      victimTeam: unit.team,
+      weaponId: weaponId,
+      part: (meta && meta.part) || unit._lastHitPart || null,
+      kind: kind,
+      lifeId: unit.downState && unit.downState.lifeId,
+      x: pos && pos.x,
+      y: pos && pos.y,
+      z: pos && pos.z,
+    });
   };
 
   AI.prototype._acquireDeathChunk = function () {
@@ -1594,11 +1649,11 @@
 
     if (!didHit) return;
 
-    const dmg = unitDealDamage(unit);
+    const dmgBase = unitDealDamage(unit);
     if (targetUnit.isTurret && targetUnit.turret) {
       const skills = global.VF.game && global.VF.game.skills;
       if (skills && skills.damageTurret) {
-        skills.damageTurret(targetUnit.turret, dmg);
+        skills.damageTurret(targetUnit.turret, dmgBase);
       }
       return;
     }
@@ -1610,6 +1665,17 @@
       ) {
         return;
       }
+      let dmg = dmgBase;
+      let part = 'torso';
+      if (global.VF.Hitboxes && global.VF.Hitboxes.raycast) {
+        const shotDir = to.clone().sub(from);
+        const shotLen = shotDir.length() || 1;
+        shotDir.multiplyScalar(1 / shotLen);
+        const hit = global.VF.Hitboxes.raycast(this.player, from, shotDir, dist + 0.8);
+        if (hit && hit.part) part = hit.part;
+        dmg = Math.round(dmg * global.VF.Hitboxes.partMul(part));
+      }
+      unit.hitPart = part;
       if (this.player.takeDamage) {
         this.player.takeDamage(dmg, unit.mesh.position, unit);
       } else {
@@ -1619,7 +1685,7 @@
         }
       }
     } else {
-      this._damageUnit(targetUnit, dmg, null, false, unit);
+      this._damageUnit(targetUnit, dmgBase, null, false, unit);
     }
   };
 

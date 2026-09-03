@@ -12,6 +12,13 @@
   const RAM_SLOW_FACTOR = 0.5;
   const RAM_SLOW_DURATION = 0.7;
   const RAM_MAX_VOXELS = 220;
+  const RAM_INFANTRY_MIN_SPEED = 3;
+  const RAM_INFANTRY_RADIUS = 0.45;
+  const RAM_INFANTRY_HEIGHT = 1.75;
+  const RAM_INFANTRY_DAMAGE = 400;
+  const RAM_INFANTRY_COOLDOWN_MS = 800;
+  const RAM_INFANTRY_MAX_HITS = 8;
+  const RAM_INFANTRY_SLOW = 0.86;
   const DRIVE_HALF_WIDTH = 0.48;
   const DRIVE_HALF_LENGTH = 0.48;
   const MAX_DRIVE_PITCH = Math.PI / 4;
@@ -905,6 +912,7 @@
       mesh: null,
       aabb: { min: vec(0, 0, 0), max: vec(0, 0, 0), vehicleId: id },
       ramSlowTimer: 0,
+      _ramInfantryAt: Object.create(null),
       spawn: {
         position: copyVec(spec.respawnPosition || position),
         yaw: finite(spec.respawnYaw, yaw),
@@ -1727,6 +1735,208 @@
     return true;
   };
 
+  VehicleSystem.prototype._vehicleHasDriver = function (vehicle) {
+    if (!vehicle || !vehicle.seats) return false;
+    for (let i = 0; i < vehicle.seats.length; i++) {
+      const seat = vehicle.seats[i];
+      if (seat.role === 'driver' && (seat.occupant || seat.occupantId != null)) return true;
+    }
+    return false;
+  };
+
+  VehicleSystem.prototype._vehicleDriver = function (vehicle) {
+    if (!vehicle || !vehicle.seats) return null;
+    for (let i = 0; i < vehicle.seats.length; i++) {
+      const seat = vehicle.seats[i];
+      if (seat.role === 'driver' && seat.occupant) return seat.occupant;
+    }
+    return null;
+  };
+
+  VehicleSystem.prototype._infantryRamBox = function (position) {
+    if (!position) return null;
+    const r = RAM_INFANTRY_RADIUS;
+    return {
+      min: { x: position.x - r, y: position.y + 0.06, z: position.z - r },
+      max: { x: position.x + r, y: position.y + RAM_INFANTRY_HEIGHT, z: position.z + r },
+    };
+  };
+
+  VehicleSystem.prototype._ramInfantrySource = function (vehicle, driver, game) {
+    const player = game && game.player;
+    const isPlayer = !!(driver && player && driver === player);
+    const occupantId = (function () {
+      if (!vehicle || !vehicle.seats) return null;
+      for (let i = 0; i < vehicle.seats.length; i++) {
+        const seat = vehicle.seats[i];
+        if (seat.role === 'driver') return seat.occupantId || null;
+      }
+      return null;
+    })();
+    return {
+      entityId: isPlayer
+        ? player.entityId || 'player-local'
+        : (driver && (driver.entityId || driver.id)) || occupantId || vehicle.id,
+      team: vehicle.team,
+      weaponId: 'vehicle-ram',
+      id: vehicle.id,
+      type: vehicle.type,
+      position: vehicle.position,
+      playerArmorDamage: 80,
+    };
+  };
+
+  VehicleSystem.prototype._canRamInfantryTarget = function (vehicle, entity, game) {
+    if (!entity || entity === vehicle) return false;
+    if (entity.vehicleId != null) return false;
+    if (entity.dead || entity.downed) return false;
+    if (entity.alive === false) return false;
+    if (entity._reviveProtection > 0) return false;
+    const player = game && game.player;
+    const team =
+      entity.team ||
+      (player && entity === player ? player.team || (game.world && game.world._playerTeam) : null);
+    if (team && team === vehicle.team) return false;
+    if (
+      global.VF.Skills &&
+      global.VF.Skills.isPlayerStealthed &&
+      global.VF.Skills.isPlayerStealthed(entity)
+    ) {
+      return false;
+    }
+    if (
+      global.VF.MatchFlow &&
+      global.VF.MatchFlow.canDamage &&
+      !global.VF.MatchFlow.canDamage(entity, vehicle.team)
+    ) {
+      return false;
+    }
+    return true;
+  };
+
+  VehicleSystem.prototype._applyRamInfantryHit = function (vehicle, target, game) {
+    const player = game && game.player;
+    const driver = this._vehicleDriver(vehicle);
+    const fromPlayer = !!(driver && player && driver === player);
+    const source = this._ramInfantrySource(vehicle, driver, game);
+    const hitDir = vec(vehicle.velocity.x, 0, vehicle.velocity.z);
+    if (target.kind === 'remote') {
+      if (global.VF.Pvp && global.VF.Pvp.dealDamageToRemote) {
+        global.VF.Pvp.dealDamageToRemote(RAM_INFANTRY_DAMAGE);
+        return true;
+      }
+      return false;
+    }
+    if (target.entity && player && target.entity === player) {
+      if (!player.takeDamage) return false;
+      const before = player.health;
+      player.takeDamage(RAM_INFANTRY_DAMAGE, vehicle.position, source);
+      return !!(player.downed || player.dead || player.health < before);
+    }
+    if (target.entity && game.ai && game.ai._damageUnit) {
+      const result = game.ai._damageUnit(
+        target.entity,
+        RAM_INFANTRY_DAMAGE,
+        hitDir,
+        fromPlayer,
+        fromPlayer ? player : driver || source
+      );
+      return !!(result && (result.killed || result.downed || result.dmg > 0));
+    }
+    return false;
+  };
+
+  VehicleSystem.prototype._tryRamInfantry = function (vehicle, game) {
+    if (!vehicle || !vehicle.alive || !vehicle.aabb) return 0;
+    if (!this._vehicleHasDriver(vehicle)) return 0;
+    if (Math.abs(vehicle.speed) < RAM_INFANTRY_MIN_SPEED) return 0;
+    game = game || (global.VF && global.VF.game);
+    if (!game) return 0;
+    const ramBox = this._expandExtentsAlong(
+      { min: vehicle.aabb.min, max: vehicle.aabb.max },
+      vehicle.velocity.x,
+      vehicle.velocity.z,
+      0.35 + Math.min(1.1, Math.abs(vehicle.speed) * 0.045)
+    );
+    const now = Date.now();
+    if (!vehicle._ramInfantryAt) vehicle._ramInfantryAt = Object.create(null);
+    const hits = [];
+    const seen = Object.create(null);
+
+    const consider = (entity, pos, kind, id) => {
+      if (!pos) return;
+      if (kind !== 'remote' && !entity) return;
+      const key =
+        id ||
+        (entity && (entity.entityId || entity.id)) ||
+        (kind === 'player'
+          ? 'player-local'
+          : kind === 'remote'
+            ? 'remote-player'
+            : pos
+              ? kind + ':' + Math.round(pos.x) + ':' + Math.round(pos.z)
+              : null);
+      if (!key || seen[key]) return;
+      if ((vehicle._ramInfantryAt[key] || 0) + RAM_INFANTRY_COOLDOWN_MS > now) return;
+      if (kind !== 'remote' && !this._canRamInfantryTarget(vehicle, entity, game)) return;
+      const box = this._infantryRamBox(pos);
+      if (!box || !boxesOverlap(ramBox, box)) return;
+      seen[key] = 1;
+      hits.push({ entity: entity, pos: pos, kind: kind, id: key });
+    };
+
+    const ai = game.ai;
+    if (ai) {
+      const lists = [ai.blue, ai.red];
+      for (let l = 0; l < lists.length; l++) {
+        const list = lists[l];
+        if (!list) continue;
+        for (let i = 0; i < list.length; i++) {
+          const unit = list[i];
+          consider(unit, entityPosition(unit), 'ai', unit && (unit.entityId || unit.id));
+        }
+      }
+    }
+
+    const player = game.player;
+    if (player && player.object) {
+      consider(player, player.object.position, 'player', player.entityId || 'player-local');
+    }
+
+    const pvp = global.VF && global.VF.Pvp;
+    const remote = pvp && pvp.remoteState;
+    if (remote && remote.alive !== false && remote.x != null && remote.z != null) {
+      const theirTeam = remote.team || (pvp.remoteLoadout && pvp.remoteLoadout.team);
+      if (theirTeam && theirTeam !== vehicle.team) {
+        consider(
+          remote,
+          { x: remote.x, y: remote.y || 0, z: remote.z },
+          'remote',
+          'remote-player'
+        );
+      }
+    }
+
+    let applied = 0;
+    for (let i = 0; i < hits.length && applied < RAM_INFANTRY_MAX_HITS; i++) {
+      const hit = hits[i];
+      if (!this._applyRamInfantryHit(vehicle, hit, game)) continue;
+      vehicle._ramInfantryAt[hit.id] = now;
+      applied++;
+      this._emit('vehicle-ram-infantry', {
+        vehicleId: vehicle.id,
+        vehicleType: vehicle.type,
+        team: vehicle.team,
+        speed: vehicle.speed,
+        targetId: hit.id,
+        kind: hit.kind,
+        position: copyVec(hit.pos),
+      });
+    }
+    if (applied > 0) vehicle.speed *= RAM_INFANTRY_SLOW;
+    return applied;
+  };
+
   VehicleSystem.prototype._updateMovement = function (vehicle, dt) {
     const input = vehicle.driverInput;
     const def = vehicle.def;
@@ -2057,6 +2267,7 @@
     vehicle.roll = 0;
     vehicle.speed = 0;
     vehicle.ramSlowTimer = 0;
+    vehicle._ramInfantryAt = Object.create(null);
     vehicle.velocity = vec(0, 0, 0);
     vehicle.hp = vehicle.maxHp;
     vehicle.alive = true;
@@ -2127,6 +2338,7 @@
         this._syncVisual(vehicle);
         this._syncAABB(vehicle);
         this._syncOccupants(vehicle);
+        this._tryRamInfantry(vehicle, game || (global.VF && global.VF.game));
       }
     }
     this._updateProjectiles(dt, game || (global.VF && global.VF.game));

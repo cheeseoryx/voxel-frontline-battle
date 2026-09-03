@@ -409,13 +409,25 @@
 
   function rayHitsPlayer(origin, direction, range) {
     if (!game.player || game.player.dead || !game.player.alive) return null;
+    if (game.player.vehicleId != null) return null;
+    const HB = VF.Hitboxes;
+    if (HB && HB.raycast) {
+      const hit = HB.raycast(game.player, origin, direction, range);
+      if (!hit) return null;
+      return {
+        entity: game.player,
+        point: hit.point,
+        dist: hit.dist,
+        part: hit.part,
+      };
+    }
     const center = game.player.getEyePosition();
     const to = center.clone().sub(origin);
     const projection = to.dot(direction);
     if (projection < 0 || projection > range) return null;
     const closest = origin.clone().addScaledVector(direction, projection);
     return closest.distanceTo(center) <= 0.9
-      ? { entity: game.player, point: closest, dist: projection }
+      ? { entity: game.player, point: closest, dist: projection, part: 'torso' }
       : null;
   }
 
@@ -462,6 +474,11 @@
       return;
     }
     if (!entity) return;
+    if (target.part && VF.Hitboxes && VF.Hitboxes.partMul) {
+      damage = Math.round(damage * VF.Hitboxes.partMul(target.part));
+      entity._lastHitPart = target.part;
+      if (source) source.hitPart = target.part;
+    }
     if (entity === game.player) {
       game.player.takeDamage(damage, source && source.position, source);
     } else if (game.ai && game.ai._damageUnit) {
@@ -663,6 +680,31 @@
             : def.damage;
         damageHostileInfantry(data.team, hit, infantryDamage, actor);
         spawnVehicleImpact(end, def.kind === 'main-cannon' ? 0.55 : 0.14);
+      }
+    });
+    vehicles.on('vehicle-ram-infantry', function (event) {
+      const data = event.data || {};
+      const p = data.position;
+      if (p) {
+        spawnVehicleImpact(new THREE.Vector3(p.x, p.y + 0.7, p.z), 0.55);
+      }
+      if (VF.Audio && VF.Audio.play) VF.Audio.play('hit_heavy');
+      if (data.kind === 'remote' && VF.UI && VF.UI.pushKillFeed) {
+        const driverId =
+          (game.player && game.player.entityId) || 'player-local';
+        VF.UI.pushKillFeed({
+          killerId: driverId,
+          killerName: '你',
+          killerTeam: data.team || (game.player && game.player.team),
+          victimId: 'remote-player',
+          victimName: '敌方玩家',
+          victimTeam: data.team === 'enemy' ? 'ally' : 'enemy',
+          weaponId: 'vehicle-ram',
+          kind: 'kill',
+          x: p && p.x,
+          y: p && p.y,
+          z: p && p.z,
+        });
       }
     });
     vehicles.on('vehicle-ram-break', function (event) {
@@ -1043,7 +1085,8 @@
         ? VF.Lobby.getSelectedClassId()
         : game.playerClass || (game.player && game.player.classId) || 'assault';
     const isPvp = game.mode === 'pvp';
-    const pvpTeam = isPvp && game.pvp && game.pvp.team === 'enemy' ? 'enemy' : 'ally';
+    const assignedTeam =
+      game.world && game.world._playerTeam === 'enemy' ? 'enemy' : 'ally';
     const mapName =
       (VF.IslandConquestMap && VF.IslandConquestMap.name) ||
       (game.world && game.world._mapName) ||
@@ -1082,10 +1125,23 @@
         playerCount: playerCount,
         playerMax: playerMax,
         playerState: isPvp ? '对局进行中 · 可中途加入' : '作战编制已就绪',
-        factionName: pvpTeam === 'enemy' ? '赤焰军团' : '和平军团',
+        factionName: assignedTeam === 'enemy' ? '赤焰军团' : '和平军团',
         autoAdvanceSec: 10,
       }
     );
+  }
+
+  function pickOpeningTeam() {
+    if (game.mode === 'pvp' && game.pvp && (game.pvp.team === 'ally' || game.pvp.team === 'enemy')) {
+      return game.pvp.team;
+    }
+    if (game.teamLocked && (game.lockedTeam === 'ally' || game.lockedTeam === 'enemy')) {
+      return game.lockedTeam;
+    }
+    if (game.world && (game.world._playerTeam === 'ally' || game.world._playerTeam === 'enemy')) {
+      return game.world._playerTeam;
+    }
+    return Math.random() < 0.5 ? 'enemy' : 'ally';
   }
 
   function prepareInitialDeploymentSpawn() {
@@ -1097,12 +1153,10 @@
       game.world._spawnPoints.all &&
       game.world._spawnPoints.all.length;
     if (!mapReady) prepareMatchMap();
-    const team =
-      game.mode === 'pvp' && game.pvp && game.pvp.team === 'enemy'
-        ? 'enemy'
-        : 'ally';
+    const team = pickOpeningTeam();
     game.world._deployList = null;
     if (game.world.setPlayerTeam) game.world.setPlayerTeam(team);
+    if (game.player) game.player.team = team;
     const points =
       (game.world._spawnPoints && game.world._spawnPoints[team]) || [];
     let hq = null;
@@ -1347,6 +1401,10 @@
     game.pvp = null;
     game.teamLocked = false;
     game.lockedTeam = null;
+    if (game.world) {
+      game.world._playerTeam = null;
+      game.world._selectedSpawnId = null;
+    }
     if (game.mapSeed == null) {
       game.mapSeed = ((Date.now() ^ ((Math.random() * 1e9) | 0)) >>> 0);
     }
@@ -1998,6 +2056,8 @@
         hp: game.player.health,
         alive: !game.player.dead,
         crouch: !!game.player.crouching,
+        prone: !!game.player.prone,
+        slide: !!game.player.slide,
         classId: game.player.classId || game.playerClass || 'assault',
         team: game.player.team || game.world._playerTeam,
         stealth: !!game.player.stealthed,
@@ -2193,6 +2253,7 @@
     if (VF.UI && VF.UI.updateVehicleHud) {
       VF.UI.updateVehicleHud(game.player, game.vehicles);
     }
+    if (VF.UI && VF.UI.tickKillFeed) VF.UI.tickKillFeed();
 
     if (game.running && !game.levelEditing && !worldPaused) {
       if (VF.Revive && VF.Revive.update) VF.Revive.update(dt, game);

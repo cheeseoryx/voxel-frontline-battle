@@ -1096,23 +1096,65 @@
    * Call updateCrouchPose each frame for smooth blend.
    * Prefer after updateLocomotion so gun bob + crouch stack from loco rest.
    */
-  function setCrouchPose(root, crouched) {
+  function setCrouchPose(root, crouched, flags) {
+    flags = flags || {};
+    const prone =
+      crouched && typeof crouched === 'object' ? !!crouched.prone : !!flags.prone;
+    const slide =
+      crouched && typeof crouched === 'object' ? !!crouched.slide : !!flags.slide;
+    const crouchOn =
+      crouched && typeof crouched === 'object'
+        ? !!crouched.crouch || prone || slide
+        : !!crouched || prone || slide;
     if (!root) return;
     if (!root.userData.crouchPose) {
       root.userData.crouchPose = { target: 0, current: 0 };
     }
-    root.userData.crouchPose.target = crouched ? 1 : 0;
+    if (!root.userData.pronePose) {
+      root.userData.pronePose = { target: 0, current: 0 };
+    }
+    if (!root.userData.slidePose) {
+      root.userData.slidePose = { target: 0, current: 0 };
+    }
+    root.userData.crouchPose.target = crouchOn ? 1 : 0;
+    root.userData.pronePose.target = prone ? 1 : 0;
+    root.userData.slidePose.target = slide ? 1 : 0;
   }
 
   function updateCrouchPose(root, dt) {
-    if (!root || !root.userData.crouchPose) return;
-    const pose = root.userData.crouchPose;
+    if (!root) return;
     const k = Math.min(1, (dt || 0.016) * 12);
-    pose.current += (pose.target - pose.current) * k;
-    const t = pose.current;
+    if (root.userData.crouchPose) {
+      const pose = root.userData.crouchPose;
+      pose.current += (pose.target - pose.current) * k;
+    }
+    if (root.userData.pronePose) {
+      const pose = root.userData.pronePose;
+      pose.current += (pose.target - pose.current) * k;
+    }
+    if (root.userData.slidePose) {
+      const pose = root.userData.slidePose;
+      pose.current += (pose.target - pose.current) * k;
+    }
+    const t =
+      root.userData.crouchPose && root.userData.crouchPose.current
+        ? root.userData.crouchPose.current
+        : 0;
+    const proneT =
+      root.userData.pronePose && root.userData.pronePose.current
+        ? root.userData.pronePose.current
+        : 0;
+    const slideT =
+      root.userData.slidePose && root.userData.slidePose.current
+        ? root.userData.slidePose.current
+        : 0;
 
     const wrap = root.getObjectByName('SoldierFacing') || root;
-    wrap.scale.set(1, 1 - t * 0.34, 1 + t * 0.04);
+    wrap.scale.set(
+      1 + slideT * 0.15,
+      Math.max(0.28, 1 - t * 0.34 - proneT * 0.42),
+      1 + t * 0.04 + slideT * 0.15
+    );
 
     const gun = wrap.getObjectByName('Weapon');
     if (gun) {
@@ -1130,8 +1172,8 @@
         baseY = gun.userData._standPosY;
         baseRx = gun.userData._standRotX;
       }
-      gun.position.y = baseY - t * 0.28;
-      gun.rotation.x = baseRx - t * 0.4;
+      gun.position.y = baseY - t * 0.28 - proneT * 0.22;
+      gun.rotation.x = baseRx - t * 0.4 - proneT * 0.55;
     }
 
     // Knees / boots hint: pull team marker slightly if present

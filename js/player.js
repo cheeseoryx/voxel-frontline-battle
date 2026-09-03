@@ -7,9 +7,11 @@
 
   const EYE_HEIGHT = 1.85;
   const EYE_CROUCH = 1.05;
+  const EYE_PRONE = 0.38;
   const PLAYER_RADIUS = 0.35;
   const PLAYER_HEIGHT = 2.0;
   const PLAYER_CROUCH_HEIGHT = 1.15;
+  const PLAYER_PRONE_HEIGHT = 0.48;
   const MOVE_SPEED = 8.5;
   const CROUCH_SPEED_MULT = 0.48;
   const SPRINT_MULT = 1.42;
@@ -40,6 +42,7 @@
     this.armor = 50;
     this.maxArmor = 100;
     this.alive = true;
+    this.isPlayer = true;
     this.dead = false;
     this.cores = 0;
     this.blocks = 8; // starter building blocks for later
@@ -49,7 +52,23 @@
     this.pitch = 0;
     this.yaw = 0;
     this.crouching = false;
+    this.prone = false;
+    this.slide = false;
+    this.vault = null;
+    this.stamina = 100;
+    this.staminaMax = 100;
     this._crouchBlend = 0;
+    this._proneBlend = 0;
+    this._slideT = 0;
+    this._slideDx = 0;
+    this._slideDz = 0;
+    this._staminaRegenDelay = 0;
+    this._staminaDraining = false;
+    this._sprintLock = 0;
+    this._ctrlWas = false;
+    this._zWas = false;
+    this._spaceWas = false;
+    this._vaultPitch0 = 0;
     this.zipRide = null;
     this._zipKeyWasDown = false;
     this._zipJumpWasDown = false;
@@ -364,7 +383,19 @@
       if (self.vehicleId && self.vehicleRole && self.vehicleRole !== 'passenger') {
         self.pitch = Math.max(-0.46, Math.min(0.34, self.pitch));
       } else {
-        self.pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, self.pitch));
+        const pm = feelGroup('playerMove');
+        const pitchMin =
+          self.prone || self._proneBlend > 0.35
+            ? pm.pronePitchMin != null
+              ? pm.pronePitchMin
+              : -0.42
+            : -Math.PI / 2 + 0.05;
+        self.pitch = Math.max(pitchMin, Math.min(Math.PI / 2 - 0.05, self.pitch));
+      }
+      if (self.vault) {
+        const mid = self._vaultPitch0 || 0;
+        const lim = (12 * Math.PI) / 180;
+        self.pitch = Math.max(mid - lim, Math.min(mid + lim, self.pitch));
       }
     });
 
@@ -836,7 +867,8 @@
   };
 
   Player.prototype.getEyeHeight = function () {
-    const stand = THREE.MathUtils.lerp(EYE_HEIGHT, EYE_CROUCH, this._crouchBlend || 0);
+    let stand = THREE.MathUtils.lerp(EYE_HEIGHT, EYE_CROUCH, this._crouchBlend || 0);
+    stand = THREE.MathUtils.lerp(stand, EYE_PRONE, this._proneBlend || 0);
     if (!this.downed) return stand;
     const target = 0.34;
     const b = this._downedBlend == null ? 1 : this._downedBlend;
@@ -845,7 +877,8 @@
   };
 
   Player.prototype.getBodyHeight = function () {
-    return THREE.MathUtils.lerp(PLAYER_HEIGHT, PLAYER_CROUCH_HEIGHT, this._crouchBlend || 0);
+    let h = THREE.MathUtils.lerp(PLAYER_HEIGHT, PLAYER_CROUCH_HEIGHT, this._crouchBlend || 0);
+    return THREE.MathUtils.lerp(h, PLAYER_PRONE_HEIGHT, this._proneBlend || 0);
   };
 
   Player.prototype.getEyePosition = function () {
@@ -853,17 +886,28 @@
     return this.object.position.clone().add(new THREE.Vector3(0, height, 0));
   };
 
-  /** True if standing capsule fits at current feet position */
-  Player.prototype._canStand = function () {
+  Player.prototype._canFitHeight = function (height, x, y, z) {
     if (!this._standBoxScratch) {
       this._standBoxScratch = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
     }
     const pos = this.object.position;
+    const px = x != null ? x : pos.x;
+    const py = y != null ? y : pos.y;
+    const pz = z != null ? z : pos.z;
     const box = this._standBoxScratch;
-    box.min.set(pos.x - PLAYER_RADIUS, pos.y + 0.02, pos.z - PLAYER_RADIUS);
-    box.max.set(pos.x + PLAYER_RADIUS, pos.y + PLAYER_HEIGHT, pos.z + PLAYER_RADIUS);
+    box.min.set(px - PLAYER_RADIUS, py + 0.02, pz - PLAYER_RADIUS);
+    box.max.set(px + PLAYER_RADIUS, py + height, pz + PLAYER_RADIUS);
     if (this.world.overlapsSolid) return !this.world.overlapsSolid(box);
     return this.world.collideAABB(box).length === 0;
+  };
+
+  /** True if standing capsule fits at current feet position */
+  Player.prototype._canStand = function () {
+    return this._canFitHeight(PLAYER_HEIGHT);
+  };
+
+  Player.prototype._canCrouchClearance = function () {
+    return this._canFitHeight(PLAYER_CROUCH_HEIGHT);
   };
 
   Player.prototype.getLookDirection = function () {
@@ -1101,7 +1145,10 @@
       return true;
     }
 
-    const felt = dmg;
+    if (source && source.hitPart) this._hurtPart = source.hitPart;
+    else this._hurtPart = null;
+    if (fromPos) this._lastHurtPos = { x: fromPos.x, y: fromPos.y, z: fromPos.z };
+
     if (source && source.playerArmorDamage > 0 && this.armor > 0) {
       this.armor = Math.max(0, this.armor - source.playerArmorDamage);
     }
@@ -1133,12 +1180,19 @@
           this.entityId || 'player-local',
           applied,
           source.team,
-          this.team || (this.world && this.world._playerTeam)
+          this.team || (this.world && this.world._playerTeam),
+          source.hitPart || null
         );
       }
     }
 
-    this._applyHurtFeedback(felt, fromPos);
+    const felt = Math.max(applied, dmg);
+    let feltFx = felt;
+    const hurtFeel = feelGroup('hurt');
+    if (this._hurtPart === 'head') {
+      feltFx *= hurtFeel.headMul != null ? hurtFeel.headMul : 1.35;
+    }
+    this._applyHurtFeedback(feltFx, fromPos);
 
     if (global.VF.UI) {
       global.VF.UI.updateVitals(this.health, this.armor);
@@ -1154,8 +1208,9 @@
   Player.prototype._applyHurtFeedback = function (feltDmg, fromPos) {
     const dmg = Math.max(1, feltDmg || 1);
     const h = feelGroup('hurt');
-    if (global.VF.Audio) global.VF.Audio.play('hurt');
-    if (global.VF.UI && global.VF.UI.damageFlash) global.VF.UI.damageFlash();
+    if (global.VF.UI && global.VF.UI.showHurtDir) {
+      global.VF.UI.showHurtDir(fromPos, this.yaw);
+    }
 
     const shakeAmt = Math.min(
       h.shakeMax != null ? h.shakeMax : 0.2,
@@ -1243,8 +1298,10 @@
     ) {
       this._downedEyeFrom = eyeFrom;
       this._downedBlend = 0;
+      this._downedLookUntil = 0.8;
       this.aiming = false;
       this._hideViewModels(true);
+      this._emitPlayerDownedFeed();
       return;
     }
 
@@ -1273,6 +1330,7 @@
     }
 
     if (g) g.running = false;
+    if (global.VF.UI && global.VF.UI.pushKillFeed) this._emitPlayerDownedFeed('kill');
     if (global.VF.UI && global.VF.UI.showDeath) {
       global.VF.UI.showDeath('你已阵亡', '血量耗尽 · 等待重新部署', '选个出生点再上！');
     }
@@ -1301,6 +1359,12 @@
     this.zipRide = null;
     this.aiming = false;
     this.crouching = false;
+    this.prone = false;
+    this.slide = false;
+    this.vault = null;
+    this.stamina = this.staminaMax || 100;
+    this._sprintLock = 0;
+    this._staminaRegenDelay = 0;
     this.stealthed = false;
     this.ghostAmbushShot = false;
     this.skillSpeedBuffTimer = 0;
@@ -1330,8 +1394,24 @@
   Player.prototype._updateDowned = function (dt) {
     this._downedBlend = Math.min(1, (this._downedBlend || 0) + dt / 0.36);
     this.aiming = false;
+    this.prone = false;
+    this.slide = false;
+    this.vault = null;
     this._adsBlend = Math.max(0, (this._adsBlend || 0) - dt * 8);
     this._hideViewModels(true);
+    if ((this._downedLookUntil || 0) > 0 && this._lastHurtPos) {
+      this._downedLookUntil = Math.max(0, this._downedLookUntil - dt);
+      const pos = this.object.position;
+      const dx = this._lastHurtPos.x - pos.x;
+      const dz = this._lastHurtPos.z - pos.z;
+      if (dx * dx + dz * dz > 0.04) {
+        const want = Math.atan2(-dx, -dz);
+        let dy = want - this.yaw;
+        while (dy > Math.PI) dy -= Math.PI * 2;
+        while (dy < -Math.PI) dy += Math.PI * 2;
+        this.yaw += dy * Math.min(1, dt * 6);
+      }
+    }
     this._updateViewPunch(dt);
     this._syncCameraLook();
     const eye = this.getEyePosition();
@@ -1343,12 +1423,26 @@
   };
 
   Player.prototype.update = function (dt) {
+    const ctrlDown = !!(this.keys['ControlLeft'] || this.keys['ControlRight']);
+    const zDown = !!this.keys['KeyZ'];
+    const spaceDown = !!this.keys['Space'];
     if (this.downed) {
+      this._ctrlWas = ctrlDown;
+      this._zWas = zDown;
+      this._spaceWas = spaceDown;
+      this._updateStamina(dt, true);
       this._updateDowned(dt);
       return;
     }
     if (this.dead) return;
-    if (this.vehicleId && this._updateVehicleRide(dt)) return;
+    if (this.vehicleId && this._updateVehicleRide(dt)) {
+      this._clearLocomotionActions();
+      this._updateStamina(dt, true);
+      this._ctrlWas = ctrlDown;
+      this._zWas = zDown;
+      this._spaceWas = spaceDown;
+      return;
+    }
     if (this._vehicleExitCool > 0) {
       this._vehicleExitCool = Math.max(0, this._vehicleExitCool - dt);
     }
@@ -1358,7 +1452,7 @@
 
     // Zipline: hold F to mount; F/Space to jump off after a short grace
     const fDown = !!this.keys['KeyF'];
-    const jumpDown = !!this.keys['Space'];
+    const jumpDown = spaceDown;
     if (this._zipCool > 0) this._zipCool -= dt;
     if (this.zipRide) {
       this.zipRide.age = (this.zipRide.age || 0) + dt;
@@ -1371,6 +1465,11 @@
       this._zipKeyWasDown = fDown;
       this._zipJumpWasDown = jumpDown;
       if (this.zipRide) {
+        this._clearLocomotionActions();
+        this._updateStamina(dt, true);
+        this._ctrlWas = ctrlDown;
+        this._zWas = zDown;
+        this._spaceWas = spaceDown;
         const eye = this.getEyePosition();
         this.camera.position.set(eye.x, eye.y, eye.z);
         this.camera.fov = HIP_FOV;
@@ -1384,53 +1483,87 @@
     this._zipKeyWasDown = fDown;
     this._zipJumpWasDown = jumpDown;
 
-    // Movement input
+    const ctrlPressed = ctrlDown && !this._ctrlWas;
+    const zPressed = zDown && !this._zWas;
+    const spacePressed = spaceDown && !this._spaceWas;
+    this._ctrlWas = ctrlDown;
+    this._zWas = zDown;
+    this._spaceWas = spaceDown;
+    if (this._sprintLock > 0) this._sprintLock = Math.max(0, this._sprintLock - dt);
+
+    const locomoLocked = this._locomotionLocked();
     const forward = this.keys['KeyW'] ? 1 : 0;
     const back = this.keys['KeyS'] ? 1 : 0;
     const left = this.keys['KeyA'] ? 1 : 0;
     const right = this.keys['KeyD'] ? 1 : 0;
-    const wantCrouch =
-      !!(this.keys['ControlLeft'] || this.keys['ControlRight']) &&
-      this.onGround &&
-      !this.zipRide;
-    if (wantCrouch) {
-      this.crouching = true;
-    } else if (this.crouching && this._canStand()) {
-      this.crouching = false;
-    }
-    this._crouchBlend += ((this.crouching ? 1 : 0) - this._crouchBlend) * Math.min(1, dt * 14);
-
-    const sprint =
-      !this.crouching &&
-      (this.keys['ShiftLeft'] || this.keys['ShiftRight']);
-    if (sprint && this._reviveProtection > 0) this._reviveProtection = 0;
-
     this.direction.set(right - left, 0, back - forward);
     if (this.direction.lengthSq() > 0) this.direction.normalize();
-
-    // Rotate move vector by yaw
     const sin = Math.sin(this.yaw);
     const cos = Math.cos(this.yaw);
     const mx = this.direction.x * cos + this.direction.z * sin;
     const mz = -this.direction.x * sin + this.direction.z * cos;
 
+    let skipJump = false;
+    if (this.vault) {
+      this._advanceVault(dt);
+    } else if (!locomoLocked) {
+      if (zPressed) this._toggleProne();
+      if (this.prone && spacePressed) {
+        if (this._tryStandFromProne()) skipJump = true;
+      }
+      if (!this.prone && !this.slide && ctrlPressed) this._tryBeginSlide();
+      if (!this.prone && !this.slide) {
+        const wantCrouch = ctrlDown && this.onGround && !this.zipRide;
+        if (wantCrouch) this.crouching = true;
+        else if (this.crouching && this._canStand()) this.crouching = false;
+      }
+    }
+
+    const crouchTarget = this.slide || this.crouching || this.prone ? 1 : 0;
+    const proneTarget = this.prone ? 1 : 0;
+    this._crouchBlend += (crouchTarget - this._crouchBlend) * Math.min(1, dt * 14);
+    this._proneBlend += (proneTarget - this._proneBlend) * Math.min(1, dt * 12);
+    this._clampPronePitch();
+
     const pm = feelGroup('playerMove');
     const baseSpeed = pm.moveSpeed != null ? pm.moveSpeed : MOVE_SPEED;
     const adsMul = pm.adsMul != null ? pm.adsMul : 0.55;
     const crouchMul = pm.crouchMul != null ? pm.crouchMul : CROUCH_SPEED_MULT;
+    const proneMul = pm.proneMul != null ? pm.proneMul : 0.22;
+    const slideMul = pm.slideMul != null ? pm.slideMul : 1.35;
     const feelSprintMul = pm.sprintMul != null ? pm.sprintMul : SPRINT_MULT;
+    const wantSprint =
+      !this.crouching &&
+      !this.prone &&
+      !this.slide &&
+      !this.vault &&
+      this._sprintLock <= 0 &&
+      (this.stamina || 0) > 0 &&
+      (this.keys['ShiftLeft'] || this.keys['ShiftRight']);
+    const sprint = !!wantSprint;
+    if (sprint && this._reviveProtection > 0) this._reviveProtection = 0;
+
     let speedMul = this.aiming ? adsMul : 1;
-    if (this.crouching) speedMul *= crouchMul;
+    if (this.slide) speedMul = slideMul;
+    else if (this.prone) speedMul *= proneMul;
+    else if (this.crouching) speedMul *= crouchMul;
     else if (sprint && !this.aiming) speedMul *= feelSprintMul;
     if (this.draggingTarget) speedMul *= 0.55;
     if (this.skillSpeedBuffTimer > 0) {
       speedMul *= this.skillSpeedBuffMul || 1.2;
     }
     const dashing = global.VF.game && global.VF.game.skills && global.VF.game.skills.dash;
-    if (dashing) {
+    if (this.vault) {
+      this.velocity.x = 0;
+      this.velocity.z = 0;
+    } else if (dashing) {
       this.velocity.x = 0;
       this.velocity.y = 0;
       this.velocity.z = 0;
+    } else if (this.slide) {
+      const slideSpeed = baseSpeed * slideMul;
+      this.velocity.x = this._slideDx * slideSpeed;
+      this.velocity.z = this._slideDz * slideSpeed;
     } else {
       const heldDef =
         this._heldMode !== 'build' && this._weaponDef ? this._weaponDef() : null;
@@ -1444,9 +1577,24 @@
       this.velocity.z = mz * speed;
     }
 
-    // Jump + gravity (jump exits crouch when headroom allows)
-    if (!dashing) {
-      if (this.onGround && this.keys['Space']) {
+    if (!dashing && !this.vault) {
+      if (
+        !skipJump &&
+        this.onGround &&
+        spacePressed &&
+        !this.prone &&
+        !this.slide &&
+        this._tryBeginVault(mx, mz, baseSpeed * speedMul)
+      ) {
+        this.velocity.y = 0;
+      } else if (
+        !skipJump &&
+        this.onGround &&
+        spaceDown &&
+        !this.prone &&
+        !this.slide &&
+        !this.vault
+      ) {
         if (this.crouching) {
           if (this._canStand()) this.crouching = false;
         }
@@ -1456,10 +1604,19 @@
           if (global.VF.Audio) global.VF.Audio.play('jump');
         }
       }
-      this.velocity.y -= GRAVITY * dt;
+      if (!this.vault) this.velocity.y -= GRAVITY * dt;
     }
 
-    this._moveWithCollision(dt);
+    const slideX = this.object.position.x;
+    const slideZ = this.object.position.z;
+    if (!this.vault) this._moveWithCollision(dt);
+    if (this.slide) {
+      const moved = Math.hypot(this.object.position.x - slideX, this.object.position.z - slideZ);
+      this._slideT -= dt;
+      if (this._slideT <= 0 || moved < 0.5 * dt) this._endSlide();
+    }
+
+    this._updateStamina(dt, false, sprint);
 
     if (this._overlaps && this._overlaps() && this.direction.lengthSq() > 0) {
       this._stuckMoveT = (this._stuckMoveT || 0) + dt;
@@ -1474,9 +1631,9 @@
     // Sync camera to eye
     const eye = this.getEyePosition();
     // Head bob
-    const moving = this.direction.lengthSq() > 0 && this.onGround;
-    if (moving) this._bobTime += dt * (this.crouching ? 7 : sprint ? 12 : 9);
-    const bob = moving ? Math.sin(this._bobTime) * (this.crouching ? 0.018 : 0.035) : 0;
+    const moving = this.direction.lengthSq() > 0 && this.onGround && !this.vault && !this.slide;
+    if (moving) this._bobTime += dt * (this.prone ? 5 : this.crouching ? 7 : sprint ? 12 : 9);
+    const bob = moving ? Math.sin(this._bobTime) * (this.prone ? 0.008 : this.crouching ? 0.018 : 0.035) : 0;
     let sx = 0;
     let sy = 0;
     let sz = 0;
@@ -1514,14 +1671,33 @@
     this._swayBlend += (wantSway - (this._swayBlend || 0)) * Math.min(1, dt * (moving ? 10 : 7));
     const sway = this._swayBlend || 0;
     const adsDamp = 1 - this._adsBlend * 0.72;
-    const sprintMul = sprint && !this.aiming ? 1.4 : this.crouching ? 0.55 : 1;
+    const sprintMul = sprint && !this.aiming ? 1.4 : this.prone ? 0.28 : this.crouching ? 0.55 : 1;
     const t = this._bobTime;
-    const crouchDip = (this._crouchBlend || 0) * 0.14;
+    const proneT = this._proneBlend || 0;
+    const crouchT = this._crouchBlend || 0;
+    const adsT = this._adsBlend || 0;
+    const pmGun = feelGroup('playerMove');
+    const crouchDip = crouchT * 0.14 * (1 - proneT);
+    const proneLift =
+      proneT *
+      (pmGun.proneGunLift != null ? pmGun.proneGunLift : 0.3) *
+      (1 - adsT * 0.4);
+    const lookDown = THREE.MathUtils.clamp(-(this.pitch || 0) / 0.7, 0, 1);
+    const proneLookLift = proneT * lookDown * 0.14;
+    const pronePitch =
+      proneT * (pmGun.proneGunPitch != null ? pmGun.proneGunPitch : 0.2);
+    const pronePullZ =
+      proneT * (pmGun.proneGunPullZ != null ? pmGun.proneGunPullZ : 0.12);
     const ax = Math.sin(t) * 0.032 * sway * sprintMul * adsDamp;
-    const ay = -Math.abs(Math.sin(t)) * 0.026 * sway * sprintMul * adsDamp - crouchDip;
+    const ay =
+      -Math.abs(Math.sin(t)) * 0.026 * sway * sprintMul * adsDamp -
+      crouchDip +
+      proneLift +
+      proneLookLift;
     const az = Math.cos(t) * 0.014 * sway * adsDamp;
     const rRoll = Math.sin(t) * 0.055 * sway * sprintMul * adsDamp;
-    const rPitch = Math.cos(t * 2) * 0.03 * sway * adsDamp + (this._crouchBlend || 0) * 0.08;
+    const rPitch =
+      Math.cos(t * 2) * 0.03 * sway * adsDamp + crouchT * 0.08 * (1 - proneT) + pronePitch;
     const rYaw = Math.sin(t * 0.5) * 0.02 * sway * adsDamp;
 
     // Reload: tilt gun down/right, dip viewmodel
@@ -1538,7 +1714,7 @@
       this.viewModel.position.set(
         this._vmBase.x + ax + rlSideX,
         this._vmBase.y + ay + rlDipY,
-        this._vmBase.z + az + rlPullZ
+        this._vmBase.z + az + rlPullZ + pronePullZ
       );
       this.viewModel.rotation.set(rPitch + rlPitch, rYaw + rlYaw, rRoll + rlRoll);
     }
@@ -1919,6 +2095,223 @@
       pos.copy(spawn);
       v.set(0, 0, 0);
     }
+  };
+
+  Player.prototype._locomotionLocked = function () {
+    if (this.vehicleId || this.zipRide || this.downed || this.dead) return true;
+    const skills = global.VF.game && global.VF.game.skills;
+    if (skills && skills.isChanneling && skills.isChanneling()) return true;
+    return false;
+  };
+
+  Player.prototype._clearLocomotionActions = function () {
+    this.prone = false;
+    this.slide = false;
+    this.vault = null;
+    this._slideT = 0;
+  };
+
+  Player.prototype._moveFeel = function () {
+    return feelGroup('playerMove');
+  };
+
+  Player.prototype._updateStamina = function (dt, resting, sprinting) {
+    const pm = this._moveFeel();
+    const max = pm.staminaMax != null ? pm.staminaMax : 100;
+    this.staminaMax = max;
+    if (this.stamina == null) this.stamina = max;
+    const drain = pm.sprintDrainPerSec != null ? pm.sprintDrainPerSec : 16;
+    const regen = pm.regenPerSec != null ? pm.regenPerSec : 22;
+    const delay = pm.regenDelaySec != null ? pm.regenDelaySec : 0.55;
+    let draining = false;
+    if (!resting && sprinting && !this.vault && !this.slide) {
+      this.stamina = Math.max(0, this.stamina - drain * dt);
+      this._staminaRegenDelay = delay;
+      draining = true;
+    }
+    if (this._staminaRegenDelay > 0) {
+      this._staminaRegenDelay = Math.max(0, this._staminaRegenDelay - dt);
+    } else if (!draining) {
+      this.stamina = Math.min(max, this.stamina + regen * dt);
+    }
+    this._staminaDraining = draining;
+    if (global.VF.UI && global.VF.UI.updateStamina) {
+      global.VF.UI.updateStamina(this.stamina, max, draining);
+    }
+  };
+
+  Player.prototype._clampPronePitch = function () {
+    if (!this.prone && !(this._proneBlend > 0.2)) return;
+    const pm = this._moveFeel();
+    const pitchMin = pm.pronePitchMin != null ? pm.pronePitchMin : -0.42;
+    if (this.pitch < pitchMin) this.pitch = pitchMin;
+  };
+
+  Player.prototype._toggleProne = function () {
+    if (this.slide || this.vault) return;
+    if (this.prone) this._tryStandFromProne();
+    else {
+      this.prone = true;
+      this.crouching = true;
+      this.slide = false;
+      this._clampPronePitch();
+    }
+  };
+
+  Player.prototype._tryStandFromProne = function () {
+    if (!this.prone) return false;
+    if (!this._canCrouchClearance()) return false;
+    this.prone = false;
+    this.crouching = true;
+    const pm = this._moveFeel();
+    this._sprintLock = Math.max(
+      this._sprintLock || 0,
+      pm.proneStandSprintLock != null ? pm.proneStandSprintLock : 0.4
+    );
+    const ctrlDown = !!(this.keys['ControlLeft'] || this.keys['ControlRight']);
+    if (!ctrlDown && this._canStand()) this.crouching = false;
+    return true;
+  };
+
+  Player.prototype._tryBeginSlide = function () {
+    const pm = this._moveFeel();
+    if (!this.onGround || this.prone || this.aiming || this.vault) return false;
+    if (this._locomotionLocked()) return false;
+    const minSta = pm.slideMinStamina != null ? pm.slideMinStamina : 20;
+    if ((this.stamina || 0) < minSta) return false;
+    const shifting = !!(this.keys['ShiftLeft'] || this.keys['ShiftRight']);
+    if (!shifting || this.crouching) return false;
+    let dx = this.velocity.x;
+    let dz = this.velocity.z;
+    let len = Math.hypot(dx, dz);
+    if (len < 0.4) {
+      dx = -Math.sin(this.yaw);
+      dz = -Math.cos(this.yaw);
+      len = 1;
+    }
+    this.slide = true;
+    this._slideT = pm.slideDur != null ? pm.slideDur : 0.45;
+    this._slideDx = dx / len;
+    this._slideDz = dz / len;
+    const cost = pm.slideCost != null ? pm.slideCost : 28;
+    this.stamina = Math.max(0, (this.stamina || 0) - cost);
+    this._staminaRegenDelay = pm.regenDelaySec != null ? pm.regenDelaySec : 0.55;
+    this.crouching = true;
+    this.prone = false;
+    return true;
+  };
+
+  Player.prototype._endSlide = function () {
+    this.slide = false;
+    this._slideT = 0;
+    this.crouching = true;
+  };
+
+  Player.prototype._tryBeginVault = function (mx, mz, intendSpeed) {
+    const pm = this._moveFeel();
+    if (!this.onGround || this.prone || this.aiming || this.slide || this.vault) return false;
+    if (this._locomotionLocked()) return false;
+    const minSta = pm.vaultMinStamina != null ? pm.vaultMinStamina : 18;
+    const minSpeed = pm.vaultMinSpeed != null ? pm.vaultMinSpeed : 2.5;
+    if ((this.stamina || 0) < minSta) return false;
+    if (this.direction.lengthSq() <= 0) return false;
+    if (!(intendSpeed > minSpeed)) return false;
+    let fx = mx;
+    let fz = mz;
+    let fl = Math.hypot(fx, fz);
+    if (fl < 0.05) {
+      fx = -Math.sin(this.yaw);
+      fz = -Math.cos(this.yaw);
+      fl = 1;
+    } else {
+      fx /= fl;
+      fz /= fl;
+    }
+    const pos = this.object.position;
+    const probe = 0.85;
+    const nx = pos.x + fx * probe;
+    const nz = pos.z + fz * probe;
+    const hereY = pos.y;
+    const thereY = this.world.getWalkHeight ? this.world.getWalkHeight(nx, nz) : hereY;
+    const rise = thereY - hereY;
+    const minRise = pm.vaultMinRise != null ? pm.vaultMinRise : 0.55;
+    const maxRise = pm.vaultMaxRise != null ? pm.vaultMaxRise : 1.28;
+    if (rise < minRise || rise > maxRise) return false;
+    if (this.world.isStairVoxel) {
+      const vx = Math.floor(nx);
+      const vz = Math.floor(nz);
+      const y0 = Math.floor(hereY);
+      const y1 = Math.floor(thereY);
+      for (let y = y0; y <= y1; y++) {
+        if (this.world.isStairVoxel(vx, y, vz)) return false;
+      }
+    }
+    const landDist = probe + 0.7;
+    const lx = pos.x + fx * landDist;
+    const lz = pos.z + fz * landDist;
+    const landY = this.world.getWalkHeight ? this.world.getWalkHeight(lx, lz) : thereY;
+    if (Math.abs(landY - thereY) > 0.65) return false;
+    if (!this._canFitHeight(PLAYER_HEIGHT, lx, landY, lz)) return false;
+    const cost = pm.vaultCost != null ? pm.vaultCost : 18;
+    this.stamina = Math.max(0, (this.stamina || 0) - cost);
+    this._staminaRegenDelay = pm.regenDelaySec != null ? pm.regenDelaySec : 0.55;
+    this.vault = {
+      t: 0,
+      dur: pm.vaultDur != null ? pm.vaultDur : 0.36,
+      fromX: pos.x,
+      fromY: pos.y,
+      fromZ: pos.z,
+      toX: lx,
+      toY: landY,
+      toZ: lz,
+    };
+    this._vaultPitch0 = this.pitch;
+    this.crouching = false;
+    this.prone = false;
+    this.slide = false;
+    this.velocity.set(0, 0, 0);
+    return true;
+  };
+
+  Player.prototype._advanceVault = function (dt) {
+    if (!this.vault) return;
+    this.vault.t += dt;
+    const u = Math.min(1, this.vault.t / Math.max(0.08, this.vault.dur));
+    const ease = u * u * (3 - 2 * u);
+    const pos = this.object.position;
+    pos.x = this.vault.fromX + (this.vault.toX - this.vault.fromX) * ease;
+    pos.z = this.vault.fromZ + (this.vault.toZ - this.vault.fromZ) * ease;
+    const baseY = this.vault.fromY + (this.vault.toY - this.vault.fromY) * ease;
+    pos.y = baseY + 0.55 * 4 * u * (1 - u);
+    this.velocity.set(0, 0, 0);
+    this.onGround = false;
+    if (u >= 1) {
+      pos.x = this.vault.toX;
+      pos.y = this.vault.toY;
+      pos.z = this.vault.toZ;
+      this.onGround = true;
+      this.vault = null;
+    }
+  };
+
+  Player.prototype._emitPlayerDownedFeed = function (kind) {
+    if (!global.VF.UI || !global.VF.UI.pushKillFeed) return;
+    const pos = this.object && this.object.position;
+    global.VF.UI.pushKillFeed({
+      killerId: this._lastDamagerId || null,
+      killerName: null,
+      killerTeam: this._lastDamagerTeam || null,
+      victimId: this.entityId || 'player-local',
+      victimName: '你',
+      victimTeam: this.team || (this.world && this.world._playerTeam) || 'ally',
+      weaponId: this._lastDamagerWeaponId || null,
+      part: this._hurtPart || null,
+      kind: kind || (this.downed ? 'down' : 'kill'),
+      lifeId: this.downState && this.downState.lifeId,
+      x: pos && pos.x,
+      y: pos && pos.y,
+      z: pos && pos.z,
+    });
   };
 
   Player.prototype._bodyBox = function () {

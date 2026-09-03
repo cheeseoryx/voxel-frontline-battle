@@ -71,6 +71,12 @@
     return 0.6;
   }
 
+  /** RPG / explosives can punch vehicle armor; ordinary guns cannot. */
+  function isAntiVehicleWeapon(def) {
+    const t = def && def.damageType;
+    return t === 'antiArmor' || t === 'explosive';
+  }
+
   function recoilKicks(def, adsBlend, firstShot) {
     const adsMul = def.adsRecoilMul != null ? def.adsRecoilMul : 0.4;
     const ads = 1 - (adsBlend || 0) * (1 - adsMul);
@@ -579,6 +585,7 @@
     ) {
       return;
     }
+    if (this.player && this.player.vault) return;
     if (this.reloading) return;
     if (this.cooldown > 0) return;
     const def = this.getDef();
@@ -617,7 +624,9 @@
     }
     this._muzzleFlashAt(this._tmpMuzzle, baseDir);
     this._shotHitHostile = false;
+    this._shotArmorHit = false;
     this._shotKill = false;
+    this._shotPart = null;
     this._shotHitCount = 0;
     this._shotDmg = 0;
     this._shotImpactCount = 0;
@@ -718,8 +727,14 @@
         this._shotDmg >= 40 ||
         (def && def.id === 'sr') ||
         (def && def.id === 'sg' && this._shotHitCount >= 3);
-      if (global.VF.UI) global.VF.UI.flashCrosshair('hit');
-      if (global.VF.Audio) global.VF.Audio.play(heavy ? 'hit_heavy' : 'hit');
+      if (global.VF.UI) {
+        global.VF.UI.flashCrosshair(this._shotPart === 'head' ? 'head' : 'hit');
+      }
+      if (global.VF.Audio) {
+        global.VF.Audio.play(
+          this._shotPart === 'head' || heavy ? 'hit_heavy' : 'hit'
+        );
+      }
       if (this.player && this.player.punchFeedback) {
         const shakeBase = hit.shake != null ? hit.shake : 0.05;
         const shakeDmg = hit.shakeDmg != null ? hit.shakeDmg : 0.0018;
@@ -745,6 +760,10 @@
       } else if (this.player && this.player.addShake) {
         this.player.addShake(0.05 + Math.min(0.07, this._shotDmg * 0.0018) + (heavy ? 0.04 : 0));
       }
+      return;
+    }
+    if (this._shotArmorHit) {
+      if (global.VF.UI) global.VF.UI.flashCrosshair('armor');
       return;
     }
     if (global.VF.UI) global.VF.UI.flashCrosshair('fire');
@@ -914,6 +933,11 @@
     spawnMuzzleFlash(this.player.muzzle, { size: 0.12, intensity: 12, life: 0.05 });
   };
 
+  Weapons.prototype._noteShotPart = function (part) {
+    if (!part) return;
+    if (part === 'head' || !this._shotPart) this._shotPart = part;
+  };
+
   Weapons.prototype._fireRays = function (def, origin, baseDir, muzzlePos) {
     origin = origin || this.player.getEyePosition();
     baseDir = baseDir || this.player.getLookDirection();
@@ -921,7 +945,11 @@
       def.spread != null ? def.spread : spreadFromAccuracy(def.accuracy);
     const adsSpread =
       def.adsSpread != null ? def.adsSpread : hipSpread * adsSpreadMul(def);
-    const spread = this.player.aiming ? adsSpread : hipSpread;
+    const spread = this.player.slide
+      ? hipSpread * 1.35
+      : this.player.aiming
+        ? adsSpread
+        : hipSpread;
     if (muzzlePos) {
       this._tmpMuzzle.copy(muzzlePos);
     } else if (this.player.muzzle && this.player.muzzle.getWorldPosition) {
@@ -1229,20 +1257,24 @@
               weaponId: def.id,
             })
           : 0;
+      const pierced = applied > 0 && isAntiVehicleWeapon(def);
       this._spawnImpact(
         bestAction.hit.point,
-        applied > 0 ? 0xff8a3d : 0xaab5b8,
-        applied > 0 ? 0.34 : 0.11
+        pierced ? 0xff8a3d : 0x4eb8ff,
+        pierced ? 0.34 : 0.12
       );
-      if (applied > 0) {
+      if (pierced) {
         this._shotHitHostile = true;
         this._shotHitCount++;
         this._shotDmg += applied;
-      } else if (global.VF.UI) {
-        const now = performance.now();
-        if (!this._armorToastAt || now - this._armorToastAt > 900) {
-          this._armorToastAt = now;
-          global.VF.UI.toast('跳弹 · 需要反装甲武器');
+      } else {
+        this._shotArmorHit = true;
+        if (applied <= 0 && global.VF.UI) {
+          const now = performance.now();
+          if (!this._armorToastAt || now - this._armorToastAt > 900) {
+            this._armorToastAt = now;
+            global.VF.UI.toast('跳弹 · 需要反装甲武器');
+          }
         }
       }
     } else if (bestAction.type === 'gadget') {
@@ -1267,8 +1299,16 @@
         this._spawnImpact(bestAction.hit.point, 0xff6622, 0.18);
       }
     } else if (bestAction.type === 'enemy') {
+      const part = bestAction.hit && bestAction.hit.part;
+      if (part && global.VF.Hitboxes && global.VF.Hitboxes.partMul) {
+        dmg = Math.round(dmg * global.VF.Hitboxes.partMul(part));
+      }
+      this._noteShotPart(part);
       dmg = this._applyGhostDamageMods(dmg, bestAction.hit.enemy);
-      const result = global.VF.AI.damageEnemy(bestAction.hit.enemy, dmg, dir);
+      const result = global.VF.AI.damageEnemy(bestAction.hit.enemy, dmg, dir, {
+        part: part || null,
+        weaponId: def.id,
+      });
       this._shotHitHostile = true;
       this._shotHitCount++;
       this._shotDmg += (result && result.dmg != null ? result.dmg : dmg);
@@ -1278,14 +1318,40 @@
         this._spawnImpact(bestAction.hit.point, 0xff6622, 0.18);
       }
     } else if (bestAction.type === 'remote') {
+      const part = bestAction.hit && bestAction.hit.part;
+      if (part && global.VF.Hitboxes && global.VF.Hitboxes.partMul) {
+        dmg = Math.round(dmg * global.VF.Hitboxes.partMul(part));
+      }
+      this._noteShotPart(part);
       dmg = this._applyGhostDamageMods(dmg, null, true);
+      let remoteResult = null;
       if (global.VF.Pvp && global.VF.Pvp.dealDamageToRemote) {
-        global.VF.Pvp.dealDamageToRemote(dmg);
+        remoteResult = global.VF.Pvp.dealDamageToRemote(dmg);
       }
       this._spawnImpact(bestAction.hit.point, 0xff4422, 0.14);
       this._shotHitHostile = true;
       this._shotHitCount++;
       this._shotDmg += dmg;
+      if (remoteResult && remoteResult.killed) {
+        this._shotKill = true;
+        if (global.VF.UI && global.VF.UI.pushKillFeed) {
+          global.VF.UI.pushKillFeed({
+            killerId: (this.player && this.player.entityId) || 'player-local',
+            killerName: '你',
+            killerTeam:
+              (this.player && this.player.team) ||
+              (this.world && this.world._playerTeam) ||
+              'ally',
+            victimId: 'remote-player',
+            victimName: '敌方玩家',
+            victimTeam:
+              (global.VF.Pvp.remoteState && global.VF.Pvp.remoteState.team) || 'enemy',
+            weaponId: def.id,
+            part: part || null,
+            kind: 'kill',
+          });
+        }
+      }
     } else if (bestAction.type === 'ally') {
       this._spawnImpact(bestAction.hit.point, 0x44ffcc);
     } else if (bestAction.type === 'door') {

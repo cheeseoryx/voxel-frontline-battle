@@ -773,6 +773,8 @@
             hp: other.hp != null ? other.hp : 100,
             alive: other.alive !== false,
             crouch: !!other.crouch,
+            prone: !!other.prone,
+            slide: !!other.slide,
             stealth: !!other.stealth,
             vehicleId: other.vehicleId || null,
             vehicleSeat:
@@ -2507,6 +2509,8 @@
           hp: 0,
           alive: false,
           crouch: false,
+          prone: false,
+          slide: false,
           classId: game.player.classId || 'assault',
           team: myTeam,
           stealth: false,
@@ -2700,7 +2704,10 @@
       m.visible = st.alive !== false && !st.stealth && !st.vehicleId;
       if (global.VF.Soldier) {
         if (global.VF.Soldier.setCrouchPose) {
-          global.VF.Soldier.setCrouchPose(m, !!st.crouch);
+          global.VF.Soldier.setCrouchPose(m, !!st.crouch, {
+            prone: !!st.prone,
+            slide: !!st.slide,
+          });
         }
         if (global.VF.Soldier.updateCrouchPose) {
           global.VF.Soldier.updateCrouchPose(m, dt);
@@ -2712,12 +2719,25 @@
     raycastRemote(origin, dir, range) {
       if (this.phase !== 'play') return null;
       const st = this.remoteState;
-      // Stealthed remotes stay hittable (fair PvP) but are invisible
       if (!st || st.x == null || st.alive === false || st.vehicleId) return null;
       const av = this.remoteAvatar;
       const px = av && av.mesh ? av.mesh.position.x : st.x;
       const py = av && av.mesh ? av.mesh.position.y : st.y;
       const pz = av && av.mesh ? av.mesh.position.z : st.z;
+      const HB = global.VF && global.VF.Hitboxes;
+      if (HB && HB.raycast) {
+        const entity = {
+          position: { x: px, y: py, z: pz },
+          crouch: !!st.crouch,
+          crouching: !!st.crouch,
+          prone: !!st.prone,
+          vehicleId: st.vehicleId || null,
+          alive: st.alive !== false,
+        };
+        const hit = HB.raycast(entity, origin, dir, range);
+        if (!hit) return null;
+        return { point: hit.point, dist: hit.dist, part: hit.part };
+      }
       const crouchT = st.crouch ? 1 : 0;
       const centerY = py + (1.15 - crouchT * 0.45);
       const hitR = 1.15 - crouchT * 0.3;
@@ -2727,12 +2747,12 @@
       if (proj < 0 || proj > range) return null;
       const closest = origin.clone().addScaledVector(dir, proj);
       if (closest.distanceTo(center) > hitR) return null;
-      return { point: closest, dist: proj };
+      return { point: closest, dist: proj, part: 'torso' };
     },
 
     /** Deal damage to the remote player (networked). */
     dealDamageToRemote(dmg) {
-      if (this.phase !== 'play' || !(dmg > 0)) return;
+      if (this.phase !== 'play' || !(dmg > 0)) return { killed: false };
       dmg = Math.round(dmg);
       const evt = {
         dmg: dmg,
@@ -2744,7 +2764,7 @@
       try {
         localStorage.setItem(this._dmgKey(), JSON.stringify(evt));
       } catch (_) {}
-      // Optimistic local feedback on remote avatar
+      let killed = false;
       if (this.remoteState) {
         this.remoteState.hp = Math.max(
           0,
@@ -2753,6 +2773,7 @@
         if (this.remoteState.hp <= 0) {
           this.remoteState.alive = false;
           this._remoteAuthoritativeAlive = false;
+          killed = true;
         }
       }
       if (this.remoteAvatar && this.remoteAvatar.mesh) {
@@ -2765,6 +2786,7 @@
           }
         });
       }
+      return { killed: !!killed };
     },
 
     _dmgKey() {

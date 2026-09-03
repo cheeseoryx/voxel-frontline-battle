@@ -157,6 +157,28 @@
         { key: 'sprintMul', label: '冲刺倍率', min: 1, max: 2.5, step: 0.01 },
         { key: 'crouchMul', label: '蹲走倍率', min: 0.2, max: 1, step: 0.01 },
         { key: 'adsMul', label: 'ADS 移速倍率', min: 0.2, max: 1, step: 0.01 },
+        { key: 'proneMul', label: '趴走倍率', min: 0.1, max: 0.6, step: 0.01 },
+        { key: 'slideMul', label: '滑铲倍率', min: 0.8, max: 2, step: 0.01 },
+        { key: 'sprintDrainPerSec', label: '冲刺耗体力/秒', min: 4, max: 40, step: 1 },
+        { key: 'proneGunLift', label: '趴下枪模抬高', min: 0, max: 0.6, step: 0.01 },
+        { key: 'proneGunPitch', label: '趴下枪口上抬', min: 0, max: 0.5, step: 0.01 },
+      ],
+    },
+    {
+      id: 'hitboxes',
+      title: '命中箱',
+      fields: [
+        { key: 'headMul', label: '头部伤害倍率', min: 1, max: 3, step: 0.05 },
+        { key: 'torsoR', label: '躯干半径', min: 0.25, max: 0.6, step: 0.01 },
+        { key: 'limbMul', label: '四肢伤害倍率', min: 0.4, max: 1, step: 0.01 },
+      ],
+    },
+    {
+      id: 'killfeed',
+      title: '击杀播报',
+      fields: [
+        { key: 'rangeM', label: '附近播报距离(米)', min: 8, max: 80, step: 1 },
+        { key: 'lifeMs', label: '行停留毫秒', min: 2000, max: 9000, step: 100 },
       ],
     },
   ];

@@ -79,7 +79,8 @@
     yawDmg: 0.00004,
     yawDmgCap: 0.0012,
     yawRandom: 0.0015,
-    flashMs: 180
+    flashMs: 180,
+    headMul: 1.35
   },
   camera: {
     hipFov: 70,
@@ -118,7 +119,50 @@
     moveSpeed: 8.5,
     sprintMul: 1.5,
     crouchMul: 0.48,
-    adsMul: 0.55
+    adsMul: 0.55,
+    proneMul: 0.22,
+    slideMul: 1.35,
+    slideDur: 0.45,
+    slideCost: 28,
+    slideMinStamina: 20,
+    vaultDur: 0.36,
+    vaultCost: 18,
+    vaultMinStamina: 18,
+    vaultMinSpeed: 2.5,
+    vaultMinRise: 0.55,
+    vaultMaxRise: 1.28,
+    staminaMax: 100,
+    sprintDrainPerSec: 16,
+    regenPerSec: 22,
+    regenDelaySec: 0.55,
+    proneStandSprintLock: 0.4,
+    proneGunLift: 0.3,
+    proneGunPitch: 0.2,
+    proneGunPullZ: 0.12,
+    pronePitchMin: -0.42
+  },
+  hitboxes: {
+    headR: 0.22,
+    torsoR: 0.4,
+    limbR: 0.28,
+    headMul: 1.75,
+    torsoMul: 1,
+    limbMul: 0.72,
+    heavyScale: 1.15,
+    standHeadY: 1.62,
+    standTorsoY: 1.1,
+    standLimbY: 0.55,
+    crouchHeadY: 0.92,
+    crouchTorsoY: 0.62,
+    crouchLimbY: 0.32,
+    proneHeadY: 0.22,
+    proneTorsoY: 0.14,
+    proneLimbY: 0.1
+  },
+  killfeed: {
+    rangeM: 28,
+    maxRows: 6,
+    lifeMs: 5200
   },
   conquest: {
     tickets: 1000,

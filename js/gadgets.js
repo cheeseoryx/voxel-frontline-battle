@@ -657,7 +657,7 @@
   GadgetSystem.prototype._explodeFrag = function (proj, game) {
     const radius = 7.2;
     const origin = new THREE.Vector3(proj.x, proj.y, proj.z);
-    this._blastInfantry(game, origin, radius, 108, proj.team, proj.ownerId, 0.35);
+    this._blastInfantry(game, origin, radius, 108, proj.team, proj.ownerId, 0.35, 'frag');
     this._blastVehicles(game, origin, radius, 28, 'antiArmor');
     this._blastGadgets(game, origin, radius, 90, proj.team);
     if (game.world && game.world.deformTerrainCircle) {
@@ -700,7 +700,31 @@
     }
   };
 
-  GadgetSystem.prototype._blastInfantry = function (game, origin, radius, damage, team, ownerId, selfScale) {
+  GadgetSystem.prototype._resolveOwner = function (game, ownerId, team, weaponId) {
+    if (game && game.player && (ownerId === 'player-local' || ownerId === game.player.entityId)) {
+      return {
+        entityId: game.player.entityId || 'player-local',
+        team: game.player.team || team,
+        weaponId: weaponId,
+      };
+    }
+    const ai = game && game.ai;
+    const lists = ai ? [ai.blue || [], ai.red || []] : [];
+    for (let L = 0; L < lists.length; L++) {
+      for (let i = 0; i < lists[L].length; i++) {
+        const unit = lists[L][i];
+        if (unit && (unit.entityId === ownerId || unit.id === ownerId)) {
+          return { entityId: unit.entityId, team: unit.team || team, weaponId: weaponId };
+        }
+      }
+    }
+    return { entityId: ownerId || null, team: team, weaponId: weaponId };
+  };
+
+  GadgetSystem.prototype._blastInfantry = function (game, origin, radius, damage, team, ownerId, selfScale, weaponId) {
+    weaponId = weaponId || 'frag';
+    const attacker = this._resolveOwner(game, ownerId, team, weaponId);
+    const fromPlayer = attacker.entityId === ((game.player && game.player.entityId) || 'player-local');
     const ai = game.ai;
     const lists = ai ? [ai.blue || [], ai.red || []] : [];
     for (let L = 0; L < lists.length; L++) {
@@ -712,7 +736,9 @@
         const dist = Math.hypot(unit.mesh.position.x - origin.x, unit.mesh.position.z - origin.z);
         if (dist > radius) continue;
         const dmg = Math.max(12, damage * (1 - dist / (radius + 0.1)));
-        if (ai._damageUnit) ai._damageUnit(unit, dmg, null, true, game.player);
+        if (ai._damageUnit) {
+          ai._damageUnit(unit, dmg, null, fromPlayer, attacker, { weaponId: weaponId });
+        }
       }
     }
     const player = game.player;
@@ -720,7 +746,7 @@
       const dist = Math.hypot(player.object.position.x - origin.x, player.object.position.z - origin.z);
       if (dist <= 2.4) {
         const dmg = Math.max(8, damage * (1 - dist / 3) * (selfScale != null ? selfScale : 0.3));
-        player.takeDamage(dmg, origin);
+        player.takeDamage(dmg, origin, attacker);
       }
     }
   };
@@ -850,7 +876,7 @@
       const toMeZ = origin.z - pos.z;
       const back = forwardX * toMeX + forwardZ * toMeZ;
       if (!sledge && back < 0) dmg = Math.round(dmg * 1.85);
-      if (ai._damageUnit) ai._damageUnit(unit, dmg, dir, true, player);
+      if (ai._damageUnit) ai._damageUnit(unit, dmg, dir, true, player, { weaponId: sledge ? 'sledge' : 'knife' });
       hit = true;
       break;
     }
@@ -915,7 +941,7 @@
   GadgetSystem.prototype.detonate = function (item, game) {
     if (!item || item.destroyed || item.kind !== 'charge') return false;
     const origin = new THREE.Vector3(item.x, item.y, item.z);
-    this._blastInfantry(game, origin, 7.5, 130, item.team, item.ownerId, 0.2);
+    this._blastInfantry(game, origin, 7.5, 130, item.team, item.ownerId, 0.2, 'c4');
     this._blastVehicles(game, origin, 9, 160, 'antiArmor');
     this._blastGadgets(game, origin, 6, 120, item.team);
     if (game.world && game.world.deformTerrainCircle) {

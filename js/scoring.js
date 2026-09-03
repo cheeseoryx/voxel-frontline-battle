@@ -147,7 +147,8 @@
     targetId,
     amount,
     attackerTeam,
-    targetTeam
+    targetTeam,
+    part
   ) {
     if (!attackerId || !targetId || attackerId === targetId || !(amount > 0)) return;
     const key = targetId;
@@ -158,11 +159,28 @@
       at: performance.now(),
       attackerTeam: attackerTeam,
       targetTeam: targetTeam,
+      part: part || null,
     });
     const cutoff = performance.now() - 12000;
     this.damage[key] = list.filter(function (entry) {
       return entry.at >= cutoff;
     });
+  };
+
+  ScoringSystem.prototype.hitVictimRecently = function (victimId, windowMs) {
+    if (!victimId) return false;
+    const list = this.damage[victimId];
+    if (!list || !list.length) return false;
+    const local =
+      (global.VF.game &&
+        global.VF.game.player &&
+        (global.VF.game.player.entityId || 'player-local')) ||
+      'player-local';
+    const cutoff = performance.now() - (windowMs != null ? windowMs : 10000);
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].at >= cutoff && list[i].attackerId === local) return true;
+    }
+    return false;
   };
 
   ScoringSystem.prototype.confirmKill = function (

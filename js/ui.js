@@ -17,6 +17,10 @@
         hpNum: document.getElementById('hp-num'),
         armorBlocks: document.getElementById('armor-blocks'),
         armorNum: document.getElementById('armor-num'),
+        staminaRow: document.getElementById('stamina-row'),
+        staminaFill: document.getElementById('stamina-fill'),
+        killFeed: document.getElementById('kill-feed'),
+        hurtDirs: document.getElementById('hurt-dirs'),
         waveNum: document.getElementById('wave-num'),
         timer: document.getElementById('timer'),
         coreCount: document.getElementById('core-count'),
@@ -400,6 +404,17 @@
 
       if (h < this._lastHp) this.damageFlash();
       this._lastHp = h;
+    },
+
+    updateStamina(value, max, draining) {
+      const row = this.els.staminaRow;
+      const fill = this.els.staminaFill;
+      if (!row) return;
+      const m = max > 0 ? max : 100;
+      const v = Math.max(0, Math.min(m, value == null ? m : value));
+      const show = !!draining || v < 40;
+      row.classList.toggle('hidden', !show);
+      if (fill) fill.style.transform = 'scaleX(' + (v / m) + ')';
     },
 
     updateResources(cores, blocks) {
@@ -931,7 +946,7 @@
 
     updateSquadOrder(order, isLeader) {
       if (!this.els.cqCommand || this._hudMode !== 'conquest') return;
-      let text = 'Q 标记 · X 职业装备 · Z 烟雾';
+      let text = 'Q 标记 · X 职业装备 · Z 趴下';
       if (order && order.status === 'active') {
         text =
           (order.kind === 'defend' ? '防守 ' : '进攻 ') +
@@ -941,7 +956,7 @@
           '%' +
           (isLeader ? ' · Q 可更换命令' : '');
       } else if (isLeader) {
-        text = '队长 · 对准旗点按 Q 下达命令 · X 装备 · Z 烟雾';
+        text = '队长 · 对准旗点按 Q 下达命令 · X 装备 · Z 趴下';
       }
       if (this.els.cqCommandText) this.els.cqCommandText.textContent = text;
       else this.els.cqCommand.textContent = text;
@@ -1495,17 +1510,25 @@
      * Crosshair shot feedback with bloom → spring settle.
      * - 'fire': red solid 十, spread then fall back
      * - 'hit' / 'hostile': red 十 + open × (hostile unit hit)
+     * - 'armor': blue 十 + open × (small arms vs vehicle armor)
      * - 'kill': gold × overshoot + ring
      */
     flashCrosshair(kind) {
       const el = this.els.crosshair;
       if (!el) return;
-      const showTicks = kind === 'hit' || kind === 'hostile' || kind === 'kill';
-      el.classList.remove('fire', 'hit', 'hit-kill');
+      const showTicks =
+        kind === 'hit' ||
+        kind === 'hostile' ||
+        kind === 'kill' ||
+        kind === 'head' ||
+        kind === 'armor';
+      el.classList.remove('fire', 'hit', 'hit-kill', 'hit-head', 'hit-armor');
       void el.offsetWidth;
       if (showTicks) {
         el.classList.add('hit');
         if (kind === 'kill') el.classList.add('hit-kill');
+        else if (kind === 'head') el.classList.add('hit-head');
+        else if (kind === 'armor') el.classList.add('hit-armor');
       } else {
         el.classList.add('fire');
       }
@@ -1516,16 +1539,211 @@
           ? ch.killMs != null
             ? ch.killMs
             : 280
-          : showTicks
-            ? ch.hitMs != null
-              ? ch.hitMs
-              : 170
-            : ch.fireMs != null
-              ? ch.fireMs
-              : 160;
+          : kind === 'head'
+            ? ch.headMs != null
+              ? ch.headMs
+              : 200
+            : kind === 'armor'
+              ? ch.armorMs != null
+                ? ch.armorMs
+                : 180
+              : showTicks
+                ? ch.hitMs != null
+                  ? ch.hitMs
+                  : 170
+                : ch.fireMs != null
+                  ? ch.fireMs
+                  : 160;
       this._hitTimer = setTimeout(function () {
-        el.classList.remove('fire', 'hit', 'hit-kill');
+        el.classList.remove('fire', 'hit', 'hit-kill', 'hit-head', 'hit-armor');
       }, dur);
+    },
+
+    _feedName(id, fallback) {
+      if (fallback) return fallback;
+      const Revive = global.VF.Revive;
+      if (Revive && Revive.entityName) return Revive.entityName(id);
+      if (id === 'player-local') return '你';
+      if (id === 'remote-player') return '敌方玩家';
+      return id || '未知';
+    },
+
+    _feedGun(weaponId) {
+      const map = {
+        ar: '步枪',
+        sg: '霰弹',
+        sr: '狙击',
+        smg: '冲锋',
+        lmg: '机枪',
+        pistol: '手枪',
+        rpg: 'RPG',
+        'vehicle-ram': '撞击',
+        frag: '破片',
+        c4: 'C4',
+        bleed: '流血',
+        knife: '刀',
+        sledge: '锤',
+      };
+      if (!weaponId) return '枪';
+      if (map[weaponId]) return map[weaponId];
+      const cat = global.VF.WeaponCatalog;
+      if (cat && cat.byId && cat.byId[weaponId] && cat.byId[weaponId].name) {
+        return cat.byId[weaponId].name;
+      }
+      return String(weaponId);
+    },
+
+    _localPlayerId() {
+      const p = global.VF.game && global.VF.game.player;
+      return (p && (p.entityId || 'player-local')) || 'player-local';
+    },
+
+    _allowKillFeed(entry) {
+      if (!entry) return false;
+      const local = this._localPlayerId();
+      if (entry.killerId === local || entry.victimId === local) return true;
+      if (entry.victimId === 'player-local' || entry.killerId === 'player-local') return true;
+      const squads = global.VF.Squads;
+      if (squads && squads.areSquadmates) {
+        if (squads.areSquadmates(local, entry.killerId) || squads.areSquadmates(local, entry.victimId)) {
+          return true;
+        }
+      }
+      if (global.VF.Scoring && global.VF.Scoring.hitVictimRecently) {
+        if (global.VF.Scoring.hitVictimRecently(entry.victimId, 10000)) return true;
+      }
+      const kf = (global.VF.Feel && global.VF.Feel.killfeed) || {};
+      const range = kf.rangeM != null ? kf.rangeM : 28;
+      const player = global.VF.game && global.VF.game.player;
+      const pos = player && player.object && player.object.position;
+      if (pos && entry.x != null && entry.z != null) {
+        const d = Math.hypot(pos.x - entry.x, pos.z - entry.z);
+        if (d < range) return true;
+      }
+      return false;
+    },
+
+    pushKillFeed(entry) {
+      if (!this._allowKillFeed(entry)) return;
+      this._killFeed = this._killFeed || [];
+      const now = performance.now();
+      const row = {
+        killerId: entry.killerId || null,
+        killerName: this._feedName(entry.killerId, entry.killerName),
+        killerTeam: entry.killerTeam || null,
+        victimId: entry.victimId || null,
+        victimName: this._feedName(entry.victimId, entry.victimName),
+        victimTeam: entry.victimTeam || null,
+        weaponId: entry.weaponId || null,
+        part: entry.part || null,
+        kind: entry.kind || 'kill',
+        lifeId: entry.lifeId || null,
+        at: now,
+      };
+      if (row.lifeId) {
+        for (let i = 0; i < this._killFeed.length; i++) {
+          if (this._killFeed[i].lifeId === row.lifeId) {
+            this._killFeed[i] = Object.assign({}, this._killFeed[i], row, { at: now });
+            this._renderKillFeed();
+            return;
+          }
+        }
+      }
+      this._killFeed.unshift(row);
+      const max =
+        (global.VF.Feel && global.VF.Feel.killfeed && global.VF.Feel.killfeed.maxRows) || 6;
+      while (this._killFeed.length > max) this._killFeed.pop();
+      this._renderKillFeed();
+    },
+
+    tickKillFeed() {
+      const list = this._killFeed;
+      if (!list || !list.length) return;
+      const life =
+        (global.VF.Feel && global.VF.Feel.killfeed && global.VF.Feel.killfeed.lifeMs) || 5200;
+      const now = performance.now();
+      const next = list.filter(function (row) {
+        return now - row.at < life;
+      });
+      if (next.length === list.length) return;
+      this._killFeed = next;
+      this._renderKillFeed();
+    },
+
+    _renderKillFeed() {
+      const box = this.els.killFeed;
+      if (!box) return;
+      box.textContent = '';
+      const local = this._localPlayerId();
+      const pTeam = this._playerTeam();
+      const rows = this._killFeed || [];
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const el = document.createElement('div');
+        el.className = 'kf-row';
+        if (row.kind === 'down') el.classList.add('is-down');
+        if (row.killerId === local || row.victimId === local || row.victimId === 'player-local') {
+          el.classList.add('is-self');
+        }
+        if (row.killerTeam && row.killerTeam !== pTeam) el.classList.add('is-enemy');
+        const k = document.createElement('span');
+        k.className = 'kf-name';
+        if (row.killerId === local || row.killerId === 'player-local') {
+          k.classList.add(pTeam === 'enemy' ? 'self-enemy' : 'self-ally');
+        }
+        k.textContent = row.killerName || this._feedName(row.killerId);
+        const gun = document.createElement('span');
+        gun.className = 'kf-gun';
+        gun.textContent = this._feedGun(row.weaponId);
+        const v = document.createElement('span');
+        v.className = 'kf-name';
+        if (row.victimId === local || row.victimId === 'player-local') {
+          v.classList.add(pTeam === 'enemy' ? 'self-enemy' : 'self-ally');
+        }
+        v.textContent = row.victimName || this._feedName(row.victimId);
+        el.appendChild(k);
+        el.appendChild(gun);
+        if (row.part === 'head') {
+          const diamond = document.createElement('span');
+          diamond.className = 'kf-head';
+          diamond.textContent = '◆';
+          el.appendChild(diamond);
+        }
+        el.appendChild(v);
+        const kind = document.createElement('span');
+        kind.className = 'kf-kind';
+        kind.textContent = row.kind === 'down' ? '击倒' : '击杀';
+        el.appendChild(kind);
+        box.appendChild(el);
+      }
+    },
+
+    showHurtDir(fromPos, yaw) {
+      const box = this.els.hurtDirs;
+      if (!box || !fromPos) return;
+      const player = global.VF.game && global.VF.game.player;
+      if (!player || player.downed) return;
+      const pos = player.object && player.object.position;
+      if (!pos) return;
+      const dx = (fromPos.x != null ? fromPos.x : fromPos.X) - pos.x;
+      const dz = (fromPos.z != null ? fromPos.z : fromPos.Z) - pos.z;
+      if (dx * dx + dz * dz < 0.01) return;
+      const lookX = -Math.sin(yaw);
+      const lookZ = -Math.cos(yaw);
+      const rightX = Math.cos(yaw);
+      const rightZ = -Math.sin(yaw);
+      const fwd = dx * lookX + dz * lookZ;
+      const rt = dx * rightX + dz * rightZ;
+      let ang = Math.atan2(rt, fwd);
+      if (ang < 0) ang += Math.PI * 2;
+      const oct = Math.round(ang / (Math.PI / 4)) % 8;
+      const nodes = box.querySelectorAll('i');
+      for (let i = 0; i < nodes.length; i++) nodes[i].classList.remove('on');
+      if (nodes[oct]) nodes[oct].classList.add('on');
+      clearTimeout(this._hurtDirTimer);
+      this._hurtDirTimer = setTimeout(function () {
+        for (let i = 0; i < nodes.length; i++) nodes[i].classList.remove('on');
+      }, 700);
     },
 
     setInteractHint(show, text) {

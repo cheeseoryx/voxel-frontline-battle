@@ -209,6 +209,7 @@
         state.lifeId
       );
     }
+    this._pushBleedFeed(state, 'player-local', teamOf(state.entity));
     const player = state.entity;
     if (player) {
       player.downed = false;
@@ -363,6 +364,7 @@
     state.status = 'finalized';
     const C = global.VF && global.VF.Conquest;
     if (C && C.finalizeCasualty) C.finalizeCasualty(state.casualtyId, { reason: reason || 'bleed-out' });
+    this._pushBleedFeed(state, state.entity && state.entity.entityId, teamOf(state.entity));
     this._finishAIVisuals(state);
     return true;
   };
@@ -484,6 +486,26 @@
       this._lastUiAt = now;
       if (ui && ui.updateDowned) ui.updateDowned(this._downedUiPayload(state));
     }
+  };
+
+  ReviveSystem.prototype._pushBleedFeed = function (state, victimId, victimTeam) {
+    if (!state || !global.VF.UI || !global.VF.UI.pushKillFeed) return;
+    const pos = positionOf(state.entity);
+    global.VF.UI.pushKillFeed({
+      killerId: state.killerId || null,
+      killerName: null,
+      killerTeam: state.killerTeam || null,
+      victimId: victimId,
+      victimName: null,
+      victimTeam: victimTeam,
+      weaponId: state.killerWeaponId || 'bleed',
+      part: null,
+      kind: 'kill',
+      lifeId: state.lifeId,
+      x: pos && pos.x,
+      y: pos && pos.y,
+      z: pos && pos.z,
+    });
   };
 
   ReviveSystem.prototype.entityName = function (entityOrId) {
