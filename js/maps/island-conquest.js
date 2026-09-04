@@ -14,6 +14,51 @@
   const NAME = '荒盆';
   const NAME_EN = 'Scorch Basin';
   const LAYOUT = 'ridge';
+  const MAP_KEY = 'island-conquest';
+
+  /* ------------------------------------------------------------------ *
+   * 编辑器地形覆盖层
+   *
+   * 地形本体是下面那些闭式函数；覆盖层（js/maps/island-conquest-terrain.js，由
+   * F8 关卡编辑器写入）叠在它之上。三个入口：heightAtMeters 加高度偏移、
+   * isWater/isLand 查轮廓覆盖。
+   *
+   * 覆盖层为空（未编辑过）时 overlay() 返回 null，全部走原路径 —— 行为和加这层
+   * 之前逐字节相同。scripts/check-map-terrain.js 会验这一点。
+   * ------------------------------------------------------------------ */
+  /**
+   * 当前生效的覆盖层，未编辑过则返回 null。
+   *
+   * **这个函数在最热的路径上** —— worldgen 要采样 1024² 个格子，每格会经过
+   * heightAtMeters / isLand / isWater 共三到四次覆盖层查询，也就是四百万次调用。
+   * 所以结果按 raw 对象的身份缓存：命中时只是两次属性读 + 一次引用比较。
+   *
+   * 缓存在两种情况下失效：VF.MAP_TERRAIN[MAP_KEY] 换了对象（数据文件重新加载、
+   * 编辑器保存后 commit），或者 MapTerrain 的 blank 状态变了（编辑器第一笔刷下去
+   * 时，笔刷会调 MT.touch）。后者靠比对 isBlank 的当前值兜住 —— isBlank 自己也
+   * 有缓存，所以这仍然是 O(1)。
+   */
+  function overlay() {
+    const MT = global.VF && global.VF.MapTerrain;
+    if (!MT) return null;
+    // 必须每次都问 MT.get() —— reset() 会换成一个新的 live 对象，缓存住引用就会
+    // 读到已经撤销的地形。get() 自己是 O(1) 的（内部按 raw 引用命中）。
+    const live = MT.get(MAP_KEY);
+    if (!live) return null;
+    // 快路径：只读一个属性。_blankCache 是 MapTerrain 有意公开的契约 ——
+    // true=已知空、false=已知非空、null=刚被 touch() 过，要重新判定。
+    const cached = live._blankCache;
+    if (cached === true) return null;
+    if (cached === false) return live;
+    return MT.isBlank(live) ? null : live;
+  }
+
+  /** 轮廓覆盖：0 继承 / 1 强制水 / 2 强制陆地。 */
+  function contourAt(x, z) {
+    const data = overlay();
+    if (!data) return 0;
+    return global.VF.MapTerrain.waterAt(data, x, z);
+  }
 
   const HQ = {
     ally: { nx: 0.4, nz: 0.08, gate: '+z' },
@@ -47,6 +92,8 @@
   }
 
   function isLand(x, z, size) {
+    // 强制水也算陆地（可游玩范围内），和闭式解一致：isWater ⊂ isLand。
+    if (contourAt(x, z)) return true;
     return landDist(x, z, size) < 1;
   }
 
@@ -61,9 +108,21 @@
   }
 
   function isWater(x, z, size) {
+    return isWaterWith(x, z, size, contourAt(x, z));
+  }
+
+  /**
+   * isWater 的内部形式，轮廓值由调用方传入。
+   *
+   * heightAtMeters 本来要 contourAt 一次、再经 isWater 又查一次 —— 在 worldgen
+   * 的 1024² 循环里那是两百万次多余查询。这里把它省掉。
+   */
+  function isWaterWith(x, z, size, contour) {
+    if (contour === 1) return true;
+    if (contour === 2) return false;
     const nx = x / size;
     const nz = z / size;
-    if (!isLand(x, z, size)) return false;
+    if (landDist(x, z, size) >= 1) return false; // = !isLand，contour 已知为 0
     const river = Math.abs(nx - riverNx(nz)) < 0.011 && nz > 0.11 && nz < 0.88;
     const ravine = Math.abs(nx - 0.325) < 0.028 && nz > 0.29 && nz < 0.43;
     const northPool = (nx - 0.5) * (nx - 0.5) / 0.018 / 0.018 + (nz - 0.9) * (nz - 0.9) / 0.012 / 0.012 < 1;
@@ -73,11 +132,32 @@
 
   /**
    * Walk-on-top height in meters, quantized to 10cm.
+   *
+   * 结构：程序高度（闭式解，钳在 [8.4, 62]）+ 编辑器高度偏移，最后统一钳在
+   * TOP_MIN..TOP_MAX 并重新量化到 10cm。
+   *
+   * 这里是**唯一的高度钳位点** —— 边界刻意取在另外两处钳位的内侧，让它们永远
+   * 不触发，生成路径和编辑器增量路径因此永远产出同一个值：
+   *
+   *   _buildHeightTerrain (voxel-world.js) gy 钳 [6, height-8] = [6, 93]，
+   *     但 terrainH 写的是**未钳位**的 surfH。所以 surfH 必须让
+   *     round(surfH)-1 自然落在 [6,93] 内，否则两份数组当场不一致
+   *     （assertTerrainColumn 会抛 'Terrain column desynchronized'）。
+   *     → surfH ∈ [6.5, 94.49]
+   *   setTerrainTop (terrain-fine.js) 钳 [1.1, height-2] = [1.1, 99]
+   *
+   * 取 [7, 90]：下界比 6.5 留了余量，上界给摆件（上限 96 = height-5）和结构体
+   * 留了 6m。
    */
+  const TOP_MIN = 7;
+  const TOP_MAX = 90;
   function heightAtMeters(x, z, size) {
     const nx = x / size;
     const nz = z / size;
     const d = landDist(x, z, size);
+    // 覆盖层解析一次，下面的轮廓判断和高度偏移共用（各自再查一遍就是双倍开销）。
+    const ovData = overlay();
+    const contour = ovData ? global.VF.MapTerrain.waterAt(ovData, x, z) : 0;
     let h = 12.4 + nz * 1.6 + nx * 0.4;
     h += 2.2 * Math.exp(-Math.pow((nx - 0.52) / 0.1, 2) - Math.pow((nz - 0.21) / 0.08, 2));
     h -= 1.6 * Math.exp(-Math.pow((nx - 0.7) / 0.09, 2) - Math.pow((nz - 0.36) / 0.08, 2));
@@ -86,16 +166,26 @@
     h += 2.4 * Math.exp(-Math.pow((nx - 0.55) / 0.1, 2) - Math.pow((nz - 0.78) / 0.08, 2));
     h += Math.sin(x * 0.07) * 0.35 + Math.sin(z * 0.055 + x * 0.03) * 0.3;
 
-    if (d > 1) {
+    // 山脊斜坡。刷成「强制陆地」的格子跳过它 —— 这一行就是轮廓编辑真正生效的
+    // 地方：不跳过的话，盆地外每格都被 +22m 抬到山上去，高度笔刷在那儿刷不出
+    // 平地（笔刷的偏移量会被这个斜坡吃掉）。
+    if (d > 1 && contour !== 2) {
       const over = Math.min(1.8, d - 1);
       h = Math.max(h, 26) + over * 22 + Math.abs(Math.sin(x * 0.033 + z * 0.029)) * 9;
-    } else if (d > 0.62) {
+    } else if (d > 0.62 && contour !== 2) {
       const t = (d - 0.62) / 0.38;
       h += t * t * 16;
     }
-    if (isWater(x, z, size)) h -= 0.3;
+    if (isWaterWith(x, z, size, contour)) h -= 0.3;
     if (h < 8.4) h = 8.4;
     if (h > 62) h = 62;
+
+    if (ovData) {
+      const off = global.VF.MapTerrain.heightOffsetAt(ovData, x, z);
+      if (off) h += off;
+    }
+    if (h < TOP_MIN) h = TOP_MIN;
+    if (h > TOP_MAX) h = TOP_MAX;
     return Math.round(h * 10) / 10;
   }
 
@@ -438,6 +528,63 @@
     }
   }
 
+  /**
+   * Place baked .vox props (VF.Props).
+   *
+   * Deliberately UNGUARDED: whatever the artist placed in the prop editor gets
+   * stamped. The old base-keepclear / near-flag guards silently dropped ~4% of
+   * the map (every flag had a 36m dead zone), which was impossible to diagnose
+   * from the editor — the editor calls Props.stamp directly, so the prop showed
+   * up there and then vanished in a real match. Props now claim their footprint
+   * (world.claimPropArea) and the later terrain stages respect the claim.
+   */
+  function stampVoxProps(world) {
+    if (!global.VF.Props || !global.VF.Props.stamp) return;
+    const size = world.worldSize;
+    const placed = resolveVoxProps();
+    for (let i = 0; i < placed.length; i++) {
+      const item = placed[i];
+      const prop = global.VF.PROPS && global.VF.PROPS[item.id];
+      if (!prop) continue;
+      const p = nudgeLand(world, size * item.nx, size * item.nz);
+      global.VF.Props.stamp(world, item.id, { cx: p.x, cz: p.z, yaw: item.yaw });
+    }
+  }
+
+  /**
+   * 摆件布局的唯一来源：VF.MAP_PROPS['island-conquest']，由游戏内关卡编辑器
+   * （js/level-editor.js，F8）写入 js/maps/island-conquest-props.js。
+   * 位置不要写死在这里 —— 用编辑器摆完 Ctrl+S 保存。
+   */
+  function resolveVoxProps() {
+    const mapProps = global.VF.MAP_PROPS && global.VF.MAP_PROPS[MAP_KEY];
+    if (!Array.isArray(mapProps)) return [];
+    return mapProps.map(function (m) {
+      return { id: m.id, nx: m.nx, nz: m.nz, yaw: m.yaw || 0 };
+    });
+  }
+
+  /**
+   * 程序化预制体（民房/多层楼/摩天楼/废墟/工厂/高架桥），同样由关卡编辑器写入
+   * js/maps/island-conquest-props.js（和 .vox 摆件同一个文件，两个键）。
+   *
+   * 在 stampVoxProps **之前**执行：.vox 摆件是美术手工资产，重叠时应该压过程序
+   * 预制体。而且预制体不 claimPropArea，摆件会 claim —— 顺序反了的话摆件的
+   * claim 保不住它自己的地基。
+   */
+  function stampPrefabs(world) {
+    if (!world.stampEditorPrefab) return;
+    const size = world.worldSize;
+    const list = global.VF.MAP_PREFABS && global.VF.MAP_PREFABS[MAP_KEY];
+    if (!Array.isArray(list)) return;
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i];
+      if (!item || !item.kind) continue;
+      const p = nudgeLand(world, size * item.nx, size * item.nz);
+      world.stampEditorPrefab(item.kind, p.x, p.z, item.yaw || 0);
+    }
+  }
+
   function stamp(world) {
     if (!world) return;
     const size = world.worldSize;
@@ -466,6 +613,12 @@
     paintRoads(world, flags);
     stampTown(world, flags, flags.concat(world._plannedBases || []));
     stampLandmarks(world, flags);
+    // Props LAST among the terrain stages: procedural decor (tanks, stadium,
+    // bridge, shrubs) would otherwise carve into an authored building. Later
+    // stages that still run (flag plazas, vehicle pads, base rebuild) all
+    // consult world.isPropClaimed().
+    stampPrefabs(world);
+    stampVoxProps(world);
 
     if (world._clearFlagPlaza) {
       for (let i = 0; i < flags.length; i++) {
@@ -487,7 +640,10 @@
     name: NAME,
     nameEn: NAME_EN,
     layout: LAYOUT,
+    mapKey: MAP_KEY,
     biome: 'desert',
+    TOP_MIN: TOP_MIN,
+    TOP_MAX: TOP_MAX,
     HQ: HQ,
     FLAGS: FLAGS,
     isLand: isLand,

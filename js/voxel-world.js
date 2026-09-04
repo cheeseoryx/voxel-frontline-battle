@@ -245,6 +245,7 @@
     else this._blockDurability = new Map();
     this.groundY.fill(0);
     if (this.terrainH) this.terrainH.fill(0);
+    this.clearPropClaims();
     this.rooftops = [];
     this.buildings = [];
     this.skyBridges = [];
@@ -454,6 +455,48 @@
     return false;
   };
 
+  /**
+   * Prop footprint claims — "the artist placed it here, so it stays here".
+   *
+   * Baked .vox props (VF.Props.stamp) are written during island.stamp(), but
+   * several later stages reshape terrain and used to erase them:
+   * Bases.rebuildAfterMapGen (_setWalkColumn clears 24 blocks of air above the
+   * walk surface), _clearFlagPlaza, and runtime setTerrainTop. Those stages ask
+   * isPropClaimed() before writing so a placed prop is never silently gutted.
+   */
+  VoxelWorld.prototype.claimPropArea = function (ox, oz, w, d, gy, topY) {
+    const size = this.worldSize;
+    if (!this._propClaims) this._propClaims = [];
+    if (!this._propClaimMask) this._propClaimMask = new Uint8Array(size * size);
+    this._propClaims.push({
+      ox: ox, oz: oz, w: w, d: d, gy: gy, topY: topY,
+    });
+    for (let dz = 0; dz < d; dz++) {
+      for (let dx = 0; dx < w; dx++) {
+        const x = ox + dx;
+        const z = oz + dz;
+        if (x < 0 || z < 0 || x >= size || z >= size) continue;
+        this._propClaimMask[z * size + x] = 1;
+      }
+    }
+  };
+
+  /** True if (x,z) sits under a placed prop. Cheap mask lookup, safe pre-gen. */
+  VoxelWorld.prototype.isPropClaimed = function (x, z) {
+    const mask = this._propClaimMask;
+    if (!mask) return false;
+    const size = this.worldSize;
+    const ix = Math.floor(x);
+    const iz = Math.floor(z);
+    if (ix < 0 || iz < 0 || ix >= size || iz >= size) return false;
+    return mask[iz * size + ix] === 1;
+  };
+
+  VoxelWorld.prototype.clearPropClaims = function () {
+    this._propClaims = [];
+    this._propClaimMask = null;
+  };
+
   VoxelWorld.prototype._buildHeightTerrain = function (layout) {
     const size = this.worldSize;
     const blocks = this.blocks;
@@ -462,6 +505,16 @@
     const idx = function (x, y, z) {
       return (y * size + z) * size + x;
     };
+    // 关卡编辑器的表面材质覆盖层。高度偏移不在这里读 —— 它已经烘进
+    // layout.heightAtMeters() 里了（js/maps/island-conquest.js），这样生成路径和
+    // 编辑器增量路径共用同一个采样函数。
+    const MT = global.VF && global.VF.MapTerrain;
+    const mapKey = layout && layout.mapKey;
+    let matOverlay = null;
+    if (MT && mapKey) {
+      const data = MT.get(mapKey);
+      if (data && !MT.isBlank(data)) matOverlay = data;
+    }
     for (let z = 0; z < size; z++) {
       for (let x = 0; x < size; x++) {
         const wet = !!(layout.isWater && layout.isWater(x, z, size));
@@ -491,6 +544,13 @@
           else top = n > 0.62 ? BLOCK.RUBBLE : BLOCK.STONE;
         } else {
           top = gy > 38 ? BLOCK.STONE : BLOCK.RUBBLE;
+        }
+        // 编辑器材质覆盖（js/maps/*-terrain.js 的 mat 层）。只改**恰好在 gy 那
+        // 一层**的块 —— 下面的填充仍是 STONE/DIRT。10cm 高度场网格化器读的正是
+        // this.get(ix, gy, iz)（terrain-fine.js:460），所以改这一格就够上色。
+        if (matOverlay) {
+          const ov = MT.matAt(matOverlay, x, z);
+          if (ov) top = ov;
         }
         blocks[idx(x, gy, z)] = top;
         groundY[z * size + x] = gy;
@@ -1082,6 +1142,8 @@
         if (u > 1) continue;
         const x = gx + dx;
         const z = gz + dz;
+        // An artist-placed prop outranks a procedural landmark.
+        if (this.isPropClaimed && this.isPropClaimed(x, z)) continue;
         const ring = u > 0.72;
         this.set(x, gy, z, ring ? BLOCK.CONCRETE : BLOCK.DIRT);
         if (ring) {
@@ -1179,6 +1241,8 @@
         const x = gx + dx;
         const z = gz + dz;
         if (x < 2 || z < 2 || x >= size - 2 || z >= size - 2) continue;
+        // Don't hollow out an artist-placed prop to make room for a vehicle.
+        if (this.isPropClaimed && this.isPropClaimed(x, z)) continue;
         const ground = this.groundY
           ? this.groundY[z * size + x]
           : Math.floor(this.getTerrainTop(x, z));
@@ -1219,6 +1283,9 @@
         const z = gz + dz;
         if (x < 2 || z < 2 || x >= size - 2 || z >= size - 2) continue;
         if (this._riverInfo(x, z).inWater) continue;
+        // An artist-placed prop outranks the plaza sweep; carving here would
+        // gut the building (see claimPropArea).
+        if (this.isPropClaimed && this.isPropClaimed(x, z)) continue;
         for (let y = 1; y < gy; y++) {
           const cur = this.get(x, y, z);
           if (cur === BLOCK.AIR || cur === BLOCK.WATER) this.set(x, y, z, BLOCK.STONE);
@@ -3560,6 +3627,7 @@
     else this._blockDurability = new Map();
     this.groundY.fill(0);
     if (this.terrainH) this.terrainH.fill(0);
+    this.clearPropClaims();
     this._noiseSeed = 0;
     this._terrainMask = null;
     this._terrainMaskCells = 0;

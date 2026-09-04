@@ -113,14 +113,9 @@
           openFrontlineHub();
         });
       }
-      if (overlay) {
-        overlay.addEventListener('click', (e) => {
-          if (e.target.closest('.cover-ui') || e.target.closest('.cover-title')) return;
-          if (e.target.id === 'start-overlay' || e.target.classList.contains('cover-art')) {
-            openFrontlineHub();
-          }
-        });
-      }
+      // 封面只有三个按钮可点。这里曾经给整个 #start-overlay 绑过一个「点任意处
+      // 进大厅」的捷径，但 .cover-art 是铺满全屏的背景层，点「结束游戏」/「新手
+      // 教程」稍微偏一点就会命中它、被直接扔进大厅，等于让另外两个按钮形同虚设。
 
       if (VF.Pvp) {
         VF.Pvp.init(function (info) {
@@ -2021,8 +2016,14 @@
 
     const rangeOpen = !!(VF.Range && VF.Range.isOpen);
 
+    // 关卡编辑器（dev）：自由相机 + ghost + 以相机为中心的区块流送
+    const editorActive = !!(VF.LevelEditor && VF.LevelEditor.isActive && VF.LevelEditor.isActive());
+    const editorFreeCam = !!(VF.LevelEditor && VF.LevelEditor.isFreeCam && VF.LevelEditor.isFreeCam());
+    if (editorActive) VF.LevelEditor.update(dt);
+
     // Deferred voxel mesh rebuilds — prefer chunks around the player so the road loads first
-    if (!rangeOpen && game.world && game.world.flushRebuilds) {
+    // (编辑器接管时由 LevelEditor.update 自己以相机位置驱动，这里跳过避免打架)
+    if (!rangeOpen && !editorActive && game.world && game.world.flushRebuilds) {
       const pref =
         game.player && game.player.object
           ? game.player.object.position
@@ -2145,7 +2146,7 @@
           game.skills._syncHud();
         }
         if (VF.Audio && game.player.locked) VF.Audio.update(dt, game.player);
-      } else if (game.world && game.world.ensureMeshedAround && game.player.object) {
+      } else if (!editorActive && game.world && game.world.ensureMeshedAround && game.player.object) {
         game.world.ensureMeshedAround(
           game.player.object.position.x,
           game.player.object.position.z,
@@ -2228,7 +2229,12 @@
         VF.UI.updateVitals(game.player.health, game.player.armor);
       } else if (game.levelEditing) {
         VF.UI.setInteractHint(false);
-        if (VF.MapEditor && VF.MapEditor.update) VF.MapEditor.update();
+        // game.levelEditing 被两个编辑器共用（大厅的 VF.MapEditor 和 F8 的
+        // VF.LevelEditor），所以要问清楚是谁在开着 —— 否则 F8 编辑时也会每帧
+        // tick 大厅编辑器的 FPS ghost。
+        if (VF.MapEditor && VF.MapEditor.update && VF.MapEditor.isFps && VF.MapEditor.isFps()) {
+          VF.MapEditor.update();
+        }
       } else {
         VF.UI.setInteractHint(false);
       }
@@ -2249,6 +2255,9 @@
       game._idleEuler.set(game.player.pitch, game.player.yaw, 0);
       game.camera.quaternion.setFromEuler(game._idleEuler);
     }
+
+    // 关卡编辑器自由相机覆盖玩家相机（walk 模式让 player 写相机）
+    if (editorFreeCam && VF.LevelEditor.applyCamera) VF.LevelEditor.applyCamera();
 
     if (VF.UI && VF.UI.updateVehicleHud) {
       VF.UI.updateVehicleHud(game.player, game.vehicles);

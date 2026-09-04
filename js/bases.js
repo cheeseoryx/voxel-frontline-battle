@@ -429,6 +429,7 @@
           const xx = fx + dx;
           const zz = fz + dz;
           if (xx < 1 || zz < 1 || xx >= size - 1 || zz >= size - 1) continue;
+          if (w.isPropClaimed && w.isPropClaimed(xx, zz)) continue;
           for (let y = gy + 1; y <= gy + 4; y++) w.set(xx, y, zz, global.VF.BLOCK.AIR);
           if (w.groundY) w.groundY[zz * size + xx] = gy;
           if (w.terrainH) w.terrainH[zz * size + xx] = gy + 1;
@@ -681,6 +682,10 @@
     const w = this.world;
     const BLOCK = global.VF.BLOCK;
     if (x < 0 || z < 0 || x >= w.worldSize || z >= w.worldSize) return;
+    // Never rewrite a column an artist-placed prop stands on — this function
+    // overwrites the whole column and clears 24 blocks of air above it, which
+    // used to erase ~25% of a prop placed near a base gate.
+    if (w.isPropClaimed && w.isPropClaimed(x, z)) return;
     const top = Math.max(1.2, walkTop);
     const gy = Math.max(3, Math.round(top) - 1);
     const cap = topBlock || BLOCK.CONCRETE;

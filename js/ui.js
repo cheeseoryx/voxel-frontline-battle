@@ -4330,6 +4330,12 @@
             r = 110;
             g = 108;
             b = 102;
+          } else if (global.VF.PropPalette && global.VF.PropPalette.isPropId(t)) {
+            // Exact-colour prop voxels have no BLOCK name — read their hex.
+            const h = global.VF.BLOCK_COLORS[t] || 0x9a968e;
+            r = (h >> 16) & 255;
+            g = (h >> 8) & 255;
+            b = h & 255;
           } else {
             const k = Math.max(0, Math.min(1, (gy - 10) / 36));
             r = 86 + (k * 92) | 0;
@@ -4338,8 +4344,9 @@
           }
           for (let dy = 2; dy <= 10; dy++) {
             const up = world.get(wx, gy + dy, wz);
-            if (up === CONCRETE || up === METAL || up === PLASTER || up === BRICK || up === STONE) {
-              if (dy <= 6 && (up === CONCRETE || up === METAL || up === PLASTER || up === BRICK)) {
+            const isProp = global.VF.PropPalette && global.VF.PropPalette.isPropId(up);
+            if (up === CONCRETE || up === METAL || up === PLASTER || up === BRICK || up === STONE || isProp) {
+              if (dy <= 6 && (up === CONCRETE || up === METAL || up === PLASTER || up === BRICK || isProp)) {
                 r = 198;
                 g = 196;
                 b = 190;
@@ -4715,6 +4722,12 @@
         if (t === global.VF.BLOCK.GRASS) return [61, 107, 46];
         if (t === global.VF.BLOCK.CONCRETE || t === global.VF.BLOCK.STONE) return [74, 78, 84];
         if (t === global.VF.BLOCK.RUST) return [106, 58, 32];
+        // Exact-colour prop voxels have no BLOCK name — read their registered hex.
+        const PP = global.VF.PropPalette;
+        if (PP && PP.isPropId(t)) {
+          const h = global.VF.BLOCK_COLORS[t] || 0x9a968e;
+          return [(h >> 16) & 255, (h >> 8) & 255, h & 255];
+        }
         return [58, 74, 48];
       };
 
@@ -4729,12 +4742,14 @@
           // Prefer taller structures for readability
           for (let dy = 1; dy <= 8; dy++) {
             const up = world.get(wx, gy + dy, wz);
+            const PPu = global.VF.PropPalette;
             if (
               up === global.VF.BLOCK.BRICK ||
               up === global.VF.BLOCK.CONCRETE ||
               up === global.VF.BLOCK.METAL ||
               up === global.VF.BLOCK.PLASTER ||
-              up === global.VF.BLOCK.ROOF
+              up === global.VF.BLOCK.ROOF ||
+              (PPu && PPu.isPropId(up))
             ) {
               t = up;
               break;
@@ -5330,6 +5345,7 @@
             if (t === AIR) t = world.get(wx, gy - 1, wz);
             let col = '#3d5a34';
             const layout = global.VF && global.VF.IslandConquestMap;
+            const PP = global.VF.PropPalette;
             if (layout && layout.isWater && layout.isWater(wx, wz, world.worldSize)) col = '#2a6a7a';
             else if (t === WATER) col = '#1a4a6a';
             else if (t === global.VF.BLOCK.ROAD || t === global.VF.BLOCK.ASPHALT) col = '#2a2e34';
@@ -5340,6 +5356,10 @@
             else if (t === global.VF.BLOCK.GRASS) col = '#3d6b2e';
             else if (t === global.VF.BLOCK.CONCRETE || t === global.VF.BLOCK.STONE) col = '#4a4e54';
             else if (t === global.VF.BLOCK.RUST) col = '#6a3a20';
+            // Exact-colour prop voxels have no BLOCK name — read their registered hex.
+            else if (PP && PP.isPropId(t)) {
+              col = '#' + (global.VF.BLOCK_COLORS[t] || 0x9a968e).toString(16).padStart(6, '0');
+            }
             tctx.fillStyle = col;
             tctx.fillRect(cx + dx * scale, cy + dz * scale, step * scale + 0.5, step * scale + 0.5);
           }

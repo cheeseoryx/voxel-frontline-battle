@@ -95,6 +95,8 @@
       opts = opts || {};
       if (opts.force) return false;
       if (x <= 1 || z <= 1 || x >= this.worldSize - 2 || z >= this.worldSize - 2) return true;
+      // Artist-placed props: reshaping their pad would break the building.
+      if (this.isPropClaimed && this.isPropClaimed(x, z)) return true;
       const bases = this._plannedBases || [];
       for (let i = 0; i < bases.length; i++) {
         const b = bases[i];
