@@ -1563,19 +1563,20 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * File System Access 句柄，按 key 存在 IndexedDB 里
+   * File System Access：一个目录句柄统一管两个源文件
    *
-   * 两个 key：摆件源文件和地形源文件各一个。第一次保存各弹一次文件选择器，
-   * 之后记住。DB 名沿用 vf-prop-editor-fs —— 改名会让已有的授权句柄全部失效，
-   * 用户要重新挑一遍文件。
+   * 用户选一次目录（showDirectoryPicker），props 和 terrain 都写到该目录下，
+   * 一个句柄存在 IndexedDB 里，之后记住。DB 名沿用 vf-prop-editor-fs ——
+   * 改名会让已有授权句柄失效。旧的「每文件一个句柄」key 已废弃，残留无害。
    * ------------------------------------------------------------------ */
   const HANDLE_DB = 'vf-prop-editor-fs';
   const HANDLE_STORE = 'handles';
+  const DIR_KEY = 'island-conquest-source-dir';
   const FILES = {
-    props: { key: 'island-conquest-props', name: 'island-conquest-props.js' },
-    terrain: { key: 'island-conquest-terrain', name: 'island-conquest-terrain.js' },
+    props: { name: 'island-conquest-props.js' },
+    terrain: { name: 'island-conquest-terrain.js' },
   };
-  const cachedHandles = Object.create(null);
+  let cachedDirHandle = null;
 
   function openHandleDB() {
     return new Promise(function (resolve, reject) {
@@ -1618,44 +1619,54 @@
       });
     } catch (_) {}
   }
-  async function pickHandle(spec) {
-    const handle = await window.showSaveFilePicker({
-      suggestedName: spec.name,
-      types: [{ description: 'JavaScript', accept: { 'text/javascript': ['.js'] } }],
-    });
-    await storeHandle(spec.key, handle);
-    cachedHandles[spec.key] = handle;
-    return handle;
-  }
-  async function resolveWritableHandle(spec) {
-    let handle = cachedHandles[spec.key] || (await getStoredHandle(spec.key));
-    if (handle) {
-      const perm = await handle.queryPermission({ mode: 'readwrite' });
-      if (perm !== 'granted' && (await handle.requestPermission({ mode: 'readwrite' })) !== 'granted') {
-        handle = null;
-      }
-    }
-    if (!handle) handle = await pickHandle(spec);
-    cachedHandles[spec.key] = handle;
-    return handle;
+  async function deleteStoredHandle(key) {
+    try {
+      const db = await openHandleDB();
+      await new Promise(function (resolve) {
+        const tx = db.transaction(HANDLE_STORE, 'readwrite');
+        tx.objectStore(HANDLE_STORE).delete(key);
+        tx.oncomplete = resolve;
+      });
+    } catch (_) {}
   }
 
-  /** 写一个文件。返回 handle.name，取消返回 null，失败抛。 */
-  async function writeOne(spec, body) {
-    if (!window.showSaveFilePicker) {
-      downloadFallback(body, spec.name);
-      return null;
+  /** 选目录。取消抛 AbortError。 */
+  async function pickDirectory() {
+    const dir = await window.showDirectoryPicker({ mode: 'readwrite' });
+    await storeHandle(DIR_KEY, dir);
+    cachedDirHandle = dir;
+    // 清理旧的「每文件一个句柄」，避免残留让人误以为还在用旧路径。
+    await deleteStoredHandle('island-conquest-props');
+    await deleteStoredHandle('island-conquest-terrain');
+    return dir;
+  }
+
+  /** 拿到目录句柄。forcePick 强制重选。取消抛 AbortError。 */
+  async function resolveDirectory(forcePick) {
+    let dir = forcePick ? null : (cachedDirHandle || (await getStoredHandle(DIR_KEY)));
+    if (dir) {
+      const perm = await dir.queryPermission({ mode: 'readwrite' });
+      if (perm !== 'granted' && (await dir.requestPermission({ mode: 'readwrite' })) !== 'granted') {
+        dir = null;
+      }
     }
+    if (!dir) dir = await pickDirectory();
+    cachedDirHandle = dir;
+    return dir;
+  }
+
+  /** 在目录里写一个文件。返回文件名，取消/失败回退下载返回 null。 */
+  async function writeOne(dir, name, body) {
     try {
-      const handle = await resolveWritableHandle(spec);
-      const writable = await handle.createWritable();
+      const fileHandle = await dir.getFileHandle(name, { create: true });
+      const writable = await fileHandle.createWritable();
       await writable.write(body);
       await writable.close();
-      return handle.name;
+      return name;
     } catch (e) {
       if (e && e.name === 'AbortError') return null;
-      console.warn('[level-editor] 直接写入失败，回退为下载：' + spec.name, e);
-      downloadFallback(body, spec.name);
+      console.warn('[level-editor] 直接写入失败，回退为下载：' + name, e);
+      downloadFallback(body, name);
       return null;
     }
   }
@@ -1663,17 +1674,40 @@
   /**
    * Ctrl+S：保存所有改动。
    *
-   * 摆件/预制体和地形是两个文件，各自可能弹一次文件选择器。地形全零时跳过它 ——
-   * 没必要为一个空覆盖层向用户要一次文件授权。
+   * 摆件/预制体和地形两个源文件写到同一个目录里。第一次保存弹一次目录选择器，
+   * 之后记住；地形全零时跳过它 —— 没必要为一个空覆盖层写文件（但目录已选定，
+   * 之后地形有改动会写到同一目录）。
    */
-  async function exportToFile() {
+  async function exportToFile(forcePick) {
     const MT = mapTerrain();
     const data = draftTerrain();
     const terrainDirty = !!(MT && data && !MT.isBlank(data));
     const written = [];
 
+    // 浏览器不支持目录直写：整体走下载回退。
+    if (!window.showDirectoryPicker) {
+      downloadFallback(buildPropSource(), FILES.props.name);
+      if (terrainDirty) {
+        const body = buildTerrainSource();
+        if (body) downloadFallback(body, FILES.terrain.name);
+      }
+      setStatus('已下载（当前浏览器不支持直接写入，需手动替换）');
+      return;
+    }
+
     setStatus('保存中…');
-    const propName = await writeOne(FILES.props, buildPropSource());
+    let dir;
+    try {
+      dir = await resolveDirectory(forcePick);
+    } catch (e) {
+      if (e && e.name === 'AbortError') {
+        setStatus('未保存（已取消）');
+        return;
+      }
+      throw e;
+    }
+
+    const propName = await writeOne(dir, FILES.props.name, buildPropSource());
     if (propName) {
       if (global.VF.MAP_PROPS) global.VF.MAP_PROPS[MAP_KEY] = state.props.slice();
       global.VF.MAP_PREFABS = global.VF.MAP_PREFABS || {};
@@ -1684,7 +1718,7 @@
     if (terrainDirty) {
       const body = buildTerrainSource();
       if (body) {
-        const terrainName = await writeOne(FILES.terrain, body);
+        const terrainName = await writeOne(dir, FILES.terrain.name, body);
         if (terrainName) {
           // 固化成新的 raw，之后 reset() 回滚到的是刚保存的状态。
           MT.commit(MAP_KEY);
@@ -1745,8 +1779,11 @@
       '#vf-prop-editor-hud .pe-item .pe-x{color:#f87171;padding:0 4px;border:none;background:none;' +
       'cursor:pointer;font-size:14px;line-height:1;}' +
       '#vf-prop-editor-hud .pe-foot{padding:8px 12px;border-top:1px solid #2a313c;}' +
-      '#vf-prop-editor-hud .pe-save{width:100%;background:#166534;border:1px solid #22c55e;color:#fff;' +
-      'border-radius:6px;padding:6px 0;cursor:pointer;font-weight:700;margin-bottom:4px;}' +
+      '#vf-prop-editor-hud .pe-actions{display:flex;gap:6px;margin-bottom:4px;}' +
+      '#vf-prop-editor-hud .pe-save{flex:1;background:#166534;border:1px solid #22c55e;color:#fff;' +
+      'border-radius:6px;padding:6px 0;cursor:pointer;font-weight:700;}' +
+      '#vf-prop-editor-hud .pe-save-as{background:#2a313c;border:1px solid #3a424e;color:#d7e2ee;' +
+      'border-radius:6px;padding:6px 8px;cursor:pointer;font-size:12px;white-space:nowrap;}' +
       '#vf-prop-editor-hud .pe-status{color:#9db0c4;font-size:11px;min-height:14px;}' +
       '#vf-prop-editor-hud .pe-kbd{display:inline-block;background:#2a313c;border:1px solid #3a424e;' +
       'border-radius:3px;padding:0 4px;margin:0 2px;font-size:10px;color:#aebdcc;}' +
@@ -2015,8 +2052,11 @@
     html += '</div>';
 
     html += '<div class="pe-foot">' +
+      '<div class="pe-actions">' +
       '<button type="button" class="pe-save" id="pe-save-btn">' +
       (state.dirty ? '保存到源文件 *' : '保存到源文件') + '</button>' +
+      '<button type="button" class="pe-save-as" id="pe-save-as-btn" title="重新选择保存目录">另存为…</button>' +
+      '</div>' +
       '<div class="pe-status" id="pe-status"></div></div>';
 
     hud.innerHTML = html;
@@ -2178,6 +2218,8 @@
 
     const saveBtn = hud.querySelector('#pe-save-btn');
     if (saveBtn) saveBtn.addEventListener('click', function () { exportToFile(); });
+    const saveAsBtn = hud.querySelector('#pe-save-as-btn');
+    if (saveAsBtn) saveAsBtn.addEventListener('click', function () { exportToFile(true); });
     const zoneBox = hud.querySelector('#pe-zones');
     if (zoneBox) {
       zoneBox.addEventListener('change', function () {
