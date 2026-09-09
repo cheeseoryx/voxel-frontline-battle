@@ -585,6 +585,64 @@
     }
   }
 
+  function buildRepairStations(world) {
+    const size = world && world.worldSize ? world.worldSize : 1024;
+    const planned = world && world._plannedBases;
+    const bases =
+      planned && planned.length >= 2
+        ? planned
+        : [
+            { x: size * HQ.ally.nx, z: size * HQ.ally.nz, gate: HQ.ally.gate },
+            { x: size * HQ.enemy.nx, z: size * HQ.enemy.nz, gate: HQ.enemy.gate },
+          ];
+    const radius = 18;
+    const center = nudgeLand(world, size * 0.4, size * 0.5);
+    const stations = [
+      {
+        id: 'repair-center',
+        team: 'neutral',
+        x: center.x,
+        z: center.z,
+        radius: radius,
+      },
+    ];
+    const teams = ['ally', 'enemy'];
+    for (let side = 0; side < teams.length; side++) {
+      const team = teams[side];
+      const base = {
+        x: bases[side].x,
+        z: bases[side].z,
+        gate: bases[side].gate || (team === 'ally' ? HQ.ally.gate : HQ.enemy.gate),
+      };
+      const p = nudgeOutsideGate(world, base, 78, 0);
+      stations.push({
+        id: 'repair-' + team,
+        team: team,
+        x: p.x,
+        z: p.z,
+        radius: radius,
+      });
+    }
+    return stations;
+  }
+
+  function stampRepairStations(world, stations) {
+    if (!world || !stations) return;
+    for (let i = 0; i < stations.length; i++) {
+      const s = stations[i];
+      if (world._placeArmorRepairCenter) {
+        const placed = world._placeArmorRepairCenter(s.x, s.z, s.team);
+        if (placed) {
+          s.x = placed.x;
+          s.z = placed.z;
+          s.y = placed.y;
+        }
+      } else if (world._clearVehiclePad) {
+        world._clearVehiclePad(s.x, s.z, 3);
+      }
+    }
+  }
+
   function stamp(world) {
     if (!world) return;
     const size = world.worldSize;
@@ -611,7 +669,12 @@
     if (g) g._mapKitFlags = flags.slice();
 
     paintRoads(world, flags);
-    stampTown(world, flags, flags.concat(world._plannedBases || []));
+    const repairStations = buildRepairStations(world);
+    stampTown(
+      world,
+      flags,
+      flags.concat(world._plannedBases || []).concat(repairStations)
+    );
     stampLandmarks(world, flags);
     // Props LAST among the terrain stages: procedural decor (tanks, stadium,
     // bridge, shrubs) would otherwise carve into an authored building. Later
@@ -634,6 +697,10 @@
     const vehicleSpawns = buildVehicleSpawns(world);
     world._vehicleSpawns = vehicleSpawns;
     if (g) g._mapKitVehicleSpawns = vehicleSpawns.slice();
+
+    stampRepairStations(world, repairStations);
+    world._armorRepairStations = repairStations;
+    if (g) g._mapKitRepairStations = repairStations.slice();
   }
 
   const api = {
@@ -657,6 +724,7 @@
     VEHICLE_POOL: VEHICLE_POOL,
     buildVehicleSpawns: buildVehicleSpawns,
     buildAiSpawns: buildAiSpawns,
+    buildRepairStations: buildRepairStations,
   };
 
   global.VF = global.VF || {};

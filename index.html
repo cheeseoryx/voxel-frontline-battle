@@ -4,9 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>体素战争</title>
-  <link rel="stylesheet" href="style.css?v=armor1" />
+  <!-- Keep the default entry screen fail-closed if a development server sends
+       the external stylesheet with an invalid MIME type. -->
+  <style id="startup-critical-css">
+    .hidden { display: none !important; }
+    #start-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      overflow: hidden;
+      background: #1a1008;
+    }
+  </style>
+  <link rel="stylesheet" href="style.css?v=wepammo1" />
 </head>
 <body>
+  <div id="throw-flash" aria-hidden="true"></div>
+  <div id="throw-stun" aria-hidden="true"></div>
+  <div id="throw-smoke-veil" aria-hidden="true"></div>
   <button id="audio-toggle" type="button" title="静音" aria-label="切换声音" aria-pressed="false">
     <span class="audio-icon" aria-hidden="true"></span>
   </button>
@@ -308,6 +323,41 @@
   <!-- Always-available back (top-left); shown in match / hub / range -->
   <button id="game-back-btn" type="button" class="game-back-btn hidden" title="返回大厅">返回</button>
 
+  <!-- In-match Esc menu -->
+  <div id="pause-overlay" class="hidden" role="dialog" aria-modal="true" aria-label="对局菜单">
+    <div class="pause-shell">
+      <nav class="pause-nav" aria-label="对局操作">
+        <button type="button" id="pause-resume" class="pause-btn pause-btn-primary">
+          <span class="pause-btn-ico" aria-hidden="true">»</span>
+          <span>继续游戏</span>
+          <kbd>ESC</kbd>
+        </button>
+        <div class="pause-nav-gap" aria-hidden="true"></div>
+        <button type="button" id="pause-redeploy" class="pause-btn">
+          <span class="pause-btn-ico" aria-hidden="true">↥</span>
+          <span>重新部署</span>
+        </button>
+        <button type="button" id="pause-leave" class="pause-btn pause-btn-leave">
+          <span class="pause-btn-ico" aria-hidden="true">↩</span>
+          <span id="pause-leave-label">离开对局</span>
+        </button>
+      </nav>
+      <section class="pause-brief" aria-labelledby="pause-brief-title">
+        <header class="pause-brief-head">
+          <span class="pause-mode-emblem" aria-hidden="true"></span>
+          <div>
+            <h2 id="pause-mode-name">征服</h2>
+            <p id="pause-map-line">荒盆 · 32 vs 32</p>
+          </div>
+        </header>
+        <h3 id="pause-brief-title">任务简报</h3>
+        <p id="pause-brief-lead">占领旗帜以消耗敌方增援。增援耗尽的一方战败。</p>
+        <ul id="pause-brief-list"></ul>
+        <p id="pause-brief-foot"></p>
+      </section>
+    </div>
+  </div>
+
   <!-- Game HUD -->
   <div id="hud" class="hidden">
     <!-- Bottom left: Battlefield-style square mini-map -->
@@ -459,6 +509,9 @@
     <div id="stim-overlay" class="hidden" aria-hidden="true"></div>
 
     <div id="vehicle-reticle" class="hidden" aria-hidden="true">
+      <div id="vehicle-mg-heat" class="vr-mg-heat hidden" aria-hidden="true">
+        <i class="vr-mg-heat-fill"></i>
+      </div>
       <div class="vr-tpv">
         <i class="vr-dot"></i>
         <i class="vr-arm n"></i>
@@ -480,6 +533,13 @@
         <i class="vr-bracket bl"></i>
         <i class="vr-bracket br"></i>
         <i class="vr-center"></i>
+        <div class="vr-he-optic" aria-hidden="true">
+          <i class="vr-he-dot"></i>
+          <i class="vr-he-tick n"></i>
+          <i class="vr-he-tick e"></i>
+          <i class="vr-he-tick s"></i>
+          <i class="vr-he-tick w"></i>
+        </div>
         <b class="vr-range" id="vehicle-reticle-range">-- M</b>
         <span class="vr-pitch" id="vehicle-reticle-pitch">0°</span>
         <div class="vr-side left" id="vehicle-reticle-left">
@@ -490,6 +550,64 @@
           <b id="vehicle-reticle-speed">0 KPH</b>
           <span id="vehicle-reticle-ready">—</span>
         </div>
+        <div class="vr-tank-optic" aria-hidden="true">
+          <div class="vr-compass-wrap">
+            <canvas id="vehicle-compass" class="vr-compass" width="720" height="56"></canvas>
+            <i class="vr-compass-index"></i>
+          </div>
+          <div class="vr-tank-aim">
+            <i class="vr-chevron"></i>
+            <i class="vr-ring"></i>
+            <i class="vr-aim-dot"></i>
+            <i class="vr-drop-line"></i>
+            <i class="vr-htick l2"></i>
+            <i class="vr-htick l1"></i>
+            <i class="vr-htick r1"></i>
+            <i class="vr-htick r2"></i>
+          </div>
+          <div class="vr-tank-speed">
+            <b id="vehicle-tank-speed">0</b>
+            <span>KPH</span>
+          </div>
+          <div class="vr-tank-range">
+            <b id="vehicle-tank-range">--</b>
+            <span>M</span>
+          </div>
+          <div class="vr-tank-readout">
+            <div class="vr-tank-ammo">
+              <strong id="vehicle-reticle-ammo-type" class="vr-tank-ammo-type">多用途弹</strong>
+              <b id="vehicle-reticle-ammo-count" class="vr-tank-ammo-count">—</b>
+            </div>
+            <span id="vehicle-tank-weapon-status" class="vr-tank-weapon-status">就绪</span>
+            <svg
+              id="vehicle-tank-schematic"
+              class="vr-tank-schematic"
+              viewBox="0 0 80 80"
+              aria-hidden="true"
+            >
+              <line class="vr-north-tick" x1="40" y1="0" x2="40" y2="5"></line>
+              <g id="vehicle-hull-marker" class="vr-hull-spin">
+                <polygon class="vr-hull" points="40,7 69,28 59,72 21,72 11,28"></polygon>
+              </g>
+              <g id="vehicle-turret-marker" class="vr-turret">
+                <rect class="vr-turret-body" x="29" y="33" width="22" height="17" rx="2"></rect>
+                <line class="vr-barrel" x1="40" y1="34" x2="40" y2="8"></line>
+                <line class="vr-barrel-tip" x1="35" y1="8" x2="45" y2="8"></line>
+              </g>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div id="vehicle-cannon-cooldown" class="vr-cannon-cooldown hidden" aria-hidden="true">
+        <svg viewBox="0 0 88 88" aria-hidden="true">
+          <circle class="vr-cooldown-track" cx="44" cy="44" r="38"></circle>
+          <circle id="vehicle-cannon-cooldown-ring" class="vr-cooldown-ring" cx="44" cy="44" r="38" pathLength="100"></circle>
+        </svg>
+        <span id="vehicle-cannon-cooldown-text">装填 4.2s</span>
+      </div>
+      <div id="vehicle-heavy-hit" class="vr-heavy-hit" aria-hidden="true">
+        <i></i>
+        <b id="vehicle-heavy-hit-damage"></b>
       </div>
     </div>
 
@@ -517,8 +635,58 @@
 
     <div id="interact-hint" class="hidden">按 <kbd>E</kbd> 拾取</div>
 
+    <div id="throw-hud" class="hidden" aria-label="手雷">
+      <button type="button" class="skill-slot throw-slot" data-combat-slot data-slot="5" data-throw-id="frag" title="破片手雷">
+        <div class="skill-icon-wrap">
+          <div class="skill-icon throw-icon throw-icon-frag" aria-hidden="true">
+            <span class="th-body"></span>
+            <span class="th-pin"></span>
+          </div>
+          <div class="skill-cd-overlay throw-cook hidden" data-throw-cook></div>
+        </div>
+        <div class="skill-keybind">G</div>
+      </button>
+      <button type="button" class="skill-slot throw-slot" data-combat-slot data-slot="5" data-throw-id="flash" title="闪光弹">
+        <div class="skill-icon-wrap">
+          <div class="skill-icon throw-icon throw-icon-flash" aria-hidden="true">
+            <span class="th-body"></span>
+            <span class="th-burst"></span>
+          </div>
+          <div class="skill-cd-overlay throw-cook hidden" data-throw-cook></div>
+        </div>
+        <div class="skill-keybind">G</div>
+      </button>
+      <button type="button" class="skill-slot throw-slot" data-combat-slot data-slot="5" data-throw-id="smoke" title="烟雾弹">
+        <div class="skill-icon-wrap">
+          <div class="skill-icon throw-icon throw-icon-smoke" aria-hidden="true">
+            <span class="th-can"></span>
+            <span class="th-puff a"></span>
+            <span class="th-puff b"></span>
+          </div>
+          <div class="skill-cd-overlay throw-cook hidden" data-throw-cook></div>
+        </div>
+        <div class="skill-keybind">G</div>
+      </button>
+      <span id="throwable-count">2</span>
+    </div>
+
     <!-- Class skills -->
     <div id="skill-hud">
+      <div id="gadget-hud" aria-label="配件">
+        <div class="slot combat-gadget-slot" data-combat-slot data-slot="3" title="配件 1">
+          <span class="slot-key">3</span>
+          <span class="slot-icon gadget-medkit"></span>
+          <span class="slot-name">急救箱</span>
+          <span class="gadget-slot-role">配件 1</span>
+        </div>
+        <div class="slot combat-gadget-slot" data-combat-slot data-slot="4" title="配件 2">
+          <span class="slot-key">4</span>
+          <span class="slot-icon gadget-ammo"></span>
+          <span class="slot-name">弹药箱</span>
+          <span class="gadget-slot-role">配件 2</span>
+        </div>
+        <span id="gadget-ammo" class="hidden">C4 2</span>
+      </div>
       <div class="skill-slot" id="skill-active" title="">
         <div class="skill-icon-wrap">
           <div class="skill-icon skill-icon-c4" data-skill-icon="vanguard" aria-hidden="true">
@@ -607,43 +775,6 @@
       </div>
     </div>
 
-    <!-- Bottom right: infantry and engineer weapon slots -->
-    <div id="hotbar">
-      <div class="slot active" data-slot="1" title="AKM (1)">
-        <span class="slot-key">1</span>
-        <span class="slot-icon weapon-ar"></span>
-        <span class="slot-name">AKM</span>
-      </div>
-      <div class="slot" data-slot="2" title="副武器 (2)">
-        <span class="slot-key">2</span>
-        <span class="slot-icon weapon-sg"></span>
-        <span class="slot-name">M9</span>
-      </div>
-      <div class="slot gadget-slot" data-slot="3" title="急救箱 (3)">
-        <span class="slot-key">3</span>
-        <span class="slot-icon gadget-medkit"></span>
-        <span class="slot-name">急救箱</span>
-      </div>
-      <div class="slot gadget-slot" data-slot="4" title="弹药箱 (4)">
-        <span class="slot-key">4</span>
-        <span class="slot-icon gadget-ammo"></span>
-        <span class="slot-name">弹药箱</span>
-      </div>
-      <div class="slot" data-slot="5" title="破片手榴弹 (5) · 按 G 投掷">
-        <span class="slot-key">5</span>
-        <span class="slot-icon gadget-frag"></span>
-        <span class="slot-name">破片</span>
-      </div>
-      <div class="slot" data-slot="6" title="战斗刀 (6)">
-        <span class="slot-key">6</span>
-        <span class="slot-icon gadget-knife"></span>
-        <span class="slot-name">近战</span>
-      </div>
-    </div>
-    <div id="hotbar-extra" aria-hidden="true">
-      <span id="throwable-count">G 2</span>
-      <span id="gadget-ammo" class="hidden">C4 2</span>
-    </div>
     <div id="flash-overlay" class="hidden" aria-hidden="true"></div>
 
     <!-- Dash kept for keybind, hidden from weapon cluster -->
@@ -663,11 +794,29 @@
       </div>
     </div>
 
-    <!-- Ammo readout near hotbar -->
+    <!-- Battlefield-style weapon readout -->
     <div id="ammo">
-      <span id="ammo-mag">45</span><span class="ammo-sep">/</span><span id="ammo-reserve">180</span>
-      <span id="weapon-silhouette" class="weapon-silhouette ar" aria-hidden="true"></span>
-      <span id="ammo-reload" class="hidden">换弹</span>
+      <div class="ammo-meta">
+        <span id="weapon-slot-key">1</span>
+        <span id="weapon-hud-name">AK-74</span>
+        <span id="weapon-fire-mode"><i aria-hidden="true"></i><span id="weapon-fire-mode-label">全自动</span></span>
+      </div>
+      <div class="ammo-main">
+        <span id="weapon-silhouette" class="weapon-silhouette ar" aria-hidden="true"></span>
+        <div class="ammo-numbers">
+          <span id="ammo-mag">45</span>
+          <span class="ammo-sep">/</span>
+          <span id="ammo-reserve">180</span>
+        </div>
+      </div>
+      <div class="ammo-pips" aria-hidden="true"><i></i><i></i><i></i></div>
+      <span id="ammo-reload" class="hidden">正在换弹</span>
+    </div>
+    <div id="stowed-weapon" aria-label="收起武器">
+      <span id="stowed-weapon-key">2</span>
+      <span id="stowed-weapon-silhouette" class="weapon-silhouette pistol" aria-hidden="true"></span>
+      <span id="stowed-weapon-name">USP</span>
+      <span id="stowed-weapon-ammo">15 / 60</span>
     </div>
 
     <div id="vehicle-hud" class="vehicle-hud hidden" aria-live="polite">
@@ -688,6 +837,7 @@
         <div class="vehicle-hud-head">
           <strong id="vehicle-hud-name">军用吉普</strong>
           <span id="vehicle-hud-armor">轻型装甲</span>
+          <span id="vehicle-hud-service" class="vehicle-hud-service hidden" aria-hidden="true">维修补给中</span>
         </div>
         <div class="vehicle-hud-health">
           <i id="vehicle-hud-health-fill"></i>
@@ -698,12 +848,9 @@
         </div>
       </div>
       <div class="vehicle-hud-weapon-panel">
-        <span class="vehicle-hud-shell-icon" aria-hidden="true"></span>
-        <strong id="vehicle-hud-weapon">无车载武器</strong>
-        <b id="vehicle-hud-ammo">—</b>
-        <div class="vehicle-hud-weapon-slots" aria-hidden="true">
-          <i>1</i><i>2</i>
-        </div>
+        <strong id="vehicle-hud-weapon" class="vh-wep-sr">无车载武器</strong>
+        <b id="vehicle-hud-ammo" class="vh-wep-sr">—</b>
+        <div id="vehicle-hud-weapon-rack" class="vehicle-hud-weapon-rack"></div>
       </div>
     </div>
   </div>
@@ -1354,43 +1501,46 @@
   <script src="js/maps/map-terrain.js?v=propbundle10"></script>
   <script src="js/maps/island-conquest-terrain.js?v=propbundle10"></script>
   <script src="js/maps/island-conquest-props.js?v=propbundle10"></script>
-  <script src="js/maps/island-conquest.js?v=propbundle10"></script>
+  <script src="js/maps/island-conquest.js?v=resupply1"></script>
   <script src="js/terrain-fine.js?v=scorch3"></script>
   <script src="js/world-outskirts.js?v=scorch3"></script>
-  <script src="js/bases.js?v=scorch3"></script>
-  <script src="js/vehicles.js?v=ram1"></script>
+  <script src="js/bases.js?v=teamlook1"></script>
+  <script src="js/vehicles.js?v=wepammo1"></script>
   <script src="js/weapon-viewmodels.js?v=wstat2"></script>
-  <script src="js/soldier.js?v=move1"></script>
+  <script src="js/soldier.js?v=throw-src2"></script>
   <script src="js/hitboxes.js?v=move1"></script>
-  <script src="js/player.js?v=move2"></script>
-  <script src="js/weapon-catalog.js?v=wstat3"></script>
-  <script src="js/weapons.js?v=armor1"></script>
+  <script src="js/player.js?v=tankfpv4"></script>
+  <script src="js/weapon-catalog.js?v=sfx1"></script>
+  <script src="js/weapons.js?v=sfx1"></script>
+  <script src="js/melee.js?v=throwmelee1"></script>
+  <script src="js/throwables.js?v=sfx2"></script>
   <script src="js/skills.js?v=move1"></script>
   <script src="js/building.js?v=gadget1"></script>
   <script src="js/tower-designer.js?v=scorch3"></script>
-  <script src="js/hub.js?v=scorch4"></script>
-  <script src="js/economy.js?v=wstat3"></script>
-  <script src="js/lobby.js?v=scorch4"></script>
-  <script src="js/range.js?v=wstat2"></script>
-  <script src="js/ai.js?v=move1"></script>
-  <script src="js/conquest.js?v=vehicle3"></script>
+  <script src="js/hub.js?v=kit1"></script>
+  <script src="js/economy.js?v=kit1"></script>
+  <script src="js/lobby.js?v=solo1"></script>
+  <script src="js/range.js?v=kit1"></script>
+  <script src="js/ai.js?v=sfx1"></script>
+  <script src="js/conquest.js?v=teamlook1"></script>
   <script src="js/revive.js?v=move1"></script>
   <script src="js/squads.js?v=scorch3"></script>
-  <script src="js/gadgets.js?v=move1"></script>
+  <script src="js/gadgets.js?v=sfx4"></script>
   <script src="js/scoring.js?v=move1"></script>
-  <script src="js/comms.js?v=skill3"></script>
+  <script src="js/comms.js?v=teamlook1"></script>
   <script src="js/net-protocol.js?v=vehicle3"></script>
-  <script src="js/net-simulation.js?v=vehicle3"></script>
+  <script src="js/net-simulation.js?v=cannonfx2"></script>
   <script src="js/match-flow.js?v=scorch3"></script>
-  <script src="js/soldier-menu.js?v=arsenal1"></script>
-  <script src="js/arsenal.js?v=gadget1"></script>
-  <script src="js/ui.js?v=armor1"></script>
-  <script src="js/audio.js?v=scorch3"></script>
+  <script src="js/soldier-menu.js?v=wepammo1"></script>
+  <script src="js/arsenal.js?v=infantryhud1"></script>
+  <script src="js/ui.js?v=wepammo1"></script>
+  <script src="js/audio.js?v=sfx5"></script>
+  <script src="js/vehicle-effects.js?v=sfx2"></script>
   <script src="js/atmosphere.js?v=scorch3"></script>
   <script src="js/config.js?v=scorch3"></script>
   <script src="js/kubee-bridge.js?v=scorch3"></script>
-  <script src="js/pvp.js?v=move1"></script>
-  <script src="js/main.js?v=move2"></script>
+  <script src="js/pvp.js?v=sfx1"></script>
+  <script src="js/main.js?v=nomusic1"></script>
   <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
   <script src="js/feel-tuner.js?v=move2"></script>
   <!-- render-tuner.js: F9 后处理参数调节（生产环境删除） -->

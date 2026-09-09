@@ -250,6 +250,9 @@
     if (game.vehicles) {
       game.vehicles.init(scene, game.world);
       game.vehicles.reset(game.world._vehicleSpawns || []);
+      if (game.vehicles.setStations) {
+        game.vehicles.setStations(game.world._armorRepairStations || []);
+      }
       setupVehicleCombatHooks();
     }
 
@@ -265,8 +268,11 @@
     VF.exitToLobby = exitToLobby;
     VF.clearPreMatchMapView = clearPreMatchMapView;
     VF.openRedeployFromDeath = openRedeployFromDeath;
+    VF.requestRedeploy = requestRedeploy;
+    VF.leaveMatchFromPause = leaveMatchFromPause;
     VF.startConquest32 = startConquest32;
     VF.openFrontlineHub = openFrontlineHub;
+    VF.openRangeFromHub = openRangeFromHub;
     if (VF.UI.setDeathHandlers) {
       VF.UI.setDeathHandlers({
         onRedeploy: function () {
@@ -492,7 +498,36 @@
     game.weapons._spawnImpact(point, 0xffa34c, size != null ? size : 0.32);
   }
 
-  function breakVehicleImpactVoxels(point, radius) {
+  function vehicleWeaponDef(weaponId) {
+    return (VF.VEHICLE_WEAPONS && weaponId && VF.VEHICLE_WEAPONS[weaponId]) || null;
+  }
+
+  function projectileBlastRadius(projectile) {
+    const def = vehicleWeaponDef(projectile && projectile.weaponId);
+    if (def && def.blastRadius != null) return def.blastRadius;
+    return projectile && projectile.weaponId === 'ifv_grenade_launcher' ? 4.2 : 3.2;
+  }
+
+  function projectileBreakRadius(projectile) {
+    const def = vehicleWeaponDef(projectile && projectile.weaponId);
+    if (def && def.breakRadius != null) return def.breakRadius;
+    return projectile && projectile.weaponId === 'ifv_grenade_launcher' ? 1.1 : 1.45;
+  }
+
+  function playProjectileBlastAudio(projectile, point) {
+    if (!projectile || projectile.predictOnly || !point || !VF.Audio) return;
+    if (projectile.weaponId === 'tank_main_cannon') return;
+    const def = vehicleWeaponDef(projectile.weaponId);
+    if (!def || def.mode !== 'projectile') return;
+    if (def.damageType !== 'explosive' && def.damageType !== 'antiArmor') return;
+    if (VF.Audio.playExplosionAt) {
+      VF.Audio.playExplosionAt(point, 'he', { gain: 1.55 });
+      return;
+    }
+    VF.Audio.play('explosion', { position: point, maxDistance: 450, priority: 10, gain: 1.5 });
+  }
+
+  function breakVehicleImpactVoxels(point, radius, coloredDebris) {
     if (
       !point ||
       !game.world ||
@@ -508,6 +543,7 @@
     const maxY = Math.ceil(point.y + r);
     const minZ = Math.floor(point.z - r);
     const maxZ = Math.ceil(point.z + r);
+    let debrisBudget = coloredDebris ? 3 : 0;
     for (let x = minX; x <= maxX; x++) {
       for (let y = minY; y <= maxY; y++) {
         for (let z = minZ; z <= maxZ; z++) {
@@ -526,6 +562,17 @@
           if (game.world.breakBlock(x, y, z, { force: true })) {
             if (game.weapons._syncWorldBreak) {
               game.weapons._syncWorldBreak('break-voxel', x, y, z);
+            }
+            if (debrisBudget > 0 && game.weapons._spawnDebris) {
+              const color =
+                (VF.BLOCK_COLORS && VF.BLOCK_COLORS[block]) || 0x8a8680;
+              game.weapons._spawnDebris(
+                x + 0.5,
+                y + 0.5,
+                z + 0.5,
+                color
+              );
+              debrisBudget--;
             }
           }
         }
@@ -604,6 +651,9 @@
     const vehicles = game.vehicles;
     if (!vehicles || vehicles._mainHooksReady) return;
     vehicles._mainHooksReady = true;
+    if (VF.VehicleEffects && VF.VehicleEffects.init) {
+      VF.VehicleEffects.init(game, vehicles);
+    }
     vehicles.onOccupantDestroyed = function (entity, vehicle, seat, meta) {
       const source = findCombatEntity(
         meta && (meta.sourceId || (meta.source && meta.source.entityId))
@@ -624,6 +674,27 @@
       const data = event.data || {};
       const def = VF.VEHICLE_WEAPONS && VF.VEHICLE_WEAPONS[data.weaponId];
       const shot = vehicles.lastShot;
+      if (
+        def &&
+        def.soundId &&
+        data.weaponId !== 'tank_main_cannon' &&
+        data.origin &&
+        VF.Audio
+      ) {
+        const localOccupant = !!(
+          game.player &&
+          game.player.vehicleId &&
+          data.vehicleId &&
+          game.player.vehicleId === data.vehicleId
+        );
+        VF.Audio.play(def.soundId, {
+          position: data.origin,
+          maxDistance: def.soundRange || 300,
+          priority: def.damageType === 'antiArmor' ? 8 : 7,
+          gain: localOccupant ? 1.75 : 1.15,
+          occupant: localOccupant,
+        });
+      }
       if (!def || data.mode !== 'hitscan' || !shot || shot.id !== data.shotId) return;
       const origin = new THREE.Vector3(data.origin.x, data.origin.y, data.origin.z);
       const direction = new THREE.Vector3(
@@ -647,7 +718,12 @@
         ) {
           breakVehicleImpactVoxels(
             point,
-            def.kind === 'main-cannon' ? 1.45 : 0.7
+            def.kind === 'main-cannon'
+              ? def.breakRadius != null
+                ? def.breakRadius
+                : 1.45
+              : 0.7,
+            def.kind === 'main-cannon'
           );
         }
       }
@@ -728,6 +804,11 @@
       if (!p) return;
       const point = new THREE.Vector3(p.x, p.y + 1.2, p.z);
       spawnVehicleImpact(point, 0.9);
+      if (VF.Audio && VF.Audio.playExplosionAt) {
+        VF.Audio.playExplosionAt(point, 'he', { gain: 1.45 });
+      } else if (VF.Audio && VF.Audio.play) {
+        VF.Audio.play('explosion', { position: point, maxDistance: 400, priority: 10, gain: 1.4 });
+      }
       damageInfantryBlast(
         {
           position: p,
@@ -739,8 +820,15 @@
         6
       );
     });
-    vehicles.onProjectileUpdate = function (projectile) {
-      if (!projectile.mesh && game.scene) {
+    vehicles.onProjectileUpdate = function (projectile, dt) {
+      const cannonFx = !!(
+        projectile.weaponId === 'tank_main_cannon' &&
+        VF.VehicleEffects &&
+        VF.VehicleEffects.updateProjectile
+      );
+      if (cannonFx) {
+        VF.VehicleEffects.updateProjectile(projectile, dt);
+      } else if (!projectile.mesh && game.scene) {
         projectile.mesh = new THREE.Mesh(
           new THREE.BoxGeometry(0.12, 0.12, 0.45),
           new THREE.MeshBasicMaterial({
@@ -762,39 +850,82 @@
         );
       }
       if (projectile.vehicleHit) {
+        const point = new THREE.Vector3(
+          projectile.position.x,
+          projectile.position.y,
+          projectile.position.z
+        );
+        if (cannonFx) {
+          VF.VehicleEffects.impactProjectile(projectile, 'armor', {
+            point: point,
+            normal: projectile.vehicleHit.normal,
+            damage:
+              projectile.damageApplied ||
+              Math.min(
+                projectile.damage,
+                projectile.vehicleHit.vehicle
+                  ? projectile.vehicleHit.vehicle.hp
+                  : projectile.damage
+              ),
+            targetVehicleId: projectile.vehicleHit.vehicleId,
+          });
+        }
         if (!projectile.predictOnly) {
-          damageInfantryBlast(
-            projectile,
-            projectile.weaponId === 'ifv_grenade_launcher' ? 4.2 : 3.2
-          );
-          spawnVehicleImpact(
-            new THREE.Vector3(
-              projectile.position.x,
-              projectile.position.y,
-              projectile.position.z
-            ),
-            0.62
-          );
+          damageInfantryBlast(projectile, projectileBlastRadius(projectile));
+          if (!cannonFx) {
+            spawnVehicleImpact(point, 0.62);
+            playProjectileBlastAudio(projectile, point);
+          }
         }
         return true;
       }
       if (projectile.worldHit) {
-        if (!projectile.predictOnly) {
-          damageInfantryBlast(
+        const point = new THREE.Vector3(
+          projectile.position.x,
+          projectile.position.y,
+          projectile.position.z
+        );
+        if (cannonFx) {
+          const hit = projectile.worldHit;
+          const terrainVoxel = !!(
+            hit.kind === 'voxel' &&
+            game.world &&
+            game.world._isTerrainFill &&
+            game.world._isTerrainFill(hit.x, hit.y, hit.z)
+          );
+          const structure =
+            hit.kind === 'prop' ||
+            (hit.kind === 'voxel' && !terrainVoxel);
+          let color = structure ? 0x9b866d : 0x76634b;
+          if (
+            hit.kind === 'voxel' &&
+            game.world &&
+            game.world.get &&
+            hit.x != null
+          ) {
+            const block = game.world.get(hit.x, hit.y, hit.z);
+            color = (VF.BLOCK_COLORS && VF.BLOCK_COLORS[block]) || color;
+          }
+          VF.VehicleEffects.impactProjectile(
             projectile,
-            projectile.weaponId === 'ifv_grenade_launcher' ? 4.2 : 3.2
+            structure ? 'structure' : 'ground',
+            {
+              point: point,
+              normal: hit.normal || { x: 0, y: 1, z: 0 },
+              color: color,
+            }
           );
-          spawnVehicleImpact(
-            new THREE.Vector3(
-              projectile.position.x,
-              projectile.position.y,
-              projectile.position.z
-            ),
-            0.55
-          );
+        }
+        if (!projectile.predictOnly) {
+          damageInfantryBlast(projectile, projectileBlastRadius(projectile));
+          if (!cannonFx) {
+            spawnVehicleImpact(point, 0.55);
+            playProjectileBlastAudio(projectile, point);
+          }
           breakVehicleImpactVoxels(
             projectile.position,
-            projectile.weaponId === 'ifv_grenade_launcher' ? 1.1 : 1.45
+            projectileBreakRadius(projectile),
+            cannonFx
           );
         }
         return true;
@@ -803,7 +934,19 @@
         const predictedGround = game.world.getTerrainTop
           ? game.world.getTerrainTop(projectile.position.x, projectile.position.z)
           : -Infinity;
-        return projectile.position.y <= predictedGround + 0.15;
+        const predictedHit = projectile.position.y <= predictedGround + 0.15;
+        if (predictedHit && cannonFx) {
+          VF.VehicleEffects.impactProjectile(projectile, 'ground', {
+            point: {
+              x: projectile.position.x,
+              y: predictedGround + 0.15,
+              z: projectile.position.z,
+            },
+            normal: { x: 0, y: 1, z: 0 },
+            color: 0x76634b,
+          });
+        }
+        return predictedHit;
       }
       const from = new THREE.Vector3(
         projectile.previousPosition.x,
@@ -830,11 +973,17 @@
             y: hit.point.y,
             z: hit.point.z,
           };
-          damageInfantryBlast(
-            projectile,
-            projectile.weaponId === 'ifv_grenade_launcher' ? 4.2 : 3.2
-          );
-          spawnVehicleImpact(hit.point, 0.48);
+          damageInfantryBlast(projectile, projectileBlastRadius(projectile));
+          if (cannonFx) {
+            VF.VehicleEffects.impactProjectile(projectile, 'infantry', {
+              point: hit.point,
+              normal: { x: 0, y: 1, z: 0 },
+              color: 0x725647,
+            });
+          } else {
+            spawnVehicleImpact(hit.point, 0.48);
+            playProjectileBlastAudio(projectile, hit.point);
+          }
           return true;
         }
       }
@@ -842,24 +991,35 @@
         ? game.world.getTerrainTop(projectile.position.x, projectile.position.z)
         : -Infinity;
       if (projectile.position.y <= ground + 0.15) {
-        damageInfantryBlast(
-          projectile,
-          projectile.weaponId === 'ifv_grenade_launcher' ? 4.2 : 3.2
+        damageInfantryBlast(projectile, projectileBlastRadius(projectile));
+        const point = new THREE.Vector3(
+          projectile.position.x,
+          ground + 0.2,
+          projectile.position.z
         );
-        spawnVehicleImpact(
-          new THREE.Vector3(
-            projectile.position.x,
-            ground + 0.2,
-            projectile.position.z
-          ),
-          0.55
-        );
+        if (cannonFx) {
+          VF.VehicleEffects.impactProjectile(projectile, 'ground', {
+            point: point,
+            normal: { x: 0, y: 1, z: 0 },
+            color: 0x76634b,
+          });
+        } else {
+          spawnVehicleImpact(point, 0.55);
+          playProjectileBlastAudio(projectile, point);
+        }
         return true;
       }
       return false;
     };
     vehicles.onProjectileRemoved = function (projectile) {
       if (!projectile || !projectile.mesh) return;
+      if (
+        projectile.weaponId === 'tank_main_cannon' &&
+        VF.VehicleEffects &&
+        VF.VehicleEffects.releaseProjectile
+      ) {
+        if (VF.VehicleEffects.releaseProjectile(projectile)) return;
+      }
       if (projectile.mesh.parent) projectile.mesh.parent.remove(projectile.mesh);
       if (projectile.mesh.geometry) projectile.mesh.geometry.dispose();
       if (projectile.mesh.material) projectile.mesh.material.dispose();
@@ -899,6 +1059,7 @@
   function openFrontlineHub() {
     game.teamLocked = false;
     game.lockedTeam = null;
+    game._openingTeam = null;
     const tutorial = document.getElementById('tutorial-overlay');
     if (tutorial) tutorial.classList.add('hidden');
     if (VF.TowerDesigner && VF.TowerDesigner.open) VF.TowerDesigner.close();
@@ -909,6 +1070,7 @@
     if (VF.Hub && VF.Hub.hide) VF.Hub.hide();
     if (VF.Lobby && VF.Lobby.hide) VF.Lobby.hide();
     if (VF.UI && VF.UI.openModeSelect) VF.UI.openModeSelect();
+    if (VF.Audio && VF.Audio.setMusicAllowed) VF.Audio.setMusicAllowed(true);
     syncGameBackBtn();
   }
 
@@ -926,18 +1088,18 @@
   }
 
   function openRangeFromHub() {
-    if (VF.Lobby) VF.Lobby.hide();
-    if (VF.Hub) VF.Hub.hide();
-    if (VF.Range) VF.Range.open();
+    return;
   }
 
   function returnToHub() {
     game.teamLocked = false;
     game.lockedTeam = null;
+    game._openingTeam = null;
     game.running = false;
     clearPreMatchMapView();
     if (game.player) game.player._cqTicketPending = false;
     if (VF.Conquest && VF.Conquest.stop) VF.Conquest.stop();
+    if (VF.Throwables && VF.Throwables.stop) VF.Throwables.stop();
     if (document.exitPointerLock) document.exitPointerLock();
     if (VF.UI && VF.UI.hideHud) VF.UI.hideHud();
     if (VF.UI && VF.UI.hideDeath) VF.UI.hideDeath();
@@ -1469,7 +1631,14 @@
     if (VF.Vehicles) {
       VF.Vehicles.init(game.scene, game.world);
       VF.Vehicles.reset(game.world._vehicleSpawns || []);
+      if (VF.Vehicles.setStations) {
+        VF.Vehicles.setStations(game.world._armorRepairStations || []);
+      }
       game.vehicles = VF.Vehicles;
+      if (VF.VehicleEffects) {
+        VF.VehicleEffects.init(game, VF.Vehicles);
+        VF.VehicleEffects.reset();
+      }
     }
 
     game.mapSeed = seed;
@@ -1676,6 +1845,7 @@
     // Enable the sim immediately so a later throw cannot leave the player frozen
     game.running = true;
     game.levelEditing = false;
+    if (VF.Audio && VF.Audio.setMusicAllowed) VF.Audio.setMusicAllowed(false);
     try {
       clearMatchBlockers();
       VF.UI.closeSpawnSelect();
@@ -1733,6 +1903,7 @@
       } else if (VF.Conquest && VF.Conquest.stop) {
         VF.Conquest.stop();
       }
+      if (VF.Throwables && VF.Throwables.start) VF.Throwables.start();
       if (VF.Audio) {
         VF.Audio.play('confirm');
       }
@@ -1760,6 +1931,7 @@
           console.error('[VF] Conquest.start', err2);
         }
       }
+      if (VF.Throwables && VF.Throwables.start) VF.Throwables.start();
     }
     const canvas = game.renderer.domElement;
     setTimeout(function () {
@@ -1819,6 +1991,7 @@
 
     game.running = true;
     game.levelEditing = false;
+    if (VF.Audio && VF.Audio.setMusicAllowed) VF.Audio.setMusicAllowed(false);
     try {
       clearMatchBlockers();
       VF.UI.closeSpawnSelect();
@@ -1878,6 +2051,7 @@
         game.world.ensureMeshedAround(sp.x, sp.z, 8);
       }
       if (game.skills && game.skills.reset) game.skills.reset();
+      if (VF.Throwables && VF.Throwables.start) VF.Throwables.start();
       VF.UI.showHud();
       if (VF.Audio) {
         VF.Audio.play('confirm');
@@ -1903,14 +2077,18 @@
   }
 
   function returnFromDeathToHub() {
+    if (VF.UI && VF.UI.closePauseMenu) VF.UI.closePauseMenu({ resumeLock: false });
     if (VF.UI && VF.UI.hideDeath) VF.UI.hideDeath();
     if (VF.UI && VF.UI.hideVictory) VF.UI.hideVictory();
     if (VF.UI && VF.UI.closeSpawnSelect) VF.UI.closeSpawnSelect();
+    if (VF.UI && VF.UI.hideHud) VF.UI.hideHud();
     game.running = false;
     game.teamLocked = false;
     game.lockedTeam = null;
+    game._openingTeam = null;
     if (game.player) game.player._cqTicketPending = false;
     if (VF.Conquest && VF.Conquest.stop) VF.Conquest.stop();
+    if (VF.Throwables && VF.Throwables.stop) VF.Throwables.stop();
     if (game.mode === 'pvp' && VF.Pvp && VF.Pvp.leaveLobby) {
       VF.Pvp.leaveLobby();
       game.mode = 'pve';
@@ -1918,6 +2096,23 @@
     }
     openFrontlineHub();
     syncGameBackBtn();
+  }
+
+  function requestRedeploy() {
+    const player = game.player;
+    if (!player) return false;
+    if (matchAlreadyEnded()) return false;
+    if (VF.UI && VF.UI.spawnSelectOpen) return false;
+    if (player.downed || player.dead || !player.alive) return false;
+    if (player._reviveProtection > 0) return false;
+    if (VF.UI && VF.UI.closePauseMenu) VF.UI.closePauseMenu({ resumeLock: false });
+    player.die({ skipDowned: true, reason: 'redeploy' });
+    return true;
+  }
+
+  function leaveMatchFromPause() {
+    if (VF.UI && VF.UI.closePauseMenu) VF.UI.closePauseMenu({ resumeLock: false });
+    returnFromDeathToHub();
   }
 
   function setupPointerLock() {
@@ -2111,6 +2306,19 @@
 
     const menuOpen = !!(VF.UI && VF.UI.isMenuOpen && VF.UI.isMenuOpen());
     const worldPaused = !!(VF.UI && VF.UI.pausesWorld && VF.UI.pausesWorld());
+    const pauseOnly = !!(
+      VF.UI &&
+      VF.UI.pauseMenuOpen &&
+      !worldPaused &&
+      !VF.UI.spawnSelectOpen &&
+      !VF.UI.classSelectOpen &&
+      !VF.UI.inventoryOpen &&
+      !VF.UI.mapOpen &&
+      !VF.UI.squadIntroOpen &&
+      !VF.UI.loadoutCustomizeOpen &&
+      !VF.UI.modeSelectOpen &&
+      !VF.UI.arsenalOpen
+    );
     if (
       game.running &&
       !game.levelEditing &&
@@ -2120,9 +2328,23 @@
     ) {
       game.vehicles.update(dt, game);
     }
+    if (
+      game.running &&
+      !worldPaused &&
+      VF.VehicleEffects &&
+      VF.VehicleEffects.update
+    ) {
+      VF.VehicleEffects.update(dt);
+    }
     const playerDowned = !!(game.player && game.player.downed);
     const playerCanAct =
-      game.running && !menuOpen && game.player && (!game.player.dead || playerDowned);
+      game.running &&
+      game.player &&
+      (!game.player.dead || playerDowned) &&
+      (!menuOpen || pauseOnly);
+    if (pauseOnly && game.player && game.player.clearHeldKeys) {
+      game.player.clearHeldKeys();
+    }
 
     if (playerCanAct) {
       try {
@@ -2132,7 +2354,7 @@
         if (game.player.unstuckFromWorld) game.player.unstuckFromWorld();
       }
       if (!game.levelEditing && !playerDowned) {
-        if (game.player.locked) {
+        if (game.player.locked && !pauseOnly) {
           game.weapons.update(dt);
           if (game.skills) game.skills.update(dt);
           game.building.update(dt);
@@ -2145,7 +2367,6 @@
           }
           game.skills._syncHud();
         }
-        if (VF.Audio && game.player.locked) VF.Audio.update(dt, game.player);
       } else if (!editorActive && game.world && game.world.ensureMeshedAround && game.player.object) {
         game.world.ensureMeshedAround(
           game.player.object.position.x,
@@ -2259,15 +2480,26 @@
     // 关卡编辑器自由相机覆盖玩家相机（walk 模式让 player 写相机）
     if (editorFreeCam && VF.LevelEditor.applyCamera) VF.LevelEditor.applyCamera();
 
+    if (VF.Audio && VF.Audio.update) {
+      VF.Audio.update(
+        rawDt,
+        playerCanAct && !worldPaused ? game.player : null,
+        game.camera,
+        game.vehicles
+      );
+    }
+
     if (VF.UI && VF.UI.updateVehicleHud) {
       VF.UI.updateVehicleHud(game.player, game.vehicles);
     }
     if (VF.UI && VF.UI.tickKillFeed) VF.UI.tickKillFeed();
+    if (VF.UI && VF.UI.pauseMenuOpen && VF.UI.syncPauseMenu) VF.UI.syncPauseMenu();
 
     if (game.running && !game.levelEditing && !worldPaused) {
       if (VF.Revive && VF.Revive.update) VF.Revive.update(dt, game);
       if (VF.Squads && VF.Squads.update) VF.Squads.update(dt, game);
       if (VF.Gadgets && VF.Gadgets.update) VF.Gadgets.update(dt, game);
+      if (VF.Throwables && VF.Throwables.update) VF.Throwables.update(dt);
       if (VF.Comms && VF.Comms.update) VF.Comms.update(dt, game);
       if (VF.MatchFlow && VF.MatchFlow.update) VF.MatchFlow.update(dt, game);
       if (game.ai) game.ai.update(dt);
