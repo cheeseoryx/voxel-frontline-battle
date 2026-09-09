@@ -26,6 +26,51 @@
     },
   };
 
+  function visualPalette(faction) {
+    const L = global.VF && global.VF.TeamLook;
+    if (L && L.kind) return L.kind(faction) === 'foe' ? TEAM.enemy : TEAM.ally;
+    return TEAM[faction] || TEAM.ally;
+  }
+
+  function displaySpawnTag(faction) {
+    const L = global.VF && global.VF.TeamLook;
+    if (L && L.kind) return L.kind(faction) === 'foe' ? '红' : '蓝';
+    return faction === 'enemy' ? '红' : '蓝';
+  }
+
+  function applyPalette(root, pal) {
+    if (!root || !pal) return;
+    const ally = TEAM.ally;
+    const enemy = TEAM.enemy;
+    root.traverse(function (c) {
+      if (c.isLight && c.color) {
+        c.color.setHex(pal.glow);
+        return;
+      }
+      if (!c.isMesh || !c.material) return;
+      const mats = Array.isArray(c.material) ? c.material : [c.material];
+      for (let i = 0; i < mats.length; i++) {
+        const m = mats[i];
+        if (m.color) {
+          const h = m.color.getHex();
+          if (h === ally.glow || h === enemy.glow) m.color.setHex(pal.glow);
+          else if (h === ally.banner || h === enemy.banner) m.color.setHex(pal.banner);
+          else if (h === ally.bannerMark || h === enemy.bannerMark) m.color.setHex(pal.bannerMark);
+        }
+        if (m.emissive) {
+          const e = m.emissive.getHex();
+          if (e === ally.glowEmissive || e === enemy.glowEmissive || e === ally.glow || e === enemy.glow) {
+            m.emissive.setHex(pal.glowEmissive);
+          } else if (e === ally.banner || e === enemy.banner) {
+            m.emissive.setHex(pal.banner);
+          }
+        }
+      }
+    });
+    if (root.userData.rangeDiscMat) root.userData.rangeDiscMat.color.setHex(pal.glow);
+    if (root.userData.rangeRingMat) root.userData.rangeRingMat.color.setHex(pal.glow);
+  }
+
   function box(w, h, d, color, x, y, z, opts) {
     opts = opts || {};
     const mat = opts.emissive
@@ -55,7 +100,7 @@
    * Large compound core — walls/ziggurat are voxels; this is the glowing core + accents.
    */
   function createBase(team, origin) {
-    const pal = TEAM[team];
+    const pal = visualPalette(team);
     const root = new THREE.Group();
     root.name = team === 'ally' ? 'AllyBase' : 'EnemyBase';
     root.position.copy(origin);
@@ -138,7 +183,7 @@
   /** Tiny physical spawn crystal + pedestal + ground range ring.
    *  pos.y is ~gy+1.05 (just above block top). Pedestal/ring sit on that surface. */
   function createSpawnCrystal(team, pos, label, range) {
-    const pal = TEAM[team] || TEAM.ally;
+    const pal = visualPalette(team);
     const r = range != null ? range : SPAWN_RANGE;
     const root = new THREE.Group();
     root.name = 'SpawnCrystal';
@@ -441,7 +486,7 @@
     const makePoint = (team, index, fx, fz, opts) => {
       opts = opts || {};
       const gy = clearPad(fx, fz);
-      const tag = team === 'ally' ? '蓝' : '红';
+      const tag = displaySpawnTag(team);
       const capturable = opts.capturable !== false && index > 0;
       return {
         id: team + '-' + (index + 1),
@@ -576,11 +621,11 @@
     enemy.sort(sortHomeFirst);
     for (let i = 0; i < ally.length; i++) {
       ally[i].index = i;
-      ally[i].label = '蓝' + (i + 1);
+      ally[i].label = displaySpawnTag('ally') + (i + 1);
     }
     for (let i = 0; i < enemy.length; i++) {
       enemy[i].index = i;
-      enemy[i].label = '红' + (i + 1);
+      enemy[i].label = displaySpawnTag('enemy') + (i + 1);
     }
     w._spawnPoints.ally = ally;
     w._spawnPoints.enemy = enemy;
@@ -590,8 +635,8 @@
   Bases.prototype._flipSpawnTeam = function (spawn, newTeam) {
     if (!spawn || spawn.team === newTeam) return;
     if (spawn.fixed || spawn.capturable === false) return;
-    const from = spawn.team === 'enemy' ? '红' : '蓝';
-    const to = newTeam === 'enemy' ? '红' : '蓝';
+    const from = displaySpawnTag(spawn.team);
+    const to = displaySpawnTag(newTeam);
     spawn.team = newTeam;
     spawn.captureT = 0;
     this._relabelSpawnTeams();
@@ -983,13 +1028,11 @@
   };
 
   Bases.prototype.getTargetLabel = function () {
-    const team = this.world._playerTeam || 'ally';
-    return team === 'enemy' ? '蓝方核心' : '红方核心';
+    return '红方核心';
   };
 
   Bases.prototype.getFriendlyLabel = function () {
-    const team = this.world._playerTeam || 'ally';
-    return team === 'enemy' ? '红方核心' : '蓝方核心';
+    return '蓝方核心';
   };
 
   /** Lock win target from chosen team (call when match starts) */
@@ -1012,23 +1055,35 @@
     target.userData.targetable = true;
     friendly.userData.targetable = false;
 
+    this.refreshDisplayColors();
+
     const origin = target.position;
     this.world._objective = origin.clone().add(new THREE.Vector3(0, 9, 0));
 
     const label = this.getTargetLabel();
     if (global.VF.UI) {
-      // Left bar = blue (allyBase), right bar = red (enemyBase) — fixed colors
       global.VF.UI.setHomeCoreLabel('蓝方核心');
       global.VF.UI.setMissionTargetLabel('红方核心');
-      if (this.allyBase) {
-        global.VF.UI.updateHomeCore(this.allyBase.userData.coreHp, CORE_MAX_HP);
+      if (friendly) {
+        global.VF.UI.updateHomeCore(friendly.userData.coreHp, CORE_MAX_HP);
       }
-      if (this.enemyBase) {
-        global.VF.UI.updateMissionCore(this.enemyBase.userData.coreHp, CORE_MAX_HP);
+      if (target) {
+        global.VF.UI.updateMissionCore(target.userData.coreHp, CORE_MAX_HP);
       }
       if (global.VF.UI.els && global.VF.UI.els.objective) {
         global.VF.UI.els.objective.textContent = '摧毁' + label;
       }
+    }
+  };
+
+  Bases.prototype.refreshDisplayColors = function () {
+    applyPalette(this.allyBase, visualPalette('ally'));
+    applyPalette(this.enemyBase, visualPalette('enemy'));
+    if (this.scene && this.world && this.world._spawnPoints) {
+      this._relabelSpawnTeams();
+      this._refreshSpawnCrystals();
+    } else if (this.world && this.world._spawnPoints) {
+      this._relabelSpawnTeams();
     }
   };
 
@@ -1075,8 +1130,9 @@
     const pos = new THREE.Vector3();
     core.getWorldPosition(pos);
     const team = base.userData.team;
+    const pal = visualPalette(team);
     const cols =
-      team === 'ally'
+      pal === TEAM.ally
         ? [0x3a7ad4, 0x6ab0ff, 0xa8d4ff, 0xffffff, 0x2a5088]
         : [0xc42828, 0xff5533, 0xff8866, 0xffcc88, 0x8a2020];
     const strength = Math.min(1.8, 0.6 + (dmg || 10) / 35);
@@ -1143,7 +1199,7 @@
       }
     }
     if (global.VF.UI && global.VF.UI.pulseCoreHit) {
-      global.VF.UI.pulseCoreHit(base === this.allyBase ? 'home' : 'enemy');
+      global.VF.UI.pulseCoreHit(base === this.getFriendlyBase() ? 'home' : 'enemy');
     }
     if (global.VF.Audio && global.VF.Audio.play) {
       global.VF.Audio.play(Math.random() < 0.5 ? 'impact' : 'break_block');
@@ -1153,12 +1209,13 @@
   Bases.prototype._refreshCoreHud = function () {
     if (global.VF.Conquest && global.VF.Conquest.active) return;
     if (!global.VF.UI) return;
-    // Fixed: left=blue(ally), right=red(enemy)
-    if (this.allyBase) {
-      global.VF.UI.updateHomeCore(this.allyBase.userData.coreHp, CORE_MAX_HP);
+    const friendly = this.getFriendlyBase();
+    const target = this.getTargetBase();
+    if (friendly) {
+      global.VF.UI.updateHomeCore(friendly.userData.coreHp, CORE_MAX_HP);
     }
-    if (this.enemyBase) {
-      global.VF.UI.updateMissionCore(this.enemyBase.userData.coreHp, CORE_MAX_HP);
+    if (target) {
+      global.VF.UI.updateMissionCore(target.userData.coreHp, CORE_MAX_HP);
     }
   };
 

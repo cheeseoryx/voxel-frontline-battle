@@ -1,0 +1,974 @@
+{
+  "version": 2,
+  "generatedAt": "2026-09-08T09:00:44.085Z",
+  "generation": "physical-model-layered-v2-hmg-family",
+  "basePath": "assets/sfx/",
+  "format": "wav-pcm16-mono-44100",
+  "fallbackPolicy": "procedural",
+  "buses": {
+    "ui": 0.78,
+    "weapons": 0.86,
+    "characters": 0.72,
+    "explosives": 1.12,
+    "vehicles": 0.96
+  },
+  "concurrency": {
+    "global": 32,
+    "ui": 4,
+    "weapons": 12,
+    "characters": 8,
+    "explosives": 7,
+    "vehicles": 10
+  },
+  "weaponProfiles": {
+    "ak74": "rifle545",
+    "acr": "rifle556",
+    "scarh": "rifle762",
+    "m4a1": "rifle556",
+    "hk419": "rifle556",
+    "mp7": "pdw46",
+    "p90": "pdw46",
+    "mp5": "smg9",
+    "m249": "lmg556",
+    "mk14ebr": "dmr762",
+    "m200": "sniperheavy",
+    "usp": "pistol45"
+  },
+  "sounds": {
+    "character.footstep.walk": {
+      "files": [
+        "characters/boots/walk_01.wav",
+        "characters/boots/walk_02.wav",
+        "characters/boots/walk_03.wav",
+        "characters/boots/walk_04.wav"
+      ],
+      "category": "characters",
+      "bus": "characters",
+      "maxDistance": 35,
+      "priority": 2,
+      "gain": 0.62
+    },
+    "character.footstep.run": {
+      "files": [
+        "characters/boots/run_01.wav",
+        "characters/boots/run_02.wav",
+        "characters/boots/run_03.wav",
+        "characters/boots/run_04.wav"
+      ],
+      "category": "characters",
+      "bus": "characters",
+      "maxDistance": 35,
+      "priority": 2,
+      "gain": 0.82
+    },
+    "character.footstep.crouch": {
+      "files": [
+        "characters/boots/crouch_01.wav",
+        "characters/boots/crouch_02.wav",
+        "characters/boots/crouch_03.wav",
+        "characters/boots/crouch_04.wav"
+      ],
+      "category": "characters",
+      "bus": "characters",
+      "maxDistance": 35,
+      "priority": 2,
+      "gain": 0.42
+    },
+    "character.jump": {
+      "files": [
+        "characters/body/jump_01.wav"
+      ],
+      "category": "characters",
+      "bus": "characters",
+      "priority": 4,
+      "gain": 0.72
+    },
+    "character.land.soft": {
+      "files": [
+        "characters/body/land_soft_01.wav"
+      ],
+      "category": "characters",
+      "bus": "characters",
+      "priority": 4,
+      "gain": 0.72
+    },
+    "character.land.hard": {
+      "files": [
+        "characters/body/land_hard_01.wav"
+      ],
+      "category": "characters",
+      "bus": "characters",
+      "priority": 4,
+      "gain": 0.9
+    },
+    "character.hurt": {
+      "files": [
+        "characters/body/hurt_01.wav",
+        "characters/body/hurt_02.wav"
+      ],
+      "category": "characters",
+      "bus": "characters",
+      "priority": 8,
+      "gain": 0.72
+    },
+    "character.death": {
+      "files": [
+        "characters/body/death_01.wav"
+      ],
+      "category": "characters",
+      "bus": "characters",
+      "priority": 9,
+      "gain": 0.9
+    },
+    "weapon.profile.rifle545.fire": {
+      "files": [
+        "weapons/profiles/rifle545/fire_close_01.wav",
+        "weapons/profiles/rifle545/fire_close_02.wav"
+      ],
+      "category": "weapons",
+      "bus": "weapons",
+      "distantFiles": [
+        "weapons/profiles/rifle545/fire_distant_01.wav"
+      ],
+      "distantThreshold": 70,
+      "maxDistance": 280,
+      "priority": 7,
+      "gain": 0.82
+    },
+    "weapon.profile.rifle556.fire": {
+      "files": [
+        "weapons/profiles/rifle556/fire_close_01.wav",
+        "weapons/profiles/rifle556/fire_close_02.wav"
+      ],
+      "category": "weapons",
+      "bus": "weapons",
+      "distantFiles": [
+        "weapons/profiles/rifle556/fire_distant_01.wav"
+      ],
+      "distantThreshold": 70,
+      "maxDistance": 280,
+      "priority": 7,
+      "gain": 0.82
+    },
+    "weapon.profile.rifle762.fire": {
+      "files": [
+        "weapons/profiles/rifle762/fire_close_01.wav",
+        "weapons/profiles/rifle762/fire_close_02.wav"
+      ],
+      "category": "weapons",
+      "bus": "weapons",
+      "distantFiles": [
+        "weapons/profiles/rifle762/fire_distant_01.wav"
+      ],
+      "distantThreshold": 70,
+      "maxDistance": 280,
+      "priority": 7,
+      "gain": 0.82
+    },
+    "weapon.profile.pdw46.fire": {
+      "files": [
+        "weapons/profiles/pdw46/fire_close_01.wav",
+        "weapons/profiles/pdw46/fire_close_02.wav"
+      ],
+      "category": "weapons",
+      "bus": "weapons",
+      "distantFiles": [
+        "weapons/profiles/pdw46/fire_distant_01.wav"
+      ],
+      "distantThreshold": 70,
+      "maxDistance": 280,
+      "priority": 7,
+      "gain": 0.82
+    },
+    "weapon.profile.smg9.fire": {
+      "files": [
+        "weapons/profiles/smg9/fire_close_01.wav",
+        "weapons/profiles/smg9/fire_close_02.wav"
+      ],
+      "category": "weapons",
+      "bus": "weapons",
+      "distantFiles": [
+        "weapons/profiles/smg9/fire_distant_01.wav"
+      ],
+      "distantThreshold": 70,
+      "maxDistance": 280,
+      "priority": 7,
+      "gain": 0.82
+    },
+    "weapon.profile.lmg556.fire": {
+      "files": [
+        "weapons/profiles/lmg556/fire_close_01.wav",
+        "weapons/profiles/lmg556/fire_close_02.wav"
+      ],
+      "category": "weapons",
+      "bus": "weapons",
+      "distantFiles": [
+        "weapons/profiles/lmg556/fire_distant_01.wav"
+      ],
+      "distantThreshold": 70,
+      "maxDistance": 280,
+      "priority": 7,
+      "gain": 0.82
+    },
+    "weapon.profile.dmr762.fire": {
+      "files": [
+        "weapons/profiles/dmr762/fire_close_01.wav",
+        "weapons/profiles/dmr762/fire_close_02.wav"
+      ],
+      "category": "weapons",
+      "bus": "weapons",
+      "distantFiles": [
+        "weapons/profiles/dmr762/fire_distant_01.wav"
+      ],
+      "distantThreshold": 70,
+      "maxDistance": 280,
+      "priority": 7,
+      "gain": 0.82
+    },
+    "weapon.profile.sniperheavy.fire": {
+      "files": [
+        "weapons/profiles/sniperheavy/fire_close_01.wav",
+        "weapons/profiles/sniperheavy/fire_close_02.wav"
+      ],
+      "category": "weapons",
+      "bus": "weapons",
+      "distantFiles": [
+        "weapons/profiles/sniperheavy/fire_distant_01.wav"
+      ],
+      "distantThreshold": 95,
+      "maxDistance": 420,
+      "priority": 7,
+      "gain": 1
+    },
+    "weapon.profile.pistol45.fire": {
+      "files": [
+        "weapons/profiles/pistol45/fire_close_01.wav",
+        "weapons/profiles/pistol45/fire_close_02.wav"
+      ],
+      "category": "weapons",
+      "bus": "weapons",
+      "distantFiles": [
+        "weapons/profiles/pistol45/fire_distant_01.wav"
+      ],
+      "distantThreshold": 70,
+      "maxDistance": 280,
+      "priority": 7,
+      "gain": 0.82
+    },
+    "weapon.mechanic.empty": {
+      "files": [
+        "weapons/mechanics/empty_01.wav"
+      ],
+      "category": "weapons",
+      "bus": "weapons",
+      "maxDistance": 22,
+      "priority": 5,
+      "gain": 0.62
+    },
+    "weapon.mechanic.reload_start": {
+      "files": [
+        "weapons/mechanics/reload_start_01.wav"
+      ],
+      "category": "weapons",
+      "bus": "weapons",
+      "maxDistance": 22,
+      "priority": 5,
+      "gain": 0.62
+    },
+    "weapon.mechanic.reload_mag": {
+      "files": [
+        "weapons/mechanics/reload_mag_01.wav"
+      ],
+      "category": "weapons",
+      "bus": "weapons",
+      "maxDistance": 22,
+      "priority": 5,
+      "gain": 0.62
+    },
+    "weapon.mechanic.reload_rack": {
+      "files": [
+        "weapons/mechanics/reload_rack_01.wav"
+      ],
+      "category": "weapons",
+      "bus": "weapons",
+      "maxDistance": 22,
+      "priority": 5,
+      "gain": 0.62
+    },
+    "weapon.ak74.fire": {
+      "alias": "weapon.profile.rifle545.fire"
+    },
+    "weapon.ak74.empty": {
+      "alias": "weapon.mechanic.empty"
+    },
+    "weapon.ak74.reload_start": {
+      "alias": "weapon.mechanic.reload_start"
+    },
+    "weapon.ak74.reload_mag": {
+      "alias": "weapon.mechanic.reload_mag"
+    },
+    "weapon.ak74.reload_rack": {
+      "alias": "weapon.mechanic.reload_rack"
+    },
+    "weapon.acr.fire": {
+      "alias": "weapon.profile.rifle556.fire"
+    },
+    "weapon.acr.empty": {
+      "alias": "weapon.mechanic.empty"
+    },
+    "weapon.acr.reload_start": {
+      "alias": "weapon.mechanic.reload_start"
+    },
+    "weapon.acr.reload_mag": {
+      "alias": "weapon.mechanic.reload_mag"
+    },
+    "weapon.acr.reload_rack": {
+      "alias": "weapon.mechanic.reload_rack"
+    },
+    "weapon.scarh.fire": {
+      "alias": "weapon.profile.rifle762.fire"
+    },
+    "weapon.scarh.empty": {
+      "alias": "weapon.mechanic.empty"
+    },
+    "weapon.scarh.reload_start": {
+      "alias": "weapon.mechanic.reload_start"
+    },
+    "weapon.scarh.reload_mag": {
+      "alias": "weapon.mechanic.reload_mag"
+    },
+    "weapon.scarh.reload_rack": {
+      "alias": "weapon.mechanic.reload_rack"
+    },
+    "weapon.m4a1.fire": {
+      "alias": "weapon.profile.rifle556.fire"
+    },
+    "weapon.m4a1.empty": {
+      "alias": "weapon.mechanic.empty"
+    },
+    "weapon.m4a1.reload_start": {
+      "alias": "weapon.mechanic.reload_start"
+    },
+    "weapon.m4a1.reload_mag": {
+      "alias": "weapon.mechanic.reload_mag"
+    },
+    "weapon.m4a1.reload_rack": {
+      "alias": "weapon.mechanic.reload_rack"
+    },
+    "weapon.hk419.fire": {
+      "alias": "weapon.profile.rifle556.fire"
+    },
+    "weapon.hk419.empty": {
+      "alias": "weapon.mechanic.empty"
+    },
+    "weapon.hk419.reload_start": {
+      "alias": "weapon.mechanic.reload_start"
+    },
+    "weapon.hk419.reload_mag": {
+      "alias": "weapon.mechanic.reload_mag"
+    },
+    "weapon.hk419.reload_rack": {
+      "alias": "weapon.mechanic.reload_rack"
+    },
+    "weapon.mp7.fire": {
+      "alias": "weapon.profile.pdw46.fire"
+    },
+    "weapon.mp7.empty": {
+      "alias": "weapon.mechanic.empty"
+    },
+    "weapon.mp7.reload_start": {
+      "alias": "weapon.mechanic.reload_start"
+    },
+    "weapon.mp7.reload_mag": {
+      "alias": "weapon.mechanic.reload_mag"
+    },
+    "weapon.mp7.reload_rack": {
+      "alias": "weapon.mechanic.reload_rack"
+    },
+    "weapon.p90.fire": {
+      "alias": "weapon.profile.pdw46.fire"
+    },
+    "weapon.p90.empty": {
+      "alias": "weapon.mechanic.empty"
+    },
+    "weapon.p90.reload_start": {
+      "alias": "weapon.mechanic.reload_start"
+    },
+    "weapon.p90.reload_mag": {
+      "alias": "weapon.mechanic.reload_mag"
+    },
+    "weapon.p90.reload_rack": {
+      "alias": "weapon.mechanic.reload_rack"
+    },
+    "weapon.mp5.fire": {
+      "alias": "weapon.profile.smg9.fire"
+    },
+    "weapon.mp5.empty": {
+      "alias": "weapon.mechanic.empty"
+    },
+    "weapon.mp5.reload_start": {
+      "alias": "weapon.mechanic.reload_start"
+    },
+    "weapon.mp5.reload_mag": {
+      "alias": "weapon.mechanic.reload_mag"
+    },
+    "weapon.mp5.reload_rack": {
+      "alias": "weapon.mechanic.reload_rack"
+    },
+    "weapon.m249.fire": {
+      "alias": "weapon.profile.lmg556.fire"
+    },
+    "weapon.m249.empty": {
+      "alias": "weapon.mechanic.empty"
+    },
+    "weapon.m249.reload_start": {
+      "alias": "weapon.mechanic.reload_start"
+    },
+    "weapon.m249.reload_mag": {
+      "alias": "weapon.mechanic.reload_mag"
+    },
+    "weapon.m249.reload_rack": {
+      "alias": "weapon.mechanic.reload_rack"
+    },
+    "weapon.mk14ebr.fire": {
+      "alias": "weapon.profile.dmr762.fire"
+    },
+    "weapon.mk14ebr.empty": {
+      "alias": "weapon.mechanic.empty"
+    },
+    "weapon.mk14ebr.reload_start": {
+      "alias": "weapon.mechanic.reload_start"
+    },
+    "weapon.mk14ebr.reload_mag": {
+      "alias": "weapon.mechanic.reload_mag"
+    },
+    "weapon.mk14ebr.reload_rack": {
+      "alias": "weapon.mechanic.reload_rack"
+    },
+    "weapon.m200.fire": {
+      "alias": "weapon.profile.sniperheavy.fire"
+    },
+    "weapon.m200.empty": {
+      "alias": "weapon.mechanic.empty"
+    },
+    "weapon.m200.reload_start": {
+      "alias": "weapon.mechanic.reload_start"
+    },
+    "weapon.m200.reload_mag": {
+      "alias": "weapon.mechanic.reload_mag"
+    },
+    "weapon.m200.reload_rack": {
+      "alias": "weapon.mechanic.reload_rack"
+    },
+    "weapon.usp.fire": {
+      "alias": "weapon.profile.pistol45.fire"
+    },
+    "weapon.usp.empty": {
+      "alias": "weapon.mechanic.empty"
+    },
+    "weapon.usp.reload_start": {
+      "alias": "weapon.mechanic.reload_start"
+    },
+    "weapon.usp.reload_mag": {
+      "alias": "weapon.mechanic.reload_mag"
+    },
+    "weapon.usp.reload_rack": {
+      "alias": "weapon.mechanic.reload_rack"
+    },
+    "throwable.frag.pin": {
+      "files": [
+        "throwables/frag/pin_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 28,
+      "priority": 5,
+      "gain": 0.68
+    },
+    "throwable.frag.throw": {
+      "files": [
+        "throwables/frag/throw_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 28,
+      "priority": 5,
+      "gain": 0.68
+    },
+    "throwable.frag.bounce": {
+      "files": [
+        "throwables/frag/bounce_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 55,
+      "priority": 3,
+      "gain": 0.68
+    },
+    "throwable.flash.pin": {
+      "files": [
+        "throwables/flash/pin_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 28,
+      "priority": 5,
+      "gain": 0.68
+    },
+    "throwable.flash.throw": {
+      "files": [
+        "throwables/flash/throw_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 28,
+      "priority": 5,
+      "gain": 0.68
+    },
+    "throwable.flash.bounce": {
+      "files": [
+        "throwables/flash/bounce_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 55,
+      "priority": 3,
+      "gain": 0.68
+    },
+    "throwable.smoke.pin": {
+      "files": [
+        "throwables/smoke/pin_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 28,
+      "priority": 5,
+      "gain": 0.68
+    },
+    "throwable.smoke.throw": {
+      "files": [
+        "throwables/smoke/throw_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 28,
+      "priority": 5,
+      "gain": 0.68
+    },
+    "throwable.smoke.bounce": {
+      "files": [
+        "throwables/smoke/bounce_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 55,
+      "priority": 3,
+      "gain": 0.68
+    },
+    "throwable.frag.detonate": {
+      "files": [
+        "throwables/frag/detonate_close_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 400,
+      "priority": 9,
+      "gain": 1.42,
+      "distantFiles": [
+        "throwables/frag/detonate_distant_01.wav"
+      ],
+      "distantThreshold": 70
+    },
+    "throwable.frag.distant": {
+      "files": [
+        "throwables/frag/detonate_distant_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 450,
+      "priority": 7,
+      "gain": 1.18
+    },
+    "throwable.flash.detonate": {
+      "files": [
+        "throwables/flash/detonate_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 300,
+      "priority": 9,
+      "gain": 0.86
+    },
+    "throwable.flash.ring": {
+      "files": [
+        "throwables/flash/ring_01.wav"
+      ],
+      "category": "characters",
+      "bus": "characters",
+      "maxDistance": 0,
+      "priority": 9,
+      "gain": 0.86
+    },
+    "throwable.smoke.ignite": {
+      "files": [
+        "throwables/smoke/ignite_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 90,
+      "priority": 6,
+      "gain": 0.86
+    },
+    "throwable.smoke.loop": {
+      "files": [
+        "throwables/smoke/hiss_loop_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 55,
+      "priority": 3,
+      "gain": 0.45,
+      "loop": true
+    },
+    "vehicle.jeep.idle": {
+      "files": [
+        "vehicles/jeep/idle_loop_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 2,
+      "gain": 0.56,
+      "loop": true
+    },
+    "vehicle.jeep.engine": {
+      "files": [
+        "vehicles/jeep/engine_loop_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 2,
+      "gain": 0.56,
+      "loop": true
+    },
+    "vehicle.jeep.rev": {
+      "files": [
+        "vehicles/jeep/rev_loop_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 2,
+      "gain": 0.56,
+      "loop": true
+    },
+    "vehicle.jeep.movement": {
+      "files": [
+        "vehicles/jeep/movement_loop_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 2,
+      "gain": 0.45,
+      "loop": true
+    },
+    "vehicle.jeep.shift": {
+      "files": [
+        "vehicles/jeep/shift_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 4,
+      "gain": 0.56,
+      "loop": false
+    },
+    "vehicle.jeep.brake": {
+      "files": [
+        "vehicles/jeep/brake_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 4,
+      "gain": 0.56,
+      "loop": false
+    },
+    "vehicle.ifv.idle": {
+      "files": [
+        "vehicles/ifv/idle_loop_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 2,
+      "gain": 0.56,
+      "loop": true
+    },
+    "vehicle.ifv.engine": {
+      "files": [
+        "vehicles/ifv/engine_loop_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 2,
+      "gain": 0.56,
+      "loop": true
+    },
+    "vehicle.ifv.rev": {
+      "files": [
+        "vehicles/ifv/rev_loop_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 2,
+      "gain": 0.56,
+      "loop": true
+    },
+    "vehicle.ifv.movement": {
+      "files": [
+        "vehicles/ifv/movement_loop_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 2,
+      "gain": 0.45,
+      "loop": true
+    },
+    "vehicle.ifv.shift": {
+      "files": [
+        "vehicles/ifv/shift_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 4,
+      "gain": 0.56,
+      "loop": false
+    },
+    "vehicle.ifv.brake": {
+      "files": [
+        "vehicles/ifv/brake_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 4,
+      "gain": 0.56,
+      "loop": false
+    },
+    "vehicle.tank.idle": {
+      "files": [
+        "vehicles/tank/idle_loop_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 2,
+      "gain": 0.56,
+      "loop": true
+    },
+    "vehicle.tank.engine": {
+      "files": [
+        "vehicles/tank/engine_loop_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 2,
+      "gain": 0.56,
+      "loop": true
+    },
+    "vehicle.tank.rev": {
+      "files": [
+        "vehicles/tank/rev_loop_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 2,
+      "gain": 0.56,
+      "loop": true
+    },
+    "vehicle.tank.movement": {
+      "files": [
+        "vehicles/tank/movement_loop_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 2,
+      "gain": 0.45,
+      "loop": true
+    },
+    "vehicle.tank.shift": {
+      "files": [
+        "vehicles/tank/shift_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 4,
+      "gain": 0.56,
+      "loop": false
+    },
+    "vehicle.tank.brake": {
+      "files": [
+        "vehicles/tank/brake_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 190,
+      "priority": 4,
+      "gain": 0.56,
+      "loop": false
+    },
+    "vehicle.weapon.tank_cannon": {
+      "files": [
+        "vehicles/weapons/tank_cannon_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 450,
+      "priority": 10,
+      "gain": 1.22,
+      "distantFiles": [
+        "vehicles/weapons/tank_cannon_far_01.wav"
+      ],
+      "distantThreshold": 78
+    },
+    "vehicle.weapon.tank_cannon_far": {
+      "files": [
+        "vehicles/weapons/tank_cannon_far_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 450,
+      "priority": 10,
+      "gain": 1.22
+    },
+    "vehicle.weapon.tank_breech": {
+      "files": [
+        "vehicles/weapons/tank_breech_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 300,
+      "priority": 7,
+      "gain": 1.05
+    },
+    "vehicle.weapon.tank_coax": {
+      "files": [
+        "vehicles/weapons/tank_coax_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 300,
+      "priority": 7,
+      "gain": 1.18
+    },
+    "vehicle.weapon.tank_hmg": {
+      "files": [
+        "vehicles/weapons/tank_hmg_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 300,
+      "priority": 7,
+      "gain": 1.18
+    },
+    "vehicle.weapon.ifv_autocannon": {
+      "files": [
+        "vehicles/weapons/ifv_autocannon_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 450,
+      "priority": 10,
+      "gain": 1.18
+    },
+    "vehicle.weapon.ifv_missile": {
+      "files": [
+        "vehicles/weapons/ifv_missile_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 300,
+      "priority": 7,
+      "gain": 1.12
+    },
+    "vehicle.weapon.ifv_grenade": {
+      "files": [
+        "vehicles/weapons/ifv_grenade_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 300,
+      "priority": 7,
+      "gain": 1.12
+    },
+    "vehicle.explosion.cannon": {
+      "files": [
+        "vehicles/weapons/tank_cannon_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 450,
+      "priority": 10,
+      "gain": 1.45,
+      "distantFiles": [
+        "vehicles/weapons/tank_cannon_far_01.wav"
+      ],
+      "distantThreshold": 72
+    },
+    "vehicle.explosion.he": {
+      "files": [
+        "throwables/frag/detonate_close_01.wav"
+      ],
+      "category": "explosives",
+      "bus": "explosives",
+      "maxDistance": 420,
+      "priority": 10,
+      "gain": 1.4,
+      "distantFiles": [
+        "throwables/frag/detonate_distant_01.wav"
+      ],
+      "distantThreshold": 70
+    },
+    "vehicle.impact.armor": {
+      "files": [
+        "vehicles/impacts/armor_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 330,
+      "priority": 7,
+      "gain": 0.95
+    },
+    "vehicle.impact.ground": {
+      "files": [
+        "vehicles/impacts/ground_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 330,
+      "priority": 7,
+      "gain": 0.95
+    },
+    "vehicle.impact.structure": {
+      "files": [
+        "vehicles/impacts/structure_01.wav"
+      ],
+      "category": "vehicles",
+      "bus": "vehicles",
+      "maxDistance": 330,
+      "priority": 7,
+      "gain": 0.95
+    }
+  }
+}

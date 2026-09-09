@@ -1,0 +1,16 @@
+# Audacity classic Macro recipe (kept as a reproducible command record).
+# Audacity 4.0 currently installed on this machine exposes no mod-script-pipe
+# or Macro UI. On Audacity 3.x, create a Macro with these commands in order.
+# Do not hard-clip. Preserve sub-bass for guns/explosions/vehicles.
+
+SelectAll:
+HighPassFilter:frequency="18" rolloff="24"
+LowPassFilter:frequency="16000" rolloff="12"
+Normalize:ApplyGain="1" PeakLevel="-1.7" RemoveDcOffset="1" StereoIndependent="0"
+FadeIn:
+FadeOut:
+
+# Export settings:
+# mono / 44100 Hz / WAV PCM16
+# preferred release when an encoder is available: OGG Vorbis quality 5
+# Node generator already applies a 0.82 lookahead limiter for shipping files.

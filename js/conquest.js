@@ -20,9 +20,47 @@
   const COL = {
     ally: 0x33aaff,
     enemy: 0xff3344,
+    friend: 0x33aaff,
+    foe: 0xff3344,
     neutral: 0xc8c4b8,
     contest: 0xffe08a,
   };
+
+  function look() {
+    return (global.VF && global.VF.TeamLook) || null;
+  }
+
+  function flagHex(owner, contested) {
+    const L = look();
+    if (L && L.hex) return L.hex(owner, contested);
+    if (contested) return COL.contest;
+    if (owner === 'ally') return COL.ally;
+    if (owner === 'enemy') return COL.enemy;
+    return COL.neutral;
+  }
+
+  function flagCss(owner, contested) {
+    const L = look();
+    if (L && L.css) return L.css(owner, contested);
+    if (contested) return '#ffe08a';
+    if (owner === 'ally') return '#4aa3ff';
+    if (owner === 'enemy') return '#ff5a4a';
+    return '#f2f0ea';
+  }
+
+  function flagKind(owner) {
+    const L = look();
+    if (L && L.kind) return L.kind(owner);
+    if (owner === 'enemy') return 'foe';
+    if (owner === 'ally') return 'friend';
+    return 'neutral';
+  }
+
+  function towardFriendCapture(capture) {
+    const L = look();
+    const pTeam = L && L.playerTeam ? L.playerTeam() : 'ally';
+    return (capture || 0) >= 0 ? pTeam === 'ally' : pTeam === 'enemy';
+  }
 
   function blankStats() {
     return {
@@ -498,8 +536,11 @@
   Conquest.prototype._paintLetter = function (mesh, letter, owner, contested, capture) {
     const t = Math.max(0, Math.min(1, Math.abs(capture || 0)));
     const q = Math.round(t * 40);
-    const sign = (capture || 0) >= 0 ? 1 : 0;
-    const key = letter + ':' + owner + ':' + (contested ? 1 : 0) + ':' + q + ':' + sign;
+    const pTeam = look() && look().playerTeam ? look().playerTeam() : 'ally';
+    const kind = flagKind(owner);
+    const friendCap = towardFriendCapture(capture) ? 1 : 0;
+    const key =
+      letter + ':' + owner + ':' + pTeam + ':' + (contested ? 1 : 0) + ':' + q + ':' + friendCap;
     if (mesh.userData.letterKey === key) return;
     mesh.userData.letterKey = key;
     const ctx = mesh.userData.letterCtx;
@@ -509,14 +550,13 @@
     const cy = S * 0.5;
     ctx.clearRect(0, 0, S, S);
 
-    const hex =
-      owner === 'ally' ? '#4aa3ff' : owner === 'enemy' ? '#ff5a4a' : '#f2f0ea';
-    const ringCol = contested ? '#ffe08a' : sign ? '#4aa3ff' : '#ff5a4a';
+    const hex = flagCss(owner, false);
+    const ringCol = contested ? '#ffe08a' : friendCap ? '#4aa3ff' : '#ff5a4a';
 
     ctx.fillStyle = 'rgba(6,8,12,0.82)';
     ctx.strokeStyle = contested ? '#ffe08a' : hex;
     ctx.lineWidth = contested ? 14 : 10;
-    if (owner === 'enemy') {
+    if (kind === 'foe') {
       ctx.beginPath();
       ctx.moveTo(cx, 28);
       ctx.lineTo(S - 28, cy);
@@ -572,13 +612,7 @@
   Conquest.prototype._tintFlag = function (flag) {
     const mesh = flag.mesh;
     if (!mesh) return;
-    const col = flag.contested
-      ? COL.contest
-      : flag.owner === 'ally'
-        ? COL.ally
-        : flag.owner === 'enemy'
-          ? COL.enemy
-          : COL.neutral;
+    const col = flagHex(flag.owner, flag.contested);
     const banner = mesh.userData.banner;
     if (banner && banner.material) {
       banner.material.color.setHex(col);
@@ -592,9 +626,23 @@
     if (mesh.userData.discMat) mesh.userData.discMat.color.setHex(col);
     if (mesh.userData.ringMat) mesh.userData.ringMat.color.setHex(col);
     if (mesh.userData.capMat) {
+      const capCol = flag.contested
+        ? COL.contest
+        : towardFriendCapture(flag.capture)
+          ? COL.friend
+          : COL.foe;
+      mesh.userData.capMat.color.setHex(capCol);
       mesh.userData.capMat.opacity = flag.contested ? 0.55 : Math.min(1, Math.abs(flag.capture)) * 0.45;
     }
     this._paintLetter(mesh, flag.letter, flag.owner, flag.contested, flag.capture);
+  };
+
+  Conquest.prototype.refreshDisplay = function () {
+    for (let i = 0; i < this.flags.length; i++) {
+      const flag = this.flags[i];
+      if (flag.mesh) flag.mesh.userData.letterKey = '';
+      this._tintFlag(flag);
+    }
   };
 
   Conquest.prototype._clearMeshes = function () {
@@ -963,7 +1011,8 @@
       });
       global.VF.UI.toast('+' + SCORE_CAPTURE + ' 占领 ' + f.letter);
     } else {
-      const who = f.owner === 'ally' ? '蓝方' : '红方';
+      const L = look();
+      const who = L && L.sideName ? L.sideName(f.owner) : f.owner === 'ally' ? '蓝方' : '红方';
       global.VF.UI.toast(who + '占领 ' + f.letter);
     }
     if (global.VF.Audio && global.VF.Audio.play) global.VF.Audio.play('confirm');

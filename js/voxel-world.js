@@ -1229,6 +1229,35 @@
     if (this.dirtyRect) this.dirtyRect(gx - outer - 1, gz - outer - 1, gx + outer + 1, gz + outer + 1);
   };
 
+  /** Small asphalt pad and headroom for the resupply kiosk only. */
+  VoxelWorld.prototype._placeArmorRepairCenter = function (cx, cz, team) {
+    const gx = Math.floor(cx);
+    const gz = Math.floor(cz);
+    const size = this.worldSize;
+    if (gx < 16 || gz < 16 || gx >= size - 16 || gz >= size - 16) {
+      return { x: gx, z: gz, y: 9 };
+    }
+    const half = 2;
+    const gy = this._surface(gx, gz) || 9;
+    const clearH = 5;
+    for (let dz = -half; dz <= half; dz++) {
+      for (let dx = -half; dx <= half; dx++) {
+        const x = gx + dx;
+        const z = gz + dz;
+        if (x < 2 || z < 2 || x >= size - 2 || z >= size - 2) continue;
+        const edge = Math.abs(dx) === half || Math.abs(dz) === half;
+        this.set(x, gy, z, edge ? BLOCK.CONCRETE : BLOCK.ASPHALT);
+        for (let y = gy + 1; y <= gy + clearH && y < this.height; y++) {
+          this.set(x, y, z, BLOCK.AIR);
+        }
+      }
+    }
+    if (this.dirtyRect) {
+      this.dirtyRect(gx - half - 1, gz - half - 1, gx + half + 1, gz + half + 1);
+    }
+    return { x: gx + 0.5, z: gz + 0.5, y: gy + 1 };
+  };
+
   /** Clear headroom for a vehicle pad without flattening or raising terrain. */
   VoxelWorld.prototype._clearVehiclePad = function (cx, cz, radius) {
     const r = Math.max(4, Math.floor(radius || 6));
@@ -2620,6 +2649,7 @@
 
     VoxelWorld.prototype.setPlayerTeam = function (team) {
     if (team !== 'ally' && team !== 'enemy') return null;
+    const changed = this._playerTeam !== team;
     this._playerTeam = team;
     if (this._deployList && this._deployList.length) {
       const cur = this.getSelectedSpawn();
@@ -2633,16 +2663,19 @@
         }
         this._selectedSpawnId = pick ? pick.id : null;
       }
-      return team;
-    }
-    const list = this._spawnPoints && this._spawnPoints[team];
-    if (list && list.length) {
-      const cur = this.getSelectedSpawn();
-      if (!cur || cur.team !== team) {
-        this._selectedSpawnId = list[Math.min(1, list.length - 1)].id;
-      }
     } else {
-      this._selectedSpawnId = null;
+      const list = this._spawnPoints && this._spawnPoints[team];
+      if (list && list.length) {
+        const cur = this.getSelectedSpawn();
+        if (!cur || cur.team !== team) {
+          this._selectedSpawnId = list[Math.min(1, list.length - 1)].id;
+        }
+      } else {
+        this._selectedSpawnId = null;
+      }
+    }
+    if (changed && global.VF.TeamLook && global.VF.TeamLook.refresh) {
+      global.VF.TeamLook.refresh();
     }
     return team;
   };
@@ -3384,8 +3417,12 @@
    * @param {{x:number,y?:number,z:number}|null} [hitDir] mild stretch along impact
    */
   VoxelWorld.prototype.stampDeathStain = function (wx, wy, wz, team, hitDir) {
-    const paint =
-      team === 'ally' || team === 'blue' ? BLOCK.PAINT_BLUE : BLOCK.PAINT_RED;
+    const Look = global.VF && global.VF.TeamLook;
+    const friend =
+      Look && Look.kind
+        ? Look.kind(team) === 'friend'
+        : team === 'ally' || team === 'blue';
+    const paint = friend ? BLOCK.PAINT_BLUE : BLOCK.PAINT_RED;
     const cx = Math.floor(wx);
     const cy = Math.floor(wy);
     const cz = Math.floor(wz);
@@ -4232,4 +4269,70 @@
   global.VF.BLOCK_COLORS = COLORS;
   global.VF.BLOCK_HITS = BLOCK_HITS;
   global.VF.VoxelWorld = VoxelWorld;
+
+  /**
+   * Battlefield display colors are always relative to the local player:
+   * friend = blue, foe = red. Faction ids (`ally` / `enemy`) stay unchanged.
+   */
+  global.VF.TeamLook = {
+    FRIEND: 0x33aaff,
+    FOE: 0xff3344,
+    NEUTRAL: 0xc8c4b8,
+    CONTEST: 0xffe08a,
+    FRIEND_CSS: '#4aa3ff',
+    FOE_CSS: '#ff5a4a',
+    NEUTRAL_CSS: '#f2f0ea',
+    CONTEST_CSS: '#ffe08a',
+    playerTeam: function () {
+      const g = global.VF && global.VF.game;
+      const w = g && g.world;
+      if (w && (w._playerTeam === 'ally' || w._playerTeam === 'enemy')) return w._playerTeam;
+      if (g && g.player && (g.player.team === 'ally' || g.player.team === 'enemy')) {
+        return g.player.team;
+      }
+      return 'ally';
+    },
+    kind: function (owner) {
+      if (owner !== 'ally' && owner !== 'enemy') return 'neutral';
+      return owner === this.playerTeam() ? 'friend' : 'foe';
+    },
+    hex: function (owner, contested) {
+      if (contested) return this.CONTEST;
+      const k = this.kind(owner);
+      if (k === 'friend') return this.FRIEND;
+      if (k === 'foe') return this.FOE;
+      return this.NEUTRAL;
+    },
+    css: function (owner, contested) {
+      if (contested) return this.CONTEST_CSS;
+      const k = this.kind(owner);
+      if (k === 'friend') return this.FRIEND_CSS;
+      if (k === 'foe') return this.FOE_CSS;
+      return this.NEUTRAL_CSS;
+    },
+    sideName: function (owner) {
+      const k = this.kind(owner);
+      if (k === 'foe') return '红方';
+      if (k === 'friend') return '蓝方';
+      return '中立';
+    },
+    refresh: function () {
+      const g = global.VF && global.VF.game;
+      if (global.VF.Conquest && global.VF.Conquest.refreshDisplay) {
+        global.VF.Conquest.refreshDisplay();
+      }
+      if (g && g.bases && g.bases.refreshDisplayColors) {
+        g.bases.refreshDisplayColors();
+      }
+      if (g && g.ai && g.ai.refreshDisplayColors) {
+        g.ai.refreshDisplayColors();
+      }
+      if (global.VF.Gadgets && global.VF.Gadgets.refreshDisplayColors) {
+        global.VF.Gadgets.refreshDisplayColors();
+      }
+      if (global.VF.Vehicles && global.VF.Vehicles.refreshDisplayColors) {
+        global.VF.Vehicles.refreshDisplayColors();
+      }
+    },
+  };
 })(window);

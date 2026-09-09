@@ -24,10 +24,20 @@
   const STEP_UP = 1.05; // walk up marked stair treads without jumping
   const TERRAIN_STEP_UP = 0.35;
   const TERRAIN_SNAP_DOWN = 0.22;
+  const LOOK_WARP_PX2 = 480 * 480; // compositor / pointer-lock teleport
+  const LOOK_CLAMP_PX = 160; // cap a single event so a hitch cannot spin 90°
 
   function feelGroup(name) {
     const F = global.VF && global.VF.Feel;
     return (F && F[name]) || {};
+  }
+
+  function copyPlainDirection(value) {
+    return {
+      x: Number(value && value.x) || 0,
+      y: Number(value && value.y) || 0,
+      z: Number(value && value.z) || 0,
+    };
   }
 
   function Player(camera, world) {
@@ -39,6 +49,7 @@
     this.onGround = false;
     this.health = 100;
     this.maxHealth = 100;
+    this._lastHurtAt = 0;
     this.armor = 50;
     this.maxArmor = 100;
     this.alive = true;
@@ -80,6 +91,11 @@
     this.vehicleCameraMode = 0;
     this.vehicleTurretLocked = false;
     this._vehicleExitCool = 0;
+    this._vehicleShotSeq = 0;
+    this._vehiclePendingShot = null;
+    this._vehicleCannonKick = 0;
+    this._vehicleCannonShake = 0;
+    this._vehicleCannonFov = 0;
 
     // Body (collision root)
     this.object = new THREE.Object3D();
@@ -88,9 +104,11 @@
     // First-person voxel soldier (shared palette with squad)
     this.classId = 'assault';
     this._heldMode = 'weapon';
+    this._heldView = 'weapon';
+    this._heldViewId = null;
     this.buildViewModel = null;
     if (global.VF.Soldier) {
-      this._rebuildWeaponViewModel(this.classId, 'ar');
+      this._rebuildWeaponViewModel(this.classId, 'ak74');
     } else {
       this.viewModel = this._createSoldierViewModel();
       camera.add(this.viewModel);
@@ -169,7 +187,7 @@
     const weaponId =
       (global.VF.game && global.VF.game.weapons && global.VF.game.weapons.current) ||
       (global.VF.game && global.VF.game.preferredWeaponId) ||
-      'ar';
+      (global.VF.DEFAULT_PRIMARY || 'ak74');
     this._rebuildWeaponViewModel(classId, weaponId);
     this._heldMode = 'weapon';
     if (wasBuild) this.setHeldMode('build');
@@ -178,6 +196,9 @@
     }
     if (global.VF.UI && global.VF.UI.syncWeaponLocks) {
       global.VF.UI.syncWeaponLocks();
+    }
+    if (global.VF.Gadgets && global.VF.Gadgets._syncHeldVisual) {
+      global.VF.Gadgets._syncHeldVisual(global.VF.game);
     }
   };
 
@@ -197,6 +218,8 @@
         this.camera.add(this.buildViewModel);
       }
       if (this._weaponViewModel) this._weaponViewModel.visible = false;
+      this._hideHeldExtras();
+      this._heldView = 'build';
       if (this.buildViewModel) {
         this.buildViewModel.visible = true;
         this.viewModel = this.buildViewModel;
@@ -219,6 +242,7 @@
       }
     }
     this._heldMode = mode;
+    if (mode !== 'build' && this._heldView === 'build') this._heldView = 'weapon';
     this._gunRest = null;
     this._recoilKick = 0;
     this._recoilVel = 0;
@@ -230,6 +254,93 @@
     this._viewPunchYawTarget = 0;
     this._recoilWasRecovering = false;
     this._recoilIdleTimer = 1;
+  };
+
+  Player.prototype._hideHeldExtras = function () {
+    if (this._gadgetNode) this._gadgetNode.visible = false;
+    const throwBusy =
+      global.VF.Throwables && global.VF.Throwables.busy && global.VF.Throwables.busy();
+    if (this._throwNode && !throwBusy) this._throwNode.visible = false;
+  };
+
+  Player.prototype._ensureGadgetView = function () {
+    if (!this.camera || !global.VF.Soldier || !global.VF.Soldier.createGadgetViewModel) {
+      return null;
+    }
+    const classId = this.classId || 'assault';
+    const stale =
+      !this._gadgetNode ||
+      this._gadgetNode.parent !== this.camera ||
+      this._gadgetNode.userData.classId !== classId;
+    if (stale) {
+      if (this._gadgetNode && this._gadgetNode.parent) {
+        this._gadgetNode.parent.remove(this._gadgetNode);
+      }
+      this._gadgetNode = global.VF.Soldier.createGadgetViewModel(classId);
+      this.camera.add(this._gadgetNode);
+    }
+    return this._gadgetNode;
+  };
+
+  /**
+   * Exclusive first-person hold: weapon | gadget | grenade | melee | build.
+   * Only one of gun / gadget / grenade / knife should be visible.
+   */
+  Player.prototype.setHeldView = function (kind, id, extra) {
+    extra = extra || {};
+    kind = kind || 'weapon';
+    this._heldView = kind;
+    this._heldViewId = id || null;
+    if (kind === 'build') {
+      this.setHeldMode('build');
+      return;
+    }
+    if (this._heldMode === 'build') this.setHeldMode('weapon');
+
+    if (kind === 'melee') {
+      if (this.buildViewModel) this.buildViewModel.visible = false;
+      if (this._gadgetNode) this._gadgetNode.visible = false;
+      if (this._throwNode) {
+        const throwBusy =
+          global.VF.Throwables && global.VF.Throwables.busy && global.VF.Throwables.busy();
+        if (!throwBusy) this._throwNode.visible = false;
+      }
+      return;
+    }
+
+    const showGun = kind === 'weapon';
+    if (this.buildViewModel) this.buildViewModel.visible = false;
+    if (this._weaponViewModel) {
+      this._weaponViewModel.visible = !!showGun;
+      this.viewModel = this._weaponViewModel;
+      this.gunNode = this._weaponGunNode;
+      this.muzzle = this._weaponMuzzle;
+      this.muzzleFlash = this._weaponFlash;
+      if (this._weaponHip) this._hipPos = this._weaponHip.clone();
+      if (this._weaponAds) this._adsPos = this._weaponAds.clone();
+    }
+    if (this.gunNode) this.gunNode.visible = !!showGun;
+    if (this.rightArm) this.rightArm.visible = !!showGun;
+    if (this.leftArm) this.leftArm.visible = !!showGun;
+    if (this.muzzleFlash && !showGun) this.muzzleFlash.visible = false;
+
+    if (kind !== 'gadget' && this._gadgetNode) this._gadgetNode.visible = false;
+    if (kind !== 'grenade' && this._throwNode) {
+      const throwBusy =
+        global.VF.Throwables && global.VF.Throwables.busy && global.VF.Throwables.busy();
+      if (!throwBusy) this._throwNode.visible = false;
+    }
+    if (kind !== 'melee' && this._knifeNode) this._knifeNode.visible = false;
+
+    if (kind === 'gadget') {
+      const node = this._ensureGadgetView();
+      if (node) {
+        node.visible = true;
+        if (global.VF.Soldier && global.VF.Soldier.styleGadgetViewModel) {
+          global.VF.Soldier.styleGadgetViewModel(node, extra.visualId || id || 'empty');
+        }
+      }
+    }
   };
 
   /** Teleport to selected spawn and face the opposite base */
@@ -331,6 +442,10 @@
     const self = this;
 
     document.addEventListener('keydown', (e) => {
+      if (global.VF.UI && global.VF.UI.pauseMenuOpen) {
+        if (e.code === 'Space' || e.code === 'Tab') e.preventDefault();
+        return;
+      }
       self.keys[e.code] = true;
       if (e.key === 'f' || e.key === 'F') self.keys['KeyF'] = true;
       const seatHotkey = /^F[1-6]$/.test(e.code) || /^F[1-6]$/.test(e.key);
@@ -359,6 +474,14 @@
 
     document.addEventListener('mousemove', (e) => {
       if (!self.locked) return;
+      if (self._lookIgnoreUntil && performance.now() < self._lookIgnoreUntil) return;
+      const mx0 = e.movementX || 0;
+      const my0 = e.movementY || 0;
+      // Pointer-lock (re)acquire, alt-tab and compositor hitches inject huge
+      // one-frame deltas that snap the camera. Drop true warps, clamp the rest.
+      if (mx0 * mx0 + my0 * my0 > LOOK_WARP_PX2) return;
+      const mx = mx0 > LOOK_CLAMP_PX ? LOOK_CLAMP_PX : mx0 < -LOOK_CLAMP_PX ? -LOOK_CLAMP_PX : mx0;
+      const my = my0 > LOOK_CLAMP_PX ? LOOK_CLAMP_PX : my0 < -LOOK_CLAMP_PX ? -LOOK_CLAMP_PX : my0;
       let sens = feelGroup('camera').mouseSens != null ? feelGroup('camera').mouseSens : MOUSE_SENS;
       if (self.aiming) {
         sens =
@@ -378,8 +501,11 @@
       ) {
         sens *= 0.82;
       }
-      self.yaw -= e.movementX * sens;
-      self.pitch -= e.movementY * sens;
+      if (global.VF.Throwables && global.VF.Throwables.lookMul) {
+        sens *= global.VF.Throwables.lookMul();
+      }
+      self.yaw -= mx * sens;
+      self.pitch -= my * sens;
       if (self.vehicleId && self.vehicleRole && self.vehicleRole !== 'passenger') {
         self.pitch = Math.max(-0.46, Math.min(0.34, self.pitch));
       } else {
@@ -403,8 +529,11 @@
       if (!self.locked) return;
       if (e.button === 0) self.keys['Mouse0'] = true;
       if (e.button === 2) {
-        self.keys['Mouse2'] = true;
-        self.aiming = true;
+        const wdef = self._weaponDef && self._weaponDef();
+        if (!(wdef && wdef.melee)) {
+          self.keys['Mouse2'] = true;
+          self.aiming = true;
+        }
       }
     });
     document.addEventListener('mouseup', (e) => {
@@ -420,6 +549,12 @@
   Player.prototype._setVehicleViewModelVisible = function (visible) {
     if (this._weaponViewModel) this._weaponViewModel.visible = !!visible;
     if (this.buildViewModel) this.buildViewModel.visible = false;
+    if (!visible) {
+      this._hideHeldExtras();
+      if (this._knifeNode) this._knifeNode.visible = false;
+    } else if (global.VF.Gadgets && global.VF.Gadgets._syncHeldVisual) {
+      global.VF.Gadgets._syncHeldVisual(global.VF.game);
+    }
   };
 
   Player.prototype._sendVehicleCommand = function (command, data) {
@@ -435,6 +570,40 @@
       return false;
     }
     return !!net.sendCommand(command, data || {});
+  };
+
+  Player.prototype._flushPendingVehicleShot = function () {
+    const pending = this._vehiclePendingShot;
+    if (!pending) return false;
+    const vehicles = global.VF && global.VF.Vehicles;
+    const vehicle =
+      vehicles && vehicles.getById
+        ? vehicles.getById(pending.vehicleId)
+        : null;
+    const input = (vehicle && vehicle.driverInput) || {};
+    const sent = this._sendVehicleCommand('vehicle-input', {
+      vehicleId: pending.vehicleId,
+      seatIndex: pending.seatIndex,
+      role: pending.role,
+      throttle: input.throttle || 0,
+      steer: input.steer || 0,
+      brake: input.brake || 0,
+      handbrake: !!input.handbrake,
+      boost: !!input.boost,
+      slow: !!input.slow,
+      turretLocked: !!pending.turretLocked,
+      aimYaw: pending.aimYaw,
+      aimPitch: pending.aimPitch,
+      weaponIndex: pending.weaponIndex,
+      weaponId: pending.weaponId,
+      fire: true,
+      shotId: pending.id,
+      fireDirection: pending.direction,
+    });
+    if (sent && this._vehiclePendingShot === pending) {
+      this._vehiclePendingShot = null;
+    }
+    return sent;
   };
 
   Player.prototype._handleVehicleKey = function (event) {
@@ -461,8 +630,15 @@
     }
     if (event.code === 'KeyE') {
       if (this.vehicleId) {
+        if (
+          this._vehiclePendingShot &&
+          !this._flushPendingVehicleShot()
+        ) {
+          return true;
+        }
         const exited = vehicles.dismount(this, { reason: 'player-exit' });
         if (exited) {
+          this._vehiclePendingShot = null;
           this._sendVehicleCommand('vehicle-dismount', {});
           this._vehicleExitCool = 0.4;
           this.vehicleCameraMode = 0;
@@ -519,6 +695,7 @@
         }
         if (!open) open = vehicles.getOpenSeat(nearby[i]);
         if (!open || !vehicles.mount(this, nearby[i], open.index)) continue;
+        this._vehiclePendingShot = null;
         this.vehicleWeaponIndex = 0;
         this._vehicleAuthorityGraceUntil = performance.now() + 800;
         this.vehicleCameraMode = 0;
@@ -553,8 +730,15 @@
         : '';
     if (seatHotkey) {
       const seatIndex = Number(seatHotkey.slice(1)) - 1;
+      if (
+        this._vehiclePendingShot &&
+        !this._flushPendingVehicleShot()
+      ) {
+        return true;
+      }
       const switched = vehicles.switchSeat(this, seatIndex);
       if (switched) {
+        this._vehiclePendingShot = null;
         this.vehicleWeaponIndex = 0;
         this._vehicleAuthorityGraceUntil = performance.now() + 800;
         this._setVehicleViewModelVisible(
@@ -624,13 +808,21 @@
     const vehicles = global.VF && global.VF.Vehicles;
     const vehicle = vehicles && vehicles.getById(this.vehicleId);
     if (!vehicles || !vehicle || !vehicle.alive) {
+      this._vehiclePendingShot = null;
       this.vehicleId = null;
       this.vehicleSeat = null;
       this.vehicleRole = null;
       this.vehicleCameraMode = 0;
       this._vehicleSightRange = null;
+      this._vehicleAimDistance = null;
       this._setVehicleViewModelVisible(true);
       return false;
+    }
+    if (
+      this._vehiclePendingShot &&
+      performance.now() - this._vehiclePendingShot.createdAt > 750
+    ) {
+      this._vehiclePendingShot = null;
     }
     if (this._vehicleExitCool > 0) {
       this._vehicleExitCool = Math.max(0, this._vehicleExitCool - dt);
@@ -680,34 +872,70 @@
             look,
             available[this.vehicleWeaponIndex]
           );
-          vehicles.fireWeapon(
+          const fireOptions = {
+            direction: fireDirection,
+            predictOnly: predictOnly,
+          };
+          if (predictOnly) {
+            this._vehicleShotSeq = (this._vehicleShotSeq || 0) + 1;
+            fireOptions.shotId =
+              'vehicle-shot-guest-' + this._vehicleShotSeq;
+          }
+          const shot = vehicles.fireWeapon(
             vehicle,
             available[this.vehicleWeaponIndex],
             this,
-            { direction: fireDirection, predictOnly: predictOnly }
+            fireOptions
           );
+          if (shot && predictOnly) {
+            this._vehiclePendingShot = {
+              id: shot.id,
+              vehicleId: vehicle.id,
+              seatIndex: this.vehicleSeat,
+              role: role,
+              weaponIndex: this.vehicleWeaponIndex,
+              direction: copyPlainDirection(shot.direction),
+              weaponId: shot.weaponId,
+              turretLocked: !!this.vehicleTurretLocked,
+              aimYaw: this.yaw,
+              aimPitch: this.pitch,
+              createdAt: performance.now(),
+            };
+            this._flushPendingVehicleShot();
+          }
         }
       }
     }
     const now = performance.now();
     if (!this._vehicleNetAt || now - this._vehicleNetAt >= 50) {
       this._vehicleNetAt = now;
-      this._sendVehicleCommand('vehicle-input', {
-        vehicleId: vehicle.id,
-        seatIndex: this.vehicleSeat,
-        role: role,
+      const pendingShot = this._vehiclePendingShot;
+      const sent = this._sendVehicleCommand('vehicle-input', {
+        vehicleId: pendingShot ? pendingShot.vehicleId : vehicle.id,
+        seatIndex: pendingShot ? pendingShot.seatIndex : this.vehicleSeat,
+        role: pendingShot ? pendingShot.role : role,
         throttle: driverInput ? driverInput.throttle : 0,
         steer: driverInput ? driverInput.steer : 0,
         brake: driverInput ? driverInput.brake : 0,
         handbrake: driverInput ? driverInput.handbrake : false,
         boost: driverInput ? driverInput.boost : false,
         slow: driverInput ? driverInput.slow : false,
-        turretLocked: !!this.vehicleTurretLocked,
-        aimYaw: this.yaw,
-        aimPitch: this.pitch,
-        weaponIndex: this.vehicleWeaponIndex || 0,
-        fire: !!this.keys['Mouse0'],
+        turretLocked: pendingShot
+          ? pendingShot.turretLocked
+          : !!this.vehicleTurretLocked,
+        aimYaw: pendingShot ? pendingShot.aimYaw : this.yaw,
+        aimPitch: pendingShot ? pendingShot.aimPitch : this.pitch,
+        weaponIndex: pendingShot
+          ? pendingShot.weaponIndex
+          : this.vehicleWeaponIndex || 0,
+        weaponId: pendingShot ? pendingShot.weaponId : null,
+        fire: !!pendingShot,
+        shotId: pendingShot ? pendingShot.id : null,
+        fireDirection: pendingShot ? pendingShot.direction : null,
       });
+      if (sent && this._vehiclePendingShot === pendingShot) {
+        this._vehiclePendingShot = null;
+      }
     }
 
     const seatPosition = vehicles.getSeatWorldPosition(
@@ -729,6 +957,15 @@
     }
     this._setVehicleViewModelVisible(personalWeapon);
     this._applyVehicleCamera(vehicles, vehicle, look, personalWeapon);
+    this._updateVehicleCannonFeedback(
+      dt,
+      !!(
+        personalWeapon ||
+        (this.vehicleCameraMode === 1 &&
+          (!vehicles.canUseVehicleFirstPerson ||
+            vehicles.canUseVehicleFirstPerson(this)))
+      )
+    );
     this._updateVehicleSight(vehicles, vehicle, look);
     return true;
   };
@@ -745,18 +982,64 @@
         vehicle.aim;
       return roleAim && roleAim.direction ? roleAim.direction : look;
     }
-    const def =
-      weaponId && global.VF.VEHICLE_WEAPONS
-        ? global.VF.VEHICLE_WEAPONS[weaponId]
-        : null;
-    if (!def || !vehicles._shotOrigin || !this.camera) return look;
-    const muzzle = vehicles._shotOrigin(vehicle, def, {});
-    const zero = 180;
-    const dx = this.camera.position.x + look.x * zero - muzzle.x;
-    const dy = this.camera.position.y + look.y * zero - muzzle.y;
-    const dz = this.camera.position.z + look.z * zero - muzzle.z;
-    const len = Math.hypot(dx, dy, dz) || 1;
-    return { x: dx / len, y: dy / len, z: dz / len };
+    if (!this.camera) return look;
+    const direction =
+      vehicles.getCameraFireDirection &&
+      vehicles.getCameraFireDirection(
+        vehicle,
+        weaponId,
+        this.camera.position,
+        look,
+        180
+      );
+    return direction || look;
+  };
+
+  Player.prototype.triggerVehicleCannonKick = function () {
+    this._vehicleCannonKick = Math.min(
+      Math.PI / 40,
+      (this._vehicleCannonKick || 0) + Math.PI / 120
+    );
+    this._vehicleCannonShake = Math.max(this._vehicleCannonShake || 0, 0.2);
+    this._vehicleCannonFov = Math.max(this._vehicleCannonFov || 0, 1.8);
+  };
+
+  Player.prototype.addVehicleBlastShake = function (amount) {
+    this._vehicleCannonShake = Math.min(
+      0.42,
+      Math.max(this._vehicleCannonShake || 0, Number(amount) || 0)
+    );
+  };
+
+  Player.prototype._updateVehicleCannonFeedback = function (dt, firstPerson) {
+    const kick = this._vehicleCannonKick || 0;
+    const shake = this._vehicleCannonShake || 0;
+    const fov = this._vehicleCannonFov || 0;
+    if (firstPerson && kick > 0.0001 && this.camera && this.euler) {
+      this.euler.set(
+        this.pitch + (this._viewPunchPitch || 0) + kick,
+        this.yaw + (this._viewPunchYaw || 0),
+        0,
+        'YXZ'
+      );
+      this.camera.quaternion.setFromEuler(this.euler);
+    }
+    if (shake > 0.0005 && this.camera) {
+      const amount = shake * (firstPerson ? 0.32 : 0.18);
+      this.camera.position.x += (Math.random() - 0.5) * amount;
+      this.camera.position.y += (Math.random() - 0.5) * amount * 0.55;
+      this.camera.position.z += (Math.random() - 0.5) * amount * 0.75;
+    }
+    if (!firstPerson && fov > 0.01 && this.camera) {
+      this.camera.fov = Math.max(35, Math.min(82, this.camera.fov + fov));
+      this.camera.updateProjectionMatrix();
+    }
+    this._vehicleCannonKick = kick * Math.exp(-dt * 10.5);
+    this._vehicleCannonShake = shake * Math.exp(-dt * 15);
+    this._vehicleCannonFov = fov * Math.exp(-dt * 9);
+    if (this._vehicleCannonKick < 0.0001) this._vehicleCannonKick = 0;
+    if (this._vehicleCannonShake < 0.0005) this._vehicleCannonShake = 0;
+    if (this._vehicleCannonFov < 0.01) this._vehicleCannonFov = 0;
   };
 
   Player.prototype._applyVehicleCamera = function (
@@ -859,11 +1142,28 @@
       dist = vehHit.distance;
     }
     this._vehicleSightRange = dist;
+    this._vehicleAimDistance = null;
+    if (
+      dist != null &&
+      vehicle &&
+      vehicle.position &&
+      look &&
+      origin
+    ) {
+      const hx = origin.x + look.x * dist;
+      const hy = origin.y + look.y * dist;
+      const hz = origin.z + look.z * dist;
+      const dx = hx - vehicle.position.x;
+      const dy = hy - vehicle.position.y;
+      const dz = hz - vehicle.position.z;
+      this._vehicleAimDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
   };
 
   Player.prototype.setPointerLock = function (locked) {
     this.locked = locked;
     if (!locked) this.aiming = false;
+    else this._lookIgnoreUntil = performance.now() + 80;
   };
 
   Player.prototype.getEyeHeight = function () {
@@ -1109,6 +1409,30 @@
     }
   };
 
+  /**
+   * Out-of-combat regen: 15 HP/s after 5s unhurt.
+   * Inside a friendly medkit (1 m): 30 HP/s after 1s unhurt.
+   * HP rises continuously so the HUD counts up point by point.
+   */
+  Player.prototype._updateHealthRegen = function (dt) {
+    if (!(dt > 0) || this.dead || this.downed || !this.alive) return;
+    const maxHp = this.maxHealth || 100;
+    if (!(this.health < maxHp)) return;
+    const gadgets = global.VF.Gadgets;
+    const game = global.VF.game;
+    const nearMed =
+      !!(gadgets && gadgets.playerNearMedkit && gadgets.playerNearMedkit(game));
+    const delay = nearMed ? 1 : 5;
+    const rate = nearMed ? 30 : 15;
+    const sinceHurt = (performance.now() - (this._lastHurtAt || 0)) / 1000;
+    if (sinceHurt < delay) return;
+    const before = this.health;
+    this.health = Math.min(maxHp, this.health + rate * dt);
+    if (this.health > before && global.VF.UI && global.VF.UI.updateVitals) {
+      global.VF.UI.updateVitals(this.health, this.armor);
+    }
+  };
+
   /** Apply damage (armor absorbs ~55%). Returns true if still alive.
    * @param {number} amount
    * @param {THREE.Vector3|{x,y,z}|null} [fromPos] attacker position (for frontal shield)
@@ -1144,6 +1468,7 @@
       if (global.VF.UI) global.VF.UI.updateVitals(this.health, this.armor);
       return true;
     }
+    this._lastHurtAt = performance.now();
 
     if (source && source.hitPart) this._hurtPart = source.hitPart;
     else this._hurtPart = null;
@@ -1189,6 +1514,13 @@
     const felt = Math.max(applied, dmg);
     let feltFx = felt;
     const hurtFeel = feelGroup('hurt');
+    if (global.VF.Audio && applied > 0) {
+      global.VF.Audio.play('character.hurt', {
+        local: true,
+        gain: Math.min(1.2, 0.65 + applied / 100),
+        priority: 9,
+      });
+    }
     if (this._hurtPart === 'head') {
       feltFx *= hurtFeel.headMul != null ? hurtFeel.headMul : 1.35;
     }
@@ -1262,8 +1594,18 @@
     }
   };
 
-  Player.prototype.die = function () {
+  Player.prototype.clearHeldKeys = function () {
+    if (!this.keys) return;
+    for (const code in this.keys) {
+      if (Object.prototype.hasOwnProperty.call(this.keys, code)) this.keys[code] = false;
+    }
+    this.aiming = false;
+  };
+
+  Player.prototype.die = function (opts) {
+    opts = opts || {};
     if (this.dead) return;
+    const skipDowned = !!(opts.skipDowned || opts.reason === 'redeploy');
     if (this.vehicleId && global.VF.Vehicles) {
       global.VF.Vehicles.dismount(this, { reason: 'death', silent: true });
     }
@@ -1282,8 +1624,11 @@
     if (global.VF.game && global.VF.game.weapons && global.VF.game.weapons._cancelReload) {
       global.VF.game.weapons._cancelReload();
     }
+    if (global.VF.Throwables && global.VF.Throwables.onPlayerDeath) {
+      global.VF.Throwables.onPlayerDeath();
+    }
     if (global.VF.Audio) {
-      global.VF.Audio.play('death');
+      global.VF.Audio.play('character.death', { local: true, priority: 10 });
     }
 
     const g = global.VF.game;
@@ -1291,6 +1636,16 @@
     const eyeFrom = this.getEyeHeight();
 
     if (
+      !skipDowned &&
+      global.VF.UI &&
+      global.VF.UI.pauseMenuOpen &&
+      global.VF.UI.closePauseMenu
+    ) {
+      global.VF.UI.closePauseMenu({ resumeLock: false });
+    }
+
+    if (
+      !skipDowned &&
       pveConquest &&
       global.VF.Revive &&
       global.VF.Revive.downPlayer &&
@@ -1325,6 +1680,16 @@
     }
 
     if (pveConquest) {
+      if (skipDowned && global.VF.Scoring && global.VF.Scoring.confirmKill) {
+        const team = this.team || (this.world && this.world._playerTeam) || 'ally';
+        global.VF.Scoring.confirmKill(
+          null,
+          this.entityId || 'player-local',
+          null,
+          team,
+          'redeploy:' + Math.floor(performance.now())
+        );
+      }
       if (global.VF.openRedeployFromDeath) global.VF.openRedeployFromDeath();
       return;
     }
@@ -1355,6 +1720,7 @@
     this._hideViewModels(false);
     this.health = this.maxHealth || 100;
     this.armor = Math.min(this.maxArmor || 100, 50);
+    this._lastHurtAt = performance.now();
     this.velocity.set(0, 0, 0);
     this.zipRide = null;
     this.aiming = false;
@@ -1382,13 +1748,32 @@
     if (global.VF.Gadgets && global.VF.Gadgets.resetLife) {
       global.VF.Gadgets.resetLife(global.VF.game);
     }
+    if (global.VF.Gadgets && global.VF.Gadgets._syncHeldVisual) {
+      global.VF.Gadgets._syncHeldVisual(global.VF.game);
+    }
   };
 
   Player.prototype._hideViewModels = function (hide) {
-    const nodes = [this.viewModel, this._weaponViewModel, this.buildViewModel];
-    for (let i = 0; i < nodes.length; i++) {
-      if (nodes[i]) nodes[i].visible = !hide;
+    if (hide) {
+      const nodes = [
+        this.viewModel,
+        this._weaponViewModel,
+        this.buildViewModel,
+        this._gadgetNode,
+        this._throwNode,
+        this._knifeNode,
+      ];
+      for (let i = 0; i < nodes.length; i++) {
+        if (nodes[i]) nodes[i].visible = false;
+      }
+      return;
     }
+    if (global.VF.Gadgets && global.VF.Gadgets._syncHeldVisual) {
+      global.VF.Gadgets._syncHeldVisual(global.VF.game);
+      return;
+    }
+    if (this.viewModel) this.viewModel.visible = true;
+    if (this._weaponViewModel) this._weaponViewModel.visible = true;
   };
 
   Player.prototype._updateDowned = function (dt) {
@@ -1435,6 +1820,7 @@
       return;
     }
     if (this.dead) return;
+    this._updateHealthRegen(dt);
     if (this.vehicleId && this._updateVehicleRide(dt)) {
       this._clearLocomotionActions();
       this._updateStamina(dt, true);
@@ -1552,6 +1938,9 @@
     if (this.skillSpeedBuffTimer > 0) {
       speedMul *= this.skillSpeedBuffMul || 1.2;
     }
+    if (global.VF.Throwables && global.VF.Throwables.moveMul) {
+      speedMul *= global.VF.Throwables.moveMul();
+    }
     const dashing = global.VF.game && global.VF.game.skills && global.VF.game.skills.dash;
     if (this.vault) {
       this.velocity.x = 0;
@@ -1568,10 +1957,22 @@
       const heldDef =
         this._heldMode !== 'build' && this._weaponDef ? this._weaponDef() : null;
       const weaponRun = heldDef && heldDef.runSpeed != null ? heldDef.runSpeed : 1;
-      const knifeMul =
-        global.VF.Gadgets && global.VF.Gadgets.holdingKnife && global.VF.Gadgets.holdingKnife()
-          ? 1.08
-          : 1;
+      let knifeMul = 1;
+      if (heldDef && heldDef.melee && !this.aiming) {
+        knifeMul = sprint
+          ? heldDef.sprintSpeedMul != null
+            ? heldDef.sprintSpeedMul
+            : 1.18
+          : heldDef.moveSpeedMul != null
+            ? heldDef.moveSpeedMul
+            : 1.12;
+      } else if (
+        global.VF.Gadgets &&
+        global.VF.Gadgets.holdingKnife &&
+        global.VF.Gadgets.holdingKnife()
+      ) {
+        knifeMul = 1.08;
+      }
       const speed = baseSpeed * speedMul * weaponRun * knifeMul;
       this.velocity.x = mx * speed;
       this.velocity.z = mz * speed;
@@ -1601,7 +2002,9 @@
         if (!this.crouching) {
           this.velocity.y = JUMP_VEL;
           this.onGround = false;
-          if (global.VF.Audio) global.VF.Audio.play('jump');
+          if (global.VF.Audio) {
+            global.VF.Audio.play('character.jump', { local: true, priority: 4 });
+          }
         }
       }
       if (!this.vault) this.velocity.y -= GRAVITY * dt;
@@ -1637,6 +2040,10 @@
     let sx = 0;
     let sy = 0;
     let sz = 0;
+    if (global.VF.Throwables && global.VF.Throwables.stunShake) {
+      const stunSh = global.VF.Throwables.stunShake();
+      if (stunSh > 0) this._shake = Math.max(this._shake || 0, stunSh);
+    }
     if (this._shake > 0.0005) {
       const sh = feelGroup('shake');
       const ay = sh.axisY != null ? sh.axisY : 0.7;
@@ -1654,6 +2061,9 @@
     // ADS / held-item base pose (no ADS while reloading)
     const weapons = global.VF.game && global.VF.game.weapons;
     const reloadW = weapons && weapons.getReloadAnim ? weapons.getReloadAnim() : 0;
+    const adsDef = this._weaponDef && this._weaponDef();
+    const throwBusy = global.VF.Throwables && global.VF.Throwables.busy && global.VF.Throwables.busy();
+    if ((adsDef && adsDef.melee) || throwBusy) this.aiming = false;
     let adsTarget = this.aiming && this._heldMode !== 'build' && reloadW < 0.05 ? 1 : 0;
     if (adsTarget && weapons && weapons.mode !== 'weapon') {
       adsTarget =
@@ -1661,7 +2071,7 @@
           ? 1
           : 0;
     }
-    const adsDef = this._weaponDef && this._weaponDef();
+    if (throwBusy || (adsDef && adsDef.melee)) adsTarget = 0;
     const adsTime = adsDef && adsDef.adsTime != null ? adsDef.adsTime : 0.25;
     const adsRate = 3 / Math.max(0.08, adsTime);
     this._adsBlend += (adsTarget - this._adsBlend) * Math.min(1, dt * adsRate);
@@ -1801,11 +2211,27 @@
       this.camera.fov = targetFov;
     }
 
-    // Hide held gun when looking through optic / sniper scope
+    // Hide held gun when looking through optic / sniper scope, or when
+    // a dedicated gadget / grenade viewmodel is in the hands.
     if (this.viewModel && this._heldMode !== 'build') {
-      const scope = def && def.scope;
-      const hideGun = this._adsBlend > 0.55 && (scope === 'sniper' || scope === 'optic');
-      this.viewModel.visible = !hideGun;
+      const throwBusyNow =
+        global.VF.Throwables && global.VF.Throwables.busy && global.VF.Throwables.busy();
+      const gadgets = global.VF.Gadgets;
+      const grenadeHand = gadgets && gadgets.hand === 'grenade';
+      const gadgetId = gadgets && gadgets._heldGadgetId ? gadgets._heldGadgetId() : null;
+      const gadgetHand =
+        gadgets &&
+        (gadgets.hand === 'gadget1' || gadgets.hand === 'gadget2') &&
+        gadgetId &&
+        gadgetId !== 'rpg';
+      if (throwBusyNow || grenadeHand || gadgetHand) {
+        this.viewModel.visible = false;
+        if (this._weaponViewModel) this._weaponViewModel.visible = false;
+      } else {
+        const scope = def && def.scope;
+        const hideGun = this._adsBlend > 0.55 && (scope === 'sniper' || scope === 'optic');
+        this.viewModel.visible = !hideGun;
+      }
     }
   };
 

@@ -38,32 +38,14 @@
 
   /** Catalog: id → shop item */
   const CATALOG = {
-    ar: {
-      id: 'ar',
+    ak74: {
+      id: 'ak74',
       kind: 'weapon',
-      name: 'AKM',
+      name: 'AK-74',
       price: 0,
-      weaponId: 'ar',
+      weaponId: 'ak74',
       free: true,
-      desc: '默认配备 · 7.62×39mm · 热键 1',
-    },
-    sg: {
-      id: 'sg',
-      kind: 'weapon',
-      name: 'Remington 870',
-      price: 0,
-      weaponId: 'sg',
-      free: true,
-      desc: '默认配备 · 12ga 00 Buck · 热键 2',
-    },
-    sr: {
-      id: 'sr',
-      kind: 'weapon',
-      name: 'SVD',
-      price: 0,
-      weaponId: 'sr',
-      free: true,
-      desc: '默认配备 · 7.62×54R · 热键 3',
+      desc: '默认配备 · 5.45×39mm · 热键 1',
     },
     cable: {
       id: 'cable',
@@ -156,7 +138,7 @@
     });
     return {
       coins: 120,
-      ownedWeapons: ['ar'],
+      ownedWeapons: ['ak74'],
       ownedModules: [],
       stock: stock,
       dailyFirstWinDate: '',
@@ -169,8 +151,8 @@
     if (!raw || typeof raw !== 'object') return d;
     const coins = Math.max(0, Math.floor(Number(raw.coins)));
     d.coins = isFinite(coins) ? coins : 120;
-    const owned = Array.isArray(raw.ownedWeapons) ? raw.ownedWeapons.slice() : ['ar'];
-    if (owned.indexOf('ar') < 0) owned.unshift('ar');
+    const owned = Array.isArray(raw.ownedWeapons) ? raw.ownedWeapons.slice() : ['ak74'];
+    if (owned.indexOf('ak74') < 0) owned.unshift('ak74');
     d.ownedWeapons = owned.filter(function (id, i, arr) {
       return id && arr.indexOf(id) === i;
     });
@@ -657,7 +639,8 @@
       if (fx.cores) coresGain += fx.cores;
       if (fx.ammo && weapons && weapons.state) {
         const defs = global.VF && global.VF.WEAPONS;
-        ['ar', 'sg', 'sr'].forEach(function (wid) {
+        const ids = (global.VF && global.VF.WEAPON_LOADOUT_ORDER) || ['ak74'];
+        ids.forEach(function (wid) {
           if (!ownsWeapon(wid)) return;
           const st = weapons.state[wid];
           if (!st) return;
@@ -782,7 +765,7 @@
         '</button>'
       );
     }
-    const weapons = [CATALOG.ar, CATALOG.sg, CATALOG.sr].map(row).join('');
+    const weapons = [CATALOG.ak74].map(row).join('');
     const mats = listBlockItems().concat([CATALOG.cable]).map(row).join('');
     const packs = [CATALOG.core_shard, CATALOG.pack_blocks, CATALOG.pack_cores, CATALOG.pack_ammo]
       .map(row)

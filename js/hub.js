@@ -8,6 +8,8 @@
   const HUB_SIZE = 120;
   const MOVE_SPEED = 8.5;
   const LOOK_SENS = 0.0022;
+  const LOOK_WARP_PX2 = 480 * 480;
+  const LOOK_CLAMP_PX = 160;
   const CAM_FOV = 70;
   const PLAYER_R = 0.45;
 
@@ -99,6 +101,7 @@
       id: 'range',
       label: '射击靶场',
       labelEn: 'RANGE',
+      hidden: true,
       x: -24,
       z: -4,
       w: 14,
@@ -244,6 +247,7 @@
 
     this._hubBuildings = [];
     for (let i = 0; i < BUILDINGS.length; i++) {
+      if (BUILDINGS[i].hidden) continue;
       this._buildHubBuilding(BUILDINGS[i]);
       this._hubBuildings.push(BUILDINGS[i]);
     }
@@ -760,9 +764,7 @@
     if (this._craftBound) return;
     this._craftBound = true;
     const weapons = [
-      { id: 'sg', name: 'Remington 870', cost: '200 前线币', desc: '永久解锁 · 12ga · 热键 2' },
-      { id: 'sr', name: 'SVD', cost: '350 前线币', desc: '永久解锁 · 7.62×54R · 热键 3' },
-      { id: 'ar', name: 'AKM', cost: '已配备', desc: '默认免费 · 7.62×39mm · 热键 1' },
+      { id: 'ak74', name: 'AK-74', cost: '已配备', desc: '默认免费 · 5.45×39mm · 热键 1' },
     ];
     const blockMats = function () {
       if (!global.VF.Economy || !global.VF.Economy.listBlockItems) return [];
@@ -804,7 +806,7 @@
         let stockHint = '';
         if (global.VF.Economy && global.VF.Economy.getMeta) {
           const meta = global.VF.Economy.getMeta();
-          if (it.id === 'ar' || it.id === 'sg' || it.id === 'sr') {
+          if (it.id === 'ak74' || (global.VF.isLoadoutGun && global.VF.isLoadoutGun(it.id))) {
             const owned =
               global.VF.Economy.ownsWeapon && global.VF.Economy.ownsWeapon(it.id);
             stockHint = owned ? ' · 已拥有' : '';
@@ -866,10 +868,10 @@
     bind('material-craft-back', () => this.closeCraft('material'));
     bind('hub-pvp-back', () => this.closeCraft('pvp'));
     bind('weapon-craft-do', () => {
-      const id = this._weaponSel || 'sg';
+      const id = this._weaponSel || 'ak74';
       const msg = document.getElementById('weapon-craft-msg');
-      if (id === 'ar') {
-        if (msg) msg.textContent = 'AKM 为默认配备，无需购买';
+      if (id === 'ak74' || (global.VF.isLoadoutGun && global.VF.isLoadoutGun(id))) {
+        if (msg) msg.textContent = '当前枪械均可直接使用，无需购买';
         return;
       }
       if (!global.VF.Economy || !global.VF.Economy.buy) {
@@ -990,14 +992,22 @@
     });
     document.addEventListener('mousemove', (e) => {
       if (!this.open || !this.locked || this.paused) return;
-      this.yaw -= e.movementX * LOOK_SENS;
-      this.pitch -= e.movementY * LOOK_SENS;
+      if (this._lookIgnoreUntil && performance.now() < this._lookIgnoreUntil) return;
+      const mx0 = e.movementX || 0;
+      const my0 = e.movementY || 0;
+      if (mx0 * mx0 + my0 * my0 > LOOK_WARP_PX2) return;
+      const mx = mx0 > LOOK_CLAMP_PX ? LOOK_CLAMP_PX : mx0 < -LOOK_CLAMP_PX ? -LOOK_CLAMP_PX : mx0;
+      const my = my0 > LOOK_CLAMP_PX ? LOOK_CLAMP_PX : my0 < -LOOK_CLAMP_PX ? -LOOK_CLAMP_PX : my0;
+      this.yaw -= mx * LOOK_SENS;
+      this.pitch -= my * LOOK_SENS;
       this.pitch = Math.max(-1.35, Math.min(1.35, this.pitch));
     });
     document.addEventListener('pointerlockchange', () => {
       if (!this.renderer) return;
-      this.locked =
+      const locked =
         document.pointerLockElement === this.renderer.domElement && this.open && !this.paused;
+      if (locked && !this.locked) this._lookIgnoreUntil = performance.now() + 80;
+      this.locked = locked;
     });
   };
 
@@ -1022,9 +1032,8 @@
       this.openCraft('weapon');
     } else if (zone.id === 'materials') {
       this.openCraft('material');
-    } else if (zone.id === 'range' && this._handlers.onRange) {
-      this.hide();
-      this._handlers.onRange();
+    } else if (zone.id === 'range') {
+      return;
     }
   };
 

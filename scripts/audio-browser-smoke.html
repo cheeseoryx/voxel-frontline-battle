@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <base href="../">
+  <title>Audio browser smoke</title>
+</head>
+<body>
+  <pre id="result">running</pre>
+  <button id="audio-toggle" type="button"></button>
+  <script src="js/audio.js?v=sfx3"></script>
+  <script>
+    (async function () {
+      const output = document.getElementById('result');
+      try {
+        VF.Audio.init();
+        VF.Audio.setEnabled(true);
+        const unlocked = await VF.Audio.unlock();
+        await VF.Audio._loadManifest();
+        await VF.Audio.preload([
+          'weapon.ak74.fire',
+          'character.footstep.walk',
+          'vehicle.weapon.tank_cannon'
+        ]);
+        VF.Audio.updateListener({ position: { x: 0, y: 1.7, z: 0 } });
+        VF.Audio.play('weapon.ak74.fire', {
+          position: { x: 4, y: 1.2, z: -6 },
+          maxDistance: 280,
+          priority: 9,
+          variant: 0
+        });
+        VF.Audio.play('throwable.frag.detonate', {
+          position: { x: 12, y: 0, z: -8 },
+          maxDistance: 450,
+          priority: 10,
+          delay: 0.01
+        });
+        setTimeout(function () {
+          const result = {
+            ok: !!(
+              unlocked &&
+              VF.Audio.ctx &&
+              VF.Audio.manifest &&
+              VF.Audio._buffers.size >= 4 &&
+              VF.Audio._active.length >= 1
+            ),
+            contextState: VF.Audio.ctx && VF.Audio.ctx.state,
+            manifestSounds:
+              VF.Audio.manifest && Object.keys(VF.Audio.manifest.sounds).length,
+            cachedBuffers: VF.Audio._buffers.size,
+            activeVoices: VF.Audio._active.filter(function (voice) {
+              return !voice.ended;
+            }).length
+          };
+          output.textContent = JSON.stringify(result);
+          document.title = result.ok ? 'AUDIO_SMOKE_OK' : 'AUDIO_SMOKE_FAIL';
+        }, 800);
+      } catch (error) {
+        output.textContent = JSON.stringify({ ok: false, error: String(error) });
+        document.title = 'AUDIO_SMOKE_FAIL';
+      }
+    })();
+  </script>
+</body>
+</html>

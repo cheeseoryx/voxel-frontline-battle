@@ -8,6 +8,11 @@
   const TARGET_RESPAWN = 2.5;
   const CHALLENGE_TIME = 60;
   const MK_WINDOW_MS = 3500;
+  const FIRING_Z = 12;
+  const LANE_X = 48;
+  const TARGET_DISTS = [5, 10, 20, 35, 50];
+  const HALL = { x0: 38, x1: 58, z0: 6, z1: 70, ceil: 7 };
+  const RANGE_ENABLED = false;
 
   /** Flat arena voxel stub for Player collision + bullet DDA */
   function RangeWorld() {
@@ -21,17 +26,18 @@
 
   RangeWorld.prototype.get = function (x, y, z) {
     const B = this._block;
+    const x0 = HALL.x0;
+    const x1 = HALL.x1;
+    const z0 = HALL.z0;
+    const z1 = HALL.z1;
+    const ceil = HALL.ceil;
     if (y < 0) return B.BEDROCK;
-    // Floor
-    if (y === 0 && x >= 24 && x < 72 && z >= 8 && z < 70) return B.CONCRETE;
-    // Side walls
-    if ((x === 24 || x === 71) && y >= 1 && y <= 6 && z >= 8 && z < 70) return B.STONE;
-    // Back berm
-    if (z >= 68 && z < 70 && y >= 1 && y <= 8 && x >= 24 && x < 72) return B.DIRT;
-    // Cover walls — ~2 tall: stand peeks, crouch hides (eye ~2.1 crouch / ~2.9 stand)
-    if (y >= 1 && y <= 2 && z >= 28 && z <= 29) {
-      if ((x >= 32 && x <= 36) || (x >= 44 && x <= 48) || (x >= 56 && x <= 60)) return B.STONE;
+    if (x <= x0 || x >= x1 - 1 || z <= z0 || z >= z1 - 1) {
+      if (y <= ceil) return B.STONE;
+      return B.AIR;
     }
+    if (y === 0) return B.CONCRETE;
+    if (y >= ceil) return B.STONE;
     return B.AIR;
   };
 
@@ -46,7 +52,7 @@
   };
 
   RangeWorld.prototype.getSpawnPosition = function () {
-    return new THREE.Vector3(48, 1.05, 18);
+    return new THREE.Vector3(LANE_X, 1.05, FIRING_Z);
   };
 
   RangeWorld.prototype.collideAABB = function (box) {
@@ -125,16 +131,18 @@
     this.renderer = renderer;
     this.world = new RangeWorld();
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x7eb6e4);
-    this.scene.fog = new THREE.Fog(0x7eb6e4, 40, 110);
+    this.scene.background = new THREE.Color(0xc6c2ba);
+    this.scene.fog = new THREE.Fog(0xc6c2ba, 95, 180);
 
-    const ambient = new THREE.AmbientLight(0xd4e2f2, 0.62);
+    const ambient = new THREE.AmbientLight(0xeeeae2, 1.08);
     this.scene.add(ambient);
-    const sun = new THREE.DirectionalLight(0xfff2cc, 1.05);
-    sun.position.set(-40, 45, 20);
-    this.scene.add(sun);
-    const fill = new THREE.DirectionalLight(0x4466aa, 0.18);
-    fill.position.set(30, 20, -20);
+    const hemi = new THREE.HemisphereLight(0xfff8ee, 0x9a968e, 0.7);
+    this.scene.add(hemi);
+    const key = new THREE.DirectionalLight(0xfff6e4, 0.62);
+    key.position.set(8, 28, 6);
+    this.scene.add(key);
+    const fill = new THREE.DirectionalLight(0xe0e4ea, 0.28);
+    fill.position.set(-10, 12, -8);
     this.scene.add(fill);
 
     this._buildArena();
@@ -146,114 +154,163 @@
     this._handlers = h || {};
   };
 
-  Range.prototype._mat = function (color) {
-    return new THREE.MeshLambertMaterial({ color: color });
+  Range.prototype._mat = function (color, opts) {
+    opts = opts || {};
+    if (opts.basic) {
+      return new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: !!opts.transparent,
+        opacity: opts.opacity != null ? opts.opacity : 1,
+        side: opts.side || THREE.FrontSide,
+      });
+    }
+    return new THREE.MeshLambertMaterial({
+      color: color,
+      emissive: opts.emissive != null ? opts.emissive : 0x000000,
+    });
   };
 
-  Range.prototype._boxMesh = function (w, h, d, color, x, y, z) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), this._mat(color));
+  Range.prototype._boxMesh = function (w, h, d, color, x, y, z, opts) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), this._mat(color, opts));
     m.position.set(x, y, z);
     this.scene.add(m);
     return m;
   };
 
+  Range.prototype._labelPlane = function (text, x, y, z, lookX, lookY, lookZ) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 256, 128);
+    ctx.fillStyle = '#e8c84a';
+    ctx.font = 'bold 78px Segoe UI, Microsoft YaHei, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(text), 128, 64);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.75), mat);
+    mesh.position.set(x, y, z);
+    mesh.lookAt(lookX, lookY, lookZ);
+    this.scene.add(mesh);
+    return mesh;
+  };
+
   Range.prototype._buildArena = function () {
-    // Floor visual (matches RangeWorld floor y=0 → top at 1)
-    this._boxMesh(48, 0.4, 62, 0x6a6050, 48, 0.8, 39);
-    // Side walls
-    this._boxMesh(0.6, 6, 62, 0x8a8070, 24.3, 4, 39);
-    this._boxMesh(0.6, 6, 62, 0x8a8070, 71.7, 4, 39);
-    // Berm
-    this._boxMesh(48, 8, 1.4, 0x5a4030, 48, 5, 69);
-    // Canopy at spawn
-    this._boxMesh(16, 0.3, 10, 0x3a4550, 48, 5.5, 16);
-    this._boxMesh(0.5, 4.5, 0.5, 0x2a3038, 41, 3.1, 12);
-    this._boxMesh(0.5, 4.5, 0.5, 0x2a3038, 55, 3.1, 12);
-    this._boxMesh(0.5, 4.5, 0.5, 0x2a3038, 41, 3.1, 20);
-    this._boxMesh(0.5, 4.5, 0.5, 0x2a3038, 55, 3.1, 20);
-    // Cover blocks (visual)
-    // Cover blocks — 2 tall (stand peek / crouch hide)
-    this._boxMesh(5, 2, 1.2, 0x6e7278, 34, 2, 28.5);
-    this._boxMesh(5, 2, 1.2, 0x6e7278, 46, 2, 28.5);
-    this._boxMesh(5, 2, 1.2, 0x6e7278, 58, 2, 28.5);
-    // Lane markers
-    for (let i = 0; i < 5; i++) {
-      this._boxMesh(0.25, 0.08, 36, 0xc8b070, 32 + i * 8, 1.02, 42);
+    const x0 = HALL.x0;
+    const x1 = HALL.x1;
+    const z0 = HALL.z0;
+    const z1 = HALL.z1;
+    const ceil = HALL.ceil;
+    const cx = (x0 + x1) * 0.5;
+    const cz = (z0 + z1) * 0.5;
+    const spanX = x1 - x0;
+    const spanZ = z1 - z0;
+
+    const bounce = { emissive: 0x2c2a26 };
+    this._boxMesh(spanX, 0.2, spanZ, 0xb2aca2, cx, 0.9, cz, bounce);
+    this._boxMesh(0.5, ceil, spanZ, 0xb8b6b0, x0 + 0.25, ceil * 0.5, cz, bounce);
+    this._boxMesh(0.5, ceil, spanZ, 0xb8b6b0, x1 - 0.25, ceil * 0.5, cz, bounce);
+    this._boxMesh(spanX, ceil, 0.5, 0xb0aea8, cx, ceil * 0.5, z0 + 0.25, bounce);
+    this._boxMesh(spanX, ceil, 0.8, 0x8a8278, cx, ceil * 0.5, z1 - 0.4, bounce);
+    this._boxMesh(spanX, 0.35, spanZ, 0xc4c2bc, cx, ceil + 0.18, cz, bounce);
+
+    for (let i = 0; i < 8; i++) {
+      const z = 10 + i * 7.2;
+      this._boxMesh(spanX - 2.4, 0.12, 0.5, 0x6a6e74, cx, ceil - 0.2, z);
+      const lamp = this._boxMesh(2.2, 0.1, 0.55, 0xfff8e8, cx, ceil - 0.42, z, {
+        basic: true,
+      });
+      lamp.material.color.setHex(0xfff8e8);
+      const light = new THREE.PointLight(0xfff4dc, 2.4, 24, 1.2);
+      light.position.set(cx, ceil - 0.85, z);
+      this.scene.add(light);
+    }
+
+    this._boxMesh(3.4, 0.12, 0.55, 0x6b4a28, LANE_X, 1.08, FIRING_Z + 1.35);
+    this._boxMesh(0.12, 2.4, 0.12, 0x2c3034, LANE_X - 1.7, 2.2, FIRING_Z + 1.15);
+    this._boxMesh(0.12, 2.4, 0.12, 0x2c3034, LANE_X + 1.7, 2.2, FIRING_Z + 1.15);
+    this._boxMesh(3.6, 0.1, 0.1, 0x2c3034, LANE_X, 3.42, FIRING_Z + 1.15);
+    this._labelPlane('01', LANE_X - 2.4, 2.45, FIRING_Z + 1.2, LANE_X, 2.45, FIRING_Z + 1.2);
+
+    const offsets = [-1.4, -0.7, 0, 0.7, 1.4];
+    for (let i = 0; i < TARGET_DISTS.length; i++) {
+      const meters = TARGET_DISTS[i];
+      const z = FIRING_Z + meters;
+      this._boxMesh(spanX - 1.2, 0.04, 0.12, 0xd4b44a, cx, 1.03, z);
+      this._labelPlane(
+        String(meters),
+        x0 + 0.55,
+        1.85,
+        z,
+        x0 + 2.4,
+        1.85,
+        z
+      );
+      this._boxMesh(0.08, 2.2, 0.08, 0x3a3228, LANE_X + offsets[i], 1.1, z + 0.18);
     }
   };
 
   Range.prototype._makeTargetMesh = function () {
     const g = new THREE.Group();
-    const stand = new THREE.Mesh(
-      new THREE.BoxGeometry(0.35, 1.6, 0.35),
-      this._mat(0x4a4030)
-    );
-    stand.position.y = 0.8;
-    g.add(stand);
-    const board = new THREE.Mesh(
-      new THREE.BoxGeometry(1.4, 1.8, 0.25),
-      this._mat(0xd8c8a0)
-    );
-    board.position.y = 2.2;
-    board.name = 'board';
-    g.add(board);
-    const ring = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.35, 0.35, 0.08, 16),
-      new THREE.MeshBasicMaterial({ color: 0xc03030 })
-    );
-    ring.rotation.x = Math.PI / 2;
-    // Toward spawn (−Z): player looks +Z at boards
-    ring.position.set(0, 2.35, -0.14);
-    g.add(ring);
-    const bull = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.12, 0.12, 0.09, 12),
-      new THREE.MeshBasicMaterial({ color: 0x201010 })
-    );
-    bull.rotation.x = Math.PI / 2;
-    bull.position.set(0, 2.35, -0.16);
-    g.add(bull);
+    const whiteMat = function () {
+      return new THREE.MeshLambertMaterial({ color: 0xf3efe4 });
+    };
+    const dark = this._mat(0x3a3228);
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.05, 0.12), dark);
+    post.position.y = 0.52;
+    g.add(post);
+    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.72, 0.14), whiteMat());
+    leftLeg.position.set(-0.12, 0.38, 0);
+    leftLeg.name = 'hitbody';
+    g.add(leftLeg);
+    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.72, 0.14), whiteMat());
+    rightLeg.position.set(0.12, 0.38, 0);
+    rightLeg.name = 'hitbody';
+    g.add(rightLeg);
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.74, 0.16), whiteMat());
+    torso.position.set(0, 1.12, 0);
+    torso.name = 'hitbody';
+    g.add(torso);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.3, 0.22), whiteMat());
+    head.position.set(0, 1.64, 0);
+    head.name = 'hitbody';
+    g.add(head);
     return g;
   };
 
   Range.prototype._buildTargets = function () {
     this.targets = [];
-    const defs = [
-      // Fixed near / mid / far
-      { kind: 'fixed', x: 36, z: 40, hp: TARGET_HP },
-      { kind: 'fixed', x: 48, z: 44, hp: TARGET_HP },
-      { kind: 'fixed', x: 60, z: 40, hp: TARGET_HP },
-      { kind: 'fixed', x: 42, z: 56, hp: TARGET_HP },
-      { kind: 'fixed', x: 54, z: 56, hp: TARGET_HP },
-      // Pop-up
-      { kind: 'popup', x: 32, z: 48, hp: TARGET_HP, period: 3.2, phase: 0 },
-      { kind: 'popup', x: 64, z: 48, hp: TARGET_HP, period: 2.8, phase: 1.1 },
-      { kind: 'popup', x: 48, z: 62, hp: TARGET_HP, period: 3.6, phase: 0.5 },
-      // Side-moving
-      { kind: 'move', x: 48, z: 52, hp: TARGET_HP, amp: 10, speed: 1.1, phase: 0 },
-      { kind: 'move', x: 48, z: 64, hp: TARGET_HP, amp: 8, speed: 0.85, phase: 2 },
-    ];
-
-    for (let i = 0; i < defs.length; i++) {
-      const d = defs[i];
+    const offsets = [-1.4, -0.7, 0, 0.7, 1.4];
+    for (let i = 0; i < TARGET_DISTS.length; i++) {
+      const meters = TARGET_DISTS[i];
+      const x = LANE_X + offsets[i];
+      const z = FIRING_Z + meters;
       const mesh = this._makeTargetMesh();
-      mesh.position.set(d.x, 1, d.z);
+      mesh.position.set(x, 1, z);
       this.scene.add(mesh);
       this.targets.push({
         mesh: mesh,
-        kind: d.kind,
-        hp: d.hp,
-        maxHp: d.hp,
+        object: mesh,
+        kind: 'fixed',
+        meters: meters,
+        hp: TARGET_HP,
+        maxHp: TARGET_HP,
         alive: true,
+        dead: false,
         hittable: true,
         respawn: 0,
-        baseColor: 0xd8c8a0,
-        homeX: d.x,
-        homeZ: d.z,
+        baseColor: 0xf3efe4,
+        homeX: x,
+        homeZ: z,
         homeY: 1,
-        period: d.period || 3,
-        phase: d.phase || 0,
-        amp: d.amp || 8,
-        speed: d.speed || 1,
         raised: 1,
         _flashAt: 0,
       });
@@ -350,7 +407,7 @@
         (global.VF.WEAPONS &&
           global.VF.WEAPONS[id] &&
           (global.VF.WEAPONS[id].nameZh || global.VF.WEAPONS[id].model || global.VF.WEAPONS[id].name)) ||
-        (id === 'sg' ? 'Remington 870' : id === 'sr' ? 'SVD' : 'AKM');
+        (id === 'usp' ? 'USP' : 'AK-74');
     }
   };
 
@@ -409,6 +466,7 @@
       const t = this.targets[i];
       t.hp = t.maxHp;
       t.alive = true;
+      t.dead = false;
       t.hittable = true;
       t.respawn = 0;
       t.raised = 1;
@@ -419,6 +477,7 @@
   };
 
   Range.prototype.open = function () {
+    if (!RANGE_ENABLED) return;
     if (!this.scene || !global.VF.game) return;
     const player = this._player();
     const weapons = this._weapons();
@@ -460,7 +519,8 @@
     player.onGround = true;
 
     const preferred =
-      (global.VF.game && global.VF.game.preferredWeaponId) || 'ar';
+      (global.VF.game && global.VF.game.preferredWeaponId) ||
+      (global.VF.DEFAULT_PRIMARY || 'ak74');
     weapons.equip(preferred);
     this._refillAmmo();
 
@@ -599,7 +659,7 @@
 
   Range.prototype._tintTarget = function (t, hex) {
     t.mesh.traverse(function (c) {
-      if (c.isMesh && c.name === 'board' && c.material && c.material.color) {
+      if (c.isMesh && c.name === 'hitbody' && c.material && c.material.color) {
         c.material.color.setHex(hex);
       }
     });
@@ -645,31 +705,30 @@
    */
   Range.prototype.raycastTargets = function (origin, dir, maxDist) {
     if (!this.active) return null;
-    this._ray.origin.copy(origin);
-    this._ray.direction.copy(dir);
+    const HB = global.VF && global.VF.Hitboxes;
     let best = null;
     let bestDist = maxDist != null ? maxDist : 200;
 
     for (let i = 0; i < this.targets.length; i++) {
       const t = this.targets[i];
-      if (!t.alive || !t.hittable || t.raised < 0.35) continue;
-      this._targetBox(t, this._box);
-      const hit = this._ray.intersectBox(this._box, this._hitPt);
-      if (!hit) continue;
-      const d = origin.distanceTo(this._hitPt);
-      if (d < bestDist) {
-        bestDist = d;
-        best = {
-          target: t,
-          point: this._hitPt.clone(),
-          dist: d,
-        };
+      if (!t.alive || !t.hittable || t.dead) continue;
+      let hit = null;
+      if (HB && HB.raycast) {
+        hit = HB.raycast(t, origin, dir, bestDist);
       }
+      if (!hit || hit.dist == null || hit.dist >= bestDist) continue;
+      bestDist = hit.dist;
+      best = {
+        target: t,
+        point: hit.point,
+        dist: hit.dist,
+        part: hit.part || 'torso',
+      };
     }
     return best;
   };
 
-  Range.prototype.damageTarget = function (target, dmg, hitDir, hitPoint) {
+  Range.prototype.damageTarget = function (target, dmg, hitDir, hitPoint, part) {
     if (!target || !target.alive) return { killed: false, dmg: 0 };
     const applied = Math.max(1, Math.round(dmg || 0));
     target.hp -= applied;
@@ -678,27 +737,16 @@
     if (scoring) {
       this._hits += 1;
       let add = 1;
-      // Bullseye: near painted ring center (~chest height on board)
-      if (hitPoint) {
-        const cx = target.mesh.position.x;
-        const cy = target.mesh.position.y + 2.35;
-        const cz = target.mesh.position.z - 0.14;
-        const bd = Math.hypot(hitPoint.x - cx, hitPoint.y - cy, hitPoint.z - cz);
-        if (bd < 0.38) add += 2;
-        else if (bd < 0.7) add += 1;
-        // Far lane bonus
-        if (hitPoint.distanceTo && global.VF.game && global.VF.game.player) {
-          const eye = global.VF.game.player.getEyePosition();
-          const dist = eye.distanceTo(hitPoint);
-          if (dist > 45) add += 1;
-        }
-      }
+      if (part === 'head') add += 2;
+      else if (part === 'torso') add += 1;
+      if (target.meters >= 35) add += 1;
       this._score += add;
       this._noteHitStreak();
     }
 
     if (target.hp <= 0) {
       target.alive = false;
+      target.dead = true;
       target.hittable = false;
       target.respawn = TARGET_RESPAWN;
       if (scoring) {
@@ -708,10 +756,10 @@
       this._shatterTarget(target, hitDir);
       if (global.VF.Audio) global.VF.Audio.play('kill');
       this._syncHud();
-      return { killed: true, dmg: applied };
+      return { killed: true, dmg: applied, part: part || null };
     }
     this._syncHud();
-    return { killed: false, dmg: applied };
+    return { killed: false, dmg: applied, part: part || null };
   };
 
   Range.prototype._noteHitStreak = function () {
@@ -753,7 +801,7 @@
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(size, size, size),
         new THREE.MeshLambertMaterial({
-          color: Math.random() > 0.4 ? 0xd8c8a0 : 0xc03030,
+          color: Math.random() > 0.35 ? 0xf3efe4 : 0xc8c2b4,
           transparent: true,
           opacity: 1,
         })
@@ -782,7 +830,6 @@
   };
 
   Range.prototype._updateTargets = function (dt) {
-    const t = performance.now() * 0.001;
     for (let i = 0; i < this.targets.length; i++) {
       const tgt = this.targets[i];
 
@@ -795,6 +842,7 @@
         tgt.respawn -= dt;
         if (tgt.respawn <= 0) {
           tgt.alive = true;
+          tgt.dead = false;
           tgt.hittable = true;
           tgt.hp = tgt.maxHp;
           tgt.raised = 1;
@@ -805,26 +853,9 @@
         continue;
       }
 
-      if (tgt.kind === 'popup') {
-        const cycle = ((t + tgt.phase) % tgt.period) / tgt.period;
-        // Up half the time
-        const want = cycle < 0.55 ? 1 : 0;
-        tgt.raised += (want - tgt.raised) * Math.min(1, dt * 8);
-        tgt.hittable = tgt.raised > 0.4;
-        tgt.mesh.position.y = tgt.homeY - (1 - tgt.raised) * 3.4;
-        tgt.mesh.visible = tgt.raised > 0.12;
-      } else if (tgt.kind === 'move') {
-        const ox = Math.sin(t * tgt.speed + tgt.phase) * tgt.amp;
-        tgt.mesh.position.x = tgt.homeX + ox;
-        tgt.mesh.position.z = tgt.homeZ;
-        tgt.mesh.position.y = tgt.homeY;
-        tgt.raised = 1;
-        tgt.hittable = true;
-      } else {
-        tgt.mesh.position.set(tgt.homeX, tgt.homeY, tgt.homeZ);
-        tgt.raised = 1;
-        tgt.hittable = true;
-      }
+      tgt.mesh.position.set(tgt.homeX, tgt.homeY, tgt.homeZ);
+      tgt.raised = 1;
+      tgt.hittable = true;
     }
   };
 
@@ -856,7 +887,9 @@
 
     // Infinite reserve while training (only top up when low)
     if (weapons.state) {
-      const ids = ['ar', 'sg', 'sr'];
+      const ids =
+        (global.VF.WEAPON_LOADOUT_ORDER && global.VF.WEAPON_LOADOUT_ORDER.slice()) ||
+        ['ak74'];
       for (let i = 0; i < ids.length; i++) {
         const st = weapons.state[ids[i]];
         if (st && st.reserve < 200) st.reserve = 999;

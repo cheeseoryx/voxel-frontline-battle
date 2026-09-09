@@ -18,6 +18,16 @@ function near(actual, expected, epsilon, message) {
   }
 }
 
+function nearDirection(actual, expected, epsilon) {
+  const limit = epsilon == null ? 1e-6 : epsilon;
+  return !!(
+    actual &&
+    Math.abs(actual.x - expected.x) <= limit &&
+    Math.abs(actual.y - expected.y) <= limit &&
+    Math.abs(actual.z - expected.z) <= limit
+  );
+}
+
 function loadVehicles() {
   const context = {
     window: { VF: {} },
@@ -40,6 +50,568 @@ function loadVehicles() {
     { filename: 'js/net-simulation.js' }
   );
   return { context, Vehicles: context.window.VF.Vehicles };
+}
+
+function checkVehicleEffectsStress() {
+  class Transform {
+    constructor() {
+      this.x = 0;
+      this.y = 0;
+      this.z = 0;
+    }
+    set(x, y, z) {
+      this.x = x;
+      this.y = y;
+      this.z = z;
+      return this;
+    }
+    setScalar(value) {
+      return this.set(value, value, value);
+    }
+    copy(value) {
+      return this.set(value.x, value.y, value.z);
+    }
+  }
+  class Node {
+    constructor() {
+      this.children = [];
+      this.parent = null;
+      this.position = new Transform();
+      this.scale = new Transform().set(1, 1, 1);
+      this.rotation = new Transform();
+      this.quaternion = {
+        setFromUnitVectors() {},
+        identity() {},
+      };
+      this.userData = {};
+      this.visible = true;
+    }
+    add() {
+      for (let i = 0; i < arguments.length; i++) {
+        const child = arguments[i];
+        if (child.parent) child.parent.remove(child);
+        child.parent = this;
+        this.children.push(child);
+      }
+    }
+    remove(child) {
+      const index = this.children.indexOf(child);
+      if (index >= 0) this.children.splice(index, 1);
+      child.parent = null;
+    }
+    lookAt() {}
+  }
+  class Group extends Node {}
+  class Geometry {
+    rotateX() {}
+  }
+  class Material {
+    constructor(options) {
+      Object.assign(this, options || {});
+      this.color = {
+        value: options && options.color,
+        setHex(value) {
+          this.value = value;
+        },
+      };
+    }
+  }
+  class Mesh extends Node {
+    constructor(geometry, material) {
+      super();
+      this.geometry = geometry;
+      this.material = material;
+    }
+  }
+  class PointLight extends Node {
+    constructor(color, intensity, distance) {
+      super();
+      this.color = { value: color, setHex(value) { this.value = value; } };
+      this.intensity = intensity;
+      this.distance = distance;
+      this.isLight = true;
+    }
+  }
+  class Vector3 extends Transform {
+    lengthSq() {
+      return this.x * this.x + this.y * this.y + this.z * this.z;
+    }
+  }
+  const THREE = {
+    Group,
+    Mesh,
+    PointLight,
+    Vector3,
+    BoxGeometry: Geometry,
+    SphereGeometry: Geometry,
+    RingGeometry: Geometry,
+    ConeGeometry: Geometry,
+    MeshBasicMaterial: Material,
+    AdditiveBlending: 2,
+    NormalBlending: 1,
+    DoubleSide: 2,
+    FrontSide: 0,
+  };
+  const scene = new Group();
+  const context = {
+    window: {
+      THREE,
+      VF: {},
+      performance,
+      setTimeout,
+      clearTimeout,
+    },
+    console,
+    performance,
+    setTimeout,
+    clearTimeout,
+  };
+  vm.runInNewContext(
+    fs.readFileSync(path.join(root, 'js', 'vehicle-effects.js'), 'utf8'),
+    context,
+    { filename: 'js/vehicle-effects.js' }
+  );
+  const FX = context.window.VF.VehicleEffects;
+  const listeners = Object.create(null);
+  const vehicles = {
+    projectiles: [],
+    on(type, handler) {
+      listeners[type] = handler;
+      return function () {
+        delete listeners[type];
+      };
+    },
+    getById() {
+      return null;
+    },
+  };
+  FX.init(
+    {
+      scene,
+      camera: { position: new Transform() },
+      world: { getTerrainTop() { return 0; } },
+      player: {
+        entityId: 'player-local',
+        object: { position: new Transform() },
+      },
+    },
+    vehicles
+  );
+
+  function stressPass(offset) {
+    const projectiles = [];
+    for (let i = 0; i < 100; i++) {
+      const id = 'stress-' + (offset + i);
+      FX.onWeaponFired({
+        shotId: id,
+        vehicleId: 'remote-tank',
+        ownerId: 'remote-player',
+        weaponId: 'tank_main_cannon',
+        origin: { x: 0, y: 2.8, z: -5 },
+        direction: { x: 0, y: 0, z: -1 },
+      });
+      const projectile = {
+        id,
+        vehicleId: 'remote-tank',
+        ownerId: 'remote-player',
+        weaponId: 'tank_main_cannon',
+        position: { x: 0, y: 2.8, z: -12 },
+        previousPosition: { x: 0, y: 2.8, z: -10 },
+        direction: { x: 0, y: 0, z: -1 },
+        speed: 95,
+      };
+      FX.updateProjectile(projectile, 1 / 60);
+      projectiles.push(projectile);
+      const impactKind = i % 3 === 0 ? 'armor' : i % 3 === 1 ? 'ground' : 'structure';
+      FX.impact(id, impactKind, impactKind, { x: 0, y: 0, z: -20 }, {
+        normal: { x: 0, y: 1, z: 0 },
+        color: 0x8a705a,
+      });
+    }
+    const peak = FX.getStats();
+    ok(
+      peak.activeProjectiles <= peak.limits.projectile,
+      'active projectile visuals exceeded their cap'
+    );
+    for (let i = 0; i < projectiles.length; i++) {
+      FX.releaseProjectile(projectiles[i]);
+    }
+    FX.update(2.1);
+    const settled = FX.getStats();
+    settled.peakActiveProjectiles = peak.activeProjectiles;
+    return settled;
+  }
+
+  ok(
+    FX.onWeaponFired({
+      shotId: 'dedupe',
+      vehicleId: 'remote-tank',
+      weaponId: 'tank_main_cannon',
+      origin: { x: 0, y: 2.8, z: -5 },
+      direction: { x: 0, y: 0, z: -1 },
+    }) === true,
+    'first cannon presentation event was rejected'
+  );
+  ok(
+    FX.onWeaponFired({
+      shotId: 'dedupe',
+      vehicleId: 'remote-tank',
+      weaponId: 'tank_main_cannon',
+      origin: { x: 0, y: 2.8, z: -5 },
+      direction: { x: 0, y: 0, z: -1 },
+    }) === false,
+    'duplicate cannon presentation event was not rejected'
+  );
+  FX.update(2.1);
+  const first = stressPass(0);
+  const second = stressPass(100);
+  ok(first.activeEffects === 0 && second.activeEffects === 0, 'pooled effects did not expire');
+  ok(
+    first.activeProjectiles === 0 && second.activeProjectiles === 0,
+    'pooled projectile visuals did not return'
+  );
+  ok(
+    first.projectileCreated === second.projectileCreated,
+    'projectile geometry/material allocation kept growing'
+  );
+  ok(
+    second.sharedGeometries === 6 &&
+      second.sharedProjectileMaterials === 3,
+    'projectile visuals did not use shared geometry/material resources'
+  );
+  Object.keys(second.created).forEach(function (kind) {
+    ok(
+      second.created[kind] <= second.limits[kind],
+      kind + ' effect pool exceeded its cap'
+    );
+    ok(
+      second.created[kind] === first.created[kind],
+      kind + ' effect allocation kept growing after 100 shots'
+    );
+  });
+  const impactAudio = [];
+  context.window.VF.Audio = {
+    play(name) {
+      impactAudio.push(name);
+    },
+  };
+  FX.impact(
+    'infantry-impact-check',
+    'infantry-target',
+    'infantry',
+    { x: 0, y: 0, z: -20 },
+    { normal: { x: 0, y: 1, z: 0 } }
+  );
+  ok(
+    impactAudio.indexOf('hit_heavy') >= 0 &&
+      impactAudio.indexOf('tank_ground_impact') < 0,
+    'direct infantry hit reused ground impact audio'
+  );
+  FX.update(1);
+  return second;
+}
+
+function checkVehicleHud() {
+  function element() {
+    const classes = new Set();
+    const attrs = Object.create(null);
+    return {
+      classList: {
+        add() {
+          for (let i = 0; i < arguments.length; i++) classes.add(arguments[i]);
+        },
+        remove() {
+          for (let i = 0; i < arguments.length; i++) classes.delete(arguments[i]);
+        },
+        toggle(name, force) {
+          if (force === undefined) force = !classes.has(name);
+          if (force) classes.add(name);
+          else classes.delete(name);
+          return force;
+        },
+        contains(name) {
+          return classes.has(name);
+        },
+      },
+      style: {},
+      textContent: '',
+      offsetWidth: 88,
+      setAttribute(name, value) {
+        attrs[name] = String(value);
+      },
+      getAttribute(name) {
+        return Object.prototype.hasOwnProperty.call(attrs, name)
+          ? attrs[name]
+          : null;
+      },
+    };
+  }
+  const context = {
+    window: {
+      VF: {
+        VEHICLE_WEAPONS: {
+          tank_main_cannon: {
+            id: 'tank_main_cannon',
+            nameZh: '多用途主炮',
+            cooldown: 4.2,
+      magSize: 30,
+          },
+        },
+      },
+    },
+    console,
+    setTimeout,
+    clearTimeout,
+  };
+  vm.runInNewContext(
+    fs.readFileSync(path.join(root, 'js', 'ui.js'), 'utf8'),
+    context,
+    { filename: 'js/ui.js' }
+  );
+  const UI = context.window.VF.UI;
+  const reticle = element();
+  const cooldown = element();
+  const ring = element();
+  const cooldownText = element();
+  const ready = element();
+  UI.els = {
+    vehicleReticle: reticle,
+    vehicleCannonCooldown: cooldown,
+    vehicleCannonCooldownRing: ring,
+    vehicleCannonCooldownText: cooldownText,
+    vehicleReticleReady: ready,
+  };
+  const state = {
+    cooldown: 4.2,
+    mag: 14,
+    reloadTimer: 0,
+    overheated: false,
+  };
+  const vehicle = {
+    id: 'hud-tank',
+    type: 'tank',
+    alive: true,
+    hp: 1000,
+    maxHp: 1000,
+    armorClass: 'heavy',
+    speed: 0,
+    def: {
+      nameZh: '主战坦克',
+      weapons: ['tank_main_cannon'],
+    },
+    seats: [{ occupantId: 'player-local' }],
+    weapons: { tank_main_cannon: state },
+  };
+  const player = {
+    vehicleId: vehicle.id,
+    vehicleSeat: 0,
+    vehicleRole: 'driver',
+    vehicleWeaponIndex: 0,
+    vehicleCameraMode: 1,
+  };
+  const vehicles = {
+    getById() {
+      return vehicle;
+    },
+    canUsePersonalWeapon() {
+      return false;
+    },
+    canUseVehicleFirstPerson() {
+      return true;
+    },
+    getWeaponsForRole() {
+      return ['tank_main_cannon'];
+    },
+  };
+  UI.updateVehicleHud(player, vehicles);
+  ok(!cooldown.classList.contains('hidden'), 'main cannon cooldown ring was hidden');
+  ok(cooldownText.textContent === '装填 4.2s', 'main cannon cooldown text was incorrect');
+  ok(ring.style.strokeDashoffset === '100', 'main cannon cooldown ring did not start empty');
+  ok(ready.textContent === '装填', 'reticle reported a cooling cannon as ready');
+  state.cooldown = 0;
+  UI.updateVehicleHud(player, vehicles);
+  ok(
+    cooldown.classList.contains('hidden') &&
+      ready.textContent === '就绪' &&
+      reticle.classList.contains('cannon-ready-flash'),
+    'main cannon ready transition was not shown'
+  );
+  state.mag = 0;
+  UI.updateVehicleHud(player, vehicles);
+  ok(ready.textContent === '装填', 'empty main cannon was reported ready');
+
+  context.window.VF.VEHICLE_WEAPONS.tank_coax = {
+    id: 'tank_coax',
+    nameZh: '同轴重机枪',
+    maxHeat: 100,
+  };
+  const ammo = element();
+  UI.els.vehicleHudAmmo = ammo;
+  vehicle.weapons.tank_coax = { heat: 87, overheated: true };
+  vehicles.getWeaponsForRole = function () {
+    return ['tank_coax'];
+  };
+  UI.updateVehicleHud(player, vehicles);
+  ok(ammo.textContent === '87% 过热', 'overheat HUD ammo text was incorrect');
+  ok(ammo.classList.contains('overheated'), 'overheat HUD ammo class was missing');
+  ok(ammo.textContent.indexOf(' · ') < 0, 'overheat HUD ammo still uses expanding suffix');
+  vehicle.weapons.tank_coax.overheated = false;
+  UI.updateVehicleHud(player, vehicles);
+  ok(
+    ammo.textContent === '87% 热量' && !ammo.classList.contains('overheated'),
+    'cooled MG HUD ammo did not restore heat label'
+  );
+
+  const hull = element();
+  const turret = element();
+  const tankSpeed = element();
+  const tankRange = element();
+  UI.els.vehicleHullMarker = hull;
+  UI.els.vehicleTurretMarker = turret;
+  UI.els.vehicleTankSpeed = tankSpeed;
+  UI.els.vehicleTankRange = tankRange;
+  vehicle.yaw = Math.PI / 2;
+  vehicle.turretYaw = Math.PI / 4;
+  vehicle.speed = 5.555;
+  player._vehicleAimDistance = 142.4;
+  UI.updateVehicleHud(player, vehicles);
+  ok(
+    hull.getAttribute('transform') === 'rotate(270.00 40 42)',
+    'tank hull schematic did not rotate against north'
+  );
+  ok(
+    turret.getAttribute('transform') === 'rotate(225.00 40 42)',
+    'tank turret schematic did not rotate against north'
+  );
+  ok(tankSpeed.textContent === '20', 'tank optic speed was incorrect');
+  ok(tankRange.textContent === '142', 'tank optic range was incorrect');
+
+  const hud = element();
+  const ammoType = element();
+  const ammoCount = element();
+  const tankStatus = element();
+  const reticleRange = element();
+  UI.els.hud = hud;
+  UI.els.vehicleReticleAmmoType = ammoType;
+  UI.els.vehicleReticleAmmoCount = ammoCount;
+  UI.els.vehicleTankWeaponStatus = tankStatus;
+  UI.els.vehicleReticleRange = reticleRange;
+  context.window.VF.VEHICLE_WEAPONS.ifv_at_missile = {
+    id: 'ifv_at_missile',
+    nameZh: '瞄准制导反装甲导弹',
+    ammoTypeZh: '反装甲导弹',
+    cooldown: 6.5,
+    magSize: 1,
+  };
+  context.window.VF.VEHICLE_WEAPONS.ifv_he_autocannon = {
+    id: 'ifv_he_autocannon',
+    nameZh: '高爆炮',
+    ammoTypeZh: '高爆弹',
+    cooldown: 0.22,
+    magSize: 12,
+  };
+  vehicle.type = 'ifv';
+  vehicle.weapons.ifv_at_missile = {
+    mag: 1,
+    reserve: 19,
+    cooldown: 0,
+    reloadTimer: 0,
+    overheated: false,
+  };
+  vehicles.getWeaponsForRole = function () {
+    return ['ifv_at_missile'];
+  };
+  UI.updateVehicleHud(player, vehicles);
+  ok(
+    hud.classList.contains('vehicle-cannon-optic') &&
+      !hud.classList.contains('vehicle-he-optic') &&
+      ammoType.textContent === '反装甲导弹' &&
+      ammoCount.textContent === '20' &&
+      tankStatus.textContent === '就绪',
+    'IFV missile did not reuse the tank cannon optic'
+  );
+  ok(
+    hull.getAttribute('transform') === 'rotate(270.00 40 42)',
+    'IFV missile optic did not keep a north-up hull schematic'
+  );
+  vehicle.weapons.ifv_he_autocannon = {
+    mag: 12,
+    reserve: 192,
+    cooldown: 0,
+    reloadTimer: 0,
+    overheated: false,
+  };
+  vehicles.getWeaponsForRole = function () {
+    return ['ifv_he_autocannon'];
+  };
+  player._vehicleSightRange = 460;
+  player._vehicleAimDistance = 460;
+  UI.updateVehicleHud(player, vehicles);
+  ok(
+    hud.classList.contains('vehicle-he-optic') &&
+      !hud.classList.contains('vehicle-cannon-optic'),
+    'IFV autocannon still used the tank cannon optic'
+  );
+  ok(
+    ammoType.textContent === '高爆弹' &&
+      ammoCount.textContent === '12' &&
+      tankStatus.textContent === '就绪' &&
+      tankRange.textContent === '460',
+    'IFV HE optic did not reuse tank compass chrome'
+  );
+
+  vehicle.type = 'tank';
+  context.window.VF.VEHICLE_WEAPONS.tank_coax_mg = {
+    id: 'tank_coax_mg',
+    nameZh: '同轴重机枪',
+    kind: 'machine-gun',
+    maxHeat: 100,
+  };
+  vehicle.weapons.tank_coax_mg = {
+    heat: 0,
+    overheated: false,
+    reloadTimer: 0,
+    cooldown: 0,
+  };
+  vehicles.getWeaponsForRole = function () {
+    return ['tank_coax_mg'];
+  };
+  UI.updateVehicleHud(player, vehicles);
+  ok(
+    hud.classList.contains('vehicle-he-optic') &&
+      hud.classList.contains('vehicle-optic-no-count') &&
+      !hud.classList.contains('vehicle-cannon-optic') &&
+      ammoType.textContent === '同轴重机枪' &&
+      ammoCount.textContent === '',
+    'tank coaxial MG did not reuse the IFV HE optic without an ammo count'
+  );
+
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  ok(
+    html.indexOf('id="vehicle-cannon-cooldown"') >= 0 &&
+      html.indexOf('id="vehicle-heavy-hit"') >= 0 &&
+      html.indexOf('id="vehicle-hud-service"') >= 0 &&
+      html.indexOf('id="vehicle-hud-weapon-rack"') >= 0 &&
+      html.indexOf('id="vehicle-mg-heat"') >= 0 &&
+      html.indexOf('id="vehicle-compass"') >= 0 &&
+      html.indexOf('id="vehicle-tank-schematic"') >= 0 &&
+      html.indexOf('id="vehicle-hull-marker"') >= 0 &&
+      html.indexOf('id="vehicle-tank-speed"') >= 0 &&
+      html.indexOf('id="vehicle-tank-range"') >= 0 &&
+      html.indexOf('class="vr-he-optic"') >= 0 &&
+      html.indexOf('class="vr-he-tick n"') >= 0 &&
+    'vehicle cooldown or heavy hit HUD markup is missing'
+  );
+  ok(
+    html.indexOf('js/vehicle-effects.js') < html.indexOf('js/main.js'),
+    'vehicle effects module is loaded after main.js'
+  );
+  const mainSource = fs.readFileSync(path.join(root, 'js', 'main.js'), 'utf8');
+  ok(
+    mainSource.indexOf("impactProjectile(projectile, 'infantry'") >= 0,
+    'direct infantry hit is not routed to infantry presentation'
+  );
+  return true;
 }
 
 function positionNode() {
@@ -83,6 +655,13 @@ function run() {
   const context = loaded.context;
   const Vehicles = loaded.Vehicles;
   ok(Vehicles, 'global.VF.Vehicles was not installed');
+  const vehiclesSource = fs.readFileSync(path.join(root, 'js', 'vehicles.js'), 'utf8');
+  ok(vehiclesSource.indexOf('createResupplyKiosk') >= 0, 'createResupplyKiosk is missing');
+  ok(vehiclesSource.indexOf('载具补给站') >= 0, 'station name 载具补给站 is missing');
+  ok(
+    typeof context.window.VF.drawResupplyStationMark === 'function',
+    'drawResupplyStationMark was not exported'
+  );
 
   const defs = Vehicles.definitions;
   const weaponDefs = Vehicles.weaponDefinitions;
@@ -127,12 +706,19 @@ function run() {
     'RPG anti-armor definition is missing'
   );
   ok(
-    weaponDefs.ifv_at_missile.damage === 150,
+    weaponDefs.ifv_at_missile.damage === 150 &&
+      weaponDefs.ifv_he_autocannon.ammoTypeZh === '高爆弹' &&
+      weaponDefs.ifv_at_missile.ammoTypeZh === '反装甲导弹',
     'IFV anti-tank missile damage is not 150'
   );
   ok(
-    weaponDefs.tank_main_cannon.damage === 200,
-    'tank main cannon damage is not 200'
+    weaponDefs.tank_main_cannon.damage === 200 &&
+      weaponDefs.tank_main_cannon.cooldown === 4.2 &&
+      weaponDefs.tank_main_cannon.projectileSpeed === 95 &&
+      weaponDefs.tank_main_cannon.magSize === 30 &&
+      weaponDefs.tank_main_cannon.blastRadius === 6.4 &&
+      weaponDefs.tank_main_cannon.breakRadius === 2.9,
+    'tank main cannon balance values changed'
   );
   ok(
     defs.tank.maxHp === 1000 && defs.tank.armorMul === 1,
@@ -147,29 +733,130 @@ function run() {
       weaponDefs.tank_gunner_hmg.role === 'gunner',
     'driver/gunner weapon roles are incorrect'
   );
+  ok(
+    weaponDefs.ifv_he_autocannon.soundId === 'vehicle.weapon.ifv_autocannon' &&
+      weaponDefs.ifv_at_missile.soundId === 'vehicle.weapon.ifv_missile' &&
+      weaponDefs.ifv_grenade_launcher.soundId === 'vehicle.weapon.ifv_grenade' &&
+      weaponDefs.tank_main_cannon.soundId === 'vehicle.weapon.tank_cannon' &&
+      weaponDefs.tank_coax_mg.soundId === 'vehicle.weapon.tank_coax' &&
+      weaponDefs.tank_gunner_hmg.soundId === 'vehicle.weapon.tank_hmg',
+    'mounted weapon sound IDs are incomplete'
+  );
+  const vehicleFxSource = fs.readFileSync(
+    path.join(root, 'js', 'vehicle-effects.js'),
+    'utf8'
+  );
+  const mainSource = fs.readFileSync(path.join(root, 'js', 'main.js'), 'utf8');
+  ok(
+    vehicleFxSource.indexOf("'vehicle.weapon.tank_cannon'") >= 0 &&
+      vehicleFxSource.indexOf("'vehicle.impact.armor'") >= 0 &&
+      vehicleFxSource.indexOf("playExplosionAt(point, 'cannon'") >= 0 &&
+      mainSource.indexOf('def.soundId') >= 0 &&
+      mainSource.indexOf('position: data.origin') >= 0 &&
+      mainSource.indexOf('playProjectileBlastAudio') >= 0 &&
+      mainSource.indexOf('occupant: localOccupant') >= 0 &&
+      mainSource.indexOf('setStations') >= 0,
+    'vehicle fire/hit events are not routed into spatial audio'
+  );
 
   ok(
     weaponDefs.ifv_he_autocannon.magSize === 12 &&
       weaponDefs.ifv_he_autocannon.reserve === 192 &&
-      weaponDefs.ifv_he_autocannon.reserveRegenSec === 15 &&
-      weaponDefs.ifv_he_autocannon.reserveRegenAmount === 12 &&
-      weaponDefs.ifv_he_autocannon.maxHeat == null,
+      weaponDefs.ifv_he_autocannon.reserveMax === 192 &&
+      weaponDefs.ifv_he_autocannon.maxHeat == null &&
+      weaponDefs.ifv_he_autocannon.reserveRegenSec == null,
     'IFV HE cannon ammo setup is incorrect'
   );
   ok(
-    weaponDefs.tank_main_cannon.magSize === 15 &&
+    context.window.VF.VEHICLE_AMMO_AUTO &&
+      context.window.VF.VEHICLE_AMMO_AUTO.intervalSec === 15 &&
+      context.window.VF.VEHICLE_AMMO_AUTO.capFraction === 0.5,
+    'vehicle ammo auto-replenish constants are incorrect'
+  );
+  ok(
+    weaponDefs.tank_main_cannon.magSize === 30 &&
       weaponDefs.tank_main_cannon.reserve == null,
-    'tank main cannon ammo is not 15 rounds'
+    'tank main cannon ammo is not 30 rounds'
+  );
+  ok(
+    weaponDefs.ifv_at_missile.magSize === 1 &&
+      weaponDefs.ifv_at_missile.reserve === 19 &&
+      weaponDefs.ifv_at_missile.reserveMax === 19,
+    'IFV missile count is not 20'
   );
   ok(
     weaponDefs.tank_coax_mg.maxHeat === 100 &&
-      weaponDefs.tank_coax_mg.heatPerShot === 9 &&
+      weaponDefs.tank_coax_mg.heatBuildPerSec === 15 &&
+      weaponDefs.tank_coax_mg.heatCoolPerSec === 20 &&
+      weaponDefs.tank_coax_mg.heatIdleDelay === 1 &&
       weaponDefs.tank_coax_mg.magSize == null &&
       weaponDefs.tank_gunner_hmg.maxHeat === 100 &&
-      weaponDefs.tank_gunner_hmg.heatPerShot === 9 &&
+      weaponDefs.tank_gunner_hmg.heatBuildPerSec === 15 &&
+      weaponDefs.tank_gunner_hmg.heatCoolPerSec === 20 &&
+      weaponDefs.tank_gunner_hmg.heatIdleDelay === 1 &&
       weaponDefs.tank_gunner_hmg.magSize == null,
     'tank secondary overheat setup is incorrect'
   );
+
+  vm.runInNewContext(
+    fs.readFileSync(path.join(root, 'js', 'maps', 'island-conquest.js'), 'utf8'),
+    context,
+    { filename: 'js/maps/island-conquest.js' }
+  );
+  const mapApi = context.window.VF.IslandConquestMap;
+  ok(mapApi && typeof mapApi.buildRepairStations === 'function', 'map repair station builder is missing');
+  const plannedStations = mapApi.buildRepairStations({
+    worldSize: 1024,
+    _plannedBases: [
+      { x: 1024 * mapApi.HQ.ally.nx, z: 1024 * mapApi.HQ.ally.nz, gate: mapApi.HQ.ally.gate },
+      { x: 1024 * mapApi.HQ.enemy.nx, z: 1024 * mapApi.HQ.enemy.nz, gate: mapApi.HQ.enemy.gate },
+    ],
+  });
+  ok(
+    plannedStations.length === 3 &&
+      plannedStations.filter(function (row) { return row.team === 'neutral'; }).length === 1 &&
+      plannedStations.filter(function (row) { return row.team === 'ally'; }).length === 1 &&
+      plannedStations.filter(function (row) { return row.team === 'enemy'; }).length === 1,
+    'map does not place center and both-base repair stations'
+  );
+
+  Vehicles.init(null, {
+    worldSize: 64,
+    getWalkHeight() {
+      return 0;
+    },
+    getTerrainTop() {
+      return 0;
+    },
+  });
+  Vehicles.reset([
+    { id: 'depot-tank', type: 'tank', team: 'ally', x: 0, z: 0, y: 0 },
+    { id: 'depot-foe', type: 'tank', team: 'enemy', x: 0, z: 0, y: 0 },
+    { id: 'depot-ifv', type: 'ifv', team: 'ally', x: 0, z: 0, y: 0 },
+  ]);
+  const depotTank = Vehicles.getById('depot-tank');
+  const depotFoe = Vehicles.getById('depot-foe');
+  const depotIfv = Vehicles.getById('depot-ifv');
+  depotTank.hp = 500;
+  depotTank.weapons.tank_main_cannon.mag = 0;
+  depotFoe.hp = 500;
+  depotIfv.weapons.ifv_at_missile.mag = 0;
+  depotIfv.weapons.ifv_at_missile.reserve = 0;
+  Vehicles.setStations([{ id: 'ally-bay', team: 'ally', x: 0, z: 0, radius: 18 }]);
+  Vehicles.update(1);
+  near(depotTank.hp, 550, 0.02, 'ally tank did not repair 5% max HP per second');
+  ok(depotFoe.hp === 500, 'enemy tank repaired at an ally-only station');
+  Vehicles.update(2);
+  ok(
+    depotTank.weapons.tank_main_cannon.mag === 3,
+    'station did not restore 10% main-cannon ammo every 2 seconds'
+  );
+  ok(
+    depotIfv.weapons.ifv_at_missile.mag + depotIfv.weapons.ifv_at_missile.reserve === 2,
+    'station did not restore 10% of 20 IFV missiles every 2 seconds'
+  );
+  Vehicles.setStations([]);
+  Vehicles.reset([]);
 
   const sampled = [];
   const world = {
@@ -412,6 +1099,15 @@ function run() {
       weaponIfv.hp === 600,
     'tank main cannon did not launch an anti-armor projectile'
   );
+  ok(
+    Vehicles.fireWeapon(
+      weaponTank,
+      'tank_main_cannon',
+      tankDriver,
+      { targetVehicle: weaponIfv }
+    ) === null,
+    'tank main cannon fired again during its 4.2 second cooldown'
+  );
   Vehicles.update(0.4);
   ok(
     cannonShot.damageApplied === 200 && weaponIfv.hp === 400,
@@ -440,40 +1136,98 @@ function run() {
   heState.mag = 0;
   heState.reserve = 0;
   heState.reloadTimer = 0;
+  heState.ammoRegenTimer = 0;
   Vehicles.update(14.9);
   ok(
-    heState.reserve === 0 && heState.reserveRegenTimer > 14,
-    'IFV reserve regen completed before 15 seconds'
+    heState.mag === 0 &&
+      heState.reserve === 0 &&
+      heState.ammoRegenTimer > 14,
+    'IFV auto-replenish completed before 15 seconds'
   );
   Vehicles.update(0.2);
-  ok(heState.reserve === 12, 'IFV reserve did not restore 12 rounds after 15 seconds');
-  heState.reserveRegenTimer = 8;
-  heState.reserve = 1;
-  Vehicles.update(0.05);
   ok(
-    heState.reserveRegenTimer === 0,
-    'IFV reserve regen did not reset when reserve was not empty'
+    heState.mag === 1 && heState.reserve === 0,
+    'IFV auto-replenish did not add 1 round after 15 seconds'
+  );
+  const heView = Vehicles.getWeaponAmmoView(heState, weaponDefs.ifv_he_autocannon);
+  ok(
+    heView.regenerating &&
+      heView.cap === 204 &&
+      heView.limit === 102 &&
+      heView.loaded === 1 &&
+      heView.current === 1,
+    'IFV ammo view is incorrect'
   );
 
+  const cannonState = weaponTank.weapons.tank_main_cannon;
+  ok(cannonState.mag === 29, 'tank main cannon did not consume one of 30 shells');
+  cannonState.mag = 10;
+  cannonState.ammoRegenTimer = 0;
+  Vehicles.update(15);
+  ok(cannonState.mag === 11, 'tank cannon auto-replenish did not add 1 shell');
+  cannonState.mag = 14;
+  cannonState.ammoRegenTimer = 14.9;
+  Vehicles.update(0.2);
+  ok(cannonState.mag === 15, 'tank cannon auto-replenish did not fill to 50%');
+  cannonState.ammoRegenTimer = 15;
+  Vehicles.update(0.05);
   ok(
-    weaponTank.weapons.tank_main_cannon.mag === 14,
-    'tank main cannon did not consume one of 15 shells'
+    cannonState.mag === 15 && cannonState.ammoRegenTimer === 0,
+    'tank cannon auto-replenish exceeded 50%'
   );
+  const coaxState = weaponTank.weapons.tank_coax_mg;
+  coaxState.ammoRegenTimer = 0;
+  Vehicles.update(15);
+  ok(
+    (coaxState.ammoRegenTimer || 0) === 0 &&
+      Vehicles.getWeaponAmmoView(coaxState, weaponDefs.tank_coax_mg).infinite,
+    'heat weapon received finite ammo auto-replenish'
+  );
+
   const tankGunner = entity('tank-gunner');
   ok(Vehicles.mount(tankGunner, weaponTank, 1), 'tank gunner could not mount');
   const hmgState = weaponTank.weapons.tank_gunner_hmg;
-  let overheatShots = 0;
-  while (!hmgState.overheated && overheatShots < 20) {
+  hmgState.heat = 0;
+  hmgState.overheated = false;
+  hmgState.heatShotAge = 0;
+  let heatHold = 0;
+  while (heatHold + 1e-9 < 2) {
+    hmgState.cooldown = 0;
+    ok(
+      Vehicles.fireWeapon(weaponTank, 'tank_gunner_hmg', tankGunner),
+      'tank HMG did not fire while heating'
+    );
+    Vehicles.update(0.1);
+    heatHold += 0.1;
+  }
+  near(hmgState.heat, 30, 1.2, 'tank HMG heat did not build at 15% per second');
+  hmgState.heatShotAge = 0.5;
+  const heatHeld = hmgState.heat;
+  Vehicles.update(0.4);
+  near(hmgState.heat, heatHeld, 0.3, 'tank HMG cooled before the 1s idle delay');
+  Vehicles.update(0.2);
+  near(hmgState.heat, heatHeld - 4, 0.6, 'tank HMG did not cool at 20% per second after 1s');
+  hmgState.heat = 0;
+  hmgState.overheated = false;
+  let overheatTime = 0;
+  while (!hmgState.overheated && overheatTime < 8) {
     hmgState.cooldown = 0;
     const hmgShot = Vehicles.fireWeapon(weaponTank, 'tank_gunner_hmg', tankGunner);
-    if (!hmgShot) break;
-    overheatShots += 1;
+    if (!hmgShot && !hmgState.overheated) break;
+    Vehicles.update(0.1);
+    overheatTime += 0.1;
   }
-  ok(hmgState.overheated && hmgState.heat >= 99, 'tank HMG did not overheat like the IFV cannon');
+  ok(
+    hmgState.overheated && hmgState.heat >= 99 && overheatTime > 6 && overheatTime < 7.5,
+    'tank HMG did not overheat after ~6.7s of continuous fire'
+  );
   ok(
     Vehicles.fireWeapon(weaponTank, 'tank_gunner_hmg', tankGunner) === null,
     'overheated tank HMG still fired'
   );
+  const heatLocked = hmgState.heat;
+  Vehicles.update(0.5);
+  ok(hmgState.heat < heatLocked - 8, 'overheated HMG did not start forced cooling');
 
   const normalWorld = Vehicles.world;
   Vehicles.init(null, {
@@ -530,6 +1284,117 @@ function run() {
   ok(
     rearShot && rearShot.position.z > spawned[0].position.z,
     'rear-facing turret did not rotate the muzzle origin'
+  );
+
+  spawned = Vehicles.reset([
+    { id: 'event-tank', type: 'tank', team: 'ally', x: 100, y: 3, z: 100 },
+    { id: 'event-ifv', type: 'ifv', team: 'enemy', x: 100, y: 3, z: 70 },
+  ]);
+  spawned[1].hp = 125;
+  const eventDriver = entity('event-driver');
+  Vehicles.mount(eventDriver, spawned[0], 0);
+  let cannonFireEvents = 0;
+  let cannonHitEvent = null;
+  const offFire = Vehicles.on('vehicle-weapon-fired', function (event) {
+    if (event.data.weaponId === 'tank_main_cannon') cannonFireEvents++;
+  });
+  const offHit = Vehicles.on('vehicle-weapon-hit', function (event) {
+    if (event.data.weaponId === 'tank_main_cannon') cannonHitEvent = event.data;
+  });
+  const acceptedEventShot = Vehicles.fireWeapon(
+    spawned[0],
+    'tank_main_cannon',
+    eventDriver,
+    {
+      targetVehicle: spawned[1],
+      shotId: 'vehicle-shot-guest-check-1',
+    }
+  );
+  const cooldownEventShot = Vehicles.fireWeapon(
+    spawned[0],
+    'tank_main_cannon',
+    eventDriver,
+    {
+      targetVehicle: spawned[1],
+      shotId: 'vehicle-shot-guest-check-2',
+    }
+  );
+  ok(
+    acceptedEventShot &&
+      cooldownEventShot === null &&
+      cannonFireEvents === 1,
+    'accepted/rejected cannon fire did not emit exactly one presentation event'
+  );
+  Vehicles.update(0.4);
+  ok(
+    cannonHitEvent &&
+      cannonHitEvent.shotId === acceptedEventShot.id &&
+      cannonHitEvent.ownerId === eventDriver.entityId &&
+      cannonHitEvent.damage === 125 &&
+      cannonHitEvent.finalDamage === 200 &&
+      cannonHitEvent.normal,
+    'cannon armor hit event did not include type, owner, normal and damage'
+  );
+  offFire();
+  offHit();
+
+  spawned = Vehicles.reset([
+    { id: 'dedupe-tank', type: 'tank', team: 'ally', x: 100, y: 3, z: 100 },
+  ]);
+  const dedupeDriver = entity('dedupe-driver');
+  Vehicles.mount(dedupeDriver, spawned[0], 0);
+  const staleDedupeWire = JSON.parse(JSON.stringify(Vehicles.getSnapshot()));
+  const predictedShot = Vehicles.fireWeapon(
+    spawned[0],
+    'tank_main_cannon',
+    dedupeDriver,
+    {
+      direction: { x: 0, y: 0, z: -1 },
+      predictOnly: true,
+      shotId: 'vehicle-shot-guest-dedupe-1',
+    }
+  );
+  Vehicles.applySnapshot(staleDedupeWire);
+  ok(
+    spawned[0].weapons.tank_main_cannon.mag === 29 &&
+      spawned[0].weapons.tank_main_cannon.cooldown > 4 &&
+      Vehicles.fireWeapon(
+        spawned[0],
+        'tank_main_cannon',
+        dedupeDriver,
+        {
+          direction: { x: 0, y: 0, z: -1 },
+          predictOnly: true,
+          shotId: 'vehicle-shot-guest-dedupe-2',
+        }
+      ) === null,
+    'stale PVP snapshot rolled back predicted ammo/cooldown'
+  );
+  const dedupeWire = JSON.parse(JSON.stringify(staleDedupeWire));
+  dedupeWire.vehicles[0].weapons.tank_main_cannon.mag = 14;
+  dedupeWire.vehicles[0].weapons.tank_main_cannon.ammo = 14;
+  dedupeWire.vehicles[0].weapons.tank_main_cannon.cooldown = 4;
+  dedupeWire.projectiles = [{
+    id: predictedShot.id,
+    vehicleId: predictedShot.vehicleId,
+    ownerId: predictedShot.ownerId,
+    team: predictedShot.team,
+    weaponId: predictedShot.weaponId,
+    damage: predictedShot.damage,
+    damageType: predictedShot.damageType,
+    position: predictedShot.position,
+    direction: predictedShot.direction,
+    speed: predictedShot.speed,
+    life: predictedShot.life,
+    gravity: predictedShot.gravity,
+  }];
+  Vehicles.applySnapshot(dedupeWire);
+  ok(
+    Vehicles.getProjectiles().length === 1 &&
+      Vehicles.getProjectiles()[0] === predictedShot &&
+      predictedShot.remote === true &&
+      !spawned[0].weapons.tank_main_cannon._prediction,
+    'PVP snapshot did not de-duplicate the locally predicted projectile by shotId'
   );
 
   spawned = Vehicles.reset([
@@ -730,6 +1595,92 @@ function run() {
     net._receiveVehicleCommand('vehicle-dismount', {}),
     'host could not dismount the remote vehicle actor'
   );
+  Vehicles.reset([
+    { id: 'net-enemy-tank', type: 'tank', team: 'enemy', x: 40, y: 3, z: 40 },
+  ]);
+  ok(
+    net._receiveVehicleCommand('vehicle-mount', {
+      vehicleId: 'net-enemy-tank',
+      seatIndex: 0,
+    }),
+    'host rejected the remote tank mount'
+  );
+  const networkShotId = 'vehicle-shot-guest-network-1';
+  ok(
+    net._receiveVehicleCommand('vehicle-input', {
+      vehicleId: 'net-enemy-tank',
+      seatIndex: 0,
+      aimYaw: 0,
+      aimPitch: 0,
+      weaponIndex: 1,
+      weaponId: 'tank_main_cannon',
+      fire: true,
+      shotId: networkShotId,
+      fireDirection: { x: 1, y: 0, z: 0 },
+    }),
+    'host rejected the predicted cannon command'
+  );
+  ok(
+    Vehicles.lastShot &&
+      Vehicles.lastShot.id === networkShotId &&
+      Vehicles.lastShot.weaponId === 'tank_main_cannon' &&
+      nearDirection(Vehicles.lastShot.direction, { x: 1, y: 0, z: 0 }),
+    'host did not preserve the predicted weapon, shotId and fire direction'
+  );
+  const acceptedNetworkShot = Vehicles.lastShot;
+  const networkProjectileCount = Vehicles.getProjectiles().length;
+  Vehicles.getById('net-enemy-tank').weapons.tank_main_cannon.cooldown = 0;
+  net._receiveVehicleCommand('vehicle-input', {
+    vehicleId: 'net-enemy-tank',
+    seatIndex: 0,
+    aimYaw: 0,
+    aimPitch: 0,
+    weaponIndex: 1,
+    weaponId: 'tank_main_cannon',
+    fire: true,
+    shotId: networkShotId,
+    fireDirection: { x: 1, y: 0, z: 0 },
+  });
+  ok(
+    Vehicles.lastShot === acceptedNetworkShot &&
+      Vehicles.getProjectiles().length === networkProjectileCount,
+    'host accepted a duplicate PVP shotId'
+  );
+  ok(
+    !net._receiveVehicleCommand('vehicle-input', {
+      vehicleId: 'net-enemy-tank',
+      seatIndex: 0,
+      role: 'driver',
+      aimYaw: 0,
+      aimPitch: 0,
+      weaponIndex: 1,
+      weaponId: 'tank_gunner_hmg',
+      fire: true,
+      shotId: 'vehicle-shot-guest-invalid-role',
+      fireDirection: { x: 1, y: 0, z: 0 },
+    }) &&
+      Vehicles.lastShot === acceptedNetworkShot &&
+      Vehicles.getProjectiles().length === networkProjectileCount,
+    'host fell back to another weapon for a mismatched bound weapon'
+  );
+  net.applyRemoteVehicleState({
+    vehicleId: 'net-enemy-tank',
+    vehicleSeat: 0,
+    vehicleRole: 'driver',
+    vehicleAimYaw: 0,
+    vehicleAimPitch: 0,
+    vehicleWeaponIndex: 0,
+    vehicleFire: true,
+    alive: true,
+  });
+  ok(
+    Vehicles.lastShot === acceptedNetworkShot,
+    'lossy player-state replication fired a second cannon shot'
+  );
+  ok(
+    net._receiveVehicleCommand('vehicle-dismount', {}),
+    'host could not dismount the remote tank actor'
+  );
   const remoteActor = net._remoteVehicleActor();
   const rpgAccepted = net._receiveVehicleCommand('rpg-fire', {
     origin: {
@@ -752,7 +1703,12 @@ function run() {
     'host accepted an RPG shot during cooldown'
   );
   const projectileWire = Vehicles.getSnapshot();
-  ok(projectileWire.projectiles.length === 1, 'network RPG projectile was not snapshotted');
+  ok(
+    projectileWire.projectiles.filter(function (projectile) {
+      return projectile.weaponId === 'rpg';
+    }).length === 1,
+    'network RPG projectile was not snapshotted'
+  );
   const projectileHash = protocol.vehicleChecksum(projectileWire);
   projectileWire.projectiles[0].speed += 1;
   ok(
@@ -1057,6 +2013,34 @@ function run() {
   ok(plazaWorld.terrainHits === 0, 'plaza terrain AABB still blocked the straddling tank');
 
   spawned = Vehicles.reset([
+    { id: 'pivot-tank', type: 'tank', team: 'ally', x: 40, y: 3, z: 40, yaw: 0 },
+  ]);
+  const pivot = spawned[0];
+  pivot.speed = 0;
+  Vehicles.setDriverInput(pivot, { throttle: 0, steer: 1, brake: 0 });
+  Vehicles.update(0.5);
+  const idleYaw = Math.abs(pivot.yaw);
+  const idleTurn = pivot.def.idleTurn != null ? pivot.def.idleTurn : 0.9;
+  near(
+    idleYaw,
+    pivot.def.turnRate * idleTurn * 0.5,
+    0.04,
+    'stationary tank turn rate was still speed-starved'
+  );
+  spawned = Vehicles.reset([
+    { id: 'pivot-tank-move', type: 'tank', team: 'ally', x: 40, y: 3, z: 40, yaw: 0 },
+  ]);
+  const rolling = spawned[0];
+  rolling.speed = rolling.def.maxSpeed;
+  Vehicles.setDriverInput(rolling, { throttle: 1, steer: 1, brake: 0 });
+  Vehicles.update(0.5);
+  const movingYaw = Math.abs(rolling.yaw);
+  ok(
+    idleYaw > movingYaw * 0.8,
+    'stationary tank turn is still far below moving turn'
+  );
+
+  spawned = Vehicles.reset([
     { id: 'optic-tank', type: 'tank', team: 'ally', x: 40, y: 3, z: 40, yaw: 0 },
     { id: 'optic-ifv', type: 'ifv', team: 'ally', x: 80, y: 3, z: 80, yaw: 0 },
   ]);
@@ -1087,6 +2071,26 @@ function run() {
     'IFV optic position did not rotate with the turret'
   );
 
+  spawned[0].mesh = {
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: 0, z: 0 },
+    visible: true,
+    userData: {
+      turret: { rotation: { y: 0 } },
+      barrel: { rotation: { x: 0 } },
+    },
+  };
+  Vehicles.setAim(spawned[0], { yaw: spawned[0].yaw, pitch: 0.3, role: 'driver' });
+  ok(
+    spawned[0].mesh.userData.barrel.rotation.x > 0,
+    'first-person barrel pitch was inverted when looking up'
+  );
+  Vehicles.setAim(spawned[0], { yaw: spawned[0].yaw, pitch: -0.3, role: 'driver' });
+  ok(
+    spawned[0].mesh.userData.barrel.rotation.x < 0,
+    'first-person barrel pitch was inverted when looking down'
+  );
+
   const api = [
     'init',
     'reset',
@@ -1097,6 +2101,7 @@ function run() {
     'getAll',
     'getOpenSeat',
     'getWeaponsForRole',
+    'getWeaponAmmoView',
     'canUsePersonalWeapon',
     'canUseVehicleFirstPerson',
     'reloadWeapon',
@@ -1110,6 +2115,7 @@ function run() {
     'raycast',
     'raycastWorld',
     'getWeaponPivotWorld',
+    'getCameraFireDirection',
     'getFirstPersonCameraAnchor',
     'applyDamage',
     'destroy',
@@ -1119,6 +2125,8 @@ function run() {
     'clear',
   ];
   ok(api.every((name) => typeof Vehicles[name] === 'function'), 'required API is incomplete');
+  const fxStats = checkVehicleEffectsStress();
+  checkVehicleHud();
 
   return {
     ok: true,
@@ -1134,6 +2142,15 @@ function run() {
     snapshotVehicles: roundTrip.vehicles.length,
     damageCalls: 10000,
     damagePerfMs: Number(damagePerfMs.toFixed(3)),
+    cannonFx: {
+      activeEffects: fxStats.activeEffects,
+      activeProjectiles: fxStats.activeProjectiles,
+      projectileCreated: fxStats.projectileCreated,
+      sharedGeometries: fxStats.sharedGeometries,
+      sharedProjectileMaterials: fxStats.sharedProjectileMaterials,
+      peakActiveProjectiles: fxStats.peakActiveProjectiles,
+      created: fxStats.created,
+    },
     apiCount: api.length,
   };
 }

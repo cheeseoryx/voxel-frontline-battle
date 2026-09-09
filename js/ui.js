@@ -25,10 +25,20 @@
         timer: document.getElementById('timer'),
         coreCount: document.getElementById('core-count'),
         blockCount: document.getElementById('block-count'),
+        ammoPanel: document.getElementById('ammo'),
         ammoMag: document.getElementById('ammo-mag'),
         ammoReserve: document.getElementById('ammo-reserve'),
         ammoReload: document.getElementById('ammo-reload'),
         weaponSilhouette: document.getElementById('weapon-silhouette'),
+        weaponHudName: document.getElementById('weapon-hud-name'),
+        weaponSlotKey: document.getElementById('weapon-slot-key'),
+        weaponFireMode: document.getElementById('weapon-fire-mode'),
+        weaponFireModeLabel: document.getElementById('weapon-fire-mode-label'),
+        stowedWeapon: document.getElementById('stowed-weapon'),
+        stowedWeaponKey: document.getElementById('stowed-weapon-key'),
+        stowedWeaponSilhouette: document.getElementById('stowed-weapon-silhouette'),
+        stowedWeaponName: document.getElementById('stowed-weapon-name'),
+        stowedWeaponAmmo: document.getElementById('stowed-weapon-ammo'),
         vehicleHud: document.getElementById('vehicle-hud'),
         vehicleHudName: document.getElementById('vehicle-hud-name'),
         vehicleHudArmor: document.getElementById('vehicle-hud-armor'),
@@ -39,11 +49,27 @@
         vehicleHudSeats: document.getElementById('vehicle-hud-seats'),
         vehicleHudWeapon: document.getElementById('vehicle-hud-weapon'),
         vehicleHudAmmo: document.getElementById('vehicle-hud-ammo'),
+        vehicleHudService: document.getElementById('vehicle-hud-service'),
+        vehicleHudWeaponRack: document.getElementById('vehicle-hud-weapon-rack'),
         vehicleReticle: document.getElementById('vehicle-reticle'),
         vehicleReticleRange: document.getElementById('vehicle-reticle-range'),
         vehicleReticlePitch: document.getElementById('vehicle-reticle-pitch'),
         vehicleReticleSpeed: document.getElementById('vehicle-reticle-speed'),
         vehicleReticleReady: document.getElementById('vehicle-reticle-ready'),
+        vehicleTankWeaponStatus: document.getElementById('vehicle-tank-weapon-status'),
+        vehicleTankSpeed: document.getElementById('vehicle-tank-speed'),
+        vehicleTankRange: document.getElementById('vehicle-tank-range'),
+        vehicleReticleAmmoType: document.getElementById('vehicle-reticle-ammo-type'),
+        vehicleReticleAmmoCount: document.getElementById('vehicle-reticle-ammo-count'),
+        vehicleCompass: document.getElementById('vehicle-compass'),
+        vehicleHullMarker: document.getElementById('vehicle-hull-marker'),
+        vehicleTurretMarker: document.getElementById('vehicle-turret-marker'),
+        vehicleCannonCooldown: document.getElementById('vehicle-cannon-cooldown'),
+        vehicleCannonCooldownRing: document.getElementById('vehicle-cannon-cooldown-ring'),
+        vehicleCannonCooldownText: document.getElementById('vehicle-cannon-cooldown-text'),
+        vehicleMgHeat: document.getElementById('vehicle-mg-heat'),
+        vehicleHeavyHit: document.getElementById('vehicle-heavy-hit'),
+        vehicleHeavyHitDamage: document.getElementById('vehicle-heavy-hit-damage'),
         skillHud: document.getElementById('skill-hud'),
         skillActive: document.getElementById('skill-active'),
         skillPassive: document.getElementById('skill-passive'),
@@ -58,7 +84,7 @@
         dashCdNum: document.getElementById('dash-cd-num'),
         crosshair: document.getElementById('crosshair'),
         scopeOverlay: document.getElementById('scope-overlay'),
-        hotbarSlots: document.querySelectorAll('#hotbar .slot'),
+        hotbarSlots: document.querySelectorAll('[data-combat-slot]'),
         interactHint: document.getElementById('interact-hint'),
         minimap: document.getElementById('minimap'),
         minimapZone: document.getElementById('minimap-zone'),
@@ -167,6 +193,16 @@
         deployZoomOut: document.getElementById('deploy-zoom-out'),
         deployMapReset: document.getElementById('deploy-map-reset'),
         deployMapZoom: document.getElementById('deploy-map-zoom'),
+        pauseOverlay: document.getElementById('pause-overlay'),
+        pauseResume: document.getElementById('pause-resume'),
+        pauseRedeploy: document.getElementById('pause-redeploy'),
+        pauseLeave: document.getElementById('pause-leave'),
+        pauseLeaveLabel: document.getElementById('pause-leave-label'),
+        pauseModeName: document.getElementById('pause-mode-name'),
+        pauseMapLine: document.getElementById('pause-map-line'),
+        pauseBriefLead: document.getElementById('pause-brief-lead'),
+        pauseBriefList: document.getElementById('pause-brief-list'),
+        pauseBriefFoot: document.getElementById('pause-brief-foot'),
         modeOverlay: document.getElementById('mode-overlay'),
         classOverlay: document.getElementById('class-overlay'),
         classGrid: document.getElementById('class-grid'),
@@ -232,6 +268,7 @@
       this.loadoutCustomizeOpen = false;
       this.modeSelectOpen = false;
       this.arsenalOpen = false;
+      this.pauseMenuOpen = false;
       this.selectedClassId = null;
       this._lastHp = 100;
       this.scoreboardOpen = false;
@@ -242,6 +279,7 @@
       this._downedDmgOpen = false;
       this._bindDeathButtons();
       this._bindTeamSwitchButton();
+      this._bindPauseMenu();
       if (global.VF.Arsenal && global.VF.Arsenal.init) global.VF.Arsenal.init();
     },
 
@@ -340,6 +378,7 @@
       }
       if (this.syncTeamSwitchButton) this.syncTeamSwitchButton();
       if (this.syncWeaponLocks) this.syncWeaponLocks();
+      if (this.syncWeaponStack) this.syncWeaponStack();
       if (global.VF && global.VF.syncGameBackBtn) global.VF.syncGameBackBtn();
     },
 
@@ -347,6 +386,7 @@
       if (this.els.hud) this.els.hud.classList.add('hidden');
       if (this.setHudMode) this.setHudMode('core');
       if (this.setScoreboardOpen) this.setScoreboardOpen(false);
+      if (this.closePauseMenu) this.closePauseMenu({ resumeLock: false });
       if (global.VF && global.VF.syncGameBackBtn) global.VF.syncGameBackBtn();
     },
 
@@ -365,8 +405,14 @@
     },
 
     updateVitals(hp, armor) {
-      const h = Math.max(0, Math.min(100, Math.round(hp)));
+      const maxHp =
+        (global.VF.game && global.VF.game.player && global.VF.game.player.maxHealth) || 100;
+      const raw = Math.max(0, Math.min(maxHp, hp == null ? 0 : hp));
+      const h = raw >= maxHp - 0.0001 ? Math.round(maxHp) : Math.floor(raw);
       const a = armor != null ? Math.round(armor) : null;
+      if (this.els.healthFill) {
+        this.els.healthFill.style.transform = 'scaleX(' + raw / maxHp + ')';
+      }
       if (h === this._cachedHp && a === this._cachedArmor) return;
       this._cachedHp = h;
       this._cachedArmor = a;
@@ -392,7 +438,7 @@
       if (this.els.armorNum && a != null) this.els.armorNum.textContent = a;
 
       if (this.els.healthFill) {
-        this.els.healthFill.style.transform = 'scaleX(' + h / 100 + ')';
+        this.els.healthFill.style.transform = 'scaleX(' + raw / maxHp + ')';
       }
       if (this.els.armorFill && a != null) {
         this.els.armorFill.style.transform = 'scaleX(' + Math.max(0, Math.min(100, a)) / 100 + ')';
@@ -426,13 +472,191 @@
     },
 
     updateAmmo(mag, reserve) {
-      const magText = mag < 10 ? '0' + mag : String(mag);
-      this.els.ammoMag.textContent = magText;
-      this.els.ammoReserve.textContent = reserve;
+      if (mag == null) {
+        this.els.ammoMag.textContent = '—';
+        this.els.ammoReserve.textContent = '';
+        if (this.els.ammoPanel) {
+          this.els.ammoPanel.classList.remove('low-ammo', 'mode-auto', 'mode-single');
+        }
+        if (this.els.weaponSilhouette) {
+          this.els.weaponSilhouette.className = 'weapon-silhouette knife';
+        }
+        if (this.els.weaponHudName) this.els.weaponHudName.textContent = '战斗刀';
+        if (this.els.weaponFireModeLabel) this.els.weaponFireModeLabel.textContent = '近战';
+        this.syncWeaponStack('knife');
+        return;
+      }
+      this.els.ammoMag.textContent = String(Math.max(0, mag | 0));
+      this.els.ammoReserve.textContent = String(Math.max(0, reserve | 0));
       const weaponId =
         (global.VF.game && global.VF.game.weapons && global.VF.game.weapons.current) ||
-        'ar';
+        (global.VF.DEFAULT_PRIMARY || 'ak74');
+      const def = global.VF.WEAPONS && global.VF.WEAPONS[weaponId];
+      if (this.els.ammoPanel) {
+        const magSize = (def && def.magSize) || 0;
+        this.els.ammoPanel.classList.toggle(
+          'low-ammo',
+          magSize > 0 && mag <= Math.max(3, Math.ceil(magSize * 0.2))
+        );
+      }
       if (this.setEquippedWeapon) this.setEquippedWeapon(weaponId);
+    },
+
+    _vehicleWeaponKind(kind) {
+      if (kind === 'machine-gun' || kind === 'heavy-machine-gun') return 'mg';
+      if (kind === 'guided-missile') return 'missile';
+      if (kind === 'grenade-launcher') return 'grenade';
+      return 'shell';
+    },
+
+    _renderVehicleWeaponRack(available, index, vehicle, personal) {
+      const rack = this.els.vehicleHudWeaponRack;
+      if (!rack) return;
+      if (personal || !available || !available.length || !vehicle) {
+        if (rack._html !== '') {
+          rack._html = '';
+          rack.innerHTML = '';
+        }
+        return;
+      }
+      const defs = global.VF.VEHICLE_WEAPONS || {};
+      const ordered = [];
+      if (available[index]) ordered.push(available[index]);
+      for (let i = 0; i < available.length; i++) {
+        if (i !== index) ordered.push(available[i]);
+      }
+      const progress = [];
+      const regenerating = [];
+      let html = '';
+      for (let i = 0; i < ordered.length; i++) {
+        const id = ordered[i];
+        const def = defs[id] || {};
+        const state = vehicle.weapons && vehicle.weapons[id];
+        const view =
+          global.VF.Vehicles && typeof global.VF.Vehicles.getWeaponAmmoView === 'function'
+            ? global.VF.Vehicles.getWeaponAmmoView(state, def)
+            : {
+                infinite: def.magSize == null,
+                current: state
+                  ? (state.mag || 0) + (state.reserve != null ? state.reserve || 0 : 0)
+                  : 0,
+                loaded: state && state.mag != null ? state.mag | 0 : 0,
+                cap: (def.magSize || 0) + (def.reserveMax != null ? def.reserveMax : def.reserve || 0),
+                progress: 0,
+                regenerating: false,
+              };
+        progress.push(view.regenerating ? view.progress : 0);
+        regenerating.push(!!view.regenerating);
+        const slot = available.indexOf(id) + 1;
+        let ammoHtml = '';
+        let nameHtml = '';
+        if (view.infinite) {
+          nameHtml =
+            '<span class="vh-wep-name">' +
+            (def.nameZh || def.name || '') +
+            '</span>';
+        } else {
+          const loaded = view.loaded != null ? view.loaded : view.current;
+          ammoHtml =
+            '<b class="vh-wep-ammo"><em' +
+            (loaded <= 0 ? ' class="empty"' : '') +
+            '>' +
+            loaded +
+            '</em> / ' +
+            view.cap +
+            '</b>';
+        }
+        html +=
+          '<div class="vh-wep' +
+          (i === 0 ? ' active' : '') +
+          (view.infinite ? ' no-ammo' : '') +
+          '" data-kind="' +
+          this._vehicleWeaponKind(def.kind) +
+          '">' +
+          '<i class="vh-wep-track" aria-hidden="true"><i class="vh-wep-mask"></i></i>' +
+          '<i class="vh-wep-frame" aria-hidden="true"></i>' +
+          '<span class="vh-wep-icon" aria-hidden="true"></span>' +
+          ammoHtml +
+          nameHtml +
+          '<span class="vh-wep-key">' +
+          slot +
+          '</span></div>';
+      }
+      if (rack._html !== html) {
+        rack._html = html;
+        rack.innerHTML = html;
+      }
+      const nodes = rack.children;
+      for (let n = 0; n < nodes.length; n++) {
+        nodes[n].style.setProperty('--regen', (progress[n] || 0).toFixed(3));
+        nodes[n].classList.toggle('regenerating', !!regenerating[n]);
+      }
+    },
+
+    _weaponCanFire(weaponState, weaponDef) {
+      if (!weaponState || !weaponDef) return false;
+      if (weaponState.overheated) return false;
+      if (weaponState.reloadTimer > 0) return false;
+      if (weaponState.mag != null && weaponState.mag <= 0) return false;
+      if (weaponState.cooldown > 0) return false;
+      return true;
+    },
+
+    _renderVehicleCompass(yaw) {
+      const canvas = this.els.vehicleCompass;
+      if (!canvas || typeof canvas.getContext !== 'function') return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const w = canvas.width;
+      const h = canvas.height;
+      const heading = (((-yaw * 180) / Math.PI) % 360 + 360) % 360;
+      const span = 90;
+      const px = w / span;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = '#e6a33c';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.shadowBlur = 2;
+      const base = h - 8;
+      const start = Math.floor((heading - span * 0.5) / 5) * 5;
+      const end = heading + span * 0.5;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.font = '600 13px "Segoe UI", "Microsoft YaHei", sans-serif';
+      for (let deg = start; deg <= end; deg += 5) {
+        const x = w * 0.5 + (deg - heading) * px;
+        if (x < 8 || x > w - 8) continue;
+        const wrapped = ((deg % 360) + 360) % 360;
+        const label = wrapped % 45 === 0;
+        const major = wrapped % 15 === 0;
+        const tickH = label ? 18 : major ? 12 : 7;
+        ctx.fillRect(x - 1, base - tickH, 2, tickH);
+        if (label) {
+          ctx.fillText(String(wrapped), x, base - tickH - 3);
+        }
+      }
+    },
+
+    _renderTankSchematic(vehicle, player) {
+      if (!vehicle) return;
+      const hullYaw = vehicle.yaw || 0;
+      let turretYaw = hullYaw + (vehicle.turretYaw || 0);
+      const role = player && player.vehicleRole;
+      const aim = vehicle.aimByRole && role && vehicle.aimByRole[role];
+      if (aim && aim.yaw != null) turretYaw = aim.yaw;
+      const hullDeg = this._headingDeg(hullYaw);
+      const turretDeg = this._headingDeg(turretYaw);
+      if (this.els.vehicleHullMarker) {
+        this.els.vehicleHullMarker.setAttribute(
+          'transform',
+          'rotate(' + hullDeg.toFixed(2) + ' 40 42)'
+        );
+      }
+      if (this.els.vehicleTurretMarker) {
+        this.els.vehicleTurretMarker.setAttribute(
+          'transform',
+          'rotate(' + turretDeg.toFixed(2) + ' 40 42)'
+        );
+      }
     },
 
     updateVehicleHud(player, vehicles) {
@@ -441,10 +665,25 @@
           ? vehicles.getById(player.vehicleId)
           : null;
       if (!vehicle || !vehicle.alive) {
+        this._vehicleCannonCooling = Object.create(null);
         if (this.els.vehicleHud) this.els.vehicleHud.classList.add('hidden');
+        if (this.els.vehicleHudService) {
+          this.els.vehicleHudService.classList.add('hidden');
+          this.els.vehicleHudService.setAttribute('aria-hidden', 'true');
+        }
         if (this.els.vehicleReticle) {
           this.els.vehicleReticle.classList.add('hidden');
           this.els.vehicleReticle.setAttribute('aria-hidden', 'true');
+          this.els.vehicleReticle.classList.remove('cannon-ready-flash');
+        }
+        if (this.els.vehicleCannonCooldown) {
+          this.els.vehicleCannonCooldown.classList.add('hidden');
+          this.els.vehicleCannonCooldown.setAttribute('aria-hidden', 'true');
+        }
+        if (this.els.vehicleMgHeat) {
+          this.els.vehicleMgHeat.classList.add('hidden');
+          this.els.vehicleMgHeat.classList.remove('overheated');
+          this.els.vehicleMgHeat.setAttribute('aria-hidden', 'true');
         }
         if (this.els.hud) {
           this.els.hud.classList.remove(
@@ -452,8 +691,18 @@
             'vehicle-personal',
             'vehicle-fpv',
             'vehicle-tpv',
-            'vehicle-optic'
+            'vehicle-optic',
+            'vehicle-tank',
+            'vehicle-ifv',
+            'vehicle-jeep',
+            'vehicle-cannon-optic',
+            'vehicle-he-optic',
+            'vehicle-optic-no-count'
           );
+        }
+        if (this.els.vehicleHudWeaponRack) {
+          this.els.vehicleHudWeaponRack._html = '';
+          this.els.vehicleHudWeaponRack.innerHTML = '';
         }
         return;
       }
@@ -486,6 +735,34 @@
         ? vehicles.getWeaponsForRole(vehicle, player.vehicleRole)
         : [];
       const armed = available.length > 0;
+      const index = Math.min(
+        player.vehicleWeaponIndex || 0,
+        Math.max(0, available.length - 1)
+      );
+      const weaponId = available[index];
+      const weaponDef =
+        weaponId && global.VF.VEHICLE_WEAPONS
+          ? global.VF.VEHICLE_WEAPONS[weaponId]
+          : null;
+      const weaponState = weaponId && vehicle.weapons[weaponId];
+      const firstPerson = !!(!personal && canVehicleFpv && player.vehicleCameraMode === 1);
+      const cannonOptic = !!(
+        firstPerson &&
+        (
+          (vehicle.type === 'tank' && weaponId !== 'tank_coax_mg') ||
+          weaponId === 'ifv_at_missile'
+        )
+      );
+      const heOptic = !!(
+        firstPerson &&
+        (weaponId === 'ifv_he_autocannon' || weaponId === 'tank_coax_mg')
+      );
+      const hideOpticAmmo = !!(heOptic && weaponDef && weaponDef.maxHeat != null);
+      const heavyShell = !!(
+        weaponDef &&
+        weaponState &&
+        (weaponId === 'tank_main_cannon' || weaponId === 'ifv_at_missile')
+      );
       if (this.els.vehicleHud) {
         this.els.vehicleHud.classList.toggle('vehicle-no-fpv', !canVehicleFpv);
         this.els.vehicleHud.classList.toggle('vehicle-unarmed', !armed);
@@ -493,13 +770,18 @@
       if (this.els.hud) {
         this.els.hud.classList.add('vehicle-active');
         this.els.hud.classList.toggle('vehicle-personal', personal);
-        const firstPerson = !!(!personal && canVehicleFpv && player.vehicleCameraMode === 1);
         this.els.hud.classList.toggle('vehicle-fpv', firstPerson);
         this.els.hud.classList.toggle('vehicle-tpv', !firstPerson);
         this.els.hud.classList.toggle(
           'vehicle-optic',
           firstPerson && vehicle.type !== 'jeep'
         );
+        this.els.hud.classList.toggle('vehicle-cannon-optic', cannonOptic);
+        this.els.hud.classList.toggle('vehicle-he-optic', heOptic);
+        this.els.hud.classList.toggle('vehicle-optic-no-count', hideOpticAmmo);
+        this.els.hud.classList.toggle('vehicle-tank', vehicle.type === 'tank');
+        this.els.hud.classList.toggle('vehicle-ifv', vehicle.type === 'ifv');
+        this.els.hud.classList.toggle('vehicle-jeep', vehicle.type === 'jeep');
       }
       if (this.els.vehicleReticle) {
         const showReticle =
@@ -514,10 +796,12 @@
         );
       }
       if (this.els.vehicleReticleRange) {
-        this.els.vehicleReticleRange.textContent =
+        const range =
           player._vehicleSightRange != null
-            ? Math.max(1, Math.round(player._vehicleSightRange)) + ' M'
-            : '-- M';
+            ? Math.max(1, Math.round(player._vehicleSightRange))
+            : null;
+        this.els.vehicleReticleRange.textContent =
+          range != null ? range + ' M' : '-- M';
       }
       if (this.els.vehicleReticlePitch) {
         const deg = Math.round(((player.pitch || 0) * 180) / Math.PI);
@@ -528,12 +812,30 @@
         this.els.vehicleReticleSpeed.textContent =
           Math.round(Math.abs(vehicle.speed) * 3.6) + ' KPH';
       }
+      if (this.els.vehicleTankSpeed) {
+        this.els.vehicleTankSpeed.textContent = String(
+          Math.round(Math.abs(vehicle.speed) * 3.6)
+        );
+      }
+      if (this.els.vehicleTankRange) {
+        const range =
+          player._vehicleAimDistance != null
+            ? player._vehicleAimDistance
+            : player._vehicleSightRange;
+        this.els.vehicleTankRange.textContent =
+          range != null ? String(Math.max(1, Math.round(range))) : '--';
+      }
       if (this.els.vehicleHudName) {
         this.els.vehicleHudName.textContent = vehicle.def.nameZh;
       }
       if (this.els.vehicleHudArmor) {
         this.els.vehicleHudArmor.textContent =
-          vehicle.armorClass === 'heavy' ? '重型装甲' : '轻型装甲';
+          vehicle.def.armorClass === 'heavy' ? '重型装甲' : '轻型装甲';
+      }
+      if (this.els.vehicleHudService) {
+        const on = !!vehicle.servicing;
+        this.els.vehicleHudService.classList.toggle('hidden', !on);
+        this.els.vehicleHudService.setAttribute('aria-hidden', on ? 'false' : 'true');
       }
       const hpPct = Math.max(0, Math.min(1, vehicle.hp / vehicle.maxHp));
       if (this.els.vehicleHud) {
@@ -581,16 +883,6 @@
           this.els.vehicleHudSeats.innerHTML = seats;
         }
       }
-      const index = Math.min(
-        player.vehicleWeaponIndex || 0,
-        Math.max(0, available.length - 1)
-      );
-      const weaponId = available[index];
-      const weaponDef =
-        weaponId && global.VF.VEHICLE_WEAPONS
-          ? global.VF.VEHICLE_WEAPONS[weaponId]
-          : null;
-      const weaponState = weaponId && vehicle.weapons[weaponId];
       if (this.els.vehicleHud) {
         const slotWrap = this.els.vehicleHud.querySelector('.vehicle-hud-weapon-slots');
         if (slotWrap) {
@@ -622,45 +914,159 @@
           this.els.vehicleHudAmmo.textContent = '—';
         } else if (weaponState.mag != null && weaponState.reserve != null) {
           let ammoText = weaponState.mag + ' / ' + weaponState.reserve;
-          if (weaponState.reloadTimer > 0) ammoText += ' · 装填';
-          else if (
-            weaponState.reserve <= 0 &&
-            weaponDef &&
-            weaponDef.reserveRegenSec &&
-            (weaponState.reserveRegenTimer || 0) > 0
-          ) {
-            ammoText +=
-              ' · 补充 ' +
-              Math.max(
-                1,
-                Math.ceil(
-                  weaponDef.reserveRegenSec - weaponState.reserveRegenTimer
-                )
-              ) +
-              's';
-          }
           this.els.vehicleHudAmmo.textContent = ammoText;
         } else if (weaponState.mag != null) {
           this.els.vehicleHudAmmo.textContent = String(Math.max(0, weaponState.mag | 0));
         } else if (weaponDef && weaponDef.maxHeat != null) {
-          this.els.vehicleHudAmmo.textContent =
-            Math.round(weaponState.heat || 0) +
-            '% 热量' +
-            (weaponState.overheated ? ' · 过热' : '');
+          const heat = Math.round(weaponState.heat || 0);
+          this.els.vehicleHudAmmo.textContent = weaponState.overheated
+            ? heat + '% 过热'
+            : heat + '% 热量';
         } else {
           this.els.vehicleHudAmmo.textContent = '∞';
         }
+        this.els.vehicleHudAmmo.classList.toggle(
+          'overheated',
+          !!(weaponState && weaponState.overheated)
+        );
+      }
+      this._renderVehicleWeaponRack(available, index, vehicle, personal);
+      if (this.els.vehicleCannonCooldown) {
+        const cooling = !!(
+          heavyShell &&
+          (weaponState.mag == null || weaponState.mag > 0) &&
+          weaponState.cooldown > 0
+        );
+        this.els.vehicleCannonCooldown.classList.toggle('hidden', !cooling);
+        this.els.vehicleCannonCooldown.setAttribute(
+          'aria-hidden',
+          cooling ? 'false' : 'true'
+        );
+        if (cooling) {
+          const maxCooldown = Math.max(0.01, weaponDef.cooldown || 4.2);
+          const remaining = Math.max(0, weaponState.cooldown);
+          const remainingRatio = Math.max(
+            0,
+            Math.min(1, remaining / maxCooldown)
+          );
+          if (this.els.vehicleCannonCooldownRing) {
+            this.els.vehicleCannonCooldownRing.style.strokeDashoffset =
+              String(remainingRatio * 100);
+          }
+          if (this.els.vehicleCannonCooldownText) {
+            this.els.vehicleCannonCooldownText.textContent =
+              '装填 ' + remaining.toFixed(1) + 's';
+          }
+        }
+      }
+      if (this.els.vehicleMgHeat) {
+        const showHeat = !!(
+          !personal &&
+          weaponDef &&
+          weaponDef.maxHeat != null &&
+          weaponState
+        );
+        const heatRatio = showHeat
+          ? Math.max(
+              0,
+              Math.min(1, (weaponState.heat || 0) / Math.max(1, weaponDef.maxHeat))
+            )
+          : 0;
+        this.els.vehicleMgHeat.classList.toggle('hidden', !showHeat || heatRatio <= 0.01);
+        this.els.vehicleMgHeat.classList.toggle(
+          'overheated',
+          !!(showHeat && weaponState.overheated)
+        );
+        this.els.vehicleMgHeat.setAttribute(
+          'aria-hidden',
+          showHeat && heatRatio > 0.01 ? 'false' : 'true'
+        );
+        this.els.vehicleMgHeat.style.setProperty('--heat', heatRatio.toFixed(3));
+      }
+      if (heavyShell) {
+        this._vehicleCannonCooling = this._vehicleCannonCooling || Object.create(null);
+        const readyKey = vehicle.id + '|' + weaponId;
+        const hasAmmo = weaponState.mag == null || weaponState.mag > 0;
+        if (weaponState.cooldown > 0 && hasAmmo) {
+          this._vehicleCannonCooling[readyKey] = true;
+        } else if (
+          hasAmmo &&
+          this._vehicleCannonCooling[readyKey]
+        ) {
+          delete this._vehicleCannonCooling[readyKey];
+          if (this.els.vehicleReticle) {
+            this.els.vehicleReticle.classList.remove('cannon-ready-flash');
+            void this.els.vehicleReticle.offsetWidth;
+            this.els.vehicleReticle.classList.add('cannon-ready-flash');
+          }
+          if (
+            weaponId === 'tank_main_cannon' &&
+            global.VF.Audio &&
+            global.VF.Audio.play
+          ) {
+            global.VF.Audio.play('tank_breech', { gain: 0.24 });
+          }
+        }
+      } else {
+        this._vehicleCannonCooling = Object.create(null);
+      }
+      if (this.els.vehicleReticleAmmoType) {
+        this.els.vehicleReticleAmmoType.textContent = personal
+          ? '个人武器'
+          : weaponDef && weaponDef.maxHeat != null
+            ? weaponDef.nameZh || weaponDef.name || '—'
+            : weaponDef
+              ? weaponDef.ammoTypeZh || weaponDef.nameZh
+              : '—';
+      }
+      if (this.els.vehicleReticleAmmoCount) {
+        if (hideOpticAmmo || !weaponState || personal) {
+          this.els.vehicleReticleAmmoCount.textContent = hideOpticAmmo ? '' : '—';
+        } else if (
+          weaponState.mag != null &&
+          weaponState.reserve != null &&
+          weaponDef &&
+          (weaponDef.magSize === 1 || weaponId === 'ifv_at_missile')
+        ) {
+          this.els.vehicleReticleAmmoCount.textContent = String(
+            Math.max(0, (weaponState.mag | 0) + (weaponState.reserve | 0))
+          );
+        } else if (weaponState.mag != null) {
+          this.els.vehicleReticleAmmoCount.textContent = String(
+            Math.max(0, weaponState.mag | 0)
+          );
+        } else {
+          this.els.vehicleReticleAmmoCount.textContent = '∞';
+        }
+      }
+      if (vehicle.type === 'tank' ||
+          weaponId === 'ifv_at_missile' ||
+          weaponId === 'ifv_he_autocannon') {
+        this._renderVehicleCompass(player.yaw || 0);
+        this._renderTankSchematic(vehicle, player);
       }
       if (this.els.vehicleReticleReady) {
         if (personal) this.els.vehicleReticleReady.textContent = '个人武器';
         else if (!weaponDef) this.els.vehicleReticleReady.textContent = '—';
-        else if (weaponState && weaponState.overheated) {
-          this.els.vehicleReticleReady.textContent = weaponDef.nameZh + ' 过热';
-        } else if (weaponState && weaponState.reloadTimer > 0) {
-          this.els.vehicleReticleReady.textContent = weaponDef.nameZh + ' 装填';
-        } else {
-          this.els.vehicleReticleReady.textContent = weaponDef.nameZh + ' 就绪';
+        else {
+          this.els.vehicleReticleReady.textContent = this._weaponCanFire(
+            weaponState,
+            weaponDef
+          )
+            ? '就绪'
+            : '装填';
         }
+      }
+      if (this.els.vehicleTankWeaponStatus) {
+        const ready = !!(
+          (vehicle.type === 'tank' ||
+            weaponId === 'ifv_at_missile' ||
+            weaponId === 'ifv_he_autocannon') &&
+          !personal &&
+          this._weaponCanFire(weaponState, weaponDef)
+        );
+        this.els.vehicleTankWeaponStatus.textContent = ready ? '就绪' : '装填';
+        this.els.vehicleTankWeaponStatus.classList.toggle('loading', !ready);
       }
     },
 
@@ -806,11 +1212,14 @@
     },
 
     updateArmyCounts(blue, red) {
-      if (blue === this._cachedBlue && red === this._cachedRed) return;
-      this._cachedBlue = blue;
-      this._cachedRed = red;
-      if (this.els.blueCount) this.els.blueCount.textContent = blue;
-      if (this.els.redCount) this.els.redCount.textContent = red;
+      const pTeam = this._playerTeam();
+      const you = pTeam === 'enemy' ? red : blue;
+      const them = pTeam === 'enemy' ? blue : red;
+      if (you === this._cachedBlue && them === this._cachedRed) return;
+      this._cachedBlue = you;
+      this._cachedRed = them;
+      if (this.els.blueCount) this.els.blueCount.textContent = you;
+      if (this.els.redCount) this.els.redCount.textContent = them;
     },
 
     updateZone(zone) {
@@ -1151,6 +1560,7 @@
     showVictory(title, sub) {
       if (this.hideDeath) this.hideDeath();
       if (this.closeSpawnSelect) this.closeSpawnSelect();
+      if (this.closePauseMenu) this.closePauseMenu({ resumeLock: false });
       const bases = global.VF.game && global.VF.game.bases;
       const lost = !!(bases && bases.lost);
       const card =
@@ -1439,22 +1849,137 @@
       root.innerHTML = html;
     },
 
+    _hudWeaponSilhouette(id, def) {
+      const category = (def && def.category) || '';
+      if (id === 'knife' || (def && def.melee)) return 'knife';
+      if (id === 'rpg' || category === 'launcher') return 'rpg';
+      if (id === 'sg' || category === 'shotgun') return 'sg';
+      if (id === 'sr' || category === 'dmr' || category === 'sniper') return 'sr';
+      if (category === 'pistol') return 'pistol';
+      return 'ar';
+    },
+
+    syncWeaponStack(equippedId) {
+      const g = global.VF && global.VF.game;
+      const defs = (global.VF && global.VF.WEAPONS) || {};
+      const loadout = (g && g.loadout) || {};
+      const primaryRaw =
+        (g && g.preferredWeaponId) || loadout.primary || global.VF.DEFAULT_PRIMARY || 'ak74';
+      const secondaryRaw =
+        (g && g.preferredSecondaryId) ||
+        loadout.secondary ||
+        global.VF.DEFAULT_SECONDARY ||
+        'usp';
+      const primaryId = global.VF.sanitizePrimaryId
+        ? global.VF.sanitizePrimaryId(primaryRaw)
+        : primaryRaw;
+      const secondaryId = global.VF.sanitizeSecondaryId
+        ? global.VF.sanitizeSecondaryId(secondaryRaw)
+        : secondaryRaw;
+      const currentId =
+        equippedId ||
+        (g && g.weapons && g.weapons.current) ||
+        primaryId;
+      const currentDef = defs[currentId];
+      const currentIsSecondary =
+        currentId === secondaryId || !!(currentDef && currentDef.category === 'pistol');
+      const currentIsPrimary =
+        currentId === primaryId ||
+        !!(
+          currentDef &&
+          currentDef.category !== 'pistol' &&
+          currentId !== 'rpg' &&
+          currentId !== 'knife'
+        );
+      const stowedId = currentIsSecondary ? primaryId : currentIsPrimary ? secondaryId : primaryId;
+      const stowedDef = defs[stowedId];
+      const stowedState = g && g.weapons && g.weapons.state && g.weapons.state[stowedId];
+      let currentKey = currentIsSecondary ? 2 : currentIsPrimary ? 1 : '';
+      if (currentId === 'knife') currentKey = 6;
+      else if (
+        currentId === 'rpg' &&
+        global.VF.Gadgets &&
+        global.VF.Gadgets.rpgHotbarSlot
+      ) {
+        currentKey = global.VF.Gadgets.rpgHotbarSlot();
+      }
+      if (this.els.weaponSlotKey) {
+        this.els.weaponSlotKey.textContent = currentKey || '';
+        this.els.weaponSlotKey.classList.toggle('hidden', !currentKey);
+      }
+      if (this.els.stowedWeaponKey) {
+        this.els.stowedWeaponKey.textContent = currentIsSecondary || !currentIsPrimary ? '1' : '2';
+      }
+      if (this.els.stowedWeaponName) {
+        this.els.stowedWeaponName.textContent =
+          (stowedDef && (stowedDef.nameZh || stowedDef.name || stowedDef.model)) ||
+          String(stowedId || '').toUpperCase();
+      }
+      if (this.els.stowedWeaponSilhouette) {
+        this.els.stowedWeaponSilhouette.className =
+          'weapon-silhouette ' + this._hudWeaponSilhouette(stowedId, stowedDef);
+      }
+      if (this.els.stowedWeaponAmmo) {
+        const mag =
+          stowedState && stowedState.mag != null
+            ? stowedState.mag
+            : stowedDef && stowedDef.magSize;
+        const reserve =
+          stowedState && stowedState.reserve != null
+            ? stowedState.reserve
+            : stowedDef && stowedDef.reserve;
+        this.els.stowedWeaponAmmo.textContent =
+          mag == null ? '' : Math.max(0, mag | 0) + ' / ' + Math.max(0, reserve | 0);
+      }
+    },
+
     setEquippedWeapon(id) {
       const def = global.VF.WEAPONS && global.VF.WEAPONS[id];
+      const silhouette = this._hudWeaponSilhouette(id, def);
+
+      const weaponName = (def && (def.nameZh || def.name || def.model)) || String(id || '武器').toUpperCase();
+      if (this.els.weaponHudName) this.els.weaponHudName.textContent = weaponName;
+      if (this.els.weaponFireModeLabel) {
+        const fireMode =
+          silhouette === 'knife'
+            ? '近战'
+            : def && def.automatic
+              ? '全自动'
+              : '单发';
+        this.els.weaponFireModeLabel.textContent = fireMode;
+      }
+      if (this.els.ammoPanel) {
+        this.els.ammoPanel.classList.toggle('mode-auto', !!(def && def.automatic));
+        this.els.ammoPanel.classList.toggle(
+          'mode-single',
+          silhouette !== 'knife' && !(def && def.automatic)
+        );
+      }
+
       if (this.els.hotbarSlots) {
+        const slotNum =
+          silhouette === 'knife'
+            ? 6
+            : silhouette === 'pistol'
+              ? 2
+              : silhouette === 'rpg' &&
+                  global.VF.Gadgets &&
+                  global.VF.Gadgets.rpgHotbarSlot
+                ? global.VF.Gadgets.rpgHotbarSlot()
+                : 1;
         this.els.hotbarSlots.forEach((el) => {
-          if (Number(el.dataset.slot) !== 1) return;
-          if (!def || id === 'sg' || id === 'sr' || id === 'rpg') return;
+          if (Number(el.dataset.slot) !== slotNum) return;
           const nameEl = el.querySelector('.slot-name');
-          if (nameEl) nameEl.textContent = def.nameZh || def.name || id;
-          el.title = (def.nameZh || def.name || id) + ' (1)';
+          if (nameEl) nameEl.textContent = weaponName;
+          const icon = el.querySelector('.slot-icon');
+          if (icon) icon.className = 'slot-icon weapon-' + silhouette;
+          el.title = weaponName + ' (' + slotNum + ')';
         });
       }
       if (this.els.weaponSilhouette) {
-        this.els.weaponSilhouette.className =
-          'weapon-silhouette ' +
-          (id === 'sg' || id === 'sr' || id === 'rpg' ? id : 'ar');
+        this.els.weaponSilhouette.className = 'weapon-silhouette ' + silhouette;
       }
+      this.syncWeaponStack(id);
     },
 
     setHotbarSlot(slotNum) {
@@ -1557,6 +2082,25 @@
       this._hitTimer = setTimeout(function () {
         el.classList.remove('fire', 'hit', 'hit-kill', 'hit-head', 'hit-armor');
       }, dur);
+    },
+
+    flashVehicleHit(damage) {
+      const el = this.els.vehicleHeavyHit;
+      if (!el) return;
+      if (this.els.vehicleHeavyHitDamage) {
+        const amount = Math.max(0, Math.round(Number(damage) || 0));
+        this.els.vehicleHeavyHitDamage.textContent =
+          amount > 0 ? '伤害 ' + amount : '';
+      }
+      clearTimeout(this._vehicleHitTimer);
+      el.classList.remove('show');
+      void el.offsetWidth;
+      el.classList.add('show');
+      el.setAttribute('aria-hidden', 'false');
+      this._vehicleHitTimer = setTimeout(function () {
+        el.classList.remove('show');
+        el.setAttribute('aria-hidden', 'true');
+      }, 190);
     },
 
     _feedName(id, fallback) {
@@ -1833,9 +2377,18 @@
         };
         const squads = global.VF && global.VF.Squads;
         let html = '';
-        const teams = ['ally', 'enemy'];
+        const Look = global.VF && global.VF.TeamLook;
+        const pTeam = this._playerTeam();
+        const teams = pTeam === 'enemy' ? ['enemy', 'ally'] : ['ally', 'enemy'];
         for (let t = 0; t < teams.length; t++) {
           const team = teams[t];
+          const lookKind = Look && Look.kind ? Look.kind(team) : team === 'ally' ? 'friend' : 'foe';
+          const sideName =
+            Look && Look.sideName
+              ? Look.sideName(team)
+              : team === 'ally'
+                ? '蓝方'
+                : '红方';
           const teamPlayers = scoreState.players.filter(function (profile) {
             return profile.team === team;
           });
@@ -1848,9 +2401,9 @@
             const squad = squads && squads.getSquad ? squads.getSquad(squadId) : null;
             html +=
               '<tr class="cq-board-squad ' +
-              team +
+              lookKind +
               '"><td colspan="8">' +
-              escape((team === 'ally' ? '蓝方 · ' : '红方 · ') + (squad ? squad.name : '未编组')) +
+              escape(sideName + ' · ' + (squad ? squad.name : '未编组')) +
               '</td></tr>';
             const list = grouped[squadId];
             for (let i = 0; i < list.length; i++) {
@@ -1927,12 +2480,13 @@
         this.loadoutCustomizeOpen ||
         this.modeSelectOpen ||
         this.arsenalOpen ||
+        this.pauseMenuOpen ||
         towerOpen ||
         rangeOpen
       );
     },
 
-    /** Inventory / map / class pause the sim. Redeploy spawn overlay does not. */
+    /** Inventory / map / class pause the sim. Redeploy spawn overlay and Esc pause menu do not. */
     pausesWorld() {
       const tower = global.VF.TowerDesigner;
       const towerOpen = !!(tower && tower.open === true);
@@ -1951,6 +2505,295 @@
         towerOpen ||
         rangeOpen
       );
+    },
+
+    _pauseEscBlocked() {
+      if (
+        this.arsenalOpen ||
+        this.classSelectOpen ||
+        this.squadIntroOpen ||
+        this.loadoutCustomizeOpen ||
+        this.modeSelectOpen
+      ) {
+        return true;
+      }
+      const tower = global.VF.TowerDesigner;
+      if (tower && tower.open === true) return true;
+      if (global.VF.Range) {
+        const ro = global.VF.Range.isOpen;
+        if (typeof ro === 'function' ? !!ro.call(global.VF.Range) : !!ro) return true;
+      }
+      if (global.VF.MapEditor && global.VF.MapEditor.isOpen && global.VF.MapEditor.isOpen()) {
+        return true;
+      }
+      if (global.VF.Hub && global.VF.Hub.isOpen) return true;
+      if (global.VF.Lobby && global.VF.Lobby.isOpen && global.VF.Lobby.isOpen()) return true;
+      const start = document.getElementById('start-overlay');
+      if (start && !start.classList.contains('hidden') && !start.classList.contains('mode-active')) {
+        const hud = this.els && this.els.hud;
+        const hudOpen = !!(hud && !hud.classList.contains('hidden'));
+        if (!hudOpen) return true;
+      }
+      const tutorial = document.getElementById('tutorial-overlay');
+      if (tutorial && !tutorial.classList.contains('hidden')) return true;
+      if (this.els && this.els.victoryOverlay && !this.els.victoryOverlay.classList.contains('hidden')) {
+        return true;
+      }
+      if (global.VF.Pvp && global.VF.Pvp.phase === 'spawnWait') return true;
+      return false;
+    },
+
+    _canOpenPauseMenu() {
+      if (this._pauseEscBlocked()) return false;
+      const g = global.VF && global.VF.game;
+      if (!g) return false;
+      if (this.spawnSelectOpen && !this._spawnRedeploy && !g.running) return false;
+      if (g.running) return true;
+      if (this.spawnSelectOpen && this._spawnRedeploy) return true;
+      if (this.els && this.els.deathOverlay && !this.els.deathOverlay.classList.contains('hidden')) {
+        return true;
+      }
+      if (
+        this.els &&
+        this.els.hud &&
+        !this.els.hud.classList.contains('hidden') &&
+        global.VF.Conquest &&
+        global.VF.Conquest.active
+      ) {
+        return true;
+      }
+      return false;
+    },
+
+    _bindPauseMenu() {
+      if (this._pauseBound) return;
+      this._pauseBound = true;
+      const self = this;
+      if (this.els.pauseResume) {
+        this.els.pauseResume.addEventListener('click', function (e) {
+          e.preventDefault();
+          self.closePauseMenu({ resumeLock: true });
+        });
+      }
+      if (this.els.pauseRedeploy) {
+        this.els.pauseRedeploy.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (self.els.pauseRedeploy.disabled) return;
+          if (global.VF && global.VF.requestRedeploy) global.VF.requestRedeploy();
+        });
+      }
+      if (this.els.pauseLeave) {
+        this.els.pauseLeave.addEventListener('click', function (e) {
+          e.preventDefault();
+          self._onPauseLeaveClick();
+        });
+      }
+      global.addEventListener(
+        'keydown',
+        function (e) {
+          if (e.code !== 'Escape' || e.repeat) return;
+          const tag = e.target && e.target.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+          if (self.arsenalOpen || self.classSelectOpen || self.squadIntroOpen || self.loadoutCustomizeOpen) {
+            return;
+          }
+          if (self.pauseMenuOpen) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            if (performance.now() < (self._pauseIgnoreEscUntil || 0)) return;
+            self.closePauseMenu({ resumeLock: true });
+            return;
+          }
+          if (!self._canOpenPauseMenu()) return;
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          self.openPauseMenu();
+        },
+        true
+      );
+    },
+
+    _onPauseLeaveClick() {
+      if (!this._pauseLeaveArmed) {
+        this._armPauseLeave();
+        return;
+      }
+      if (global.VF && global.VF.leaveMatchFromPause) global.VF.leaveMatchFromPause();
+    },
+
+    _armPauseLeave() {
+      this._pauseLeaveArmed = true;
+      if (this.els.pauseLeave) this.els.pauseLeave.classList.add('pause-leave-armed');
+      if (this.els.pauseLeaveLabel) this.els.pauseLeaveLabel.textContent = '确认离开';
+      if (this._pauseLeaveTimer) clearTimeout(this._pauseLeaveTimer);
+      const self = this;
+      this._pauseLeaveTimer = setTimeout(function () {
+        self._clearPauseLeaveArm();
+      }, 2500);
+    },
+
+    _clearPauseLeaveArm() {
+      this._pauseLeaveArmed = false;
+      if (this._pauseLeaveTimer) {
+        clearTimeout(this._pauseLeaveTimer);
+        this._pauseLeaveTimer = null;
+      }
+      if (this.els.pauseLeave) this.els.pauseLeave.classList.remove('pause-leave-armed');
+      if (this.els.pauseLeaveLabel) this.els.pauseLeaveLabel.textContent = '离开对局';
+    },
+
+    shouldOpenPauseOnUnlock() {
+      if (this.pauseMenuOpen) return false;
+      if (
+        this.inventoryOpen ||
+        this.mapOpen ||
+        this.spawnSelectOpen ||
+        this.classSelectOpen ||
+        this.squadIntroOpen ||
+        this.loadoutCustomizeOpen ||
+        this.arsenalOpen ||
+        this.modeSelectOpen
+      ) {
+        return false;
+      }
+      const g = global.VF && global.VF.game;
+      const player = g && g.player;
+      if (!player || player.dead || player.downed) return false;
+      return this._canOpenPauseMenu();
+    },
+
+    openPauseMenu() {
+      if (!this.els) this.init();
+      if (this.pauseMenuOpen) {
+        this.syncPauseMenu();
+        return;
+      }
+      if (!this._canOpenPauseMenu()) return;
+      if (this.inventoryOpen) {
+        this.inventoryOpen = false;
+        if (this.els.inventory) this.els.inventory.classList.add('hidden');
+      }
+      if (this.mapOpen) this.setMapOpen(false);
+      if (this.scoreboardOpen) this.setScoreboardOpen(false);
+      this.pauseMenuOpen = true;
+      this._pauseIgnoreEscUntil = performance.now() + 280;
+      this._fillPauseBrief();
+      this._clearPauseLeaveArm();
+      this.syncPauseMenu();
+      if (this.els.pauseOverlay) this.els.pauseOverlay.classList.remove('hidden');
+      if (document.body) document.body.classList.add('pause-overlay-open');
+      document.exitPointerLock && document.exitPointerLock();
+      const g = global.VF && global.VF.game;
+      const player = g && g.player;
+      if (player && player.setPointerLock) player.setPointerLock(false);
+      if (player && player.clearHeldKeys) player.clearHeldKeys();
+      if (this.els.pauseResume) {
+        try {
+          this.els.pauseResume.focus();
+        } catch (_) {}
+      }
+    },
+
+    closePauseMenu(opts) {
+      opts = opts || {};
+      if (!this.pauseMenuOpen) {
+        if (this.els.pauseOverlay) this.els.pauseOverlay.classList.add('hidden');
+        if (document.body) document.body.classList.remove('pause-overlay-open');
+        return;
+      }
+      this.pauseMenuOpen = false;
+      this._clearPauseLeaveArm();
+      if (this.els.pauseOverlay) this.els.pauseOverlay.classList.add('hidden');
+      if (document.body) document.body.classList.remove('pause-overlay-open');
+      if (opts.resumeLock === false) return;
+      const g = global.VF && global.VF.game;
+      const player = g && g.player;
+      if (!g || !g.running || !player) return;
+      if (this.spawnSelectOpen || player.dead || player.downed || !player.alive) return;
+      const canvas = g.renderer && g.renderer.domElement;
+      if (!canvas || !canvas.requestPointerLock) return;
+      try {
+        canvas.requestPointerLock();
+      } catch (_) {}
+    },
+
+    syncPauseMenu() {
+      if (!this.pauseMenuOpen || !this.els.pauseRedeploy) return;
+      const g = global.VF && global.VF.game;
+      const player = g && g.player;
+      const ended = !!(
+        (g && g.bases && (g.bases.won || g.bases.lost)) ||
+        (g && g.mode === 'pvp' && global.VF.Pvp && global.VF.Pvp._matchEnded)
+      );
+      const downed = !!(player && player.downed);
+      const dead = !!(player && (player.dead || !player.alive));
+      const prot = !!(player && player._reviveProtection > 0);
+      const onSpawn = !!this.spawnSelectOpen;
+      const disable = !player || ended || downed || dead || prot || onSpawn;
+      this.els.pauseRedeploy.disabled = disable;
+      let why = '';
+      if (ended) why = '对局已结束';
+      else if (onSpawn) why = '已在部署界面';
+      else if (downed) why = '倒地时请先放弃救援';
+      else if (dead) why = '阵亡后请从部署图进入';
+      else if (prot) why = '出生保护中无法重新部署';
+      this.els.pauseRedeploy.title = why;
+    },
+
+    _fillPauseBrief() {
+      const g = global.VF && global.VF.game;
+      const world = g && g.world;
+      const island = global.VF && global.VF.IslandConquestMap;
+      const mapName = (world && world._mapName) || (island && island.name) || '荒盆';
+      const pvp = !!(g && g.mode === 'pvp');
+      const matchSize = pvp ? '8 vs 8' : '32 vs 32';
+      const modeTitle = pvp ? '征服' : '单人游戏';
+      const C = (global.VF && global.VF.CONQUEST) || {};
+      const feel = (global.VF && global.VF.Feel && global.VF.Feel.conquest) || {};
+      const tix = feel.tickets != null ? feel.tickets : C.TICKETS_START || 1000;
+      const round = feel.roundSec != null ? feel.roundSec : C.ROUND_SEC || 2700;
+      const mm = String(Math.floor(round / 60));
+      const flags =
+        (world && world._conquestFlags && world._conquestFlags.length
+          ? world._conquestFlags
+          : (world && world._kitFlags) || []) || [];
+      const lastFlag = flags.length
+        ? flags[flags.length - 1].letter || String.fromCharCode(64 + flags.length)
+        : 'F';
+      const live = global.VF && global.VF.Conquest && global.VF.Conquest.active ? global.VF.Conquest : null;
+      const allyTix = live && live.tickets ? live.tickets.ally : tix;
+      const enemyTix = live && live.tickets ? live.tickets.enemy : tix;
+      if (this.els.pauseModeName) this.els.pauseModeName.textContent = modeTitle;
+      if (this.els.pauseMapLine) {
+        this.els.pauseMapLine.textContent = mapName + ' · ' + matchSize;
+      }
+      if (this.els.pauseBriefLead) {
+        this.els.pauseBriefLead.textContent =
+          '占领旗帜以消耗敌方增援。增援耗尽的一方战败。当前增援 蓝 ' +
+          Math.round(allyTix) +
+          ' / 红 ' +
+          Math.round(enemyTix) +
+          '。';
+      }
+      if (this.els.pauseBriefList) {
+        const items = [
+          '走进占领圈控制 A–' + lastFlag + ' 旗帜；双方同圈时进度冻结',
+          '己方完全控制的旗帜越多，敌方掉票越快',
+          '阵亡会扣除本方增援；被救起则不扣',
+          '可从己方主基地或已占领旗帜重新部署',
+          pvp ? '8 名真人，其余席位由 AI 补齐' : '1 名真人 + 31 AI 对战 32 AI',
+        ];
+        this.els.pauseBriefList.textContent = '';
+        for (let i = 0; i < items.length; i++) {
+          const li = document.createElement('li');
+          li.textContent = items[i];
+          this.els.pauseBriefList.appendChild(li);
+        }
+      }
+      if (this.els.pauseBriefFoot) {
+        this.els.pauseBriefFoot.textContent =
+          '对局时长 ' + mm + ' 分钟 · 开局增援 ' + tix + '。菜单打开时战场不会暂停。';
+      }
     },
 
     /* ---------- Multiplayer mode select ---------- */
@@ -2028,9 +2871,18 @@
         } else if (act === 'settings') {
           if (self.toast) self.toast('设置：右上角可切换音效 · F10 打开参数调节');
         } else if (act === 'conquest32') {
+          self.closeModeSelect();
+          if (global.VF.Pvp && typeof global.VF.Pvp.quickMatch === 'function') {
+            global.VF.Pvp.quickMatch();
+          } else if (self.toast) {
+            self.toast('联机模块未就绪');
+          }
+        } else if (act === 'solo') {
           if (typeof global.VF.startConquest32 === 'function') {
             global.VF.startConquest32();
           }
+        } else if (act === 'range') {
+          return;
         }
       });
       root.addEventListener('input', function (e) {
@@ -2187,10 +3039,17 @@
         join.className = 'server-join';
         join.setAttribute('data-mode-action', 'server-join');
         join.setAttribute('data-server-code', server.code);
+        const pvpApi = global.VF && global.VF.Pvp;
         const available =
-          server.players < server.capacity && server.phase === 'lobby';
+          pvpApi && typeof pvpApi.isServerJoinable === 'function'
+            ? pvpApi.isServerJoinable(server)
+            : server.players < server.capacity && server.phase !== 'closed';
         join.disabled = !available;
-        join.textContent = available ? '加入' : '不可加入';
+        join.textContent = available
+          ? '加入'
+          : server.players >= server.capacity
+            ? '已满员'
+            : '不可加入';
         joinCell.appendChild(join);
         row.appendChild(joinCell);
         body.appendChild(row);
@@ -2221,7 +3080,7 @@
         this.els.classDeployMapName.textContent = opts.mapName || '荒盆';
       }
       if (this.els.classDeployModeName) {
-        this.els.classDeployModeName.textContent = opts.modeName || '征服 · 32 VS 32';
+        this.els.classDeployModeName.textContent = opts.modeName || '单人游戏';
       }
       if (this.els.classDeployPlayerCount) {
         const current = opts.playerCount != null ? opts.playerCount : 64;
@@ -2678,7 +3537,7 @@
         this.els.squadIntroMapName.textContent = opts.mapName || '荒盆';
       }
       if (this.els.squadIntroModeName) {
-        this.els.squadIntroModeName.textContent = opts.modeName || '征服 · 32 VS 32';
+        this.els.squadIntroModeName.textContent = opts.modeName || '单人游戏';
       }
       if (this.els.squadIntroFactionName) {
         this.els.squadIntroFactionName.textContent = opts.factionName || '和平军团';
@@ -2951,14 +3810,15 @@
           ? global.VF.Soldier.normalizeClassId(requestedClass)
           : requestedClass;
       const weaponDefs = (global.VF && global.VF.WEAPONS) || {};
-      let weaponId = opts.weaponId || 'ar';
-      if (!weaponDefs[weaponId]) weaponId = 'ar';
+      let weaponId = opts.weaponId || global.VF.DEFAULT_PRIMARY || 'ak74';
+      if (global.VF.sanitizePrimaryId) weaponId = global.VF.sanitizePrimaryId(weaponId);
+      if (!weaponDefs[weaponId]) weaponId = global.VF.DEFAULT_PRIMARY || 'ak74';
       if (
         global.VF.Economy &&
         global.VF.Economy.ownsWeapon &&
         !global.VF.Economy.ownsWeapon(weaponId)
       ) {
-        weaponId = 'ar';
+        weaponId = global.VF.DEFAULT_PRIMARY || 'ak74';
       }
       this._loadoutDraftWeaponId = weaponId;
       if (this.els.loadoutCustomizeMapName) {
@@ -2966,7 +3826,7 @@
       }
       if (this.els.loadoutCustomizeModeName) {
         this.els.loadoutCustomizeModeName.textContent =
-          opts.modeName || '征服 · 32 VS 32';
+          opts.modeName || '单人游戏';
       }
       if (this.els.loadoutCustomizeFactionName) {
         this.els.loadoutCustomizeFactionName.textContent =
@@ -3027,10 +3887,14 @@
     },
 
     _loadoutWeaponOrder() {
-      const order = ['ar', 'sg'];
-      const extra = (global.VF && global.VF.WEAPON_LOADOUT_ORDER) || ['sr'];
+      const extra = (global.VF && global.VF.WEAPON_LOADOUT_ORDER) || ['ak74'];
+      const defs = (global.VF && global.VF.WEAPONS) || {};
+      const order = [];
       for (let i = 0; i < extra.length; i++) {
-        if (order.indexOf(extra[i]) < 0) order.push(extra[i]);
+        const id = extra[i];
+        const def = defs[id];
+        if (!def || def.category === 'pistol') continue;
+        order.push(id);
       }
       return order;
     },
@@ -3172,7 +4036,7 @@
       const callback = apply ? this._loadoutOnApply : this._loadoutOnCancel;
       const selection = {
         classId: this._loadoutDraftClassId || 'assault',
-        weaponId: this._loadoutDraftWeaponId || 'ar',
+        weaponId: this._loadoutDraftWeaponId || global.VF.DEFAULT_PRIMARY || 'ak74',
       };
       this.closeLoadoutCustomize();
       if (typeof callback === 'function') callback(selection);
@@ -3375,7 +4239,7 @@
       const island = global.VF && global.VF.IslandConquestMap;
       const mapName = (world && world._mapName) || (island && island.name) || '荒盆';
       if (this.els.deployMapName) {
-        this.els.deployMapName.textContent = '征服';
+        this.els.deployMapName.textContent = g && g.mode === 'pvp' ? '征服' : '单人游戏';
       }
       if (this.els.deployMapMode) {
         const modeMap = this.els.deployMapMode.querySelector('span');
@@ -3584,7 +4448,11 @@
         if (this.toast) this.toast('该部署点不属于你的阵营');
         return;
       }
-      if (!locked && target.team) world._playerTeam = target.team;
+      if (!locked && target.team) {
+        if (world.setPlayerTeam) world.setPlayerTeam(target.team);
+        else world._playerTeam = target.team;
+        if (g && g.player) g.player.team = target.team;
+      }
       if (
         locked &&
         global.VF.Conquest &&
@@ -3609,10 +4477,14 @@
       const enemyH3 = this.els.spawnGroupEnemy && this.els.spawnGroupEnemy.querySelector('h3');
       const makeBtn = (s) => {
         const btn = document.createElement('button');
+        const Look = global.VF && global.VF.TeamLook;
+        const lookKind = Look && Look.kind ? Look.kind(s.team) : s.team === 'enemy' ? 'foe' : 'friend';
         btn.type = 'button';
         btn.className =
           'spawn-pick ' +
           s.team +
+          ' ' +
+          lookKind +
           (s.id === world._selectedSpawnId ? ' selected' : '') +
           (s.available === false ? ' locked' : '');
         btn.dataset.spawnId = s.id;
@@ -3637,9 +4509,24 @@
         return;
       }
       if (!world._spawnPoints) return;
-      if (allyH3) allyH3.textContent = '蓝方出生点';
-      if (enemyH3) enemyH3.textContent = '红方出生点';
-      if (this.els.spawnGroupEnemy) this.els.spawnGroupEnemy.classList.remove('hidden');
+      const Look = global.VF && global.VF.TeamLook;
+      if (allyH3) {
+        allyH3.textContent = ((Look && Look.sideName && Look.sideName('ally')) || '蓝方') + '出生点';
+      }
+      if (enemyH3) {
+        enemyH3.textContent = ((Look && Look.sideName && Look.sideName('enemy')) || '红方') + '出生点';
+      }
+      if (this.els.spawnGroupAlly) {
+        const allyLook = Look && Look.kind ? Look.kind('ally') : 'friend';
+        this.els.spawnGroupAlly.classList.toggle('look-friend', allyLook === 'friend');
+        this.els.spawnGroupAlly.classList.toggle('look-foe', allyLook === 'foe');
+      }
+      if (this.els.spawnGroupEnemy) {
+        const enemyLook = Look && Look.kind ? Look.kind('enemy') : 'foe';
+        this.els.spawnGroupEnemy.classList.toggle('look-friend', enemyLook === 'friend');
+        this.els.spawnGroupEnemy.classList.toggle('look-foe', enemyLook === 'foe');
+        this.els.spawnGroupEnemy.classList.remove('hidden');
+      }
       world._spawnPoints.ally.forEach((s) => allyRow.appendChild(makeBtn(s)));
       world._spawnPoints.enemy.forEach((s) => enemyRow.appendChild(makeBtn(s)));
     },
@@ -3708,8 +4595,8 @@
         global.VF.Arsenal && global.VF.Arsenal.getStripItems
           ? global.VF.Arsenal.getStripItems(info)
           : [
-              { kind: 'rifle', name: 'AKM', arsenalSlot: 'primary', itemId: 'ar' },
-              { kind: 'pistol', name: 'M9', arsenalSlot: 'secondary', itemId: 'm9' },
+              { kind: 'rifle', name: 'AK-74', arsenalSlot: 'primary', itemId: 'ak74' },
+              { kind: 'pistol', name: 'USP', arsenalSlot: 'secondary', itemId: 'usp' },
               { kind: 'medkit', name: '急救箱', arsenalSlot: 'gadget1', itemId: 'medkit' },
               { kind: 'ammo', name: '弹药箱', arsenalSlot: 'gadget2', itemId: 'ammo' },
               { kind: 'frag', name: '破片手榴弹', arsenalSlot: 'grenade', itemId: 'frag' },
@@ -3796,18 +4683,62 @@
       this._syncDeployClassDetails(currentInfo);
       if (this.els.deployRole && !this.els.deployRole._vfBound) {
         this.els.deployRole._vfBound = true;
-        this.els.deployRole.addEventListener('click', function () {
-          const game = global.VF && global.VF.game;
-          const id = (game && game.playerClass) || self.selectedClassId || 'assault';
-          let picked = null;
-          for (let i = 0; i < classes.length; i++) {
-            if (classes[i].id === id) picked = classes[i];
-          }
-          if (self.toast && picked) {
-            self.toast((picked.label || picked.nameZh) + ' · ' + (picked.role || ''));
-          }
+        this.els.deployRole.addEventListener('click', function (e) {
+          e.preventDefault();
+          self.switchDeployFaction();
         });
       }
+      this._syncDeployFactionBtn();
+    },
+
+    _syncDeployFactionBtn() {
+      const btn = this.els && this.els.deployRole;
+      if (!btn) return;
+      const g = global.VF && global.VF.game;
+      const world = g && g.world;
+      const pvp = !!(g && g.mode === 'pvp');
+      const team = world && world._playerTeam === 'enemy' ? 'enemy' : 'ally';
+      const nextName = team === 'enemy' ? '和平军团' : '赤焰军团';
+      btn.textContent = '更改阵营';
+      btn.disabled = pvp;
+      btn.title = pvp
+        ? '对战模式阵营由房间锁定'
+        : '当前' + (team === 'enemy' ? '赤焰军团' : '和平军团') + ' · 点此加入' + nextName;
+    },
+
+    switchDeployFaction() {
+      if (!this.spawnSelectOpen) return false;
+      const g = global.VF && global.VF.game;
+      const world = g && g.world;
+      if (!g || !world) return false;
+      if (g.mode === 'pvp') {
+        if (this.toast) this.toast('对战模式阵营已锁定');
+        return false;
+      }
+      const from = world._playerTeam === 'enemy' ? 'enemy' : 'ally';
+      const to = from === 'ally' ? 'enemy' : 'ally';
+      if (g.player) g.player.team = to;
+      if (g.teamLocked) g.lockedTeam = to;
+      world._selectedSpawnId = null;
+      if (world.setPlayerTeam) world.setPlayerTeam(to);
+      else world._playerTeam = to;
+      if (global.VF.Conquest && global.VF.Conquest.applyDeployList) {
+        global.VF.Conquest.applyDeployList(world, to);
+      }
+      if (g.ai && g.ai._bindTeamViews) g.ai._bindTeamViews();
+      if (g.ai && g.ai._refreshArmyHud) g.ai._refreshArmyHud();
+      if (g.ai && g.ai._armiesSpawned && global.VF.Squads && global.VF.Squads.buildRosters) {
+        global.VF.Squads.buildRosters(g);
+      }
+      this._buildSpawnButtons(world);
+      this._refreshSpawnSelection(world);
+      this._syncDeployFactionBtn();
+      if (this.toast) {
+        this.toast(
+          '已加入' + (to === 'enemy' ? '赤焰军团' : '和平军团') + ' · 可在该阵营占领点部署'
+        );
+      }
+      return true;
     },
 
     _refreshSpawnSelection(world) {
@@ -3819,6 +4750,7 @@
       this._syncDeployBattleState(world);
       this.drawSpawnSelectMap(world);
       this._syncSpawnConfirm();
+      this._syncDeployFactionBtn();
     },
 
     _syncSpawnConfirm() {
@@ -4226,7 +5158,12 @@
               z: hq.z,
               kind: 'hq',
               fixed: true,
-              label: sides[t] === 'ally' ? '蓝方基地' : '红方基地',
+              label:
+                (global.VF.TeamLook && global.VF.TeamLook.sideName(sides[t]))
+                  ? global.VF.TeamLook.sideName(sides[t]) + '基地'
+                  : sides[t] === 'ally'
+                    ? '蓝方基地'
+                    : '红方基地',
             });
           }
         }
@@ -4619,7 +5556,7 @@
         ctx.font = 'bold 11px Segoe UI, Microsoft YaHei, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(team === 'ally' ? '蓝' : '红', p.x, p.y + 0.5);
+        ctx.fillText(friendly ? '蓝' : '红', p.x, p.y + 0.5);
         if (world._selectedSpawnId && String(world._selectedSpawnId).indexOf(team) === 0) {
           ctx.strokeStyle = '#fff';
           ctx.lineWidth = 2;
@@ -5005,13 +5942,13 @@
       if (!map) return;
       const toMap = map.toMap;
 
-      // Soldiers — blue / red by faction
+      // Soldiers — friend = blue, foe = spotted yellow
       if (allies) {
         for (let i = 0; i < allies.length; i++) {
           const a = allies[i];
           if (!a.alive) continue;
           const p = toMap(a.mesh.position.x, a.mesh.position.z);
-          ctx.fillStyle = a.team === 'ally' ? '#4aa3ff' : '#ff5566';
+          ctx.fillStyle = '#4aa3ff';
           ctx.fillRect(p.x - 3, p.y - 3, 6, 6);
         }
       }
@@ -5142,7 +6079,7 @@
         el.id = 'toast';
         el.style.cssText =
           'position:fixed;top:30%;left:50%;transform:translateX(-50%);' +
-          'z-index:150;font-family:Orbitron,sans-serif;letter-spacing:0.1em;' +
+          'z-index:100120;font-family:Orbitron,sans-serif;letter-spacing:0.1em;' +
           'color:#ff8c3c;text-shadow:0 2px 12px #000;pointer-events:none;font-size:0.9rem;';
         document.body.appendChild(el);
       }
@@ -5392,6 +6329,26 @@
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(f.letter || '', mx, my + 0.5);
+        }
+      }
+
+      const stations =
+        (world && world._armorRepairStations) ||
+        (global.VF && global.VF.Vehicles && global.VF.Vehicles.stations) ||
+        [];
+      for (let i = 0; i < stations.length; i++) {
+        const station = stations[i];
+        if (!station) continue;
+        const mx = cx + (station.x - px) * scale;
+        const my = cy + (station.z - pz) * scale;
+        if (mx < 5 || my < 5 || mx > w - 5 || my > h - 5) continue;
+        const tint =
+          station.team === 'enemy' ? '#c45a32' : station.team === 'ally' ? '#3d9ad6' : '#e0a020';
+        if (global.VF && typeof global.VF.drawResupplyStationMark === 'function') {
+          global.VF.drawResupplyStationMark(ctx, mx, my, 12, tint, '#1a2420');
+        } else {
+          ctx.strokeStyle = tint;
+          ctx.strokeRect(mx - 4, my - 4, 8, 8);
         }
       }
 

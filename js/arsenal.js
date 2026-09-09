@@ -6,8 +6,8 @@
   'use strict';
 
   const DEFAULT_LOADOUT = {
-    primary: 'ar',
-    secondary: 'm9',
+    primary: 'ak74',
+    secondary: 'usp',
     gadget1: 'medkit',
     gadget2: 'ammo',
     grenade: 'frag',
@@ -28,12 +28,9 @@
     { id: 'assault', label: '突击步枪' },
     { id: 'carbine', label: '卡宾枪' },
     { id: 'smg', label: '冲锋枪' },
-    { id: 'battle', label: '战斗步枪' },
     { id: 'lmg', label: '轻机枪' },
     { id: 'dmr', label: '精确射手' },
     { id: 'sniper', label: '狙击步枪' },
-    { id: 'shotgun', label: '霰弹枪' },
-    { id: 'launcher', label: '发射器' },
   ];
 
   const CATEGORY_META = {
@@ -178,6 +175,10 @@
       const g = global.VF && global.VF.game;
       if (g && g.preferredWeaponId) state.primary = g.preferredWeaponId;
       if (g && g.preferredSecondaryId) state.secondary = g.preferredSecondaryId;
+      if (global.VF.sanitizePrimaryId) state.primary = global.VF.sanitizePrimaryId(state.primary);
+      if (global.VF.sanitizeSecondaryId) {
+        state.secondary = global.VF.sanitizeSecondaryId(state.secondary);
+      }
       return state;
     }
     const g = global.VF && global.VF.game;
@@ -187,6 +188,12 @@
     }
     if (g && g.preferredWeaponId) store.loadout.primary = g.preferredWeaponId;
     if (g && g.preferredSecondaryId) store.loadout.secondary = g.preferredSecondaryId;
+    if (global.VF.sanitizePrimaryId) {
+      store.loadout.primary = global.VF.sanitizePrimaryId(store.loadout.primary);
+    }
+    if (global.VF.sanitizeSecondaryId) {
+      store.loadout.secondary = global.VF.sanitizeSecondaryId(store.loadout.secondary);
+    }
     return store.loadout;
   }
 
@@ -289,15 +296,12 @@
       seen[id] = true;
       ids.push(id);
     }
-    if (slot === 'primary') push('ar');
     for (let i = 0; i < order.length; i++) push(order[i]);
-    if (slot === 'primary') {
-      push('sg');
-    }
     if (slot === 'secondary') {
-      push('m9');
       Object.keys(defs).forEach(function (id) {
-        if (defs[id] && defs[id].category === 'pistol') push(id);
+        if (defs[id] && defs[id].category === 'pistol' && (!global.VF.isLoadoutGun || global.VF.isLoadoutGun(id))) {
+          push(id);
+        }
       });
     }
     return ids.map(function (id) {
@@ -665,6 +669,13 @@
         if (g && g.weapons && g.weapons.equip && curDef && curDef.category === 'pistol') {
           g.weapons.equip(item.id);
         }
+      }
+      if (
+        ui &&
+        ui.syncWeaponStack &&
+        (slot === 'primary' || slot === 'secondary')
+      ) {
+        ui.syncWeaponStack(g && g.weapons && g.weapons.current);
       }
       if (g && global.VF.Gadgets && global.VF.Gadgets.syncHud) {
         global.VF.Gadgets.syncHud(g);

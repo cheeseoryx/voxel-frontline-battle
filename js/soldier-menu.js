@@ -5,21 +5,21 @@
   'use strict';
 
   const NAV = [
-    { id: 'home', label: '主页', icon: '⌂' },
-    { id: 'stats', label: '数据', icon: '◉' },
-    { id: 'achievements', label: '成就', icon: '♟' },
+    { id: 'home', label: '主页', icon: '⌂', hidden: true },
+    { id: 'stats', label: '数据', icon: '◉', hidden: true },
+    { id: 'achievements', label: '成就', icon: '♟', hidden: true },
     { id: 'weapons', label: '武器', icon: '⚑', group: true },
     { id: 'weapon-assault', label: '突击步枪', child: true },
     { id: 'weapon-carbine', label: '卡宾枪', child: true },
     { id: 'weapon-smg', label: '冲锋枪', child: true },
-    { id: 'weapon-battle', label: '战斗步枪', child: true },
+    { id: 'weapon-battle', label: '战斗步枪', child: true, hidden: true },
     { id: 'weapon-lmg', label: '轻机枪', child: true },
     { id: 'weapon-dmr', label: '精确射手步枪', child: true },
     { id: 'weapon-sniper', label: '狙击步枪', child: true },
-    { id: 'weapon-shotgun', label: '霰弹枪', child: true },
+    { id: 'weapon-shotgun', label: '霰弹枪', child: true, hidden: true },
     { id: 'weapon-pistol', label: '手枪', child: true },
     { id: 'gadgets', label: '装备', icon: '◒', group: true },
-    { id: 'gadget-medical', label: '急救包', child: true },
+    { id: 'gadget-medical', label: '急救箱', child: true },
     { id: 'gadget-light', label: '轻型装备', child: true },
     { id: 'gadget-heavy', label: '重型装备', child: true },
     { id: 'gadget-throwable', label: '投掷物', child: true },
@@ -31,6 +31,14 @@
     { id: 'vehicle-naval', label: '海军舰艇', child: true },
     { id: 'vehicle-heli', label: '直升机', child: true },
   ];
+
+  const HIDDEN_PAGES = {
+    home: true,
+    stats: true,
+    achievements: true,
+    'weapon-battle': true,
+    'weapon-shotgun': true,
+  };
 
   const WEAPON_CATEGORY = {
     assault: '突击步枪',
@@ -45,89 +53,28 @@
   };
 
   const WEAPON_CATALOG = [
-    { name: 'AKM', category: 'assault', silhouette: 'rifle', rank: 0, gameId: 'ar' },
-    { name: 'ACR', category: 'assault', silhouette: 'rifle-modern', rank: 110, gameId: 'acr' },
     { name: 'AK-74', category: 'assault', silhouette: 'rifle', rank: 0, gameId: 'ak74' },
-    { name: 'AUG A3', category: 'assault', silhouette: 'bullpup', rank: 75, gameId: 'auga3' },
-    { name: 'FAMAS', category: 'assault', silhouette: 'bullpup-compact', rank: 95, gameId: 'famas' },
-    { name: 'SG550', category: 'assault', silhouette: 'rifle-long', rank: 80, gameId: 'sg550' },
-    { name: 'F2000', category: 'assault', silhouette: 'bullpup-heavy', rank: 35, gameId: 'f2000' },
-    {
-      name: 'AK15',
-      category: 'assault',
-      also: ['battle'],
-      silhouette: 'ak15',
-      rank: 15,
-      gameId: 'ak15',
-    },
-    {
-      name: 'SCAR-H',
-      category: 'assault',
-      also: ['battle'],
-      silhouette: 'scar-h',
-      rank: 50,
-      gameId: 'scarh',
-    },
-    { name: 'FAL', category: 'assault', also: ['battle'], silhouette: 'fal', rank: 140, gameId: 'fal' },
-    { name: 'G3', category: 'assault', also: ['battle'], silhouette: 'g3', rank: 90, gameId: 'g3' },
+    { name: 'ACR', category: 'assault', silhouette: 'rifle-modern', rank: 110, gameId: 'acr' },
+    { name: 'SCAR-H', category: 'assault', silhouette: 'scar-h', rank: 50, gameId: 'scarh' },
 
-    { name: 'G36C', category: 'carbine', silhouette: 'carbine', rank: 120, gameId: 'g36c' },
     { name: 'M4A1', category: 'carbine', silhouette: 'carbine-stock', rank: 0, gameId: 'm4a1' },
-    { name: 'AS VAL', category: 'carbine', silhouette: 'suppressed', rank: 105, gameId: 'asval' },
-    { name: 'GROZA', category: 'carbine', silhouette: 'bullpup-compact', rank: 55, gameId: 'groza' },
     { name: 'HK419', category: 'carbine', silhouette: 'carbine', rank: 135, gameId: 'hk419' },
-    { name: 'AK5C', category: 'carbine', silhouette: 'carbine-stock', rank: 145, gameId: 'ak5c' },
 
-    { name: 'HONEY BADGER', category: 'smg', silhouette: 'suppressed-compact', rank: 65, gameId: 'honeybadger' },
     { name: 'MP7', category: 'smg', silhouette: 'smg-compact', rank: 0, gameId: 'mp7' },
-    { name: 'PP2000', category: 'smg', silhouette: 'smg-wire', rank: 25, gameId: 'pp2000' },
     { name: 'P90', category: 'smg', silhouette: 'p90', rank: 125, gameId: 'p90' },
-    { name: 'KRISS VECTOR', category: 'smg', silhouette: 'vector', rank: 70, gameId: 'vector' },
-    { name: 'UMP-45', category: 'smg', silhouette: 'smg-stock', rank: 0, gameId: 'ump45' },
     { name: 'MP5', category: 'smg', silhouette: 'smg-stock', rank: 90, gameId: 'mp5' },
-    { name: 'PP-19', category: 'smg', silhouette: 'smg-drum', rank: 45, gameId: 'pp19' },
-    { name: 'SCORPION EVO', category: 'smg', silhouette: 'smg-modern', rank: 150, gameId: 'scorpionevo' },
 
-    { name: 'L86A1', category: 'lmg', silhouette: 'lmg-bullpup', rank: 0, gameId: 'l86a1' },
-    { name: 'MG36', category: 'lmg', silhouette: 'lmg-box', rank: 50, gameId: 'mg36' },
-    { name: 'RPK16', category: 'lmg', silhouette: 'lmg-rifle', rank: 35, gameId: 'rpk16' },
     { name: 'M249', category: 'lmg', silhouette: 'lmg-belt', rank: 20, gameId: 'm249' },
-    { name: 'ULTIMAX 100', category: 'lmg', silhouette: 'lmg-drum', rank: 120, gameId: 'ultimax100' },
 
-    { name: 'M110', category: 'dmr', silhouette: 'dmr', rank: 40, gameId: 'm110' },
     { name: 'MK14 EBR', category: 'dmr', silhouette: 'dmr-long', rank: 60, gameId: 'mk14ebr' },
-    { name: 'MK20', category: 'dmr', silhouette: 'dmr-modern', rank: 10, gameId: 'mk20' },
-    { name: 'SVD', category: 'dmr', silhouette: 'dmr-svd', rank: 0, gameId: 'sr' },
 
-    { name: 'L96', category: 'sniper', silhouette: 'sniper', rank: 65, gameId: 'l96' },
-    { name: 'SSG 69', category: 'sniper', silhouette: 'sniper-classic', rank: 0, gameId: 'ssg69' },
-    { name: 'SV-98', category: 'sniper', silhouette: 'sniper', rank: 30, gameId: 'sv98' },
     { name: 'M200', category: 'sniper', silhouette: 'sniper-heavy', rank: 100, gameId: 'm200' },
-    { name: 'MSR', category: 'sniper', silhouette: 'sniper-modern', rank: 130, gameId: 'msr' },
-    { name: 'REM 700', category: 'sniper', silhouette: 'sniper-classic', rank: 85, gameId: 'rem700' },
 
-    {
-      name: 'Remington 870',
-      category: 'shotgun',
-      silhouette: 'shotgun',
-      rank: 0,
-      gameId: 'sg',
-    },
-    { name: 'M1014', category: 'shotgun', silhouette: 'shotgun', rank: 80 },
-    { name: 'KS-23', category: 'shotgun', silhouette: 'shotgun', rank: 110 },
-    { name: 'SAIGA-12', category: 'shotgun', silhouette: 'smg-drum', rank: 135 },
-
-    { name: 'M9', category: 'pistol', silhouette: 'pistol', rank: 0, gameId: 'm9' },
     { name: 'USP', category: 'pistol', silhouette: 'pistol', rank: 60, gameId: 'usp' },
-    { name: 'MP 443', category: 'pistol', silhouette: 'pistol-compact', rank: 0, gameId: 'mp443' },
-    { name: 'GLOCK 18', category: 'pistol', silhouette: 'machine-pistol', rank: 80, gameId: 'glock18' },
-    { name: 'UNICA', category: 'pistol', silhouette: 'revolver', rank: 40, gameId: 'unica' },
-    { name: 'DESERT EAGLE', category: 'pistol', silhouette: 'pistol-heavy', rank: 120, gameId: 'deserteagle' },
-    { name: 'RSH-12', category: 'pistol', silhouette: 'revolver-heavy', rank: 120, gameId: 'rsh12' },
   ];
 
   const GADGET_CATEGORY = {
-    medical: '急救包',
+    medical: '急救箱',
     light: '轻型装备',
     heavy: '重型装备',
     throwable: '投掷物',
@@ -135,229 +82,52 @@
 
   const GADGET_CATALOG = [
     {
-      name: '绷带',
+      name: '急救箱',
       category: 'medical',
-      silhouette: 'bandage',
+      silhouette: 'medkit',
       rank: 0,
-      detail: '止血并恢复少量生命值',
+      detail: '部署后治疗附近友军',
+      gameId: 'medkit',
     },
-
     {
-      name: '双筒望远镜',
+      name: '望远镜',
       category: 'light',
       silhouette: 'binoculars',
       rank: 0,
       detail: '观察并标记远距离目标',
-    },
-    {
-      name: '测距仪',
-      category: 'light',
-      silhouette: 'rangefinder',
-      rank: 0,
-      detail: '测量目标距离并辅助弹道判断',
+      gameId: 'binoculars',
     },
     {
       name: 'C4 炸药',
       category: 'light',
       silhouette: 'explosive',
       rank: 5,
-      detail: '遥控引爆，用于破坏工事',
+      detail: '遥控引爆，用于破坏工事与载具',
       gameId: 'charge',
     },
     {
-      name: '阔剑定向地雷',
-      category: 'light',
-      silhouette: 'claymore',
-      rank: 5,
-      detail: '触发后向正面喷射破片',
-    },
-    {
-      name: 'M320 烟雾榴弹发射器',
-      category: 'light',
-      silhouette: 'launcher',
-      rank: 5,
-      detail: '向远处快速投送烟雾弹',
-    },
-    {
-      name: '反步兵地雷',
-      category: 'light',
-      silhouette: 'round-mine',
-      rank: 0,
-      detail: '感应附近步兵后爆炸',
-    },
-    {
-      name: '反载具地雷',
-      category: 'light',
-      silhouette: 'round-mine',
-      rank: 15,
-      detail: '对重型目标造成高额爆炸伤害',
-    },
-    {
-      name: '高级双筒望远镜',
-      category: 'light',
-      silhouette: 'binoculars-advanced',
-      rank: 7,
-      detail: '提供更高倍率的战场观察能力',
-    },
-    {
-      name: '激光目标指示双筒镜',
-      category: 'light',
-      silhouette: 'soflam',
-      rank: 0,
-      detail: '持续照射并指示远距离目标',
-    },
-    {
-      name: '自爆式 C4 炸药',
-      category: 'light',
-      silhouette: 'explosive-vest',
-      rank: 5,
-      detail: '高风险近距离爆破装置',
-    },
-    {
-      name: '主动防御拦截器',
-      category: 'light',
-      silhouette: 'trophy',
-      rank: 0,
-      detail: '拦截附近来袭的爆炸投射物',
-    },
-    {
-      name: '部署信标',
-      category: 'light',
-      silhouette: 'beacon',
-      rank: 0,
-      detail: '为小队提供前沿部署位置',
-      gameId: 'beacon',
-    },
-
-    {
-      name: '小型弹药包',
+      name: '弹药箱',
       category: 'heavy',
-      silhouette: 'ammo-small',
+      silhouette: 'ammo-heavy',
       rank: 0,
-      detail: '快速补充少量弹药',
+      detail: '部署后为附近友军补充弹药',
+      gameId: 'ammo',
     },
     {
-      name: '医疗包',
-      category: 'heavy',
-      silhouette: 'medkit',
-      rank: 0,
-      detail: '持续治疗附近友军',
-    },
-    {
-      name: 'RPG-7 破甲火箭筒',
+      name: 'RPG 反载具火箭筒',
       category: 'heavy',
       silhouette: 'rpg',
       rank: 0,
       detail: '发射高爆反装甲火箭弹',
+      gameId: 'rpg',
     },
     {
-      name: '防暴盾牌',
-      category: 'heavy',
-      silhouette: 'shield',
-      rank: 100,
-      detail: '抵挡正面轻武器射击',
-    },
-    {
-      name: '破拆大锤',
-      category: 'heavy',
-      silhouette: 'sledgehammer',
-      rank: 0,
-      detail: '近距离破坏墙体与掩体',
-    },
-    {
-      name: 'MDX-201 运动传感器',
-      category: 'heavy',
-      silhouette: 'sensor-tripod',
-      rank: 0,
-      detail: '侦测并标记附近移动目标',
-      gameId: 'sensor',
-    },
-    {
-      name: '重型弹药箱',
-      category: 'heavy',
-      silhouette: 'ammo-heavy',
-      rank: 0,
-      detail: '持续为附近友军补充生命与弹药',
-      gameId: 'supply',
-    },
-    {
-      name: '抓钩发射器',
-      category: 'heavy',
-      silhouette: 'grappling-hook',
-      rank: 25,
-      detail: '在高处建立可攀爬绳索',
-    },
-    {
-      name: '空中侦察无人机',
-      category: 'heavy',
-      silhouette: 'drone',
-      rank: 0,
-      detail: '从空中侦察并标记敌军',
-    },
-    {
-      name: '破拆镐',
-      category: 'heavy',
-      silhouette: 'pickaxe',
-      rank: 0,
-      detail: '开凿地形和轻型工事',
-    },
-
-    {
-      name: '破片手榴弹',
+      name: '破片手雷',
       category: 'throwable',
       silhouette: 'frag-grenade',
       rank: 0,
       detail: '延时爆炸并造成范围破片伤害',
-    },
-    {
-      name: '冲击手榴弹',
-      category: 'throwable',
-      silhouette: 'impact-grenade',
-      rank: 35,
-      detail: '碰撞后立即引爆',
-    },
-    {
-      name: '反载具手榴弹',
-      category: 'throwable',
-      silhouette: 'anti-vehicle-grenade',
-      rank: 0,
-      detail: '对重型目标造成额外伤害',
-    },
-    {
-      name: '蓝色烟雾弹',
-      category: 'throwable',
-      silhouette: 'smoke-grenade',
-      rank: 0,
-      detail: '释放蓝色烟雾以标识区域',
-    },
-    {
-      name: '绿色烟雾弹',
-      category: 'throwable',
-      silhouette: 'smoke-grenade',
-      rank: 0,
-      detail: '释放绿色烟雾以标识区域',
-    },
-    {
-      name: '红色烟雾弹',
-      category: 'throwable',
-      silhouette: 'smoke-grenade',
-      rank: 0,
-      detail: '释放红色烟雾以标识区域',
-    },
-    {
-      name: '白色烟雾弹',
-      category: 'throwable',
-      silhouette: 'smoke-grenade',
-      rank: 0,
-      detail: '遮断视线并掩护小队推进',
-      gameId: 'smoke',
-    },
-    {
-      name: '照明棒',
-      category: 'throwable',
-      silhouette: 'flare',
-      rank: 0,
-      detail: '照亮暗处并标记位置',
+      gameId: 'frag',
     },
     {
       name: '闪光弹',
@@ -365,6 +135,15 @@
       silhouette: 'flashbang',
       rank: 55,
       detail: '短暂致盲并干扰附近敌军',
+      gameId: 'flash',
+    },
+    {
+      name: '烟雾弹',
+      category: 'throwable',
+      silhouette: 'smoke-grenade',
+      rank: 0,
+      detail: '遮断视线并掩护小队推进',
+      gameId: 'smoke',
     },
   ];
 
@@ -404,7 +183,7 @@
         name: '主战坦克',
         silhouette: 'tank-a',
         available: true,
-        detail: '2 座 · 血量 1000 · 主炮 / 同轴机枪 / 炮手重机枪',
+        detail: '2 座 · 血量 1000 · 主炮 / 同轴重机枪 / 炮手重机枪',
       },
       { name: '主战坦克 B', silhouette: 'tank-b' },
     ],
@@ -647,7 +426,7 @@
 
   const SoldierMenu = {
     open: false,
-    active: 'home',
+    active: 'weapons',
 
     init() {
       if (this._bound) return;
@@ -672,7 +451,7 @@
       const mode = document.getElementById('mode-overlay');
       if (mode) mode.classList.add('soldier-browser-open');
       this._syncTopTabs();
-      this.select(this.active || 'home');
+      this.select(HIDDEN_PAGES[this.active] ? 'weapons' : this.active || 'weapons');
     },
 
     hide() {
@@ -703,6 +482,10 @@
           (item.child ? ' child' : '') +
           (item.group ? ' group' : '');
         button.setAttribute('data-soldier-page', item.id);
+        if (item.hidden) {
+          button.hidden = true;
+          button.setAttribute('aria-hidden', 'true');
+        }
         if (item.icon) {
           const icon = document.createElement('span');
           icon.className = 'soldier-nav-icon';
@@ -717,7 +500,8 @@
     },
 
     select(page) {
-      this.active = page || 'home';
+      if (HIDDEN_PAGES[page]) page = 'weapons';
+      this.active = page || 'weapons';
       if (this.nav) {
         this.nav.querySelectorAll('[data-soldier-page]').forEach((button) => {
           button.classList.toggle(
@@ -741,7 +525,7 @@
       else if (this.active.indexOf('vehicle-') === 0) {
         this._renderVehicles(this.active.slice(8));
       } else {
-        this._renderHome();
+        this._renderWeapons(null);
       }
     },
 
@@ -787,7 +571,7 @@
       const game = global.VF && global.VF.game;
       const current = game && game.weapons && game.weapons.current;
       const defs = global.VF && global.VF.WEAPONS;
-      return (defs && defs[current]) || (defs && defs.ar) || { name: 'AKM', caliber: '' };
+      return (defs && defs[current]) || (defs && defs.ak74) || { name: 'AK-74', caliber: '' };
     },
 
     _renderHome() {
@@ -840,20 +624,20 @@
       });
       const gadgetName =
         classInfo.id === 'support'
-          ? '重型弹药箱'
+          ? '弹药箱'
           : classInfo.id === 'engineer'
             ? 'C4 炸药'
             : classInfo.id === 'recon'
-              ? 'MDX-201 运动传感器'
-              : '部署信标';
+              ? '望远镜'
+              : '急救箱';
       const gadgetId =
         classInfo.id === 'support'
-          ? 'supply'
+          ? 'ammo'
           : classInfo.id === 'engineer'
             ? 'charge'
             : classInfo.id === 'recon'
-              ? 'sensor'
-              : 'beacon';
+              ? 'binoculars'
+              : 'medkit';
       const gadgetEntry = GADGET_CATALOG.find(function (entry) {
         return entry.gameId === gadgetId;
       });
@@ -1184,7 +968,7 @@
             line2: gadget.detail,
             available: !!gadget.gameId,
             gameId: gadget.gameId,
-            arsenalSlot: gadget.category === 'throwable' ? 'grenade' : '',
+            arsenalSlot: gadget.category === 'throwable' ? 'grenade' : 'gadget1',
           };
         }),
         'gadget'

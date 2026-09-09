@@ -30,7 +30,7 @@
     profile: {
       title: '指挥官档案',
       body:
-        '<p>前线指挥官 · Lv.1</p><p>点「开始游戏」进入 32v32 征服。底部码头可进防御塔、地图、靶场与商城。</p>',
+        '<p>前线指挥官 · Lv.1</p><p>点「开始游戏」进入大厅：单人游戏在本地开 32v32，快速匹配优先加入已有房间。底部码头可进防御塔、地图与商城。</p>',
     },
     shop: {
       title: '商城',
@@ -49,7 +49,7 @@
     { id: 'weapons', action: 'weapons', label: '建造武器', x: -5.0, z: 7.5 },
     { id: 'tower', action: 'tower', label: '设计防御塔', x: 5.0, z: 7.2 },
     { id: 'map', action: 'map', label: '地图搭建', x: -4.6, z: 13.2 },
-    { id: 'range', action: 'range', label: '射击靶场', x: 4.8, z: 13.0 },
+    { id: 'range', action: 'range', label: '射击靶场', x: 4.8, z: 13.0, hidden: true },
     { id: 'materials', action: 'materials', label: '方块建材', x: 0.0, z: 4.5 },
   ];
 
@@ -254,9 +254,7 @@
           else if (global.VF.Hub && global.VF.Hub.openCraft) global.VF.Hub.openCraft('pvp');
           break;
         case 'range':
-          this.hide();
-          if (h.onRange) h.onRange();
-          break;
+          return;
         case 'materials':
           this.hide();
           if (h.onMaterials) h.onMaterials();
@@ -504,6 +502,7 @@
       };
       for (let i = 0; i < PROP_DEFS.length; i++) {
         const def = PROP_DEFS[i];
+        if (def.hidden) continue;
         const node = builders[def.id]();
         node.position.set(def.x, 0, def.z);
         overlay.add(node);

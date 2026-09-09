@@ -45,6 +45,8 @@
       projectileLife: 7,
       gravity: 1.5,
       range: 240,
+      soundId: 'shoot_sg',
+      soundRange: 300,
     },
     ifv_he_autocannon: {
       id: 'ifv_he_autocannon',
@@ -52,6 +54,7 @@
       role: 'driver',
       name: 'IFV HE Cannon',
       nameZh: '高爆炮',
+      ammoTypeZh: '高爆弹',
       kind: 'autocannon',
       mode: 'hitscan',
       damage: 46,
@@ -61,11 +64,11 @@
       magSize: 12,
       reserve: 192,
       reserveMax: 192,
-      reserveRegenSec: 15,
-      reserveRegenAmount: 12,
       reloadSec: 3.2,
       pivot: { x: 0, y: 2.28, z: -1.28 },
       muzzle: { x: 0, y: 2.72, z: -3.45 },
+      soundId: 'vehicle.weapon.ifv_autocannon',
+      soundRange: 300,
     },
     ifv_at_missile: {
       id: 'ifv_at_missile',
@@ -73,6 +76,7 @@
       role: 'driver',
       name: 'Aim-guided Anti-armor Missile',
       nameZh: '瞄准制导反装甲导弹',
+      ammoTypeZh: '反装甲导弹',
       kind: 'guided-missile',
       mode: 'projectile',
       guidance: 'aim',
@@ -80,7 +84,8 @@
       damageType: 'antiArmor',
       cooldown: 6.5,
       magSize: 1,
-      reserve: 3,
+      reserve: 19,
+      reserveMax: 19,
       reloadSec: 5.5,
       projectileSpeed: 44,
       projectileLife: 8,
@@ -88,6 +93,8 @@
       range: 260,
       pivot: { x: 0, y: 2.28, z: -1.28 },
       muzzle: { x: 1.25, y: 2.65, z: -1.55 },
+      soundId: 'vehicle.weapon.ifv_missile',
+      soundRange: 360,
     },
     ifv_grenade_launcher: {
       id: 'ifv_grenade_launcher',
@@ -102,6 +109,7 @@
       cooldown: 0.85,
       magSize: 6,
       reserve: 24,
+      reserveMax: 24,
       reloadSec: 3.8,
       projectileSpeed: 34,
       projectileLife: 4.5,
@@ -109,6 +117,8 @@
       range: 110,
       pivot: { x: -0.82, y: 2.58, z: 0.25 },
       muzzle: { x: -0.72, y: 2.56, z: -2.35 },
+      soundId: 'vehicle.weapon.ifv_grenade',
+      soundRange: 300,
     },
     tank_main_cannon: {
       id: 'tank_main_cannon',
@@ -116,25 +126,31 @@
       role: 'driver',
       name: 'Multi-purpose Main Cannon',
       nameZh: '多用途主炮',
+      ammoTypeZh: '多用途弹',
       kind: 'main-cannon',
       mode: 'projectile',
       damage: 200,
       damageType: 'antiArmor',
       cooldown: 4.2,
-      magSize: 15,
+      magSize: 30,
       range: 320,
       projectileSpeed: 95,
       projectileLife: 4.2,
       gravity: 1,
+      blastRadius: 6.4,
+      breakRadius: 2.9,
       pivot: { x: 0, y: 2.46, z: -1.57 },
       muzzle: { x: 0, y: 2.82, z: -5.9 },
+      soundId: 'vehicle.weapon.tank_cannon',
+      soundRange: 450,
     },
     tank_coax_mg: {
       id: 'tank_coax_mg',
       vehicleType: 'tank',
       role: 'driver',
       name: 'Coaxial Machine Gun',
-      nameZh: '同轴机枪',
+      nameZh: '同轴重机枪',
+      ammoTypeZh: '7.62 毫米弹',
       kind: 'machine-gun',
       mode: 'hitscan',
       damage: 24,
@@ -142,10 +158,13 @@
       cooldown: 0.095,
       range: 150,
       maxHeat: 100,
-      heatPerShot: 9,
+      heatBuildPerSec: 15,
       heatCoolPerSec: 20,
+      heatIdleDelay: 1,
       pivot: { x: 0, y: 2.46, z: -1.57 },
       muzzle: { x: 0.32, y: 2.76, z: -4.2 },
+      soundId: 'vehicle.weapon.tank_coax',
+      soundRange: 300,
     },
     tank_gunner_hmg: {
       id: 'tank_gunner_hmg',
@@ -153,6 +172,7 @@
       role: 'gunner',
       name: 'Gunner Heavy Machine Gun',
       nameZh: '炮手重机枪',
+      ammoTypeZh: '12.7 毫米弹',
       kind: 'heavy-machine-gun',
       mode: 'hitscan',
       damage: 36,
@@ -160,10 +180,13 @@
       cooldown: 0.14,
       range: 180,
       maxHeat: 100,
-      heatPerShot: 9,
+      heatBuildPerSec: 15,
       heatCoolPerSec: 20,
+      heatIdleDelay: 1,
       pivot: { x: -0.72, y: 3.15, z: 0.05 },
       muzzle: { x: -0.68, y: 3.25, z: -1.3 },
+      soundId: 'vehicle.weapon.tank_hmg',
+      soundRange: 320,
     },
   };
 
@@ -192,6 +215,7 @@
       braking: 18,
       turn: 1.28,
       turnRate: 1.28,
+      idleTurn: 0.82,
       maxStep: 2.5,
       maxHp: 360,
       armorClass: 'light',
@@ -222,6 +246,7 @@
       braking: 14,
       turn: 0.82,
       turnRate: 0.82,
+      idleTurn: 0.9,
       maxStep: 3.6,
       maxHp: 600,
       armorClass: 'light',
@@ -262,6 +287,7 @@
       braking: 12,
       turn: 0.68,
       turnRate: 0.68,
+      idleTurn: 0.92,
       maxStep: 4.2,
       maxHp: 1000,
       armorClass: 'heavy',
@@ -286,6 +312,194 @@
       mountedWeapons: TANK_WEAPONS,
     },
   };
+
+  const SERVICE_STATION = {
+    radius: 18,
+    ammoInterval: 2,
+    ammoFraction: 0.1,
+    repairPerSec: 0.05,
+    name: '载具补给站',
+  };
+
+  const AMMO_AUTO_REPLENISH = {
+    intervalSec: 15,
+    capFraction: 0.5,
+  };
+
+  function drawResupplyStationMark(ctx, cx, cy, size, color, holeColor) {
+    const s = Math.max(8, size);
+    color = color || '#f4f7f8';
+    // Dark fill — never destination-out, which would punch through minimap terrain.
+    holeColor = holeColor || '#1a2420';
+    ctx.save();
+    ctx.translate(cx, cy);
+    const half = s * 0.48;
+    ctx.fillStyle = holeColor;
+    ctx.fillRect(-half, -half, half * 2, half * 2);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1.05, s * 0.07);
+    ctx.strokeRect(-half, -half, half * 2, half * 2);
+    const teeth = 8;
+    const outer = s * 0.355;
+    const inner = s * 0.255;
+    const step = (Math.PI * 2) / teeth;
+    const tooth = step * 0.46;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (let i = 0; i < teeth; i++) {
+      const mid = i * step - Math.PI / 2;
+      const a0 = mid - tooth / 2;
+      const a1 = mid + tooth / 2;
+      const a2 = mid + step - tooth / 2;
+      if (i === 0) ctx.moveTo(Math.cos(a0) * inner, Math.sin(a0) * inner);
+      ctx.lineTo(Math.cos(a0) * outer, Math.sin(a0) * outer);
+      ctx.lineTo(Math.cos(a1) * outer, Math.sin(a1) * outer);
+      ctx.lineTo(Math.cos(a1) * inner, Math.sin(a1) * inner);
+      ctx.lineTo(Math.cos(a2) * inner, Math.sin(a2) * inner);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = holeColor;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.168, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = color;
+    ctx.fillRect(-s * 0.055, -s * 0.042, s * 0.11, s * 0.125);
+    ctx.fillRect(-s * 0.088, -s * 0.032, s * 0.028, s * 0.108);
+    ctx.fillRect(s * 0.06, -s * 0.032, s * 0.028, s * 0.108);
+    ctx.fillRect(-s * 0.032, -s * 0.012, s * 0.064, s * 0.058);
+    ctx.fillRect(-s * 0.012, -s * 0.132, s * 0.024, s * 0.12);
+    ctx.restore();
+  }
+
+  function paintStationLabel(ctx, meters, team) {
+    const w = 256;
+    const h = 168;
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = '#f5f8fa';
+    ctx.font = 'bold 22px "Segoe UI", "Microsoft YaHei", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(SERVICE_STATION.name, 128, 28);
+    const hole =
+      team === 'enemy' ? '#2a1410' : team === 'ally' ? '#101820' : '#141210';
+    drawResupplyStationMark(ctx, 128, 84, 62, '#f4f7f8', hole);
+    ctx.fillStyle = '#d7e4ea';
+    ctx.font = '16px "Segoe UI", "Microsoft YaHei", sans-serif';
+    ctx.fillText(Math.max(0, meters | 0) + ' 米', 128, 142);
+    ctx.restore();
+  }
+
+  function createResupplyKiosk(team) {
+    const THREE = global.THREE;
+    if (!THREE) return null;
+    ensureModelCache(THREE);
+    const shell = 0x2a3034;
+    const dark = 0x171b1e;
+    const panel = 0x3a4248;
+    const steel = 0x4a5258;
+    const tank = 0x262b2f;
+    const rust = 0x5a4030;
+    const accent = team === 'enemy' ? 0xc45a32 : team === 'ally' ? 0x3d9ad6 : 0xe0a020;
+    const root = new THREE.Group();
+    root.name = 'ResupplyKiosk';
+    addBox(THREE, root, [1.42, 0.16, 1.02], [0, 0.08, 0], dark, 'Base');
+    addBox(THREE, root, [1.26, 2.16, 0.9], [0, 1.26, 0], shell, 'Body');
+    addBox(THREE, root, [1.36, 0.07, 0.98], [0, 2.38, 0], panel, 'Cap');
+    const corners = [
+      [-0.68, 0.47],
+      [0.68, 0.47],
+      [-0.68, -0.47],
+      [0.68, -0.47],
+    ];
+    corners.forEach(function (p) {
+      addBox(THREE, root, [0.14, 0.12, 0.14], [p[0], 0.08, p[1]], 0x101316, 'Casting');
+      addBox(THREE, root, [0.09, 2.14, 0.09], [p[0], 1.24, p[1]], dark, 'Post');
+      [0.42, 1.08, 1.74, 2.22].forEach(function (y) {
+        addBox(THREE, root, [0.12, 0.035, 0.12], [p[0], y, p[1]], steel, 'Rivet');
+      });
+    });
+    addBox(THREE, root, [0.98, 0.78, 0.06], [0, 1.7, 0.42], 0x101315, 'MeshRecess');
+    addBox(THREE, root, [0.9, 0.7, 0.02], [0, 1.7, 0.455], 0x1c2024, 'MeshPlate');
+    for (let i = 0; i < 8; i++) {
+      addBox(THREE, root, [0.86, 0.018, 0.015], [0, 1.4 + i * 0.085, 0.47], steel, 'MeshH');
+    }
+    for (let i = 0; i < 6; i++) {
+      addBox(THREE, root, [0.018, 0.66, 0.015], [-0.36 + i * 0.144, 1.7, 0.47], 0x3a4248, 'MeshV');
+    }
+    addBox(THREE, root, [0.045, 0.58, 0.03], [-0.2, 1.72, 0.44], 0x8a8e84, 'Shovel');
+    addBox(THREE, root, [0.16, 0.07, 0.035], [-0.2, 1.44, 0.44], 0x7a7e74, 'ShovelHead');
+    addBox(THREE, root, [0.04, 0.5, 0.025], [0.18, 1.68, 0.44], rust, 'Tool');
+    addBox(THREE, root, [0.88, 0.62, 0.24], [0, 0.68, 0.36], dark, 'Bay');
+    addBox(THREE, root, [0.82, 0.04, 0.2], [0, 0.4, 0.38], 0x121518, 'BayLip');
+    const canMat = cachedMaterial(THREE, tank);
+    const canGeo = cachedCylinder(THREE, 0.095, 0.5, 10);
+    [-0.18, 0.16].forEach(function (x) {
+      const can = new THREE.Mesh(canGeo, canMat);
+      can.position.set(x, 0.68, 0.42);
+      can.name = 'Canister';
+      can.castShadow = true;
+      root.add(can);
+    });
+    addBox(THREE, root, [0.34, 0.035, 0.035], [-0.01, 0.92, 0.44], steel, 'Pipe');
+    addBox(THREE, root, [0.035, 0.16, 0.035], [0.16, 0.98, 0.44], steel, 'Valve');
+    addBox(THREE, root, [0.05, 1.7, 0.72], [0.655, 1.28, 0], panel, 'SideR');
+    addBox(THREE, root, [0.05, 1.7, 0.72], [-0.655, 1.28, 0], panel, 'SideL');
+    [0.72, 1.18, 1.64].forEach(function (y) {
+      addBox(THREE, root, [0.02, 0.28, 0.58], [-0.69, y, 0], dark, 'Hatch');
+    });
+    for (let i = 0; i < 4; i++) {
+      addBox(THREE, root, [0.04, 0.03, 0.42], [0.72, 0.7 + i * 0.22, 0], dark, 'Ladder');
+    }
+    const fanGeo = cachedCylinder(THREE, 0.155, 0.05, 12);
+    const fanMat = cachedMaterial(THREE, 0x14181b);
+    [0.92, 1.46].forEach(function (y) {
+      const fan = new THREE.Mesh(fanGeo, fanMat);
+      fan.rotation.z = Math.PI / 2;
+      fan.position.set(0.7, y, 0);
+      fan.name = 'Fan';
+      root.add(fan);
+      addBox(THREE, root, [0.02, 0.3, 0.02], [0.73, y, 0], 0x8a9096, 'FanBar');
+      addBox(THREE, root, [0.02, 0.02, 0.3], [0.73, y, 0], 0x8a9096, 'FanBar');
+    });
+    for (let i = 0; i < 5; i++) {
+      addBox(THREE, root, [0.72, 0.028, 0.04], [0, 0.88 + i * 0.18, -0.47], dark, 'Vent');
+    }
+    addBox(THREE, root, [0.7, 0.22, 0.04], [0, 2.08, -0.47], 0x2a3034, 'RearPanel');
+    const lightMat = new THREE.MeshBasicMaterial({ color: 0xf3e4b0 });
+    [
+      [-0.52, -0.34],
+      [0.52, -0.34],
+      [-0.52, 0.34],
+      [0.52, 0.34],
+    ].forEach(function (p) {
+      addBox(THREE, root, [0.2, 0.07, 0.13], [p[0], 2.48, p[1]], 0x101316, 'FloodHouse');
+      const lamp = new THREE.Mesh(cachedBox(THREE, 0.15, 0.035, 0.09), lightMat);
+      lamp.position.set(p[0], 2.445, p[1] + (p[1] > 0 ? 0.07 : -0.07));
+      lamp.rotation.x = p[1] > 0 ? -0.38 : 0.38;
+      root.add(lamp);
+    });
+    const ledMat = new THREE.MeshBasicMaterial({ color: 0x6dff6a });
+    [-0.48, -0.16, 0.16, 0.48].forEach(function (x) {
+      const led = new THREE.Mesh(cachedBox(THREE, 0.055, 0.04, 0.04), ledMat);
+      led.position.set(x, 2.34, 0.48);
+      root.add(led);
+    });
+    const beacon = new THREE.Mesh(
+      cachedCylinder(THREE, 0.055, 0.13, 8),
+      new THREE.MeshBasicMaterial({ color: 0xff7a28 })
+    );
+    beacon.position.set(0, 2.54, 0);
+    beacon.name = 'Beacon';
+    root.add(beacon);
+    addBox(THREE, root, [0.22, 0.07, 0.12], [-0.4, 2.5, -0.16], accent, 'Tag');
+    addBox(THREE, root, [0.06, 0.05, 0.04], [-0.62, 0.22, 0.5], 0xb01818, 'Reflector');
+    addBox(THREE, root, [0.06, 0.05, 0.04], [0.62, 0.22, 0.5], 0xb01818, 'Reflector');
+    return root;
+  }
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -405,14 +619,20 @@
   }
 
   function cloneWeaponState(state) {
+    const regen = finite(
+      state.ammoRegenTimer != null ? state.ammoRegenTimer : state.reserveRegenTimer,
+      0
+    );
     return {
       cooldown: finite(state.cooldown, 0),
       ammo: state.ammo == null ? null : state.ammo,
       mag: state.mag == null ? null : state.mag,
       reserve: state.reserve == null ? null : state.reserve,
       reloadTimer: finite(state.reloadTimer, 0),
-      reserveRegenTimer: finite(state.reserveRegenTimer, 0),
+      ammoRegenTimer: regen,
+      reserveRegenTimer: regen,
       heat: finite(state.heat, 0),
+      heatShotAge: finite(state.heatShotAge, 1e6),
       overheated: !!state.overheated,
     };
   }
@@ -515,7 +735,9 @@
 
     const root = new THREE.Group();
     root.name = 'Vehicle_' + type;
-    const teamMark = team === 'enemy' ? 0xb43f36 : 0x3d8fbd;
+    const L = global.VF && global.VF.TeamLook;
+    const foe = L && L.kind ? L.kind(team) === 'foe' : team === 'enemy';
+    const teamMark = foe ? 0xb43f36 : 0x3d8fbd;
     const armor = team === 'enemy' ? 0x66564d : 0x77775b;
     const armorLight = team === 'enemy' ? 0x806a5d : 0x99977a;
     const armorDark = team === 'enemy' ? 0x443b37 : 0x484b3c;
@@ -670,6 +892,12 @@
     root.userData.barrel = barrel;
     root.userData.gunnerTurret = gunnerTurret;
     root.userData.gunnerBarrel = gunnerBarrel;
+    root.traverse(function (c) {
+      if (c.name === 'TeamMark' && c.material) {
+        c.material = c.material.clone();
+        c.userData.teamMark = true;
+      }
+    });
     return root;
   }
 
@@ -691,6 +919,10 @@
     this._entitySeq = 0;
     this._projectileSeq = 0;
     this._eventSeq = 0;
+    this._acceptedShotIds = Object.create(null);
+    this._acceptedShotPruneAt = 0;
+    this.stations = [];
+    this._stationRoot = null;
   }
 
   VehicleSystem.prototype.on = function (type, handler) {
@@ -777,6 +1009,7 @@
       this._syncVisual(vehicle);
       this._syncAABB(vehicle);
     }
+    this._rebuildStationMarkers();
     this._publishWorldColliders();
     return this;
   };
@@ -829,8 +1062,10 @@
       mag: mag,
       reserve: def && def.reserve != null ? def.reserve : null,
       reloadTimer: 0,
+      ammoRegenTimer: 0,
       reserveRegenTimer: 0,
       heat: 0,
+      heatShotAge: 1e6,
       overheated: false,
     };
   };
@@ -875,6 +1110,8 @@
       armorMul: def.armorMul,
       alive: spec.alive !== false && spec.destroyed !== true,
       destroyed: spec.destroyed === true || spec.alive === false,
+      servicing: false,
+      _stationAmmoTimer: 0,
       respawnTimer: Math.max(0, finite(spec.respawnTimer, 0)),
       seats: [],
       weapons: Object.create(null),
@@ -982,6 +1219,22 @@
 
   VehicleSystem.prototype.getAll = function () {
     return this._vehicles.slice();
+  };
+
+  VehicleSystem.prototype.refreshDisplayColors = function () {
+    const L = global.VF && global.VF.TeamLook;
+    if (!L || !L.kind) return;
+    const friend = 0x3d8fbd;
+    const foe = 0xb43f36;
+    for (let i = 0; i < this._vehicles.length; i++) {
+      const vehicle = this._vehicles[i];
+      if (!vehicle || !vehicle.mesh) continue;
+      const col = L.kind(vehicle.team) === 'foe' ? foe : friend;
+      vehicle.mesh.traverse(function (c) {
+        if (c.name !== 'TeamMark' || !c.material || !c.material.color) return;
+        c.material.color.setHex(col);
+      });
+    }
   };
 
   VehicleSystem.prototype.getProjectiles = function () {
@@ -1962,11 +2215,12 @@
 
     const speedRatio = clamp(Math.abs(vehicle.speed) / Math.max(1, def.maxSpeed), 0, 1);
     const reverseSign = vehicle.speed < -0.05 ? -1 : 1;
+    const idleTurn = def.idleTurn != null ? def.idleTurn : 0.9;
     vehicle.yaw = normalizeAngle(
       vehicle.yaw -
         input.steer *
           def.turnRate *
-          (0.18 + speedRatio * 0.82) *
+          (idleTurn + (1 - idleTurn) * speedRatio) *
           reverseSign *
           dt
     );
@@ -2123,14 +2377,16 @@
     const gunnerTurret = mesh.userData.gunnerTurret;
     const gunnerBarrel = mesh.userData.gunnerBarrel;
     if (turret && turret.rotation) turret.rotation.y = vehicle.turretYaw || 0;
-    if (barrel && barrel.rotation) barrel.rotation.x = -(vehicle.turretPitch || 0);
+    // Barrel meshes extend along local -Z. Positive rotation.x raises the
+    // muzzle, matching setAim / _shotOrigin where +pitch is look-up.
+    if (barrel && barrel.rotation) barrel.rotation.x = vehicle.turretPitch || 0;
     const gunnerAim =
       vehicle.aimByRole && vehicle.aimByRole.gunner;
     if (gunnerTurret && gunnerTurret.rotation && gunnerAim) {
       gunnerTurret.rotation.y = normalizeAngle(gunnerAim.yaw - vehicle.yaw);
     }
     if (gunnerBarrel && gunnerBarrel.rotation && gunnerAim) {
-      gunnerBarrel.rotation.x = -(gunnerAim.pitch || 0);
+      gunnerBarrel.rotation.x = gunnerAim.pitch || 0;
     }
   };
 
@@ -2201,31 +2457,332 @@
           if (state.reserve != null) state.reserve -= take;
         }
       }
-      this._tickReserveRegen(state, def, dt);
-      if (def.maxHeat != null) {
-        const cool = def.heatCoolPerSec != null ? def.heatCoolPerSec : 20;
-        state.heat = Math.max(0, state.heat - cool * dt);
-        if (state.overheated && state.heat <= def.maxHeat * 0.35) state.overheated = false;
+      this._tickAmmoAutoReplenish(state, def, dt);
+      this._tickWeaponHeat(state, def, dt);
+    }
+  };
+
+  VehicleSystem.prototype._tickWeaponHeat = function (state, def, dt) {
+    if (!state || !def || def.maxHeat == null) return;
+    dt = Math.max(0, dt);
+    const maxHeat = def.maxHeat;
+    const build = def.heatBuildPerSec != null ? def.heatBuildPerSec : 15;
+    const cool = def.heatCoolPerSec != null ? def.heatCoolPerSec : 20;
+    const idleDelay = def.heatIdleDelay != null ? def.heatIdleDelay : 1;
+    const cooldown = def.cooldown != null ? def.cooldown : 0.1;
+    const burstWindow = Math.max(0.16, cooldown * 1.85);
+    state.heatShotAge = Math.min(
+      1e6,
+      (state.heatShotAge != null ? state.heatShotAge : 1e6) + dt
+    );
+    if (state.overheated) {
+      state.heat = Math.max(0, state.heat - cool * dt);
+      if (state.heat <= EPS) {
+        state.heat = 0;
+        state.overheated = false;
+      }
+      return;
+    }
+    if (state.heatShotAge <= burstWindow) {
+      state.heat = Math.min(maxHeat, state.heat + build * dt);
+      if (state.heat >= maxHeat - EPS) {
+        state.heat = maxHeat;
+        state.overheated = true;
+      }
+      return;
+    }
+    if (state.heatShotAge >= idleDelay && state.heat > 0) {
+      state.heat = Math.max(0, state.heat - cool * dt);
+    }
+  };
+
+  VehicleSystem.prototype._weaponAmmoCurrent = function (state, def) {
+    if (!state || !def || def.magSize == null) return 0;
+    return (state.mag || 0) + (state.reserve != null ? state.reserve || 0 : 0);
+  };
+
+  VehicleSystem.prototype._canAmmoAutoReplenish = function (def) {
+    return !!(def && def.magSize != null);
+  };
+
+  VehicleSystem.prototype._ammoAutoLimit = function (def) {
+    const cap = this._weaponAmmoCapacity(def);
+    return Math.floor(cap * AMMO_AUTO_REPLENISH.capFraction);
+  };
+
+  VehicleSystem.prototype.getWeaponAmmoView = function (state, def) {
+    if (!def || def.magSize == null) {
+      return {
+        infinite: true,
+        current: 0,
+        loaded: 0,
+        cap: 0,
+        limit: 0,
+        progress: 0,
+        regenerating: false,
+        overheated: !!(state && state.overheated),
+        heat: state ? Math.round(state.heat || 0) : 0,
+      };
+    }
+    const cap = this._weaponAmmoCapacity(def);
+    const current = this._weaponAmmoCurrent(state, def);
+    const limit = this._ammoAutoLimit(def);
+    const regenerating = current < limit;
+    const timer = state ? state.ammoRegenTimer || 0 : 0;
+    return {
+      infinite: false,
+      current: current,
+      loaded: Math.max(0, (state && state.mag != null ? state.mag : 0) | 0),
+      cap: cap,
+      limit: limit,
+      progress: regenerating
+        ? Math.max(0, Math.min(1, timer / AMMO_AUTO_REPLENISH.intervalSec))
+        : 0,
+      regenerating: regenerating,
+      overheated: !!(state && state.overheated),
+      heat: state ? Math.round(state.heat || 0) : 0,
+    };
+  };
+
+  VehicleSystem.prototype._giveWeaponAmmo = function (state, def, amount) {
+    if (!state || !def || def.magSize == null) return 0;
+    let left = Math.max(0, amount | 0);
+    let given = 0;
+    const magCap = def.magSize;
+    const resCap =
+      def.reserveMax != null ? def.reserveMax : def.reserve != null ? def.reserve : 0;
+    while (left > 0) {
+      if ((state.mag || 0) < magCap) {
+        state.mag = (state.mag || 0) + 1;
+        state.ammo = state.mag;
+        given += 1;
+        left -= 1;
+        continue;
+      }
+      if (state.reserve != null && (state.reserve || 0) < resCap) {
+        state.reserve = (state.reserve || 0) + 1;
+        given += 1;
+        left -= 1;
+        if ((state.mag || 0) <= 0) this._beginReload(state, def);
+        continue;
+      }
+      break;
+    }
+    return given;
+  };
+
+  VehicleSystem.prototype._tickAmmoAutoReplenish = function (state, def, dt) {
+    if (!state) return;
+    if (!this._canAmmoAutoReplenish(def)) {
+      state.ammoRegenTimer = 0;
+      state.reserveRegenTimer = 0;
+      return;
+    }
+    const limit = this._ammoAutoLimit(def);
+    const current = this._weaponAmmoCurrent(state, def);
+    if (limit <= 0 || current >= limit) {
+      state.ammoRegenTimer = 0;
+      state.reserveRegenTimer = 0;
+      return;
+    }
+    const interval = AMMO_AUTO_REPLENISH.intervalSec;
+    state.ammoRegenTimer = (state.ammoRegenTimer || 0) + Math.max(0, dt);
+    while (state.ammoRegenTimer + EPS >= interval) {
+      state.ammoRegenTimer -= interval;
+      if (this._weaponAmmoCurrent(state, def) >= limit) {
+        state.ammoRegenTimer = 0;
+        break;
+      }
+      if (this._giveWeaponAmmo(state, def, 1) <= 0) {
+        state.ammoRegenTimer = 0;
+        break;
+      }
+      if (this._weaponAmmoCurrent(state, def) >= limit) {
+        state.ammoRegenTimer = 0;
+        break;
+      }
+    }
+    state.reserveRegenTimer = state.ammoRegenTimer;
+  };
+
+  VehicleSystem.prototype._tickReserveRegen = function (state, def, dt) {
+    this._tickAmmoAutoReplenish(state, def, dt);
+  };
+
+  VehicleSystem.prototype.setStations = function (list) {
+    const rows = Array.isArray(list) ? list : list ? [list] : [];
+    this.stations = [];
+    for (let i = 0; i < rows.length; i++) {
+      const spec = rows[i] || {};
+      const team = spec.team === 'ally' || spec.team === 'enemy' ? spec.team : 'neutral';
+      this.stations.push({
+        id: String(spec.id || 'repair-' + (i + 1)),
+        team: team,
+        x: finite(spec.x, 0),
+        y: finite(spec.y, 0),
+        z: finite(spec.z, 0),
+        radius: Math.max(4, finite(spec.radius, SERVICE_STATION.radius)),
+      });
+    }
+    this._rebuildStationMarkers();
+    return this.stations;
+  };
+
+  VehicleSystem.prototype.getStations = function () {
+    return this.stations.slice();
+  };
+
+  VehicleSystem.prototype._stationFor = function (vehicle) {
+    if (!vehicle || !vehicle.position || !this.stations.length) return null;
+    let best = null;
+    let bestDist = Infinity;
+    for (let i = 0; i < this.stations.length; i++) {
+      const station = this.stations[i];
+      if (station.team !== 'neutral' && station.team !== vehicle.team) continue;
+      const dist = Math.hypot(vehicle.position.x - station.x, vehicle.position.z - station.z);
+      if (dist <= station.radius && dist < bestDist) {
+        best = station;
+        bestDist = dist;
+      }
+    }
+    return best;
+  };
+
+  VehicleSystem.prototype._weaponAmmoCapacity = function (def) {
+    if (!def) return 0;
+    const magCap = def.magSize != null ? def.magSize : 0;
+    const resCap =
+      def.reserveMax != null ? def.reserveMax : def.reserve != null ? def.reserve : 0;
+    return magCap + resCap;
+  };
+
+  VehicleSystem.prototype._resupplyWeaponFromStation = function (state, def, fraction) {
+    if (!state || !def) return 0;
+    const magCap = def.magSize != null ? def.magSize : 0;
+    const resCap =
+      def.reserveMax != null ? def.reserveMax : def.reserve != null ? def.reserve : 0;
+    const cap = this._weaponAmmoCapacity(def);
+    if (cap <= 0) return 0;
+    let add = Math.max(1, Math.round(cap * fraction));
+    let given = 0;
+    if (def.magSize != null) {
+      const mag = state.mag != null ? state.mag : 0;
+      const toMag = Math.min(add, Math.max(0, magCap - mag));
+      if (toMag > 0) {
+        state.mag = mag + toMag;
+        state.ammo = state.mag;
+        add -= toMag;
+        given += toMag;
+      }
+    }
+    if (def.reserve != null || def.reserveMax != null) {
+      const reserve = state.reserve != null ? state.reserve : 0;
+      const toRes = Math.min(add, Math.max(0, resCap - reserve));
+      if (toRes > 0) {
+        state.reserve = reserve + toRes;
+        add -= toRes;
+        given += toRes;
+      }
+    }
+    if (given > 0 && state.mag <= 0 && (state.reserve || 0) > 0) this._beginReload(state, def);
+    return given;
+  };
+
+  VehicleSystem.prototype._updateServiceStation = function (vehicle, dt) {
+    const station = this._stationFor(vehicle);
+    if (!station) {
+      vehicle.servicing = false;
+      vehicle._stationAmmoTimer = 0;
+      return;
+    }
+    vehicle.servicing = true;
+    const heal = vehicle.maxHp * SERVICE_STATION.repairPerSec * dt;
+    if (heal > 0 && vehicle.hp < vehicle.maxHp) this.repair(vehicle, heal);
+    vehicle._stationAmmoTimer = (vehicle._stationAmmoTimer || 0) + dt;
+    const interval = SERVICE_STATION.ammoInterval;
+    while (vehicle._stationAmmoTimer + EPS >= interval) {
+      vehicle._stationAmmoTimer -= interval;
+      const ids = vehicle.def.weapons;
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
+        this._resupplyWeaponFromStation(
+          vehicle.weapons[id],
+          WEAPON_DEFS[id],
+          SERVICE_STATION.ammoFraction
+        );
       }
     }
   };
 
-  VehicleSystem.prototype._tickReserveRegen = function (state, def, dt) {
-    if (!state || !def || def.reserveRegenSec == null) {
-      if (state) state.reserveRegenTimer = 0;
-      return;
+  VehicleSystem.prototype._rebuildStationMarkers = function () {
+    const THREE = global.THREE;
+    if (this._stationRoot && this._stationRoot.parent) {
+      this._stationRoot.parent.remove(this._stationRoot);
     }
-    if ((state.reserve || 0) > 0) {
-      state.reserveRegenTimer = 0;
-      return;
+    this._stationRoot = null;
+    if (!THREE || !this.stations.length) return;
+    const root = this._ensureRoot();
+    if (!root) return;
+    const group = new THREE.Group();
+    group.name = 'ArmorRepairStations';
+    for (let i = 0; i < this.stations.length; i++) {
+      const station = this.stations[i];
+      const node = new THREE.Group();
+      node.name = station.id || 'ResupplyStation';
+      const gy = station.y || 0;
+      node.position.set(station.x, gy, station.z);
+      const kiosk = createResupplyKiosk(station.team);
+      if (kiosk) node.add(kiosk);
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 168;
+      const ctx = canvas.getContext('2d');
+      paintStationLabel(ctx, 0, station.team);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      const spr = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: tex,
+          transparent: true,
+          depthWrite: false,
+          depthTest: false,
+        })
+      );
+      spr.position.y = 3.35;
+      spr.scale.set(2.55, 1.68, 1);
+      spr.renderOrder = 24;
+      node.add(spr);
+      node.userData.stationId = station.id;
+      node.userData.team = station.team;
+      node.userData.labelCtx = ctx;
+      node.userData.labelTex = tex;
+      node.userData.labelMeters = 0;
+      group.add(node);
     }
-    state.reserveRegenTimer = (state.reserveRegenTimer || 0) + dt;
-    if (state.reserveRegenTimer + EPS < def.reserveRegenSec) return;
-    const amount = def.reserveRegenAmount != null ? def.reserveRegenAmount : def.magSize || 0;
-    const cap = def.reserveMax != null ? def.reserveMax : def.reserve != null ? def.reserve : amount;
-    state.reserve = Math.min(cap, Math.max(0, state.reserve || 0) + amount);
-    state.reserveRegenTimer = 0;
-    if (state.mag <= 0 && state.reserve > 0) this._beginReload(state, def);
+    root.add(group);
+    this._stationRoot = group;
+  };
+
+  VehicleSystem.prototype._updateStationLabels = function (game) {
+    if (!this._stationRoot || !this._stationRoot.children) return;
+    const player = game && game.player;
+    const cam = (player && player.camera) || (game && game.camera);
+    const origin = cam && cam.position ? cam.position : player && player.object && player.object.position;
+    if (!origin) return;
+    for (let i = 0; i < this._stationRoot.children.length; i++) {
+      const node = this._stationRoot.children[i];
+      if (!node.userData || !node.userData.labelCtx) continue;
+      const meters = Math.max(
+        0,
+        Math.round(
+          Math.hypot(origin.x - node.position.x, origin.y - node.position.y, origin.z - node.position.z)
+        )
+      );
+      if (node.userData.labelMeters === meters) continue;
+      node.userData.labelMeters = meters;
+      paintStationLabel(node.userData.labelCtx, meters, node.userData.team);
+      if (node.userData.labelTex) node.userData.labelTex.needsUpdate = true;
+    }
   };
 
   VehicleSystem.prototype._beginReload = function (state, def) {
@@ -2246,8 +2803,7 @@
   VehicleSystem.prototype._consumeWeapon = function (state, def) {
     state.cooldown = def.cooldown || 0;
     if (def.maxHeat != null) {
-      state.heat = Math.min(def.maxHeat, state.heat + (def.heatPerShot || 0));
-      if (state.heat >= def.maxHeat - EPS) state.overheated = true;
+      state.heatShotAge = 0;
     }
     if (def.magSize != null) {
       state.mag = Math.max(0, state.mag - 1);
@@ -2272,6 +2828,8 @@
     vehicle.hp = vehicle.maxHp;
     vehicle.alive = true;
     vehicle.destroyed = false;
+    vehicle.servicing = false;
+    vehicle._stationAmmoTimer = 0;
     vehicle.respawnTimer = 0;
     vehicle.driverInput = {
       throttle: 0,
@@ -2329,6 +2887,7 @@
         continue;
       }
       this._updateWeaponStates(vehicle, dt);
+      this._updateServiceStation(vehicle, dt);
       this._updateMovement(vehicle, dt);
     }
     this._separateVehicles();
@@ -2343,6 +2902,7 @@
     }
     this._updateProjectiles(dt, game || (global.VF && global.VF.game));
     this._publishWorldColliders();
+    this._updateStationLabels(game || (global.VF && global.VF.game));
   };
 
   VehicleSystem.prototype._rayAABB = function (origin, direction, box, maxDist) {
@@ -2439,6 +2999,7 @@
       const air = blocks ? blocks.AIR : 0;
       const water = blocks ? blocks.WATER : -9999;
       let distance = 0;
+      let voxelNormal = vec(0, 1, 0);
       for (let i = 0; i < 800 && distance < bestDist; i++) {
         const block = world.get(x, y, z);
         if (block !== air && block !== water) {
@@ -2455,6 +3016,7 @@
             x: x,
             y: y,
             z: z,
+            normal: copyVec(voxelNormal),
           };
           break;
         }
@@ -2463,19 +3025,23 @@
             distance = tx;
             tx += dx;
             x += sx;
+            voxelNormal = vec(-sx, 0, 0);
           } else {
             distance = tz;
             tz += dz;
             z += sz;
+            voxelNormal = vec(0, 0, -sz);
           }
         } else if (ty < tz) {
           distance = ty;
           ty += dy;
           y += sy;
+          voxelNormal = vec(0, -sy, 0);
         } else {
           distance = tz;
           tz += dz;
           z += sz;
+          voxelNormal = vec(0, 0, -sz);
         }
       }
     }
@@ -2487,6 +3053,9 @@
           distance: terrain.dist,
           dist: terrain.dist,
           point: copyVec(terrain.point),
+          normal: terrain.normal
+            ? copyVec(terrain.normal)
+            : vec(0, 1, 0),
         };
       }
     }
@@ -2774,8 +3343,33 @@
     );
   };
 
+  /**
+   * Aim a muzzle toward the same distant point seen by the vehicle camera.
+   * This keeps local prediction and authoritative PVP shots on one trajectory.
+   */
+  VehicleSystem.prototype.getCameraFireDirection = function (
+    vehicleOrId,
+    weaponId,
+    cameraOrigin,
+    cameraDirection,
+    zeroDistance
+  ) {
+    const vehicle = this.getById(vehicleOrId);
+    const def = WEAPON_DEFS[weaponId];
+    if (!vehicle || !def || !cameraOrigin || !cameraDirection) return null;
+    const muzzle = this._shotOrigin(vehicle, def, {});
+    const look = normalizeVec(cameraDirection);
+    const zero = Math.max(10, finite(zeroDistance, 180));
+    return normalizeVec({
+      x: cameraOrigin.x + look.x * zero - muzzle.x,
+      y: cameraOrigin.y + look.y * zero - muzzle.y,
+      z: cameraOrigin.z + look.z * zero - muzzle.z,
+    }, look);
+  };
+
   VehicleSystem.prototype._resolveVehicleHit = function (shot, hit, def, options) {
     if (!hit || !hit.vehicle) return 0;
+    const hpBefore = hit.vehicle.hp;
     const damage = this.applyDamage(hit.vehicle, def.damage, {
       damageType: def.damageType,
       source: options.actor || null,
@@ -2790,14 +3384,19 @@
       damage: damage,
     };
     shot.damageApplied = damage;
+    const actualDamage = Math.max(0, hpBefore - hit.vehicle.hp);
     this._emit('vehicle-weapon-hit', {
       shotId: shot.id,
       vehicleId: hit.vehicle.id,
       sourceVehicleId: shot.vehicleId,
+      ownerId: shot.ownerId,
+      team: shot.team,
       weaponId: def.id,
       damageType: def.damageType,
-      damage: damage,
+      damage: actualDamage,
+      finalDamage: damage,
       point: copyVec(hit.point),
+      normal: copyVec(hit.normal),
     });
     if (typeof options.onHit === 'function') options.onHit(shot.hit, shot);
     if (typeof this.onWeaponHit === 'function') this.onWeaponHit(shot.hit, shot);
@@ -2875,6 +3474,7 @@
         actorOrOptions.targetId ||
         actorOrOptions.actor ||
         actorOrOptions.ownerId ||
+        actorOrOptions.shotId ||
         actorOrOptions.force ||
         actorOrOptions.friendlyFire)
     ) {
@@ -2908,11 +3508,29 @@
       return null;
     }
 
+    const requestedShotId =
+      typeof options.shotId === 'string' &&
+      options.shotId.length <= 96 &&
+      /^[a-zA-Z0-9_.:-]+$/.test(options.shotId)
+        ? options.shotId
+        : null;
+    const shotNow = Date.now();
+    if (shotNow - this._acceptedShotPruneAt > 5000) {
+      const cutoff = shotNow - 30000;
+      for (const acceptedId in this._acceptedShotIds) {
+        if (this._acceptedShotIds[acceptedId] < cutoff) {
+          delete this._acceptedShotIds[acceptedId];
+        }
+      }
+      this._acceptedShotPruneAt = shotNow;
+    }
+    if (requestedShotId && this._acceptedShotIds[requestedShotId]) return null;
+    if (requestedShotId) this._acceptedShotIds[requestedShotId] = shotNow;
     this._consumeWeapon(state, def);
     const origin = this._shotOrigin(vehicle, def, options);
     const direction = this._shotDirection(vehicle, origin, options, def);
     const ownerId = actor ? this._entityId(actor) : options.ownerId || null;
-    const id = 'vehicle-shot-' + ++this._projectileSeq;
+    const id = requestedShotId || 'vehicle-shot-' + ++this._projectileSeq;
     let shot;
 
     if (def.mode === 'hitscan') {
@@ -2995,6 +3613,19 @@
         predictOnly: !!options.predictOnly,
       };
       this.projectiles.push(shot);
+    }
+    if (
+      options.predictOnly &&
+      requestedShotId &&
+      weaponId === 'tank_main_cannon'
+    ) {
+      const predictedAt = Date.now();
+      state._prediction = {
+        shotId: shot.id,
+        magAfter: state.mag,
+        cooldownUntil: predictedAt + (def.cooldown || 0) * 1000,
+        expiresAt: predictedAt + (def.cooldown || 0) * 1000 + 500,
+      };
     }
     this.lastShot = shot;
     this._emit('vehicle-weapon-fired', {
@@ -3337,12 +3968,53 @@
       const state = vehicle.weapons[id];
       const def = WEAPON_DEFS[id];
       if (!source || !state) continue;
-      state.cooldown = Math.max(0, finite(source.cooldown, state.cooldown));
+      const sourceCooldown = Math.max(
+        0,
+        finite(source.cooldown, state.cooldown)
+      );
+      const prediction = state._prediction;
+      const predictionNow = Date.now();
+      let protectPrediction = !!(
+        prediction &&
+        prediction.expiresAt > predictionNow
+      );
+      let sourceMag = null;
       if (def.magSize != null) {
-        const sourceMag = source.mag != null ? source.mag : source.ammo;
-        state.mag = clamp(Math.floor(finite(sourceMag, state.mag)), 0, def.magSize);
+        sourceMag = clamp(
+          Math.floor(
+            finite(
+              source.mag != null ? source.mag : source.ammo,
+              state.mag
+            )
+          ),
+          0,
+          def.magSize
+        );
+        const acknowledged = !!(
+          protectPrediction &&
+          sourceCooldown > EPS &&
+          sourceMag <= prediction.magAfter
+        );
+        if (acknowledged) {
+          protectPrediction = false;
+          state._prediction = null;
+        }
+      }
+      if (protectPrediction) {
+        state.cooldown = Math.max(
+          sourceCooldown,
+          Math.max(0, (prediction.cooldownUntil - predictionNow) / 1000)
+        );
+      } else {
+        state.cooldown = sourceCooldown;
+        if (prediction) state._prediction = null;
+      }
+      if (def.magSize != null) {
+        state.mag = protectPrediction
+          ? Math.min(sourceMag, prediction.magAfter)
+          : sourceMag;
         state.ammo = state.mag;
-        if (def.reserve != null || def.reserveRegenSec != null) {
+        if (def.reserve != null || def.reserveMax != null) {
           const cap =
             def.reserveMax != null ? def.reserveMax : def.reserve != null ? def.reserve : state.reserve;
           state.reserve = Math.max(
@@ -3353,19 +4025,23 @@
           state.reserve = null;
         }
         state.reloadTimer = Math.max(0, finite(source.reloadTimer, state.reloadTimer));
-      }
-      if (def.reserveRegenSec != null) {
-        if ((state.reserve || 0) > 0) state.reserveRegenTimer = 0;
-        else {
-          state.reserveRegenTimer = Math.max(
-            0,
-            finite(source.reserveRegenTimer, state.reserveRegenTimer)
-          );
-        }
+        const regen = Math.max(
+          0,
+          finite(
+            source.ammoRegenTimer != null ? source.ammoRegenTimer : source.reserveRegenTimer,
+            state.ammoRegenTimer
+          )
+        );
+        state.ammoRegenTimer = regen;
+        state.reserveRegenTimer = regen;
       }
       if (def.maxHeat != null) {
         state.heat = clamp(finite(source.heat, state.heat), 0, def.maxHeat);
         state.overheated = !!source.overheated;
+        state.heatShotAge = Math.max(
+          0,
+          finite(source.heatShotAge, state.heatShotAge)
+        );
       }
     }
   };
@@ -3512,6 +4188,8 @@
     this._vehicles.length = 0;
     this.projectiles.length = 0;
     this._byId = Object.create(null);
+    this._acceptedShotIds = Object.create(null);
+    this._acceptedShotPruneAt = 0;
     this.lastShot = null;
     if (this.root && this.root.parent) this.root.parent.remove(this.root);
     this.root = null;
@@ -3539,4 +4217,7 @@
   global.VF.Vehicles = Vehicles;
   global.VF.VEHICLE_DEFS = VEHICLE_DEFS;
   global.VF.VEHICLE_WEAPONS = WEAPON_DEFS;
+  global.VF.VEHICLE_SERVICE = SERVICE_STATION;
+  global.VF.VEHICLE_AMMO_AUTO = AMMO_AUTO_REPLENISH;
+  global.VF.drawResupplyStationMark = drawResupplyStationMark;
 })(typeof window !== 'undefined' ? window : this);

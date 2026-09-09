@@ -13,6 +13,8 @@
 
   const AMMO_RESERVE_MAX = 320;
   const AMMO_DROP_AMOUNT = 45;
+  const AMMO_RESUPPLY_PER_SEC = 36;
+  const LAUNCHER_RESUPPLY_PER_SEC = 0.5;
   const TRACER_MAX = 48;
   const TRACER_LIFE = 0.14;
   const TRACER_FADE = 0.05;
@@ -312,14 +314,58 @@
       modelStyle: 'rpg',
       category: 'launcher',
     },
+    knife: {
+      id: 'knife',
+      model: 'Combat Knife',
+      name: 'Knife',
+      nameZh: '战术匕首',
+      slot: 6,
+      melee: true,
+      damage: 90,
+      backstabDamage: 999,
+      fireRate: 0.45,
+      magSize: 0,
+      reserve: 0,
+      spread: 0,
+      adsSpread: 0,
+      range: 2,
+      recoil: 0.04,
+      pellets: 0,
+      automatic: false,
+      reloadTime: 0,
+      switchSpeed: 1.4,
+      runSpeed: 1,
+      ammoColor: 0xc8cdd4,
+      ammoLabel: '刀',
+      coreDamage: 0,
+      attackRange: 2.0,
+      attackAngle: Math.PI / 3,
+      windupTime: 0.05,
+      activeTime: 0.15,
+      recoveryTime: 0.25,
+      lungeRange: 2.6,
+      lungeTime: 0.2,
+      lungeCooldown: 0.3,
+      moveSpeedMul: 1.12,
+      sprintSpeedMul: 1.18,
+    },
   };
 
   if (global.VF.WEAPON_CATALOG) {
     const catalog = global.VF.WEAPON_CATALOG;
-    Object.keys(catalog).forEach(function (id) {
-      if (id === 'svd') return;
-      WEAPONS[id] = catalog[id];
-    });
+    const order = global.VF.WEAPON_LOADOUT_ORDER || [];
+    for (let i = 0; i < order.length; i++) {
+      const id = order[i];
+      if (id && catalog[id]) WEAPONS[id] = catalog[id];
+    }
+  }
+
+  function fallbackPrimaryId() {
+    return (global.VF && global.VF.defaultPrimaryId && global.VF.defaultPrimaryId()) || 'ak74';
+  }
+
+  function fallbackSecondaryId() {
+    return (global.VF && global.VF.defaultSecondaryId && global.VF.defaultSecondaryId()) || 'usp';
   }
 
   function Weapons(player, world, scene) {
@@ -327,7 +373,7 @@
     this.world = world;
     this.scene = scene;
     this.raycaster = new THREE.Raycaster();
-    this.current = 'ar';
+    this.current = fallbackPrimaryId();
     this.state = {};
     const selfState = this;
     Object.keys(WEAPONS).forEach(function (id) {
@@ -361,6 +407,7 @@
 
   /** Add reserve ammo for a weapon; capped at AMMO_RESERVE_MAX. Returns amount actually added. */
   Weapons.prototype.addReserve = function (weaponId, amount) {
+    if (weaponId === 'knife') return 0;
     if (!this.state[weaponId] || amount <= 0) return 0;
     const ammo = this.state[weaponId];
     const before = ammo.reserve;
@@ -369,6 +416,66 @@
     if (gained > 0 && global.VF.UI && this.current === weaponId) {
       global.VF.UI.updateAmmo(ammo.mag, ammo.reserve);
     }
+    return gained;
+  };
+
+  Weapons.prototype._carryCap = function (weaponId) {
+    const def = WEAPONS[weaponId];
+    if (!def || def.melee) return 0;
+    const base = (def.magSize || 0) + (def.reserve || 0);
+    return base > 0 ? base * 2 : 0;
+  };
+
+  Weapons.prototype._addTowardCarryCap = function (weaponId, amount) {
+    if (weaponId === 'knife' || !(amount > 0)) return 0;
+    const def = WEAPONS[weaponId];
+    const ammo = this._ensureAmmo(weaponId);
+    if (!def || !ammo) return 0;
+    const cap = this._carryCap(weaponId);
+    if (!(cap > 0)) return 0;
+    const current = (ammo.mag || 0) + (ammo.reserve || 0);
+    const room = cap - current;
+    if (!(room > 0)) return 0;
+    const take = Math.min(amount, room);
+    const magNeed = Math.max(0, (def.magSize || 0) - (ammo.mag || 0));
+    const toMag = Math.min(take, magNeed);
+    ammo.mag += toMag;
+    ammo.reserve += take - toMag;
+    if ((toMag > 0 || take - toMag > 0) && global.VF.UI && this.current === weaponId) {
+      global.VF.UI.updateAmmo(Math.floor(ammo.mag), Math.floor(ammo.reserve));
+    }
+    return take;
+  };
+
+  /** Ammo crate: refill all carried guns up to 2× spawn carry (mag + reserve). */
+  Weapons.prototype.resupplyFromCrate = function (dt) {
+    if (!(dt > 0)) return 0;
+    if (!this._crateAcc) this._crateAcc = Object.create(null);
+    const ids = Object.create(null);
+    if (this.current && this.current !== 'knife') ids[this.current] = true;
+    const loadout = global.VF.game && global.VF.game.loadout;
+    if (loadout) {
+      if (loadout.primary) ids[loadout.primary] = true;
+      if (loadout.secondary) ids[loadout.secondary] = true;
+    }
+    if (this.state.rpg && global.VF.Gadgets && global.VF.Gadgets.hasRpg && global.VF.Gadgets.hasRpg()) {
+      ids.rpg = true;
+    }
+    let gained = 0;
+    const self = this;
+    Object.keys(ids).forEach(function (id) {
+      const def = WEAPONS[id];
+      if (!def || def.melee) return;
+      const rate =
+        def.projectile || def.category === 'launcher'
+          ? LAUNCHER_RESUPPLY_PER_SEC
+          : AMMO_RESUPPLY_PER_SEC;
+      self._crateAcc[id] = (self._crateAcc[id] || 0) + rate * dt;
+      const whole = Math.floor(self._crateAcc[id]);
+      if (whole < 1) return;
+      self._crateAcc[id] -= whole;
+      gained += self._addTowardCarryCap(id, whole);
+    });
     return gained;
   };
 
@@ -410,6 +517,7 @@
         return;
       }
       if (self.mode !== 'weapon') return;
+      if (global.VF.Throwables && global.VF.Throwables.busy && global.VF.Throwables.busy()) return;
       if (
         global.VF.game &&
         global.VF.game.skills &&
@@ -435,23 +543,38 @@
         return;
       }
       if (e.code === 'Digit1') {
+        const raw =
+          (global.VF.game && global.VF.game.preferredWeaponId) || fallbackPrimaryId();
         const primary =
-          (global.VF.game && global.VF.game.preferredWeaponId) || 'ar';
-        self.equip(WEAPONS[primary] ? primary : 'ar');
+          global.VF.sanitizePrimaryId ? global.VF.sanitizePrimaryId(raw) : raw;
+        self.equip(WEAPONS[primary] ? primary : fallbackPrimaryId());
       }
       if (e.code === 'Digit2') {
-        const secondary =
+        const raw =
           (global.VF.game && global.VF.game.preferredSecondaryId) ||
           (global.VF.game && global.VF.game.loadout && global.VF.game.loadout.secondary) ||
-          'm9';
-        self.equip(WEAPONS[secondary] ? secondary : 'sg');
+          fallbackSecondaryId();
+        const secondary =
+          global.VF.sanitizeSecondaryId ? global.VF.sanitizeSecondaryId(raw) : raw;
+        self.equip(WEAPONS[secondary] ? secondary : fallbackSecondaryId());
       }
       if (e.code === 'KeyR') self.reload();
     });
   };
 
   Weapons.prototype.equip = function (id) {
+    if (id && id !== 'rpg' && id !== 'knife') {
+      const incoming = WEAPONS[id];
+      if (incoming && incoming.category === 'pistol') {
+        id = global.VF.sanitizeSecondaryId
+          ? global.VF.sanitizeSecondaryId(id)
+          : fallbackSecondaryId();
+      } else if (global.VF.sanitizePrimaryId) {
+        id = global.VF.sanitizePrimaryId(id);
+      }
+    }
     if (!WEAPONS[id]) return;
+    if (global.VF.Throwables && global.VF.Throwables.busy && global.VF.Throwables.busy()) return;
     if (id === 'rpg') {
       const rangeOpenRpg = global.VF.Range && global.VF.Range.isOpen;
       const allowed =
@@ -467,6 +590,7 @@
     const rangeOpen = global.VF.Range && global.VF.Range.isOpen;
     if (
       id !== 'rpg' &&
+      id !== 'knife' &&
       !rangeOpen &&
       global.VF.Economy &&
       global.VF.Economy.ownsWeapon &&
@@ -477,8 +601,11 @@
       }
       return;
     }
-    if (id !== 'rpg' && global.VF.Gadgets && global.VF.Gadgets.onWeaponEquip) {
+    if (id !== 'rpg' && id !== 'knife' && global.VF.Gadgets && global.VF.Gadgets.onWeaponEquip) {
       global.VF.Gadgets.onWeaponEquip();
+    }
+    if (id === 'knife' && global.VF.Gadgets) {
+      global.VF.Gadgets.hand = 'melee';
     }
     if (this.reloading) this._cancelReload();
     this.current = id;
@@ -493,26 +620,34 @@
       global.VF.game.building.exitMode();
     }
     if (this.player && this.player.setHeldMode) this.player.setHeldMode('weapon');
-    if (this.player && this.player.applyWeaponModel) this.player.applyWeaponModel(id);
+    if (id !== 'knife' && this.player && this.player.applyWeaponModel) {
+      this.player.applyWeaponModel(id);
+    }
     if (global.VF.UI) {
       let slotNum = 1;
-      if (id === 'rpg' && global.VF.Gadgets && global.VF.Gadgets.rpgHotbarSlot) {
+      if (id === 'knife') {
+        slotNum = 6;
+      } else if (id === 'rpg' && global.VF.Gadgets && global.VF.Gadgets.rpgHotbarSlot) {
         slotNum = global.VF.Gadgets.rpgHotbarSlot();
       } else if (WEAPONS[id] && WEAPONS[id].category === 'pistol') {
         slotNum = 2;
       }
       global.VF.UI.setHotbarSlot(slotNum);
-      if (global.VF.UI.setEquippedWeapon) global.VF.UI.setEquippedWeapon(id);
-      const ammo = this.state[id];
-      if (ammo && global.VF.UI.updateAmmo) {
-        global.VF.UI.updateAmmo(ammo.mag, ammo.reserve);
+      if (id !== 'knife' && global.VF.UI.setEquippedWeapon) global.VF.UI.setEquippedWeapon(id);
+      if (global.VF.UI.updateAmmo) {
+        if (id === 'knife') global.VF.UI.updateAmmo(null, null);
+        else {
+          const ammo = this.state[id];
+          if (ammo) global.VF.UI.updateAmmo(ammo.mag, ammo.reserve);
+        }
       }
     }
     this._restyleGun(id);
   };
 
-  /** Ensure current gun is owned; fall back to AR. */
+  /** Ensure current gun is owned; fall back to the default primary. */
   Weapons.prototype.syncOwnedLoadout = function () {
+    const fallback = fallbackPrimaryId();
     const owns =
       global.VF.Economy && global.VF.Economy.ownsWeapon
         ? function (id) {
@@ -523,25 +658,42 @@
                 global.VF.Gadgets.hasRpg()
               );
             }
+            if (id === 'knife') return true;
             return global.VF.Economy.ownsWeapon(id);
           }
         : function () {
             return true;
           };
-    if (!owns(this.current)) {
-      this.current = 'ar';
-      this._restyleGun('ar');
-      if (this.player && this.player.applyWeaponModel) this.player.applyWeaponModel('ar');
-      if (global.VF.UI) global.VF.UI.setHotbarSlot(1);
+    let id = this.current;
+    if (id && id !== 'rpg' && id !== 'knife' && global.VF.sanitizePrimaryId) {
+      const def = WEAPONS[id];
+      id =
+        def && def.category === 'pistol'
+          ? global.VF.sanitizeSecondaryId(id)
+          : global.VF.sanitizePrimaryId(id);
+    }
+    if (!owns(id) || !WEAPONS[id]) id = fallback;
+    if (id !== this.current) {
+      this.current = id;
+      this._restyleGun(id);
+      if (this.player && this.player.applyWeaponModel) this.player.applyWeaponModel(id);
+      if (global.VF.UI) global.VF.UI.setHotbarSlot(id === fallbackSecondaryId() ? 2 : 1);
     }
     if (global.VF.UI && global.VF.UI.syncWeaponLocks) global.VF.UI.syncWeaponLocks();
   };
 
   Weapons.prototype._restyleGun = function (id) {
     const gun = this.player && this.player.gunNode;
-    if (!gun) return;
-    if (id === 'rpg') gun.scale.set(1.05, 1.05, 1.05);
-    else gun.scale.set(1, 1, 1);
+    if (gun) {
+      if (id === 'rpg') gun.scale.set(1.05, 1.05, 1.05);
+      else gun.scale.set(1, 1, 1);
+    }
+    if (global.VF.Melee && global.VF.Melee.restyle) {
+      global.VF.Melee.restyle(this.player, id);
+    }
+    if (id !== 'knife' && global.VF.Melee && global.VF.Melee.cancel) {
+      global.VF.Melee.cancel(this);
+    }
   };
 
   Weapons.prototype.getDef = function () {
@@ -586,12 +738,23 @@
       return;
     }
     if (this.player && this.player.vault) return;
+    if (global.VF.Throwables && global.VF.Throwables.busy && global.VF.Throwables.busy()) return;
     if (this.reloading) return;
     if (this.cooldown > 0) return;
     const def = this.getDef();
+    if (def && def.melee) {
+      if (global.VF.Melee && global.VF.Melee.trySwing) global.VF.Melee.trySwing(this);
+      return;
+    }
     const ammo = this.getAmmo();
     if (ammo.mag <= 0) {
-      if (ammo.reserve <= 0 && global.VF.Audio) global.VF.Audio.play('empty');
+      if (global.VF.Audio) {
+        const emptyProfile = (def && def.soundProfile) || this.current;
+        global.VF.Audio.play('weapon.' + emptyProfile + '.empty', {
+          local: true,
+          priority: 6,
+        });
+      }
       this.reload();
       return;
     }
@@ -687,14 +850,18 @@
       this.player.addShake(base + kicks.vertical * mul);
     }
 
-    if (global.VF.Audio) {
-      const shot =
-        this.current === 'sg' || this.current === 'rpg'
-          ? 'shoot_sg'
-          : this.current === 'sr'
-            ? 'shoot_sr'
-            : 'shoot_ar';
-      global.VF.Audio.play(shot);
+    if (global.VF.Audio && this.current !== 'rpg') {
+      const soundProfile = def.soundProfile || this.current;
+      global.VF.Audio.play('weapon.' + soundProfile + '.fire', {
+        position: origin,
+        local: true,
+        maxDistance: Math.min(280, def.soundRange || 280),
+        priority: 9,
+      });
+      if (this.player) {
+        this.player._audioShotSeq = ((this.player._audioShotSeq || 0) + 1) >>> 0;
+        this.player._audioWeaponId = this.current;
+      }
     }
 
     if (global.VF.UI) {
@@ -1286,9 +1453,20 @@
       this._spawnImpact(bestAction.hit.point, 0xffaa44, 0.2);
     } else if (bestAction.type === 'range') {
       dmg = this._damageAtRange(def, hitDist);
+      const part = bestAction.hit && bestAction.hit.part;
+      if (part && global.VF.Hitboxes && global.VF.Hitboxes.partMul) {
+        dmg = Math.round(dmg * global.VF.Hitboxes.partMul(part));
+      }
+      this._noteShotPart(part);
       const result =
         global.VF.Range && global.VF.Range.damageTarget
-          ? global.VF.Range.damageTarget(bestAction.hit.target, dmg, dir, bestAction.hit.point)
+          ? global.VF.Range.damageTarget(
+              bestAction.hit.target,
+              dmg,
+              dir,
+              bestAction.hit.point,
+              part
+            )
           : null;
       this._shotHitHostile = true;
       this._shotHitCount++;
@@ -1377,11 +1555,15 @@
         (bestAction.hit && bestAction.hit.point) ||
         origin.clone().addScaledVector(dir, bestAction.dist || 0);
       this._spawnImpact(point, 0x6a8a4a, 0.08);
-      if (global.VF.Audio) global.VF.Audio.play('impact');
+      if (global.VF.Audio) {
+        global.VF.Audio.play('impact', { position: point, maxDistance: 45, priority: 1 });
+      }
     } else if (bestAction.type === 'voxel') {
       const point = origin.clone().addScaledVector(dir, bestAction.dist);
       this._spawnImpact(point, 0xffaa66, 0.1);
-      if (global.VF.Audio) global.VF.Audio.play('impact');
+      if (global.VF.Audio) {
+        global.VF.Audio.play('impact', { position: point, maxDistance: 45, priority: 1 });
+      }
       const bx = bestAction.x;
       const by = bestAction.y;
       const bz = bestAction.z;
@@ -1670,7 +1852,11 @@
     const now = performance.now();
     if (global.VF.Audio && (!this._breakSfxAt || now - this._breakSfxAt > 70)) {
       this._breakSfxAt = now;
-      global.VF.Audio.play('break_block');
+      global.VF.Audio.play('break_block', {
+        position: { x: x, y: y, z: z },
+        maxDistance: 65,
+        priority: 2,
+      });
     }
   };
 
@@ -1678,7 +1864,9 @@
     if (this.reloading) return;
     if (this.mode !== 'weapon') return;
     if (this.player && this.player.dead) return;
+    if (global.VF.Throwables && global.VF.Throwables.busy && global.VF.Throwables.busy()) return;
     const def = this.getDef();
+    if (def && def.melee) return;
     const ammo = this.getAmmo();
     if (ammo.mag >= def.magSize || ammo.reserve <= 0) return;
 
@@ -1692,12 +1880,23 @@
       this.player.aiming = !!(this.player.locked && this.player.keys && this.player.keys['Mouse2']);
     }
     if (global.VF.Audio) {
-      global.VF.Audio.play('reload_start');
+      const soundProfile = def.soundProfile || this.current;
+      global.VF.Audio.play('weapon.' + soundProfile + '.reload_start', {
+        local: true,
+        priority: 5,
+      });
       const mid = Math.max(0.25, this.reloadDuration * 0.45);
       const self = this;
       clearTimeout(this._reloadSfxTimer);
       this._reloadSfxTimer = setTimeout(function () {
-        if (self.reloading && global.VF.Audio) global.VF.Audio.play('reload_mag');
+        if (self.reloading && global.VF.Audio) {
+          const activeDef = self.getDef();
+          const activeProfile = activeDef.soundProfile || self.current;
+          global.VF.Audio.play('weapon.' + activeProfile + '.reload_mag', {
+            local: true,
+            priority: 5,
+          });
+        }
       }, mid * 1000);
     }
     if (global.VF.UI && global.VF.UI.setReloading) {
@@ -1732,7 +1931,13 @@
       this.player.aiming = !!(this.player.locked && this.player.keys && this.player.keys['Mouse2']);
     }
     clearTimeout(this._reloadSfxTimer);
-    if (global.VF.Audio) global.VF.Audio.play('reload_rack');
+    if (global.VF.Audio) {
+      const soundProfile = def.soundProfile || this.current;
+      global.VF.Audio.play('weapon.' + soundProfile + '.reload_rack', {
+        local: true,
+        priority: 5,
+      });
+    }
     if (global.VF.UI) {
       global.VF.UI.updateAmmo(ammo.mag, ammo.reserve);
       if (global.VF.UI.setReloading) global.VF.UI.setReloading(false);
@@ -1771,7 +1976,16 @@
 
     updateMuzzleFlashes(dt);
 
-    if (this.firing && this.mode === 'weapon' && !this.reloading && this.getDef().automatic) {
+    if (global.VF.Melee && global.VF.Melee.update) {
+      global.VF.Melee.update(this, dt);
+    }
+
+    if (
+      this.firing &&
+      this.mode === 'weapon' &&
+      !this.reloading &&
+      (this.getDef().automatic || this.getDef().melee)
+    ) {
       this.tryFire();
     }
 
@@ -1791,7 +2005,8 @@
           if (gained > 0) global.VF.UI.toast('+' + gained + ' ' + label + ' ammo');
           else global.VF.UI.toast(label + ' ammo full (' + AMMO_RESERVE_MAX + ')');
           const cur = this.getAmmo();
-          global.VF.UI.updateAmmo(cur.mag, cur.reserve);
+          if (this.current === 'knife') global.VF.UI.updateAmmo(null, null);
+          else if (cur) global.VF.UI.updateAmmo(cur.mag, cur.reserve);
         }
         this.scene.remove(d.mesh);
         if (d.mesh.geometry) d.mesh.geometry.dispose();

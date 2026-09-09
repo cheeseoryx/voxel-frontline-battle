@@ -33,7 +33,12 @@
   };
 
   CommsSystem.prototype._pingMesh = function (kind, team) {
-    const color = kind === 'enemy' ? 0xff4a4a : team === 'enemy' ? 0xff7b7b : 0x55b6ff;
+    const color =
+      kind === 'enemy'
+        ? 0xff4a4a
+        : global.VF.TeamLook && global.VF.TeamLook.kind(team) === 'foe'
+          ? 0xff7b7b
+          : 0x55b6ff;
     const root = new THREE.Group();
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(0.6, 0.85, 20),
@@ -183,11 +188,18 @@
     if (event.type === 'objective-contested') text = data.letter + '点发生争夺';
     else if (event.type === 'objective-neutralized') text = data.letter + '点已中立';
     else if (event.type === 'objective-captured') {
-      text = (data.owner === 'ally' ? '蓝方' : '红方') + '控制 ' + data.letter + '点';
+      text =
+        ((global.VF.TeamLook && global.VF.TeamLook.sideName(data.owner)) ||
+          (data.owner === 'ally' ? '蓝方' : '红方')) +
+        '控制 ' +
+        data.letter +
+        '点';
     } else if (event.type === 'squad-order-completed') text = '小队命令完成';
     else if (event.type === 'squad-order-failed') text = '小队命令失败';
     else if (event.type === 'tickets-changed' && data.after <= 100 && data.before > 100) {
-      text = (data.team === 'ally' ? '蓝方' : '红方') + '增援告急';
+      text =
+        ((global.VF.TeamLook && global.VF.TeamLook.sideName(data.team)) ||
+          (data.team === 'ally' ? '蓝方' : '红方')) + '增援告急';
     }
     if (!text) return;
     const t = performance.now();

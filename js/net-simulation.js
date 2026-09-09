@@ -521,17 +521,25 @@
       }
       if (data.fire) {
         const choices = vehicles.getWeaponsForRole(vehicle, actor.vehicleRole);
+        if (
+          (data.role && data.role !== actor.vehicleRole) ||
+          (data.weaponId && choices.indexOf(data.weaponId) < 0)
+        ) {
+          return false;
+        }
         const index = Math.max(
           0,
           Math.min(choices.length - 1, Number(data.weaponIndex) | 0)
         );
-        if (choices[index]) {
+        const weaponId = data.weaponId || choices[index];
+        if (weaponId) {
           const roleAim =
             (vehicle.aimByRole &&
               vehicle.aimByRole[actor.vehicleRole]) ||
             vehicle.aim;
-          vehicles.fireWeapon(vehicle, choices[index], actor, {
-            direction: roleAim.direction,
+          vehicles.fireWeapon(vehicle, weaponId, actor, {
+            direction: data.fireDirection || roleAim.direction,
+            shotId: data.shotId || null,
           });
         }
       }
@@ -627,7 +635,9 @@
       aimYaw: state.vehicleAimYaw,
       aimPitch: state.vehicleAimPitch,
       weaponIndex: state.vehicleWeaponIndex,
-      fire: state.vehicleFire,
+      // Fire is carried by the reliable command containing the accepted shotId
+      // and exact camera-zeroed direction. State packets only steer the vehicle.
+      fire: false,
     });
   };
 

@@ -100,19 +100,49 @@
     if (hb < hr && hb < HUMAN_PER_TEAM) return 'ally';
     if (hr < hb && hr < HUMAN_PER_TEAM) return 'enemy';
     if (hb === hr) {
-      if (hr < HUMAN_PER_TEAM) return 'enemy';
-      if (hb < HUMAN_PER_TEAM) return 'ally';
-      return null;
+      if (hb >= HUMAN_PER_TEAM) return null;
+      return Math.random() < 0.5 ? 'enemy' : 'ally';
     }
     if (hb < HUMAN_PER_TEAM) return 'ally';
     if (hr < HUMAN_PER_TEAM) return 'enemy';
     return null;
   }
 
+  function openingSides(roster, hostId) {
+    const hostTeam = rosterTeamOf(roster, hostId) || 'ally';
+    return {
+      hostTeam: hostTeam,
+      guestTeam: hostTeam === 'enemy' ? 'ally' : 'enemy',
+    };
+  }
+
   function canSwitchTeam(from, to, counts) {
     if (!to || from === to) return false;
     const dest = to === 'enemy' ? (counts && counts.enemy) || 0 : (counts && counts.ally) || 0;
     return dest < HUMAN_PER_TEAM;
+  }
+
+  function isServerJoinable(server) {
+    if (!server || !server.code) return false;
+    const cap = Number(server.capacity);
+    const players = Number(server.players);
+    if (!isFinite(cap) || cap <= 0) return false;
+    if (isFinite(players) && players >= cap) return false;
+    const phase = String(server.phase || 'play');
+    if (phase === 'closed') return false;
+    return true;
+  }
+
+  function pickBestJoinableServer(servers) {
+    const list = (servers || []).filter(isServerJoinable);
+    if (!list.length) return null;
+    list.sort(function (a, b) {
+      const pingA = a.ping != null ? a.ping : 9999;
+      const pingB = b.ping != null ? b.ping : 9999;
+      if (pingA !== pingB) return pingA - pingB;
+      return (b.players || 0) - (a.players || 0);
+    });
+    return list[0];
   }
 
   const Pvp = {
@@ -158,6 +188,8 @@
     _remoteAuthoritativeAlive: true,
     _remotePendingLifeId: null,
     _lastStateSend: 0,
+    _serverInfo: null,
+    _quickBusy: false,
 
     els: null,
 
@@ -309,12 +341,7 @@
       this._startBus();
       if (role === 'host') {
         if (!this._rosterTeamOf(this._busClientId)) {
-          this.localTeam = 'ally';
-          this.humanRoster = rosterAdd(
-            this.humanRoster || emptyRoster(),
-            this._busClientId,
-            'ally'
-          );
+          this._ensureLocalRosterTeam();
         }
         if (!this._lobbyDone) this._launchInstantMatch();
         const live = Object.create(null);
@@ -416,8 +443,7 @@
       this._startBus();
       if (this.mode === 'host') {
         if (!this._rosterTeamOf(this._busClientId)) {
-          this.localTeam = 'ally';
-          this.humanRoster = rosterAdd(emptyRoster(), this._busClientId, 'ally');
+          this._ensureLocalRosterTeam();
         }
         if (!this._lobbyDone) this._launchInstantMatch();
       } else if (!this._lobbyDone) {
@@ -559,11 +585,43 @@
       return out;
     },
 
+    isServerJoinable(server) {
+      return isServerJoinable(server);
+    },
+
+    listJoinableServers() {
+      return this.listServers().filter(isServerJoinable);
+    },
+
     joinRoomCode(code) {
-      if (!this.els || !this.els.joinCode) return false;
-      this.els.joinCode.value = String(code || '').trim().toUpperCase();
-      this.joinRoom();
-      return true;
+      return this.joinRoom(code);
+    },
+
+    quickMatch() {
+      if (this._quickBusy) return;
+      this._quickBusy = true;
+      const self = this;
+      setTimeout(function () {
+        self._quickBusy = false;
+      }, 1400);
+      if (this._isKubee()) {
+        this._enterKubeeLobby();
+        return;
+      }
+      let best = null;
+      try {
+        best = pickBestJoinableServer(this.listServers());
+      } catch (_) {
+        best = null;
+      }
+      if (best && best.code) {
+        this._toast('正在加入 ' + (best.name || best.code));
+        if (this.joinRoom(best.code, { silentFail: true }) !== false) return;
+        this._toast('房间无法加入 · 正在创建匹配房间');
+      } else {
+        this._toast('未找到可加入房间 · 正在创建匹配房间');
+      }
+      this.createRoom({ quick: true });
     },
 
     _writeBus(state) {
@@ -619,7 +677,8 @@
         seed: this.matchSeed || prev.seed || null,
         roster: this.humanRoster ? cloneRoster(this.humanRoster) : prev.roster || emptyRoster(),
         server:
-          prev.server || {
+          prev.server ||
+          this._serverInfo || {
             name: '社区对战服务器 [' + this.roomCode + ']',
             map: '荒盆',
             mode: 'conquest',
@@ -991,7 +1050,8 @@
       this._showCover();
     },
 
-    createRoom() {
+    createRoom(opts) {
+      opts = opts || {};
       if (this._isKubee()) {
         this._enterKubeeLobby();
         return;
@@ -1000,8 +1060,8 @@
       this._destroyed = false;
       this.mode = 'host';
       this.skipSpawnGate = true;
-      this.localTeam = 'ally';
-      this.humanRoster = rosterAdd(emptyRoster(), this._busClientId, 'ally');
+      this.humanRoster = emptyRoster();
+      this._ensureLocalRosterTeam();
       this.localReady = false;
       this.remoteReady = false;
       this.remotePresent = false;
@@ -1017,35 +1077,32 @@
       this.spawnReadyLocal = false;
       this.spawnReadyRemote = false;
       this.roomCode = randomCode(6);
+      this._serverInfo = {
+        name: (opts.quick ? '匹配房间 [' : '社区对战服务器 [') + this.roomCode + ']',
+        map: '荒盆',
+        mode: 'conquest',
+        modeLabel: opts.quick ? '快速匹配' : '征服',
+        createdAt: Date.now(),
+        source: opts.quick ? 'quick' : 'create',
+      };
       this._hideCover();
       if (this.els.lobbyOverlay) this.els.lobbyOverlay.classList.add('hidden');
       this._startBus();
+      this._toast(opts.quick ? '匹配房间已创建 · 正在进入战场' : '房间已创建 · 正在进入战场');
+      this._launchInstantMatch();
 
-      if (!this._ensurePeerJs()) {
-        this._toast('房间已创建 · 正在进入战场');
-        this._launchInstantMatch();
-        return;
-      }
+      if (!this._ensurePeerJs()) return;
 
       const peerId = PEER_PREFIX + this.roomCode;
       try {
         this.peer = new Peer(peerId, PEER_OPTS);
       } catch (_) {
-        this._toast('Peer 创建失败，仍可用本机房间码联机');
-        this._launchInstantMatch();
         return;
       }
 
-      this.peer.on('open', () => {
-        this._launchInstantMatch();
-      });
       this.peer.on('error', (err) => {
         const msg = (err && err.type) || (err && err.message) || 'error';
-        if (msg === 'unavailable-id') {
-          this.createRoom();
-          return;
-        }
-        if (!this._lobbyDone) this._launchInstantMatch();
+        if (msg === 'unavailable-id') return;
       });
       this.peer.on('connection', (conn) => {
         if (this.conn && this.conn.open) {
@@ -1056,17 +1113,22 @@
       });
     },
 
-    joinRoom() {
+    joinRoom(codeOverride, opts) {
+      opts = opts || {};
       if (this._isKubee()) {
         this._enterKubeeLobby();
-        return;
+        return true;
       }
-      const raw = (this.els.joinCode && this.els.joinCode.value) || '';
+      const raw =
+        codeOverride != null && String(codeOverride).length
+          ? String(codeOverride)
+          : (this.els.joinCode && this.els.joinCode.value) || '';
       const code = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (code.length < 4) {
         if (this.els.joinErr) this.els.joinErr.textContent = '请输入有效房间码';
-        return;
+        return false;
       }
+      if (this.els.joinCode) this.els.joinCode.value = code;
       if (this.els.joinErr) this.els.joinErr.textContent = '';
 
       this.destroySession();
@@ -1104,8 +1166,22 @@
       );
       if (!hostAlive) {
         this._toast('房间不存在或已关闭');
-        this.leaveLobby();
-        return;
+        this.leaveLobby({ silent: !!opts.silentFail });
+        return false;
+      }
+      const listed = {
+        code: code,
+        players: Math.max(
+          rosterCounts(bus.roster).ally + rosterCounts(bus.roster).enemy,
+          1
+        ),
+        capacity: HUMAN_CAP,
+        phase: bus.phase || 'play',
+      };
+      if (!isServerJoinable(listed)) {
+        this._toast('房间已满或不可加入');
+        this.leaveLobby({ silent: !!opts.silentFail });
+        return false;
       }
       this.remotePresent = true;
       this.connected = true;
@@ -1120,17 +1196,19 @@
         this._toast('正在加入对局…');
       }
 
-      if (!this._ensurePeerJs()) return;
-      try {
-        this.peer = new Peer(PEER_OPTS);
-      } catch (_) {
-        return;
-      }
-      this.peer.on('open', () => {
+      if (this._ensurePeerJs()) {
         try {
-          this._bindConn(this.peer.connect(PEER_PREFIX + code, CONN_OPTS));
-        } catch (_) {}
-      });
+          this.peer = new Peer(PEER_OPTS);
+        } catch (_) {
+          return true;
+        }
+        this.peer.on('open', () => {
+          try {
+            this._bindConn(this.peer.connect(PEER_PREFIX + code, CONN_OPTS));
+          } catch (_) {}
+        });
+      }
+      return true;
     },
 
     _bindConn(conn) {
@@ -1575,11 +1653,12 @@
         this._writeBus(bus);
       }
       this.matchSeed = seed;
+      const sides = this._startSides();
       const payload = {
         type: 'start',
         seed: seed,
-        hostTeam: 'ally',
-        guestTeam: 'enemy',
+        hostTeam: sides.hostTeam,
+        guestTeam: sides.guestTeam,
         fromId: this._busClientId,
       };
       this._pendingStart = payload;
@@ -2174,6 +2253,8 @@
           vehicleAimPitch: state.vehicleAimPitch || 0,
           vehicleWeaponIndex: state.vehicleWeaponIndex || 0,
           vehicleFire: !!state.vehicleFire,
+          weaponFireSeq: state.weaponFireSeq || 0,
+          weaponId: state.weaponId || null,
         });
       }
     },
@@ -2702,6 +2783,21 @@
       while (dy < -Math.PI) dy += Math.PI * 2;
       m.rotation.y += dy * k;
       m.visible = st.alive !== false && !st.stealth && !st.vehicleId;
+      if (
+        av._weaponFireSeq != null &&
+        st.weaponFireSeq != null &&
+        st.weaponFireSeq !== av._weaponFireSeq &&
+        st.alive !== false &&
+        !st.vehicleId &&
+        global.VF.Audio
+      ) {
+        global.VF.Audio.play('weapon.' + (st.weaponId || 'ak74') + '.fire', {
+          position: m.position,
+          maxDistance: 280,
+          priority: 7,
+        });
+      }
+      if (st.weaponFireSeq != null) av._weaponFireSeq = st.weaponFireSeq;
       if (global.VF.Soldier) {
         if (global.VF.Soldier.setCrouchPose) {
           global.VF.Soldier.setCrouchPose(m, !!st.crouch, {
@@ -2915,7 +3011,8 @@
       document.body.removeChild(ta);
     },
 
-    leaveLobby() {
+    leaveLobby(opts) {
+      opts = opts || {};
       this._send({ type: 'leave' });
       try {
         const state = this._readBus();
@@ -2941,7 +3038,7 @@
       if (this.els.matchReadyOverlay) {
         this.els.matchReadyOverlay.classList.add('hidden');
       }
-      this._showCover();
+      if (!opts.silent) this._showCover();
     },
 
     destroySession() {
@@ -2990,6 +3087,7 @@
       this._teamSwitchAt = 0;
       this._teamSwitchCount = 0;
       this._lastGuestId = null;
+      this._serverInfo = null;
       this._destroyed = false;
     },
 
@@ -3002,6 +3100,22 @@
 
     _rosterTeamOf(id) {
       return rosterTeamOf(this.humanRoster, id);
+    },
+
+    _ensureLocalRosterTeam() {
+      const existing = this._rosterTeamOf(this._busClientId);
+      if (existing === 'ally' || existing === 'enemy') {
+        this.localTeam = existing;
+        return existing;
+      }
+      const team = pickJoinTeam(this.getHumanCounts()) || (Math.random() < 0.5 ? 'enemy' : 'ally');
+      this.localTeam = team;
+      this.humanRoster = rosterAdd(this.humanRoster || emptyRoster(), this._busClientId, team);
+      return team;
+    },
+
+    _startSides() {
+      return openingSides(this.humanRoster, this._busClientId);
     },
 
     getHumanCounts() {
@@ -3037,18 +3151,14 @@
       this.skipSpawnGate = true;
       this._cancelledStartSeed = null;
       if (!this._rosterTeamOf(this._busClientId)) {
-        this.localTeam = 'ally';
-        this.humanRoster = rosterAdd(
-          this.humanRoster || emptyRoster(),
-          this._busClientId,
-          'ally'
-        );
+        this._ensureLocalRosterTeam();
       }
+      const sides = this._startSides();
       const payload = {
         type: 'start',
         seed: seed,
-        hostTeam: 'ally',
-        guestTeam: 'enemy',
+        hostTeam: sides.hostTeam,
+        guestTeam: sides.guestTeam,
         fromId: this._busClientId,
         roster: cloneRoster(this.humanRoster),
       };
@@ -3114,8 +3224,8 @@
             type: 'start',
             seed: this.matchSeed,
             roster: cloneRoster(this.humanRoster || emptyRoster()),
-            hostTeam: 'ally',
-            guestTeam: 'enemy',
+            hostTeam: this._startSides().hostTeam,
+            guestTeam: this._startSides().guestTeam,
           });
         }
         return;
@@ -3137,12 +3247,13 @@
         this._pendingStart.roster = cloneRoster(this.humanRoster);
       }
       this._broadcastRoster();
+      const sides = this._startSides();
       this._send({
         type: 'start',
         seed: this.matchSeed,
         roster: cloneRoster(this.humanRoster),
-        hostTeam: 'ally',
-        guestTeam: 'enemy',
+        hostTeam: sides.hostTeam,
+        guestTeam: sides.guestTeam,
       });
       this._onRosterChanged();
     },
@@ -3263,6 +3374,8 @@
   global.VF.Pvp = Pvp;
   Pvp.pickJoinTeam = pickJoinTeam;
   Pvp.canSwitchTeam = canSwitchTeam;
+  Pvp.isServerJoinable = isServerJoinable;
+  Pvp.pickBestJoinableServer = pickBestJoinableServer;
   Pvp.HUMAN_CAP = HUMAN_CAP;
   Pvp.HUMAN_PER_TEAM = HUMAN_PER_TEAM;
 })(typeof window !== 'undefined' ? window : globalThis);

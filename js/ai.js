@@ -878,6 +878,20 @@
     this._refreshArmyHud();
   };
 
+  AI.prototype.refreshDisplayColors = function () {
+    const Soldier = global.VF && global.VF.Soldier;
+    const paint = function (list) {
+      if (!list) return;
+      for (let i = 0; i < list.length; i++) {
+        const unit = list[i];
+        if (!unit || !unit.mesh) continue;
+        if (Soldier && Soldier.refreshTeamMarker) Soldier.refreshTeamMarker(unit.mesh, unit.team);
+      }
+    };
+    paint(this.blue);
+    paint(this.red);
+  };
+
   AI.prototype.relocateSquadNearSpawn = function () {
     if (!this._armiesSpawned) this.applyPlayerTeam();
   };
@@ -1303,7 +1317,13 @@
     if (!unit || !unit.mesh) return;
     const meshRoot = unit.mesh;
     const origin = meshRoot.position.clone().add(new THREE.Vector3(0, 1.0, 0));
-    const teamColor = unit.team === 'ally' || unit.team === 'blue' ? 0x4488ff : 0xff4444;
+    const L = global.VF && global.VF.TeamLook;
+    const teamColor =
+      L && L.hex
+        ? L.hex(unit.team)
+        : unit.team === 'ally' || unit.team === 'blue'
+          ? 0x4488ff
+          : 0xff4444;
     const samples = [];
 
     meshRoot.updateMatrixWorld(true);
@@ -1486,6 +1506,9 @@
     if (global.VF.Gadgets && global.VF.Gadgets.blocksLine && global.VF.Gadgets.blocksLine(from, to)) {
       return false;
     }
+    if (global.VF.Throwables && global.VF.Throwables.occludesRay) {
+      if (global.VF.Throwables.occludesRay(from, to)) return false;
+    }
     const dist = from.distanceTo(to);
     if (dist < 1.5) return true;
     const steps = Math.min(24, Math.max(3, Math.ceil(dist)));
@@ -1575,6 +1598,8 @@
   AI.prototype._tryShoot = function (unit, targetUnit, dt) {
     unit.shootCd -= dt;
     if (unit.shootCd > 0 || !targetUnit || !targetUnit.alive) return;
+    if ((unit.throwBlind || 0) > 0.25) return;
+    if ((unit.throwStun || 0) > 0.2) return;
 
     const from = unit.mesh.position.clone().add(new THREE.Vector3(0, 1.4, 0));
     let to;
@@ -1603,13 +1628,35 @@
     this._faceToward(unit, to, dt);
 
     const muzzle = unit.mesh.userData && unit.mesh.userData.muzzle;
-    const tracerColor = unit.team === 'ally' ? 0x88ddff : 0xffaa44;
+    const L = global.VF && global.VF.TeamLook;
+    const tracerColor =
+      L && L.kind
+        ? L.kind(unit.team) === 'foe'
+          ? 0xffaa44
+          : 0x88ddff
+        : unit.team === 'ally'
+          ? 0x88ddff
+          : 0xffaa44;
     if (muzzle && global.VF.spawnMuzzleFlash) {
       global.VF.spawnMuzzleFlash(muzzle, {
         size: unit.type === 'heavy' ? 0.24 : 0.17,
         intensity: unit.type === 'heavy' ? 8 : 5,
         life: 0.06,
         color: tracerColor,
+      });
+    }
+    if (global.VF.Audio && global.VF.Audio.play) {
+      const soundWeapon =
+        unit.weaponId ||
+        (unit.type === 'heavy'
+          ? 'm249'
+          : unit.type === 'ranged'
+            ? 'm200'
+            : 'ak74');
+      global.VF.Audio.play('weapon.' + soundWeapon + '.fire', {
+        position: from,
+        maxDistance: unit.type === 'ranged' ? 420 : 280,
+        priority: dist < 35 ? 7 : 4,
       });
     }
 
@@ -2035,6 +2082,7 @@
     dir.normalize();
 
     let step = unit.speed * feelAi().speedMul * dt;
+    if ((unit.throwStun || 0) > 0) step *= 0.5;
     if (step > MAX_STEP) step = MAX_STEP;
 
     const mx = this._moveAxis(unit, 'x', dir.x * step);

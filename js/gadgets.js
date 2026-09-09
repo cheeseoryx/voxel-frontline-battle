@@ -1,14 +1,25 @@
 /**
  * gadgets.js — Loadout gadgets (slots 3–4), throwables (slot 5 / G), melee (slot 6).
- * Battlefield 6-inspired: medkit, C4, ammo crate, RPG, binoculars, frag/flash/smoke.
+ * Battlefield 6-inspired: medkit, C4, ammo crate, RPG, binoculars, grenades, knife/sledge.
+ *
+ * Slot 5 / G uses VF.Throwables (frag / semtex / molotov / flash / stun / smoke).
+ * C4 keep the gadget parabola. Slot 6 knife uses VF.Melee; sledge stays here.
  */
 (function (global) {
   'use strict';
 
   const GRENADE_MAX = 2;
+  const GRENADE_CHARGE_MAX = 3;
+  const GRENADE_CHARGE_SEC = 15;
   const C4_MAX = 2;
-  const THROW_SPEED = 19;
+  const CRATE_RADIUS = 1;
+  const THROW_SPEED = 22;
   const THROW_GRAVITY = 16;
+  const THROW_MAX_FLIGHT = 4.5;
+  const THROW_PREVIEW_STEPS = 40;
+  const THROW_SIM_DT = 1 / 40;
+  const _throwUp = new THREE.Vector3(0, 1, 0);
+  const _throwN = new THREE.Vector3();
 
   const LIFE = {
     beacon: 120,
@@ -26,7 +37,7 @@
       name: '急救箱',
       kind: 'medkit',
       flavor: '战地救治',
-      desc: '部署后持续恢复附近友军生命值。参考战地 6 补给袋的治疗部分：丢在队友身边即可回血。',
+      desc: '部署后半径 1 米。附近友军脱离受伤 1 秒后每秒恢复 30 点生命。',
       tags: ['治疗', '部署', '友军'],
     },
     {
@@ -34,7 +45,7 @@
       name: 'C4 炸药',
       kind: 'charge',
       flavor: '遥控爆破',
-      desc: '投出后遥控引爆，可摧毁载具、工事与步兵。每条命携带 2 块；再次按下该栏位或左键引爆。',
+      desc: '按住瞄准抛物线，松手投出，可贴墙或地面。遥控引爆，可摧毁载具、工事与步兵。每条命 2 块。',
       tags: ['爆破', '反载具', '工事'],
     },
     {
@@ -42,12 +53,12 @@
       name: '弹药箱',
       kind: 'ammo',
       flavor: '火力续航',
-      desc: '部署后为附近友军补充枪弹、火箭弹与投掷物。参考战地 6 补给袋的补弹部分。',
+      desc: '部署后半径 1 米。枪弹最多补到两倍初始携带量；投掷物每 15 秒充能 1 枚，最多 3 枚。',
       tags: ['补给', '弹药', '部署'],
     },
     {
       id: 'rpg',
-      name: 'RPG-7 反载具火箭筒',
+      name: 'RPG 反载具火箭筒',
       kind: 'rpg',
       flavor: '破甲一击',
       desc: '非制导反载具火箭筒，对装甲伤害高、对步兵溅射有限。所有兵种均可装备。',
@@ -67,10 +78,10 @@
   const GRENADE_CATALOG = [
     {
       id: 'frag',
-      name: '破片手榴弹',
+      name: '破片手雷',
       kind: 'frag',
       flavor: '范围杀伤',
-      desc: '延时爆炸并抛出破片。近距离可击杀步兵，对载具与大型建筑效果有限。按 G 投出，每条命 2 发。',
+      desc: '按住 G 瞄准抛物线，松手投出。延时爆炸并抛出破片，碰墙会弹跳。每条命 2 发。',
       tags: ['步兵', '清房', '延时'],
     },
     {
@@ -78,7 +89,7 @@
       name: '闪光弹',
       kind: 'flash',
       flavor: '致盲突入',
-      desc: '爆炸后致盲并干扰附近敌军，适合突入掩体与夺点前的开门。按 G 投出，每条命 2 发。',
+      desc: '按住 G 瞄准抛物线，松手投出。落地后致盲并干扰附近敌军。每条命 2 发。',
       tags: ['致盲', '突入', '干扰'],
     },
     {
@@ -86,7 +97,7 @@
       name: '烟雾弹',
       kind: 'smoke',
       flavor: '遮断视线',
-      desc: '制造烟幕，阻挡瞄准、标记与锁敌视线，掩护推进或救援。按 G 投出，每条命 2 发。',
+      desc: '按住 G 瞄准抛物线，松手投出。落地后制造烟幕，遮断瞄准与标记。每条命 2 发。',
       tags: ['掩护', '遮断', '救援'],
     },
   ];
@@ -99,14 +110,6 @@
       flavor: '迅捷近战',
       desc: '挥砍最快，持刀时移动更快。背后偷袭伤害更高，正面无法一击致命。',
       tags: ['近战', '机动', '背刺'],
-    },
-    {
-      id: 'sledge',
-      name: '大锤',
-      kind: 'sledge',
-      flavor: '破障近战',
-      desc: '挥击较慢，但能破坏装备、轻型掩体，并对载具造成少量伤害。',
-      tags: ['近战', '破障', '载具'],
     },
   ];
 
@@ -128,10 +131,23 @@
     const state = store.loadout;
     if (!state.primary || state.primary === 'rpg') {
       const pref = g && g.preferredWeaponId;
-      state.primary = pref && pref !== 'rpg' ? pref : 'ar';
+      state.primary = pref && pref !== 'rpg' ? pref : 'ak74';
+    }
+    if (global.VF.sanitizePrimaryId) {
+      state.primary = global.VF.sanitizePrimaryId(state.primary);
     }
     if (g && g.preferredWeaponId === 'rpg') g.preferredWeaponId = state.primary;
-    if (!state.secondary) state.secondary = (g && g.preferredSecondaryId) || 'm9';
+    if (g && global.VF.sanitizePrimaryId) {
+      g.preferredWeaponId = global.VF.sanitizePrimaryId(
+        g.preferredWeaponId || state.primary
+      );
+      state.primary = g.preferredWeaponId;
+    }
+    if (!state.secondary) state.secondary = (g && g.preferredSecondaryId) || 'usp';
+    if (global.VF.sanitizeSecondaryId) {
+      state.secondary = global.VF.sanitizeSecondaryId(state.secondary);
+      if (g) g.preferredSecondaryId = state.secondary;
+    }
     if (!catalogById(GADGET_CATALOG, state.gadget1)) state.gadget1 = 'medkit';
     if (!catalogById(GADGET_CATALOG, state.gadget2)) {
       state.gadget2 = state.gadget1 === 'ammo' ? 'medkit' : 'ammo';
@@ -142,6 +158,16 @@
     if (!catalogById(GRENADE_CATALOG, state.grenade)) state.grenade = 'frag';
     if (!catalogById(MELEE_CATALOG, state.melee)) state.melee = 'knife';
     return state;
+  }
+
+  /** 局内部署后的手雷种类：Throwables 快照优先，避免滚轮/中途改装备改雷。 */
+  function combatGrenadeId() {
+    const T = global.VF && global.VF.Throwables;
+    if (T && T.currentId) {
+      const id = T.currentId();
+      if (catalogById(GRENADE_CATALOG, id)) return id;
+    }
+    return loadoutState().grenade;
   }
 
   function GadgetSystem() {
@@ -158,6 +184,12 @@
     this.meleeCd = 0;
     this.flashBlind = 0;
     this._meleeView = null;
+    this._throwAim = null;
+    this._throwPreview = null;
+    this._grenadeChargeT = 0;
+    this._c4ChargeT = 0;
+    this._gadgetAnim = null;
+    this._pendingDeploy = null;
     this._bind();
   }
 
@@ -184,9 +216,13 @@
       } else if (event.code === 'Digit6') {
         event.preventDefault();
         self.selectLoadoutSlot(g, 'melee');
-      } else if (event.code === 'KeyG') {
-        event.preventDefault();
-        self.throwGrenade(g);
+      }
+    });
+    document.addEventListener('keyup', function (event) {
+      if (event.code !== 'KeyG') return;
+      const g = global.VF && global.VF.game;
+      if (self._throwAim && self._throwAim.type === 'charge') {
+        self._finishThrowAim(g, 'KeyG');
       }
     });
     document.addEventListener('mousedown', function (event) {
@@ -198,10 +234,18 @@
       if (g.weapons && g.weapons.mode === 'melee') {
         event.preventDefault();
         self.swingMelee(g);
-      } else if (g.weapons && g.weapons.mode === 'gadget') {
+      } else if (g.weapons && g.weapons.mode === 'gadget' && self.hand !== 'grenade') {
         event.preventDefault();
         self.useHeld(g);
       }
+    });
+    document.addEventListener('mouseup', function (event) {
+      if (event.button !== 0) return;
+      const g = global.VF && global.VF.game;
+      self._finishThrowAim(g, 'mouse');
+    });
+    document.addEventListener('pointerlockchange', function () {
+      if (!document.pointerLockElement) self._cancelThrowAim();
     });
   };
 
@@ -234,13 +278,294 @@
       y: origin.y + dir.y * 0.45,
       z: origin.z + dir.z * 0.45,
       vx: dir.x * spd,
-      vy: dir.y * spd + 3.1,
+      vy: dir.y * spd + 0.9,
       vz: dir.z * spd,
     };
   };
 
+  GadgetSystem.prototype._getThrowParams = function (player, kind) {
+    const speed = kind === 'smoke' ? 17 : kind === 'charge' ? 20 : THROW_SPEED;
+    return this._eyeThrow(player, speed);
+  };
+
+  GadgetSystem.prototype._canThrowNow = function (game) {
+    if (!game || !game.running || !game.player || !game.player.locked) return false;
+    if (game.player.dead || game.player.downed || game.player.vehicleId) return false;
+    if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
+    if (game.levelEditing) return false;
+    return true;
+  };
+
+  GadgetSystem.prototype._throwBlocked = function (world, x, y, z) {
+    if (!world) return y < 0.12;
+    const bx = Math.floor(x);
+    const by = Math.floor(y);
+    const bz = Math.floor(z);
+    if (world._isStructureSolid) {
+      if (world._isStructureSolid(bx, by, bz)) return true;
+    } else if (world._isSolid && world._isSolid(bx, by, bz)) {
+      if (!world._isTerrainFill || !world._isTerrainFill(bx, by, bz)) return true;
+    }
+    return y <= this._ground(world, x, z) + 0.12;
+  };
+
+  GadgetSystem.prototype._resolveStick = function (world, prevX, prevY, prevZ, hitX, hitY, hitZ) {
+    const gy = this._ground(world, hitX, hitZ);
+    const bx = Math.floor(hitX);
+    const by = Math.floor(hitY);
+    const bz = Math.floor(hitZ);
+    const structure =
+      world && world._isStructureSolid
+        ? world._isStructureSolid(bx, by, bz)
+        : world && world._isSolid && world._isSolid(bx, by, bz);
+    if (!structure && hitY <= gy + 0.22) {
+      return { x: hitX, y: gy + 0.12, z: hitZ, nx: 0, ny: 1, nz: 0 };
+    }
+    const stick = 0.16;
+    const fbx = Math.floor(prevX);
+    const fby = Math.floor(prevY);
+    const fbz = Math.floor(prevZ);
+    let nx = 0;
+    let ny = 0;
+    let nz = 0;
+    if (fbx !== bx) nx = fbx < bx ? -1 : 1;
+    else if (fbz !== bz) nz = fbz < bz ? -1 : 1;
+    else if (fby !== by) ny = fby < by ? -1 : 1;
+    else {
+      const ax = Math.abs(hitX - prevX);
+      const ay = Math.abs(hitY - prevY);
+      const az = Math.abs(hitZ - prevZ);
+      if (ay >= ax && ay >= az) ny = hitY >= prevY ? -1 : 1;
+      else if (ax >= az) nx = hitX >= prevX ? -1 : 1;
+      else nz = hitZ >= prevZ ? -1 : 1;
+    }
+    let x = hitX;
+    let y = hitY;
+    let z = hitZ;
+    if (nx !== 0) {
+      x = nx < 0 ? bx - stick : bx + 1 + stick;
+      y = Math.min(by + 0.85, Math.max(by + 0.15, hitY));
+      z = Math.min(bz + 0.85, Math.max(bz + 0.15, hitZ));
+    } else if (nz !== 0) {
+      z = nz < 0 ? bz - stick : bz + 1 + stick;
+      x = Math.min(bx + 0.85, Math.max(bx + 0.15, hitX));
+      y = Math.min(by + 0.85, Math.max(by + 0.15, hitY));
+    } else {
+      y = ny < 0 ? by - stick : by + 1 + stick;
+      x = Math.min(bx + 0.85, Math.max(bx + 0.15, hitX));
+      z = Math.min(bz + 0.85, Math.max(bz + 0.15, hitZ));
+    }
+    for (let i = 0; i < 4 && this._throwBlocked(world, x, y, z); i++) {
+      x += nx * 0.12;
+      y += ny * 0.12;
+      z += nz * 0.12;
+    }
+    return { x: x, y: y, z: z, nx: nx, ny: ny, nz: nz };
+  };
+
+  GadgetSystem.prototype._simulateArc = function (world, origin, vel, outPoints) {
+    if (outPoints) outPoints.length = 0;
+    let x = origin.x;
+    let y = origin.y;
+    let z = origin.z;
+    let vx = vel.x;
+    let vy = vel.y;
+    let vz = vel.z;
+    let land = null;
+    if (outPoints) outPoints.push(new THREE.Vector3(x, y, z));
+    for (let t = 0; t < THROW_MAX_FLIGHT; t += THROW_SIM_DT) {
+      const nx = x + vx * THROW_SIM_DT;
+      const ny = y + vy * THROW_SIM_DT;
+      const nz = z + vz * THROW_SIM_DT;
+      vy -= THROW_GRAVITY * THROW_SIM_DT;
+      let hit = null;
+      for (let s = 1; s <= 3; s++) {
+        const u = s / 3;
+        const sx = x + (nx - x) * u;
+        const sy = y + (ny - y) * u;
+        const sz = z + (nz - z) * u;
+        if (this._throwBlocked(world, sx, sy, sz)) {
+          hit = this._resolveStick(world, x, y, z, sx, sy, sz);
+          break;
+        }
+      }
+      if (hit) {
+        x = hit.x;
+        y = hit.y;
+        z = hit.z;
+        if (outPoints) outPoints.push(new THREE.Vector3(x, y, z));
+        land = hit;
+        break;
+      }
+      x = nx;
+      y = ny;
+      z = nz;
+      if (outPoints) outPoints.push(new THREE.Vector3(x, y, z));
+      if (y < -20) {
+        land = { x: x, y: 0.2, z: z, nx: 0, ny: 1, nz: 0 };
+        break;
+      }
+    }
+    if (!land && outPoints && outPoints.length) {
+      const p = outPoints[outPoints.length - 1];
+      land = { x: p.x, y: p.y, z: p.z, nx: 0, ny: 1, nz: 0 };
+    }
+    return land;
+  };
+
+  GadgetSystem.prototype._ensureThrowPreview = function (scene) {
+    if (this._throwPreview) {
+      if (scene && this._throwPreview.line.parent !== scene) {
+        scene.add(this._throwPreview.line);
+        scene.add(this._throwPreview.marker);
+      }
+      return this._throwPreview;
+    }
+    const positions = new Float32Array(THROW_PREVIEW_STEPS * 3);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setDrawRange(0, 0);
+    const line = new THREE.Line(
+      geo,
+      new THREE.LineBasicMaterial({
+        color: 0xe8c56a,
+        transparent: true,
+        opacity: 0.85,
+        depthTest: true,
+      })
+    );
+    line.frustumCulled = false;
+    if (scene) scene.add(line);
+    const marker = new THREE.Group();
+    marker.frustumCulled = false;
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.35, 0.55, 28),
+      new THREE.MeshBasicMaterial({
+        color: 0xff6622,
+        transparent: true,
+        opacity: 0.9,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    marker.add(ring);
+    const cross = new THREE.Mesh(
+      new THREE.RingGeometry(0.08, 0.16, 16),
+      new THREE.MeshBasicMaterial({
+        color: 0xffcc66,
+        transparent: true,
+        opacity: 0.95,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      })
+    );
+    cross.rotation.x = -Math.PI / 2;
+    cross.position.y = 0.02;
+    marker.add(cross);
+    const beam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.03, 1.2, 6),
+      new THREE.MeshBasicMaterial({
+        color: 0xff8844,
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+      })
+    );
+    beam.position.y = 0.6;
+    marker.add(beam);
+    marker.visible = false;
+    if (scene) scene.add(marker);
+    this._throwPreview = { line: line, geo: geo, marker: marker, points: [], ring: ring };
+    return this._throwPreview;
+  };
+
+  GadgetSystem.prototype._hideThrowPreview = function () {
+    if (!this._throwPreview) return;
+    this._throwPreview.line.visible = false;
+    this._throwPreview.marker.visible = false;
+    this._throwPreview.geo.setDrawRange(0, 0);
+  };
+
+  GadgetSystem.prototype._updateThrowPreview = function (game) {
+    if (!this._throwAim || !game || !game.player) {
+      this._hideThrowPreview();
+      return;
+    }
+    const kind = this._throwAim.type;
+    const prev = this._ensureThrowPreview(game.scene);
+    const start = this._getThrowParams(game.player, kind);
+    const land = this._simulateArc(
+      game.world,
+      { x: start.x, y: start.y, z: start.z },
+      { x: start.vx, y: start.vy, z: start.vz },
+      prev.points
+    );
+    const color = kind === 'smoke' ? 0xa8b0b8 : kind === 'flash' ? 0xd8c45a : kind === 'charge' ? 0xff6622 : 0xe8c56a;
+    if (prev.line.material) prev.line.material.color.setHex(color);
+    if (prev.ring && prev.ring.material) prev.ring.material.color.setHex(color);
+    const attr = prev.geo.attributes.position;
+    const n = Math.min(prev.points.length, THROW_PREVIEW_STEPS);
+    for (let i = 0; i < n; i++) {
+      const p = prev.points[i];
+      attr.setXYZ(i, p.x, p.y, p.z);
+    }
+    attr.needsUpdate = true;
+    prev.geo.setDrawRange(0, n);
+    prev.geo.computeBoundingSphere();
+    prev.line.visible = n > 1;
+    if (land) {
+      prev.marker.position.set(land.x, land.y, land.z);
+      prev.marker.visible = true;
+      _throwN.set(land.nx || 0, land.ny || 1, land.nz || 0);
+      if (_throwN.lengthSq() < 0.01) _throwN.set(0, 1, 0);
+      else _throwN.normalize();
+      prev.marker.quaternion.setFromUnitVectors(_throwUp, _throwN);
+      const s = 1 + Math.sin(performance.now() * 0.008) * 0.08;
+      prev.marker.scale.setScalar(s);
+    } else {
+      prev.marker.visible = false;
+    }
+  };
+
+  GadgetSystem.prototype._beginThrowAim = function (game, type, source) {
+    if (!this._canThrowNow(game)) return;
+    if (this._throwAim) return;
+    if (type === 'grenade') {
+      if (this.grenades <= 0) {
+        if (global.VF.UI && global.VF.UI.toast) global.VF.UI.toast('没有投掷物');
+        return;
+      }
+      const key = 'grenade:' + ((game.player && game.player.entityId) || 'player-local');
+      if (!this._ready(key)) return;
+      this._throwAim = { type: combatGrenadeId() || 'frag', source: source };
+    } else if (type === 'charge') {
+      if (this.c4Ammo <= 0) return;
+      if (!this._ready('c4-throw')) return;
+      this._throwAim = { type: 'charge', source: source };
+    }
+  };
+
+  GadgetSystem.prototype._finishThrowAim = function (game, source) {
+    if (!this._throwAim || this._throwAim.source !== source) return;
+    const type = this._throwAim.type;
+    this._hideThrowPreview();
+    this._throwAim = null;
+    if (!this._canThrowNow(game)) return;
+    if (type === 'charge') this._useC4(game);
+    else this.throwGrenade(game, type);
+  };
+
+  GadgetSystem.prototype._cancelThrowAim = function () {
+    this._throwAim = null;
+    this._hideThrowPreview();
+    if (this._gadgetAnim && this._gadgetAnim.pose === 'charge') this._gadgetAnim = null;
+  };
+
   GadgetSystem.prototype._mesh = function (kind, team) {
-    const color = team === 'enemy' ? 0xb93838 : 0x3087c9;
+    const color = (global.VF.TeamLook && global.VF.TeamLook.kind(team) === 'foe')
+      ? 0xb93838
+      : 0x3087c9;
     const root = new THREE.Group();
     let body;
     if (kind === 'beacon') {
@@ -302,10 +627,13 @@
   };
 
   GadgetSystem.prototype.resetLife = function (game) {
+    this._cancelThrowAim();
     this.grenades = GRENADE_MAX;
     this.c4Ammo = C4_MAX;
     this.flashBlind = 0;
     this.meleeCd = 0;
+    this._grenadeChargeT = 0;
+    this._c4ChargeT = 0;
     if (game) {
       const owned = this._ownedCharges(game);
       for (let i = 0; i < owned.length; i++) this.destroy(owned[i], 'respawn');
@@ -316,6 +644,29 @@
       game.weapons.state.rpg.reserve = def ? def.reserve : 2;
     }
     this.syncHud(game);
+    this._syncThrowAmmo();
+    if (game) this._syncHeldVisual(game);
+  };
+
+  GadgetSystem.prototype._orientStuck = function (mesh, nx, ny, nz) {
+    if (!mesh) return;
+    mesh.rotation.set(0, 0, 0);
+    if (ny > 0.5) {
+      return;
+    }
+    if (ny < -0.5) {
+      mesh.rotation.x = Math.PI;
+    } else if (Math.abs(nx) > 0.5) {
+      mesh.rotation.z = nx > 0 ? -Math.PI / 2 : Math.PI / 2;
+    } else if (Math.abs(nz) > 0.5) {
+      mesh.rotation.x = nz > 0 ? Math.PI / 2 : -Math.PI / 2;
+    }
+  };
+
+  GadgetSystem.prototype._syncThrowAmmo = function () {
+    if (global.VF.Throwables && global.VF.Throwables.setAmmo) {
+      global.VF.Throwables.setAmmo(this.grenades);
+    }
   };
 
   GadgetSystem.prototype.onWeaponEquip = function () {
@@ -355,6 +706,8 @@
   };
 
   GadgetSystem.prototype.selectLoadoutSlot = function (game, slot) {
+    if (global.VF.Throwables && global.VF.Throwables.busy && global.VF.Throwables.busy()) return;
+    this._cancelGadgetUse();
     if (game.building && game.building.exitMode) game.building.exitMode();
     const state = loadoutState();
     const weapons = game.weapons;
@@ -364,6 +717,7 @@
       if (def && def.id === 'charge' && this._ownedCharges(game).length) {
         if (this.hand === slot || this.c4Ammo <= 0) {
           this.detonateOwned(game);
+          this._syncHeldVisual(game);
           if (this.c4Ammo <= 0) return;
         }
       }
@@ -381,7 +735,7 @@
         weapons.mode = 'gadget';
         weapons.firing = false;
       }
-      if (game.player && game.player.setHeldMode) game.player.setHeldMode('weapon');
+      this._beginGadgetAnim('draw', 0.16);
       this._syncHeldVisual(game);
       if (global.VF.UI) global.VF.UI.setHotbarSlot(slot === 'gadget1' ? 3 : 4);
       this.syncHud(game);
@@ -392,8 +746,8 @@
       if (weapons) {
         weapons.mode = 'gadget';
         weapons.firing = false;
+        if (global.VF.Melee && global.VF.Melee.cancel) global.VF.Melee.cancel(weapons);
       }
-      if (game.player && game.player.setHeldMode) game.player.setHeldMode('weapon');
       this._syncHeldVisual(game);
       if (global.VF.UI) global.VF.UI.setHotbarSlot(5);
       this.syncHud(game);
@@ -401,41 +755,217 @@
     }
     if (slot === 'melee') {
       this.hand = 'melee';
-      if (weapons) {
-        weapons.mode = 'melee';
-        weapons.firing = false;
+      if (state.melee === 'sledge') {
+        if (weapons) {
+          if (weapons.current === 'knife') {
+            const primary =
+              (game.preferredWeaponId && global.VF.WEAPONS && global.VF.WEAPONS[game.preferredWeaponId])
+                ? game.preferredWeaponId
+                : (global.VF.defaultPrimaryId && global.VF.defaultPrimaryId()) || 'ak74';
+            weapons.current = primary;
+          }
+          weapons.mode = 'melee';
+          weapons.firing = false;
+          if (global.VF.Melee && global.VF.Melee.cancel) global.VF.Melee.cancel(weapons);
+        }
+        this._syncHeldVisual(game);
+      } else if (weapons && weapons.equip) {
+        weapons.equip('knife');
+        this.hand = 'melee';
+        this._syncHeldVisual(game);
       }
-      this._syncHeldVisual(game);
       if (global.VF.UI) global.VF.UI.setHotbarSlot(6);
       this.syncHud(game);
     }
   };
 
-  GadgetSystem.prototype._syncHeldVisual = function (game) {
-    const player = game && game.player;
-    if (!player) return;
-    if (this.hand === 'melee') {
-      this._setMeleeView(true, loadoutState().melee);
-      return;
+  GadgetSystem.prototype._gadgetVisualId = function (game) {
+    const id = this._heldGadgetId();
+    if (!id || id === 'rpg') return 'empty';
+    if (id === 'charge') {
+      if (this.c4Ammo > 0) return 'charge';
+      if (this._ownedCharges(game).length) return 'remote';
+      return 'empty';
     }
-    this._setMeleeView(false);
-    const rpg =
-      (this.hand === 'gadget1' || this.hand === 'gadget2') && this._heldGadgetId() === 'rpg';
-    const showGun = this.hand === 'weapon' || rpg;
-    if (player._weaponViewModel) {
-      player._weaponViewModel.visible = !!showGun && player._heldMode !== 'build';
+    return id;
+  };
+
+  GadgetSystem.prototype._beginGadgetAnim = function (pose, dur) {
+    this._gadgetAnim = { pose: pose, t: 0, dur: dur || 0.2 };
+  };
+
+  GadgetSystem.prototype._cancelGadgetUse = function () {
+    this._pendingDeploy = null;
+    if (this._gadgetAnim && (this._gadgetAnim.pose === 'use' || this._gadgetAnim.pose === 'draw')) {
+      this._gadgetAnim = null;
     }
   };
 
-  GadgetSystem.prototype.useHeld = function (game) {
-    if (this.hand === 'grenade') {
-      this.throwGrenade(game);
+  GadgetSystem.prototype._updateHeldPose = function (dt, game) {
+    const player = game && game.player;
+    if (!player || player.dead || player.downed || player.vehicleId || player._heldMode === 'build') {
+      this._cancelGadgetUse();
+      this._gadgetAnim = null;
       return;
     }
+    const anim = this._gadgetAnim;
+    if (anim) {
+      anim.t += dt;
+      if (
+        anim.pose === 'use' &&
+        !anim.spawned &&
+        anim.t >= (anim.spawnAt != null ? anim.spawnAt : 0.18)
+      ) {
+        anim.spawned = true;
+        if (player && player._gadgetNode && player._gadgetNode.userData.item) {
+          player._gadgetNode.userData.item.visible = false;
+        }
+        if (this._pendingDeploy) {
+          this.deploy(this._pendingDeploy.kind, game, { position: this._pendingDeploy.position });
+          this._pendingDeploy = null;
+        }
+      }
+      if (anim.pose !== 'charge' && anim.t >= (anim.dur || 0.2)) {
+        const wasUse = anim.pose === 'use';
+        this._gadgetAnim = wasUse ? { pose: 'recover', t: 0, dur: 0.18 } : null;
+        if (wasUse) this._syncHeldVisual(game);
+      }
+    }
+    if (this._throwAim && this._throwAim.type === 'charge') {
+      if (!this._gadgetAnim || this._gadgetAnim.pose !== 'charge') {
+        this._gadgetAnim = { pose: 'charge', t: 0, dur: 1 };
+      }
+    }
+    const node = player && player._gadgetNode;
+    if (!node || !node.visible) return;
+    const hip = node.userData.hip;
+    if (!hip) return;
+    const ads = node.userData.ads || hip;
+    const adsBlend = node.userData.visualId === 'binoculars' ? player._adsBlend || 0 : 0;
+    const sm = function (t) {
+      t = Math.max(0, Math.min(1, t));
+      return t * t * (3 - 2 * t);
+    };
+    let dx = 0;
+    let dy = 0;
+    let dz = 0;
+    let drx = 0;
+    let dry = 0;
+    let drz = 0;
+    const pose = this._gadgetAnim;
+    if (pose) {
+      if (pose.pose === 'draw') {
+        const k = sm(pose.t / Math.max(0.08, pose.dur));
+        dy = -0.22 * (1 - k);
+        dz = 0.08 * (1 - k);
+        drx = 0.22 * (1 - k);
+      } else if (pose.pose === 'use') {
+        const k = sm(pose.t / Math.max(0.08, pose.dur));
+        const reach = k < 0.45 ? sm(k / 0.45) : 1 - sm((k - 0.45) / 0.55);
+        dy = -reach * 0.08;
+        dz = -reach * 0.16;
+        drx = -reach * 0.35;
+      } else if (pose.pose === 'charge') {
+        const k = sm(Math.min(1, pose.t / 0.28));
+        dy = k * 0.03;
+        dz = k * 0.04;
+        drx = k * 0.12;
+      } else if (pose.pose === 'recover') {
+        const k = sm(pose.t / Math.max(0.08, pose.dur));
+        dy = -0.12 * (1 - k);
+        dz = 0.06 * (1 - k);
+      }
+    }
+    const x = hip.x + (ads.x - hip.x) * adsBlend + dx;
+    const y = hip.y + (ads.y - hip.y) * adsBlend + dy;
+    const z = hip.z + (ads.z - hip.z) * adsBlend + dz;
+    const rx = hip.rx + (ads.rx - hip.rx) * adsBlend + drx;
+    const ry = hip.ry + (ads.ry - hip.ry) * adsBlend + dry;
+    const rz = hip.rz + (ads.rz - hip.rz) * adsBlend + drz;
+    const sway = (player._swayBlend || 0) * (0.18 - adsBlend * 0.14);
+    const t = player._bobTime || 0;
+    node.position.set(x + Math.sin(t) * 0.016 * sway, y - Math.abs(Math.sin(t)) * 0.012 * sway, z);
+    node.rotation.set(rx, ry, rz + Math.sin(t) * 0.025 * sway);
+  };
+
+  GadgetSystem.prototype._syncHeldVisual = function (game) {
+    const player = game && game.player;
+    if (!player) return;
+    if (player._heldMode === 'build') {
+      if (player._gadgetNode) player._gadgetNode.visible = false;
+      return;
+    }
+    if (this.hand === 'melee') {
+      const meleeId = loadoutState().melee;
+      if (player.setHeldView) player.setHeldView('melee', meleeId);
+      else if (player._gadgetNode) player._gadgetNode.visible = false;
+      if (meleeId === 'sledge') {
+        this._setMeleeView(true, 'sledge');
+        if (player._knifeNode) player._knifeNode.visible = false;
+      } else {
+        this._setMeleeView(false);
+        if (global.VF.Melee && global.VF.Melee.restyle) {
+          global.VF.Melee.restyle(player, 'knife');
+        }
+      }
+      return;
+    }
+    this._setMeleeView(false);
+    if (player._knifeNode) player._knifeNode.visible = false;
+    const rpg =
+      (this.hand === 'gadget1' || this.hand === 'gadget2') && this._heldGadgetId() === 'rpg';
+    if (this.hand === 'grenade') {
+      if (player.setHeldView) player.setHeldView('grenade', combatGrenadeId());
+      if (global.VF.Throwables && global.VF.Throwables.showIdleHold) {
+        global.VF.Throwables.showIdleHold();
+      }
+      return;
+    }
+    if (rpg || this.hand === 'weapon') {
+      if (player.setHeldView) player.setHeldView('weapon');
+      return;
+    }
+    if (this.hand === 'gadget1' || this.hand === 'gadget2') {
+      const visualId = this._gadgetVisualId(game);
+      if (player.setHeldView) player.setHeldView('gadget', this._heldGadgetId(), { visualId: visualId });
+      return;
+    }
+    if (player.setHeldView) player.setHeldView('weapon');
+  };
+
+  GadgetSystem.prototype.useHeld = function (game) {
+    if (this.hand === 'grenade') return;
+    if (this._gadgetAnim && this._gadgetAnim.pose === 'use') return;
     const id = this._heldGadgetId();
-    if (id === 'medkit' || id === 'ammo') this.deploy(id, game);
-    else if (id === 'charge') this._useC4(game);
-    else if (id === 'binoculars') this.spot(game);
+    if (id === 'medkit' || id === 'ammo') {
+      const pos = this._placement(game, 3.2);
+      if (
+        game.world &&
+        game.world.isInBuilding &&
+        game.world.isInBuilding(pos.x, pos.z, 0.8)
+      ) {
+        if (global.VF.UI && global.VF.UI.toast) global.VF.UI.toast('此处无法部署');
+        return;
+      }
+      this._pendingDeploy = { kind: id, position: pos };
+      this._gadgetAnim = { pose: 'use', t: 0, dur: 0.42, spawnAt: 0.18, spawned: false };
+      if (game.player && game.player._gadgetNode && game.player._gadgetNode.userData.item) {
+        game.player._gadgetNode.userData.item.visible = true;
+      }
+      return;
+    }
+    if (id === 'charge') {
+      const owned = this._ownedCharges(game);
+      if (this.c4Ammo <= 0) {
+        if (owned.length) {
+          this.detonateOwned(game);
+          this._syncHeldVisual(game);
+        } else if (global.VF.UI && global.VF.UI.toast) global.VF.UI.toast('没有 C4');
+        return;
+      }
+      this._beginThrowAim(game, 'charge', 'mouse');
+      this._beginGadgetAnim('charge', 1);
+    } else if (id === 'binoculars') this.spot(game);
   };
 
   GadgetSystem.prototype._useC4 = function (game) {
@@ -449,7 +979,7 @@
     if (!this._ready(key)) return;
     this._setCooldown(key, 0.45);
     this.c4Ammo -= 1;
-    const start = this._eyeThrow(game.player, 16);
+    const start = this._getThrowParams(game.player, 'charge');
     const mesh = this._mesh('charge', game.player.team || 'ally');
     mesh.position.set(start.x, start.y, start.z);
     game.scene.add(mesh);
@@ -470,6 +1000,12 @@
     if (global.VF.UI && global.VF.UI.toast) {
       global.VF.UI.toast(this.c4Ammo > 0 ? 'C4 已投出 · 再按栏位引爆' : 'C4 已投出 · 左键引爆');
     }
+    const player = game.player;
+    if (player && player._gadgetNode && player._gadgetNode.userData.item) {
+      player._gadgetNode.userData.item.visible = false;
+    }
+    this._syncHeldVisual(game);
+    this._gadgetAnim = { pose: 'recover', t: 0, dur: 0.2 };
   };
 
   GadgetSystem.prototype._ownedCharges = function (game) {
@@ -503,7 +1039,12 @@
     const ownerId = player.entityId || 'player-local';
     const squadId = player.squadId || null;
     const pos = opts.position || this._placement(game, kind === 'charge' ? 2.2 : 3.2);
-    if (game.world && game.world.isInBuilding && game.world.isInBuilding(pos.x, pos.z, 0.8)) {
+    if (
+      !opts.stuck &&
+      game.world &&
+      game.world.isInBuilding &&
+      game.world.isInBuilding(pos.x, pos.z, 0.8)
+    ) {
       if (global.VF.UI && global.VF.UI.toast) global.VF.UI.toast('此处无法部署');
       return null;
     }
@@ -516,6 +1057,9 @@
       ++this._seq;
     const mesh = this._mesh(kind, team);
     mesh.position.set(pos.x, pos.y, pos.z);
+    if (opts.nx != null || opts.ny != null || opts.nz != null) {
+      this._orientStuck(mesh, opts.nx || 0, opts.ny || 1, opts.nz || 0);
+    }
     game.scene.add(mesh);
     const hp = kind === 'ammo' || kind === 'supply' || kind === 'medkit' ? 120 : kind === 'beacon' ? 80 : 60;
     const item = {
@@ -564,7 +1108,7 @@
     return item;
   };
 
-  GadgetSystem.prototype.throwGrenade = function (game) {
+  GadgetSystem.prototype.throwGrenade = function (game, forcedType) {
     if (game.building && game.building.active && game.building.exitMode) game.building.exitMode();
     if (this.grenades <= 0) {
       if (global.VF.UI && global.VF.UI.toast) global.VF.UI.toast('没有投掷物');
@@ -572,11 +1116,10 @@
     }
     const key = 'grenade:' + ((game.player && game.player.entityId) || 'player-local');
     if (!this._ready(key)) return false;
-    const state = loadoutState();
-    const type = state.grenade || 'frag';
+    const type = forcedType || combatGrenadeId() || 'frag';
     this.grenades -= 1;
     this._setCooldown(key, 0.85);
-    const start = this._eyeThrow(game.player, type === 'smoke' ? 17 : THROW_SPEED);
+    const start = this._getThrowParams(game.player, type);
     const mesh = this._grenadeMesh(type);
     mesh.position.set(start.x, start.y, start.z);
     game.scene.add(mesh);
@@ -616,7 +1159,13 @@
     } else if (proj.kind === 'frag') {
       this._explodeFrag(proj, game);
     } else if (proj.kind === 'charge') {
-      this.deploy('charge', game, { position: { x: proj.x, y: proj.y, z: proj.z } });
+      this.deploy('charge', game, {
+        position: { x: proj.x, y: proj.y, z: proj.z },
+        stuck: true,
+        nx: proj.nx,
+        ny: proj.ny,
+        nz: proj.nz,
+      });
     }
     if (proj.mesh && proj.mesh.parent) proj.mesh.parent.remove(proj.mesh);
   };
@@ -665,6 +1214,11 @@
     }
     if (game.weapons && game.weapons._spawnImpact) {
       game.weapons._spawnImpact(origin, 0xff7733, 0.85);
+    }
+    if (global.VF.Audio && global.VF.Audio.playExplosionAt) {
+      global.VF.Audio.playExplosionAt(origin, 'he', { gain: 1.55 });
+    } else if (global.VF.Audio) {
+      global.VF.Audio.play('explosion', { position: origin, maxDistance: 450, priority: 10, gain: 1.5 });
     }
   };
 
@@ -950,6 +1504,11 @@
     if (game.weapons && game.weapons._spawnImpact) {
       game.weapons._spawnImpact(new THREE.Vector3(item.x, item.y + 0.5, item.z), 0xff7733, 1.1);
     }
+    if (global.VF.Audio && global.VF.Audio.playExplosionAt) {
+      global.VF.Audio.playExplosionAt(origin, 'he', { gain: 1.6 });
+    } else if (global.VF.Audio) {
+      global.VF.Audio.play('explosion', { position: origin, maxDistance: 450, priority: 10, gain: 1.55 });
+    }
     this._emit('gadget-detonated', { id: item.id, ownerId: item.ownerId, x: item.x, y: item.y, z: item.z });
     this.destroy(item, 'detonated');
     return true;
@@ -982,87 +1541,113 @@
     this._emit('gadget-destroyed', { id: item.id, kind: item.kind, reason: reason || 'expired' });
   };
 
-  GadgetSystem.prototype._tickMedkit = function (item, dt, game) {
-    item.tick -= dt;
-    if (item.tick > 0) return;
-    item.tick = 1;
-    const radius = 5.5;
-    const player = game.player;
-    if (
-      player &&
-      player.alive &&
-      !player.dead &&
-      (player.team || game.world._playerTeam) === item.team &&
-      Math.hypot(player.object.position.x - item.x, player.object.position.z - item.z) <= radius
-    ) {
-      const before = player.health;
-      player.health = Math.min(player.maxHealth || 100, player.health + 16);
-      if (player.health > before) {
-        this._emit('soldier-healed', {
-          actorId: item.ownerId,
-          targetId: player.entityId || 'player-local',
-          amount: player.health - before,
-        });
-        if (global.VF.UI) global.VF.UI.updateVitals(player.health, player.armor);
-      }
+  GadgetSystem.prototype._playerNearKind = function (game, kind, radius) {
+    const player = game && game.player;
+    if (!player || !player.alive || player.dead || !player.object) return false;
+    const team = player.team || (game.world && game.world._playerTeam) || 'ally';
+    const r = radius != null ? radius : CRATE_RADIUS;
+    const r2 = r * r;
+    const px = player.object.position.x;
+    const py = player.object.position.y;
+    const pz = player.object.position.z;
+    for (let i = 0; i < this.items.length; i++) {
+      const item = this.items[i];
+      if (!item || item.destroyed) continue;
+      const match =
+        item.kind === kind ||
+        (item.kind === 'supply' && (kind === 'medkit' || kind === 'ammo'));
+      if (!match) continue;
+      if (item.team && item.team !== team) continue;
+      const dx = px - item.x;
+      const dy = py - item.y;
+      const dz = pz - item.z;
+      if (dx * dx + dy * dy + dz * dz <= r2) return true;
     }
+    return false;
+  };
+
+  GadgetSystem.prototype.playerNearMedkit = function (game) {
+    return this._playerNearKind(game, 'medkit', CRATE_RADIUS);
+  };
+
+  GadgetSystem.prototype.playerNearAmmo = function (game) {
+    return this._playerNearKind(game, 'ammo', CRATE_RADIUS);
+  };
+
+  function _inCrateRadius(pos, item, radius) {
+    const r = radius != null ? radius : CRATE_RADIUS;
+    const dx = pos.x - item.x;
+    const dy = (pos.y || 0) - item.y;
+    const dz = pos.z - item.z;
+    return dx * dx + dy * dy + dz * dz <= r * r;
+  }
+
+  GadgetSystem.prototype._tickMedkit = function (item, dt, game) {
     const ai = game.ai;
     const list = ai ? (item.team === 'enemy' ? ai.red : ai.blue) : [];
+    const nowMs = now();
     for (let i = 0; i < list.length; i++) {
       const unit = list[i];
       if (!unit || !unit.alive || !unit.mesh) continue;
-      if (Math.hypot(unit.mesh.position.x - item.x, unit.mesh.position.z - item.z) > radius) continue;
+      if (!_inCrateRadius(unit.mesh.position, item, CRATE_RADIUS)) continue;
+      if (unit._lastCombatAt && nowMs - unit._lastCombatAt < 1000) continue;
       const before = unit.hp;
-      unit.hp = Math.min(unit.maxHp, unit.hp + 14);
+      unit.hp = Math.min(unit.maxHp, unit.hp + 30 * dt);
       if (unit.hp > before) {
-        this._emit('soldier-healed', { actorId: item.ownerId, targetId: unit.entityId, amount: unit.hp - before });
+        this._emit('soldier-healed', {
+          actorId: item.ownerId,
+          targetId: unit.entityId,
+          amount: unit.hp - before,
+        });
       }
     }
   };
 
   GadgetSystem.prototype._tickAmmo = function (item, dt, game) {
-    item.tick -= dt;
-    if (item.tick > 0) return;
-    item.tick = 1;
-    const radius = 5.5;
+    /* Player resupply runs once per frame in _resupplyPlayer. */
+  };
+
+  GadgetSystem.prototype._resupplyPlayer = function (dt, game) {
+    if (!this.playerNearAmmo(game)) return;
     const player = game.player;
-    if (
-      player &&
-      player.alive &&
-      !player.dead &&
-      (player.team || game.world._playerTeam) === item.team &&
-      Math.hypot(player.object.position.x - item.x, player.object.position.z - item.z) <= radius
-    ) {
-      let ammo = 0;
-      if (game.weapons && game.weapons.addReserve) {
-        ammo = game.weapons.addReserve(game.weapons.current, 22);
-        if (game.weapons.state && game.weapons.state.rpg) {
-          game.weapons.addReserve('rpg', 1);
+    let ammo = 0;
+    if (game.weapons && game.weapons.resupplyFromCrate) {
+      ammo = game.weapons.resupplyFromCrate(dt);
+    }
+    if (this.grenades < GRENADE_CHARGE_MAX) {
+      this._grenadeChargeT = (this._grenadeChargeT || 0) + dt;
+      if (this._grenadeChargeT >= GRENADE_CHARGE_SEC) {
+        this._grenadeChargeT -= GRENADE_CHARGE_SEC;
+        this.grenades = Math.min(GRENADE_CHARGE_MAX, this.grenades + 1);
+        this._syncThrowAmmo();
+        this.syncHud(game);
+        if (global.VF.UI && global.VF.UI.toast) {
+          global.VF.UI.toast('投掷物 +1（' + this.grenades + '/' + GRENADE_CHARGE_MAX + '）');
+        }
+      } else {
+        const count = document.getElementById('throwable-count');
+        if (count) {
+          count.textContent =
+            this.grenades + ' · ' + Math.ceil(GRENADE_CHARGE_SEC - this._grenadeChargeT) + 's';
         }
       }
-      if (this.grenades < GRENADE_MAX) {
-        item._grenadeAcc = (item._grenadeAcc || 0) + 1;
-        if (item._grenadeAcc >= 3) {
-          this.grenades = Math.min(GRENADE_MAX, this.grenades + 1);
-          item._grenadeAcc = 0;
-          this.syncHud(game);
-        }
+    } else {
+      this._grenadeChargeT = 0;
+    }
+    if (this.c4Ammo < C4_MAX) {
+      this._c4ChargeT = (this._c4ChargeT || 0) + dt;
+      if (this._c4ChargeT >= 4) {
+        this._c4ChargeT -= 4;
+        this.c4Ammo = Math.min(C4_MAX, this.c4Ammo + 1);
+        this.syncHud(game);
       }
-      if (this.c4Ammo < C4_MAX) {
-        item._c4Acc = (item._c4Acc || 0) + 1;
-        if (item._c4Acc >= 4) {
-          this.c4Ammo = Math.min(C4_MAX, this.c4Ammo + 1);
-          item._c4Acc = 0;
-          this.syncHud(game);
-        }
-      }
-      if (ammo > 0) {
-        this._emit('soldier-resupplied', {
-          actorId: item.ownerId,
-          targetId: player.entityId || 'player-local',
-          amount: ammo,
-        });
-      }
+    }
+    if (ammo > 0) {
+      this._emit('soldier-resupplied', {
+        actorId: 'crate',
+        targetId: player.entityId || 'player-local',
+        amount: ammo,
+      });
     }
   };
 
@@ -1087,32 +1672,94 @@
     }
   };
 
+  GadgetSystem.prototype._onThrowHit = function (proj, hit, game) {
+    proj.x = hit.x;
+    proj.y = hit.y;
+    proj.z = hit.z;
+    proj.nx = hit.nx;
+    proj.ny = hit.ny;
+    proj.nz = hit.nz;
+    if (proj.kind === 'charge') {
+      proj.stuck = true;
+      proj.vx = proj.vy = proj.vz = 0;
+      proj._done = true;
+      return;
+    }
+    if (proj.kind === 'frag' && (proj.bounce || 0) < 2) {
+      const nx = hit.nx || 0;
+      const ny = hit.ny || 1;
+      const nz = hit.nz || 0;
+      const dot = proj.vx * nx + proj.vy * ny + proj.vz * nz;
+      proj.vx = (proj.vx - 2 * dot * nx) * 0.48;
+      proj.vy = (proj.vy - 2 * dot * ny) * 0.48;
+      proj.vz = (proj.vz - 2 * dot * nz) * 0.48;
+      proj.x += nx * 0.08;
+      proj.y += ny * 0.08;
+      proj.z += nz * 0.08;
+      proj.bounce = (proj.bounce || 0) + 1;
+      if (Math.hypot(proj.vx, proj.vy, proj.vz) < 2.2) {
+        proj.vx = proj.vy = proj.vz = 0;
+        proj.stuck = true;
+      }
+      return;
+    }
+    proj.stuck = true;
+    proj.vx = proj.vy = proj.vz = 0;
+    if (proj.kind === 'smoke' || proj.kind === 'flash') {
+      proj.fuse = Math.min(proj.fuse != null ? proj.fuse : 0.08, 0.08);
+    }
+  };
+
   GadgetSystem.prototype._updateThrows = function (dt, game) {
+    const world = game.world;
     for (let i = this.throws.length - 1; i >= 0; i--) {
       const proj = this.throws[i];
-      proj.vy -= THROW_GRAVITY * dt;
-      proj.x += proj.vx * dt;
-      proj.y += proj.vy * dt;
-      proj.z += proj.vz * dt;
-      const ground = this._ground(game.world, proj.x, proj.z) + 0.12;
-      if (proj.y <= ground) {
-        proj.y = ground;
-        if (proj.kind === 'frag' && (proj.bounce || 0) < 1) {
-          proj.bounce = 1;
-          proj.vy = Math.abs(proj.vy) * 0.28;
-          proj.vx *= 0.55;
-          proj.vz *= 0.55;
-        } else if (proj.kind === 'charge' || proj.kind === 'smoke' || proj.kind === 'flash') {
-          proj.fuse = Math.min(proj.fuse != null ? proj.fuse : 0, 0.05);
-          proj.vx = proj.vz = proj.vy = 0;
-        } else {
-          proj.fuse = 0;
+      if (!proj.stuck) {
+        let remain = Math.min(dt, 0.05);
+        const step = 1 / 60;
+        while (remain > 0 && !proj.stuck && !proj._done) {
+          const h = Math.min(step, remain);
+          remain -= h;
+          const ox = proj.x;
+          const oy = proj.y;
+          const oz = proj.z;
+          const nx = proj.x + proj.vx * h;
+          const ny = proj.y + proj.vy * h;
+          const nz = proj.z + proj.vz * h;
+          proj.vy -= THROW_GRAVITY * h;
+          let hit = null;
+          for (let s = 1; s <= 4; s++) {
+            const u = s / 4;
+            const sx = ox + (nx - ox) * u;
+            const sy = oy + (ny - oy) * u;
+            const sz = oz + (nz - oz) * u;
+            if (this._throwBlocked(world, sx, sy, sz)) {
+              hit = this._resolveStick(world, ox, oy, oz, sx, sy, sz);
+              break;
+            }
+          }
+          if (hit) {
+            this._onThrowHit(proj, hit, game);
+            break;
+          }
+          proj.x = nx;
+          proj.y = ny;
+          proj.z = nz;
+          if (proj.y < -30) proj._done = true;
         }
       }
       if (proj.fuse != null) proj.fuse -= dt;
       proj.life -= dt;
-      if (proj.mesh) proj.mesh.position.set(proj.x, proj.y, proj.z);
-      if ((proj.fuse != null && proj.fuse <= 0) || proj.life <= 0) {
+      if (proj.mesh) {
+        proj.mesh.position.set(proj.x, proj.y, proj.z);
+        if (!proj.stuck) {
+          proj.mesh.rotation.x += dt * 4;
+          proj.mesh.rotation.z += dt * 2.5;
+        } else if (proj.kind === 'charge' && (proj.nx != null || proj.ny != null)) {
+          this._orientStuck(proj.mesh, proj.nx || 0, proj.ny || 1, proj.nz || 0);
+        }
+      }
+      if (proj._done || (proj.fuse != null && proj.fuse <= 0) || proj.life <= 0) {
         this._explodeThrow(proj, game);
         this.throws.splice(i, 1);
       }
@@ -1121,6 +1768,10 @@
 
   GadgetSystem.prototype.update = function (dt, game) {
     if (!game) return;
+    if (this._throwAim && !this._canThrowNow(game)) this._cancelThrowAim();
+    if (this._throwAim) this._updateThrowPreview(game);
+    else this._hideThrowPreview();
+    this._updateHeldPose(dt, game);
     if (this.meleeCd > 0) this.meleeCd = Math.max(0, this.meleeCd - dt);
     if (this.flashBlind > 0) {
       this.flashBlind = Math.max(0, this.flashBlind - dt * 0.38);
@@ -1160,6 +1811,7 @@
         this.items.splice(i, 1);
       }
     }
+    this._resupplyPlayer(dt, game);
     for (let i = this.smokes.length - 1; i >= 0; i--) {
       const smoke = this.smokes[i];
       smoke.life -= dt;
@@ -1199,33 +1851,23 @@
 
   GadgetSystem.prototype.syncHud = function (game) {
     const state = loadoutState();
-    const slots = document.querySelectorAll('#hotbar .slot');
+    const slots = document.querySelectorAll('#gadget-hud .combat-gadget-slot');
     const g1 = catalogById(GADGET_CATALOG, state.gadget1) || GADGET_CATALOG[0];
     const g2 = catalogById(GADGET_CATALOG, state.gadget2) || GADGET_CATALOG[1];
-    const grenade = catalogById(GRENADE_CATALOG, state.grenade) || GRENADE_CATALOG[0];
-    const melee = catalogById(MELEE_CATALOG, state.melee) || MELEE_CATALOG[0];
-    const names = { 3: g1, 4: g2, 5: grenade, 6: melee };
+    const names = { 3: g1, 4: g2 };
     const iconClass = {
       medkit: 'gadget-medkit',
       charge: 'gadget-charge',
       ammo: 'gadget-ammo',
       rpg: 'weapon-rpg',
       binoculars: 'gadget-binoculars',
-      frag: 'gadget-frag',
-      flash: 'gadget-flash',
-      smoke: 'gadget-smoke',
-      knife: 'gadget-knife',
-      sledge: 'gadget-sledge',
     };
-    const shortGrenade = { frag: '破片', flash: '闪光', smoke: '烟雾' };
     slots.forEach(function (el) {
       const slot = Number(el.dataset.slot);
       const info = names[slot];
       if (!info) return;
       const nameEl = el.querySelector('.slot-name');
-      if (nameEl) {
-        nameEl.textContent = slot === 5 ? shortGrenade[info.id] || info.name : info.name;
-      }
+      if (nameEl) nameEl.textContent = info.name;
       const icon = el.querySelector('.slot-icon');
       if (icon) icon.className = 'slot-icon ' + (iconClass[info.kind] || iconClass[info.id] || 'gadget-ammo');
       el.title =
@@ -1233,12 +1875,11 @@
         ' (' +
         slot +
         ')' +
-        (slot === 5 ? ' · 按 G 投掷 · 余 ' + this.grenades : '');
+        '';
       el.classList.remove('locked', 'build');
-      el.classList.toggle('gadget-slot', slot === 3 || slot === 4);
     }, this);
     const count = document.getElementById('throwable-count');
-    if (count) count.textContent = 'G ' + this.grenades;
+    if (count) count.textContent = String(this.grenades);
     const c4 = document.getElementById('gadget-ammo');
     if (c4) {
       const held = this._heldGadgetId();
@@ -1308,6 +1949,16 @@
   };
 
   GadgetSystem.prototype.clear = function () {
+    this._cancelThrowAim();
+    if (this._throwPreview) {
+      if (this._throwPreview.line && this._throwPreview.line.parent) {
+        this._throwPreview.line.parent.remove(this._throwPreview.line);
+      }
+      if (this._throwPreview.marker && this._throwPreview.marker.parent) {
+        this._throwPreview.marker.parent.remove(this._throwPreview.marker);
+      }
+      this._throwPreview = null;
+    }
     for (let i = 0; i < this.items.length; i++) this.destroy(this.items[i], 'round-end');
     const g = global.VF && global.VF.game;
     for (let i = 0; i < this.smokes.length; i++) {
@@ -1329,6 +1980,12 @@
     this.grenades = GRENADE_MAX;
     this.c4Ammo = C4_MAX;
     this.flashBlind = 0;
+    this._grenadeChargeT = 0;
+    this._c4ChargeT = 0;
+    if (global.VF.Throwables && global.VF.Throwables.clearRound) {
+      global.VF.Throwables.clearRound();
+    }
+    this._syncThrowAmmo();
     if (g && g.world) {
       g.world._deployBeacons = [];
       g.world._smokeVolumes = [];
@@ -1340,8 +1997,26 @@
   Gadgets.GRENADE_CATALOG = GRENADE_CATALOG;
   Gadgets.MELEE_CATALOG = MELEE_CATALOG;
   Gadgets.GRENADE_MAX = GRENADE_MAX;
+  Gadgets.GRENADE_CHARGE_MAX = GRENADE_CHARGE_MAX;
   Gadgets.ensureLoadout = loadoutState;
 
   global.VF = global.VF || {};
   global.VF.Gadgets = Gadgets;
+  Gadgets.refreshDisplayColors = function () {
+    const L = global.VF.TeamLook;
+    if (!L || !L.kind) return;
+    for (let i = 0; i < Gadgets.items.length; i++) {
+      const item = Gadgets.items[i];
+      if (!item || !item.mesh) continue;
+      if (item.kind !== 'beacon' && item.kind !== 'sensor' && item.kind !== 'charge') continue;
+      const col = L.kind(item.team) === 'foe' ? 0xb93838 : 0x3087c9;
+      item.mesh.traverse(function (c) {
+        if (!c.isMesh || !c.material) return;
+        if (c.material.emissive && c.material.emissiveIntensity > 0) {
+          if (c.material.color) c.material.color.setHex(col);
+          c.material.emissive.setHex(col);
+        }
+      });
+    }
+  };
 })(typeof window !== 'undefined' ? window : this);

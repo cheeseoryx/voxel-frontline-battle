@@ -53,6 +53,7 @@
       minDamage: minDamage,
       ammoColor: extra.ammoColor != null ? extra.ammoColor : 0xffaa44,
       ammoLabel: extra.ammoLabel || name,
+      soundProfile: extra.soundProfile || id,
       screenshot: true,
       unlockFree: extra.unlockFree !== false,
     };
@@ -72,7 +73,7 @@
     sg550: gun('sg550', 'SG550', 'assault', 'rifle-long', 30, [29, 0, 5, 0.9, 1.1, 1, 680, 83.75, 670, 600, 0.6, 0.86, 0.15, 1, 3.3, 1], { caliber: '5.56×45mm', scope: 'optic' }),
     f2000: gun('f2000', 'F2000', 'assault', 'bullpup', 35, [24, 0, 6, 1, 0.6, 1, 710, 76.25, 850, 600, 0.5, 1, 0.15, 1, 3.51, 1], { caliber: '5.56×45mm' }),
     ak15: gun('ak15', 'AK15', 'battle', 'ak', 24, [40, 0, 6, 1.6, 2.1, 1, 750, 75, 540, 600, 0.6, 0.71, 0.3, 0.95, 3.93, 1], { caliber: '7.62×39mm', scope: 'optic' }),
-    scarh: gun('scarh', 'SCAR-H', 'battle', 'scar', 20, [42, 0, 6, 1.6, 2.1, 1, 750, 75, 500, 600, 0.6, 0.71, 0.2, 0.95, 4, 1], { caliber: '7.62×51mm', falloffStart: 200, falloffEnd: 300, minDamage: 14.7, scope: 'optic' }),
+    scarh: gun('scarh', 'SCAR-H', 'assault', 'scar', 20, [42, 0, 6, 1.6, 2.1, 1, 750, 75, 500, 600, 0.6, 0.71, 0.2, 0.95, 4, 1], { caliber: '7.62×51mm', falloffStart: 200, falloffEnd: 300, minDamage: 14.7, scope: 'optic' }),
     fal: gun('fal', 'FAL', 'battle', 'fal', 20, [40, 0, 4, 1.5, 2.2, 1, 600, 75, 650, 600, 0.5, 0.71, 0.22, 1, 3.37, 1], { caliber: '7.62×51mm' }),
     g3: gun('g3', 'G3', 'battle', 'g3', 20, [37, 0, 8, 1.5, 1.2, 1, 800, 83.75, 500, 600, 0.5, 0.71, 0.3, 0.95, 4.2, 1], { caliber: '7.62×51mm' }),
     g36c: gun('g36c', 'G36C', 'carbine', 'carbine', 30, [31, 0, 5, 1.45, 0.8, 1, 660, 72.5, 750, 600, 0.5, 0.86, 0.23, 1, 3.73, 1], { caliber: '5.56×45mm' }),
@@ -117,18 +118,51 @@
   CATALOG.svd = CATALOG.sr;
 
   const LOADOUT_ORDER = [
-    'ak74', 'acr', 'f2000', 'auga3', 'sg550', 'famas',
-    'ak15', 'scarh', 'g3', 'fal',
-    'm4a1', 'groza', 'asval', 'g36c', 'hk419', 'ak5c',
-    'ump45', 'pp19', 'vector', 'mp5', 'scorpionevo',
-    'mp7', 'pp2000', 'honeybadger', 'p90',
-    'l86a1', 'm249', 'rpk16', 'mg36', 'ultimax100',
-    'mk20', 'm110', 'mk14ebr', 'sr',
-    'ssg69', 'sv98', 'l96', 'rem700', 'm200', 'msr',
-    'm9', 'mp443', 'usp', 'glock18', 'unica', 'deserteagle', 'rsh12',
+    'ak74',
+    'acr',
+    'scarh',
+    'm4a1',
+    'hk419',
+    'mp7',
+    'p90',
+    'mp5',
+    'm249',
+    'mk14ebr',
+    'm200',
+    'usp',
   ];
+
+  function isLoadoutGun(id) {
+    return LOADOUT_ORDER.indexOf(id) >= 0;
+  }
+
+  function defaultPrimaryId() {
+    return 'ak74';
+  }
+
+  function defaultSecondaryId() {
+    return 'usp';
+  }
+
+  function sanitizePrimaryId(id) {
+    if (!id || id === 'rpg' || id === 'knife' || id === 'usp') return defaultPrimaryId();
+    const def = CATALOG[id];
+    if (isLoadoutGun(id) && def && def.category !== 'pistol') return id;
+    return defaultPrimaryId();
+  }
+
+  function sanitizeSecondaryId(id) {
+    return id === 'usp' ? 'usp' : defaultSecondaryId();
+  }
 
   global.VF = global.VF || {};
   global.VF.WEAPON_CATALOG = CATALOG;
   global.VF.WEAPON_LOADOUT_ORDER = LOADOUT_ORDER;
+  global.VF.DEFAULT_PRIMARY = 'ak74';
+  global.VF.DEFAULT_SECONDARY = 'usp';
+  global.VF.isLoadoutGun = isLoadoutGun;
+  global.VF.defaultPrimaryId = defaultPrimaryId;
+  global.VF.defaultSecondaryId = defaultSecondaryId;
+  global.VF.sanitizePrimaryId = sanitizePrimaryId;
+  global.VF.sanitizeSecondaryId = sanitizeSecondaryId;
 })(window);
