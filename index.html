@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -17,6 +17,7 @@
     }
   </style>
   <link rel="stylesheet" href="style.css?v=mgoptic3" />
+  <script src="js/game-entry.js?v=1" defer></script>
 </head>
 <body>
   <div id="throw-flash" aria-hidden="true"></div>
@@ -36,7 +37,11 @@
     <div class="cover-ui">
       <button id="enter-hub-btn" type="button" class="cover-btn cover-btn-start">
         <span class="cover-btn-icon play" aria-hidden="true"></span>
-        <span>进入大厅</span>
+        <span>大型战争</span>
+      </button>
+      <button id="enter-small-battle-btn" type="button" class="cover-btn cover-btn-start" data-game-entry="small-battle">
+        <span class="cover-btn-icon play" aria-hidden="true"></span>
+        <span>小型战斗</span>
       </button>
       <button id="quit-btn" type="button" class="cover-btn cover-btn-quit">
         <span class="cover-btn-icon stop" aria-hidden="true"></span>
@@ -246,7 +251,7 @@
         <section class="tutorial-section">
           <h2>开局流程</h2>
           <ul>
-            <li><strong>模式选择</strong>：点「进入大厅」→ 快速匹配 32v32 → 部署图选重生点后进入荒盆征服</li>
+            <li><strong>模式选择</strong>：点「大型战争」进入 32v32 征服大厅；点「小型战斗」进入团队死斗、爆破等玩法大厅</li>
             <li>当前版本唯一地图为<strong>荒盆</strong>：南蓝 / 北红主基地，盆地中布置 A–F 占领点（南部署点到 A 为 170m）</li>
           </ul>
         </section>
@@ -317,7 +322,7 @@
           </ul>
         </section>
         <section class="tutorial-section tutorial-cta">
-          <p>准备好了？返回封面点「进入大厅」，直接选择 32v32 征服。</p>
+          <p>准备好了？返回封面选择「大型战争」或「小型战斗」。</p>
           <button id="tutorial-play-btn" type="button" class="cover-btn cover-btn-start">
             <span class="cover-btn-icon play" aria-hidden="true"></span>
             <span>进入基地</span>
@@ -1547,7 +1552,7 @@
   <script src="js/config.js?v=scorch3"></script>
   <script src="js/kubee-bridge.js?v=scorch3"></script>
   <script src="js/pvp.js?v=faction-mesh1"></script>
-  <script src="js/main.js?v=faction-mesh1"></script>
+  <script src="js/main.js?v=game-entry1"></script>
   <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
   <script src="js/feel-tuner.js?v=move2"></script>
   <!-- render-tuner.js: F9 后处理参数调节（生产环境删除） -->

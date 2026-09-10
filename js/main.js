@@ -51,7 +51,7 @@
     if (enterHubBtn) {
       enterHubBtn.disabled = true;
       const label = enterHubBtn.querySelector('span:last-child');
-      if (label) label.textContent = '加载中…';
+      if (label) label.textContent = '大型战争 · 加载中…';
     }
 
     function showTutorial() {
@@ -103,7 +103,7 @@
         if (enterHubBtn) {
           enterHubBtn.disabled = false;
           const label = enterHubBtn.querySelector('span:last-child');
-          if (label) label.textContent = '进入大厅';
+          if (label) label.textContent = '大型战争';
         }
       }
 
@@ -113,7 +113,7 @@
           openFrontlineHub();
         });
       }
-      // 封面只有三个按钮可点。这里曾经给整个 #start-overlay 绑过一个「点任意处
+      // 封面只有明确的菜单按钮可点。这里曾经给整个 #start-overlay 绑过一个「点任意处
       // 进大厅」的捷径，但 .cover-art 是铺满全屏的背景层，点「结束游戏」/「新手
       // 教程」稍微偏一点就会命中它、被直接扔进大厅，等于让另外两个按钮形同虚设。
 
@@ -156,7 +156,7 @@
       if (enterHubBtn) {
         enterHubBtn.disabled = false;
         const label = enterHubBtn.querySelector('span:last-child');
-        if (label) label.textContent = '加载失败 · 重试';
+        if (label) label.textContent = '大型战争 · 重试';
         enterHubBtn.onclick = () => location.reload();
       }
     }

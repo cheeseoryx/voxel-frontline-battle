@@ -1,0 +1,54 @@
+'use strict';
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+const assert = require('assert/strict');
+const root = path.resolve(__dirname, '..');
+const small = path.join(root, 'modes/small-battle');
+function files(dir) {
+  return fs.readdirSync(dir, {withFileTypes:true}).flatMap(e => e.isDirectory() ? files(path.join(dir,e.name)) : [path.join(dir,e.name)]);
+}
+function verifyRefs(file, regex) {
+  const text = fs.readFileSync(file,'utf8');
+  for(const match of text.matchAll(regex)) {
+    const value=match[1];
+    if (/^(https?:|data:|#)/.test(value)) continue;
+    assert(fs.existsSync(path.resolve(path.dirname(file),value.split(/[?#]/)[0])), file+': missing '+value);
+  }
+}
+let scripts = 0;
+for(const file of [path.join(root,'js/game-entry.js'), ...files(path.join(small,'js'))]) {
+  if(file.endsWith('.js')) { new vm.Script(fs.readFileSync(file,'utf8'),{filename:file}); scripts++; }
+}
+for(const file of [path.join(root,'index.html'),path.join(small,'index.html')]) verifyRefs(file, /<(?:script|link|img)\b[^>]*?(?:src|href)="([^"]+)"/g);
+verifyRefs(path.join(small,'style.css'),/url\(['"]?([^'")]+)['"]?\)/g);
+const manifest=JSON.parse(fs.readFileSync(path.join(small,'integration.json')));
+manifest.sharedAssets.forEach(f=>assert(fs.existsSync(path.join(root,'assets',f))));
+manifest.modeAssets.forEach(f=>assert(fs.existsSync(path.join(small,'assets',f))));
+const entry=fs.readFileSync(path.join(root,'js/game-entry.js'),'utf8');
+function navigation(base, search='', embedded=false) {
+  let click, destination;
+  const window={location:{search,assign:url=>{destination=url;}}};
+  window.parent=embedded?{}:window;
+  const document={currentScript:{src:new URL('js/game-entry.js',base).href},addEventListener:(name,fn)=>{click=fn;}};
+  vm.runInNewContext(entry,{window,document,URL});
+  return {window, click:target=>click({target:{closest:()=>({getAttribute:()=>target})},preventDefault(){},stopPropagation(){}}),destination:()=>destination};
+}
+for(const base of ['http://localhost:8765/','https://example.test/game/','file:///F:/voxel-frontline-battle/']) {
+  const n=navigation(base,'?unknown=1');
+  n.click('small-battle');
+  assert.equal(n.destination(),new URL('modes/small-battle/index.html',base).href);
+  n.click('home');
+  assert.equal(n.destination(),new URL('index.html',base).href);
+}
+const embed=navigation('https://example.test/game/','?kubee=1&unknown=1',true);
+embed.click('small-battle');
+assert.equal(new URL(embed.destination()).search,'?kubee=1');
+const smallCode=files(path.join(small,'js')).filter(f=>f.endsWith('.js')).map(f=>fs.readFileSync(f,'utf8')).join('\n');
+assert(!/['"]vf_(?!small_|audio_muted\b)/.test(smallCode),'Small battle must not write large-war save or LAN bus keys');
+assert(smallCode.includes("const PEER_PREFIX = 'vf-small-'"));
+const index=fs.readFileSync(path.join(root,'index.html'),'utf8');
+assert(index.includes('<span>大型战争</span>') && index.includes('<span>小型战斗</span>'));
+assert(!/F:[\\/]+codbit/.test(fs.readFileSync(path.join(small,'index.html'),'utf8')));
+console.log(JSON.stringify({ok:true,checkedScripts:scripts,sharedAssets:manifest.sharedAssets.length,modeAssets:manifest.modeAssets.length,navigation:'root, subdirectory, file and embed routes passed',isolatedSavesAndRooms:true},null,2));
+

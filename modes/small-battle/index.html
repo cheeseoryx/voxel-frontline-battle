@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>小型战斗 · 体素战争</title>
+  <style>.hidden{display:none!important}#start-overlay{position:fixed;inset:0;z-index:1000;background:#1a1008}</style>
+  <script src="../../js/game-entry.js?v=1" defer></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="throw-flash" aria-hidden="true"></div>
+  <div id="throw-stun" aria-hidden="true"></div>
+  <div id="throw-smoke-veil" aria-hidden="true"></div>
+  <button id="audio-toggle" type="button" title="静音" aria-label="切换声音" aria-pressed="false">
+    <span class="audio-icon" aria-hidden="true"></span>
+  </button>
+
+  <!-- Cover art + title + menu UI (bottom-left) -->
+  <div id="start-overlay">
+    <div class="cover-art" aria-hidden="true"></div>
+    <div class="cover-title">
+      <h1>体素战争</h1>
+      <p class="cover-tagline">BUILD · FIGHT · CAPTURE</p>
+    </div>
+    <div class="cover-ui">
+      <button id="enter-hub-btn" type="button" class="cover-btn cover-btn-start">
+        <span class="cover-btn-icon play" aria-hidden="true"></span>
+        <span>小型战斗 · 加载中…</span>
+      </button>
+      <button type="button" class="cover-btn" data-game-entry="home"><span>返回模式选择</span></button>
+      <button id="quit-btn" type="button" class="cover-btn cover-btn-quit">
+        <span class="cover-btn-icon stop" aria-hidden="true"></span>
+        <span>结束游戏</span>
+      </button>
+      <button id="tutorial-btn" type="button" class="cover-btn cover-btn-tutorial">
+        <span class="cover-btn-icon book" aria-hidden="true"></span>
+        <span>新手教程</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Ruins dusk lobby: mega stage + diagonal PVE/PVP -->
+  <div id="lobby-overlay" class="hidden" aria-label="小型战斗大厅">
+    <div class="lobby-bg" aria-hidden="true">
+      <canvas id="lobby-world-canvas" width="1280" height="720" aria-hidden="true"></canvas>
+    </div>
+    <div class="lobby-smoke" aria-hidden="true"></div>
+    <div class="lobby-shade" aria-hidden="true"></div>
+    <p id="lobby-world-hint" class="lobby-world-hint hidden" aria-live="polite"></p>
+
+    <header class="lobby-top">
+      <button type="button" class="lobby-avatar-btn" data-lobby-action="profile" title="指挥官档案" aria-label="指挥官档案">
+        <span class="lobby-avatar" aria-hidden="true"></span>
+      </button>
+      <button type="button" class="lobby-currency" data-lobby-action="shop" title="前线币 · 打开商城" aria-label="前线币商城">
+        <i class="lobby-coin" aria-hidden="true"></i>
+        <em id="lobby-coin-num">120</em>
+        <span class="lobby-coin-label">前线币</span>
+        <span class="lobby-coin-plus" aria-hidden="true">+</span>
+      </button>
+      <button type="button" class="lobby-settings" data-game-entry="home">返回模式选择</button>
+      <button type="button" class="lobby-settings" data-lobby-action="settings">设置</button>
+    </header>
+
+    <div class="lobby-stage-wrap" id="lobby-stage-wrap">
+      <canvas id="lobby-stage-canvas" width="720" height="960" aria-label="职业预览"></canvas>
+    </div>
+
+    <aside class="lobby-actions" aria-label="开始游戏">
+      <div class="lobby-modes">
+        <button type="button" class="lobby-mode lobby-mode-pvp" data-lobby-action="pvp" title="PVP 对战">
+          <span class="lobby-mode-title">开始游戏：PVP</span>
+        </button>
+        <button type="button" class="lobby-mode lobby-mode-pve" data-lobby-action="pve" title="单人拆核">
+          <span class="lobby-mode-title">开始游戏：PVE</span>
+        </button>
+      </div>
+    </aside>
+
+    <nav class="lobby-dock" aria-label="快捷栏">
+      <button type="button" class="lobby-dock-item" data-lobby-action="loadout">装备</button>
+      <span class="lobby-dock-sep" aria-hidden="true">|</span>
+      <button type="button" class="lobby-dock-item" data-lobby-action="tower">防御塔</button>
+      <span class="lobby-dock-sep" aria-hidden="true">|</span>
+      <button type="button" class="lobby-dock-item" data-lobby-action="map">地图</button>
+      <span class="lobby-dock-sep" aria-hidden="true">|</span>
+      <button type="button" class="lobby-dock-item" data-lobby-action="range">靶场</button>
+      <span class="lobby-dock-sep" aria-hidden="true">|</span>
+      <button type="button" class="lobby-dock-item" data-lobby-action="materials">方块</button>
+    </nav>
+
+    <div id="lobby-sheet" class="lobby-sheet hidden" role="dialog" aria-modal="true" aria-labelledby="lobby-sheet-title">
+      <div class="lobby-sheet-panel">
+        <header class="lobby-sheet-head">
+          <h2 id="lobby-sheet-title">面板</h2>
+          <button type="button" class="lobby-sheet-close" data-lobby-action="sheet-close" aria-label="关闭">×</button>
+        </header>
+        <div class="lobby-sheet-body" id="lobby-sheet-body"></div>
+        <footer class="lobby-sheet-foot">
+          <button type="button" class="lobby-sheet-ok" data-lobby-action="sheet-close">知道了</button>
+        </footer>
+      </div>
+    </div>
+  </div>
+
+  <!-- 死斗 result: outcome + MVP + personal score table -->
+  <div id="tdm-result" class="tdm-result hidden" role="dialog" aria-modal="true" aria-labelledby="tdm-result-title">
+    <div class="tdm-result-panel">
+      <p id="tdm-result-kicker" class="tdm-result-kicker">团队死斗</p>
+      <h2 id="tdm-result-title" class="tdm-result-title">胜利</h2>
+      <p id="tdm-result-reason" class="tdm-result-reason"></p>
+      <div class="tdm-result-scores">
+        <div class="tdm-result-team blue">
+          <span class="tdm-result-team-name">蓝方</span>
+          <span id="tdm-result-blue" class="tdm-result-team-score">0</span>
+        </div>
+        <span class="tdm-result-vs">—</span>
+        <div class="tdm-result-team red">
+          <span class="tdm-result-team-name">红方</span>
+          <span id="tdm-result-red" class="tdm-result-team-score">0</span>
+        </div>
+      </div>
+      <div id="tdm-result-mvp" class="tdm-result-mvp"></div>
+      <div class="tdm-table-wrap">
+        <table class="tdm-table">
+          <thead>
+            <tr><th>#</th><th>单位</th><th>击杀</th><th>死亡</th><th>助攻</th><th>爆头</th><th>连杀</th><th>个人分</th></tr>
+          </thead>
+          <tbody id="tdm-result-rows"></tbody>
+        </table>
+      </div>
+      <div class="tdm-result-actions">
+        <span id="tdm-result-countdown" class="tdm-result-countdown"></span>
+        <button type="button" id="tdm-result-back" class="cover-btn cover-btn-start">返回基地</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 自由混战 result: personal placement + full ranking table -->
+  <div id="ffa-result" class="tdm-result hidden" role="dialog" aria-modal="true" aria-labelledby="ffa-result-title">
+    <div class="tdm-result-panel">
+      <p class="tdm-result-kicker">自由混战</p>
+      <h2 id="ffa-result-title" class="tdm-result-title">冠军</h2>
+      <p id="ffa-result-place" class="ffa-result-place"></p>
+      <p id="ffa-result-reason" class="tdm-result-reason"></p>
+      <div class="tdm-table-wrap">
+        <table class="tdm-table">
+          <thead>
+            <tr><th>名次</th><th>玩家</th><th>击杀</th><th>死亡</th><th>K/D</th><th>爆头</th><th>连杀</th><th>得分</th></tr>
+          </thead>
+          <tbody id="ffa-result-rows"></tbody>
+        </table>
+      </div>
+      <div class="tdm-result-actions">
+        <span id="ffa-result-countdown" class="tdm-result-countdown"></span>
+        <button type="button" id="ffa-result-back" class="cover-btn cover-btn-start">返回基地</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 枪械模式 result: 按最终武器等级排名 -->
+  <div id="gg-result" class="tdm-result hidden" role="dialog" aria-modal="true" aria-labelledby="gg-result-title">
+    <div class="tdm-result-panel">
+      <p class="tdm-result-kicker">枪械模式</p>
+      <h2 id="gg-result-title" class="tdm-result-title">军械库大师</h2>
+      <p id="gg-result-place" class="ffa-result-place"></p>
+      <p id="gg-result-reason" class="tdm-result-reason"></p>
+      <div class="tdm-table-wrap">
+        <table class="tdm-table">
+          <thead>
+            <tr><th>名次</th><th>玩家</th><th>最终等级</th><th>击杀</th><th>爆头降级</th><th>被降级</th><th>卡关武器</th></tr>
+          </thead>
+          <tbody id="gg-result-rows"></tbody>
+        </table>
+      </div>
+      <div class="tdm-result-actions">
+        <span id="gg-result-countdown" class="tdm-result-countdown"></span>
+        <button type="button" id="gg-result-back" class="cover-btn cover-btn-start">返回基地</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Match mode picker: shown before both PVE and PVP entries -->
+  <div id="mode-select-overlay" class="mode-select hidden" role="dialog" aria-modal="true" aria-labelledby="mode-hero-name">
+    <div class="mode-hero" id="mode-hero">
+      <div class="mode-hero-art" aria-hidden="true"></div>
+      <div class="mode-hero-shade" aria-hidden="true"></div>
+      <button type="button" class="mode-hero-back" data-mode-action="close">返回</button>
+      <div class="mode-hero-info">
+        <p class="mode-hero-kicker" id="mode-hero-kicker">VOXEL FRONTLINE</p>
+        <h2 class="mode-hero-name" id="mode-hero-name">核心攻防</h2>
+        <div class="mode-hero-tags" id="mode-hero-tags"></div>
+        <p class="mode-hero-desc" id="mode-hero-desc"></p>
+        <p class="mode-hero-note hidden" id="mode-hero-note"></p>
+        <div class="mode-hero-actions">
+          <button type="button" class="mode-start" id="mode-start-btn" data-mode-action="start">进入战斗</button>
+          <span class="mode-hero-entry" id="mode-hero-entry">PVE · 人机对战</span>
+        </div>
+      </div>
+    </div>
+    <div class="mode-rail">
+      <p class="mode-rail-label">选择模式</p>
+      <div class="mode-rail-cards" id="mode-rail-cards"></div>
+    </div>
+  </div>
+
+  <!-- Hidden hooks for PVP (opened from hub) -->
+  <button id="pvp-create-btn" type="button" class="hidden" aria-hidden="true"></button>
+  <button id="pvp-open-join-btn" type="button" class="hidden" aria-hidden="true"></button>
+
+  <div id="pvp-join-overlay" class="hidden" role="dialog" aria-labelledby="pvp-join-heading">
+    <div class="pvp-panel start-panel">
+      <h1 id="pvp-join-heading">加入房间</h1>
+      <p class="subtitle">输入房主的 6 位房间码 · 1v1</p>
+      <label class="pvp-field-label" for="pvp-join-code">房间码</label>
+      <input
+        id="pvp-join-code"
+        class="pvp-code-input"
+        type="text"
+        maxlength="8"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="例如 A3K9PX"
+      />
+      <p id="pvp-join-err" class="pvp-err" aria-live="polite"></p>
+      <div class="pvp-actions">
+        <button id="pvp-join-confirm" type="button" class="cover-btn cover-btn-start">加入</button>
+        <button id="pvp-join-back" type="button" class="cover-btn">返回</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PVP: lobby (host & guest) -->
+  <div id="pvp-lobby-overlay" class="hidden" role="dialog" aria-labelledby="pvp-lobby-heading">
+    <div class="pvp-panel start-panel pvp-lobby-panel">
+      <h1 id="pvp-lobby-heading">对战大厅</h1>
+      <p class="subtitle" id="pvp-lobby-role">1v1 · WebRTC</p>
+      <div class="pvp-code-block">
+        <span class="pvp-code-label">房间码</span>
+        <span id="pvp-lobby-code" class="pvp-code-display">------</span>
+        <button id="pvp-copy-btn" type="button" class="cover-btn pvp-copy-btn">复制</button>
+      </div>
+      <p id="pvp-lobby-status" class="pvp-status">等待中…</p>
+      <div class="pvp-ready-row">
+        <div class="pvp-ready-card">
+          <span class="pvp-ready-title">你</span>
+          <span id="pvp-you-ready" class="pvp-ready-state">未准备</span>
+        </div>
+        <div class="pvp-ready-card">
+          <span class="pvp-ready-title">对手</span>
+          <span id="pvp-foe-ready" class="pvp-ready-state">等待中…</span>
+        </div>
+      </div>
+      <div class="pvp-actions">
+        <button id="pvp-ready-btn" type="button" class="cover-btn">准备</button>
+        <button id="pvp-start-btn" type="button" class="cover-btn cover-btn-start">开始对局</button>
+        <button id="pvp-lobby-back" type="button" class="cover-btn">离开房间</button>
+      </div>
+      <p class="pvp-hint">同电脑开两个窗口即可联机 · 双方准备后由房主开始</p>
+    </div>
+  </div>
+
+  <!-- Newbie tutorial page -->
+  <div id="tutorial-overlay" class="hidden" role="dialog" aria-labelledby="tutorial-heading">
+    <div class="tutorial-shell">
+      <header class="tutorial-header">
+        <h1 id="tutorial-heading">新手教程</h1>
+        <p class="tutorial-lead">体素战争 · 建造 · 战斗 · 摧毁对方核心</p>
+        <button id="tutorial-back-btn" type="button" class="cover-btn tutorial-back">返回首页</button>
+      </header>
+      <div class="tutorial-body">
+        <section class="tutorial-section">
+          <h2>任务目标</h2>
+          <p>地图两端是<strong>蓝方基地</strong>与<strong>红方基地</strong>。选阵营后：蓝方要摧毁<strong>红方核心</strong>，红方要摧毁<strong>蓝方核心</strong>。顶部血条显示双方核心生命；阵亡后可重新部署，摧毁敌方核心即可获胜。</p>
+        </section>
+        <section class="tutorial-section">
+          <h2>开局流程</h2>
+          <ul>
+            <li><strong>大厅</strong>：点 PVE 单人拆核 / PVP 联机；底部码头进防御塔设计、地图、靶场、商城</li>
+            <li><strong>联机 1v1</strong>：大厅点 PVP → 创建或加入房间 → 双方准备 → 选角与选点 → 同步进入战场</li>
+            <li>战场默认是<strong>空白地形</strong>（双方基地与中央河流固定）；在大厅底部「地图」里俯视格子搭建（桥低/中/高可重叠跨河、滑索点桥），也可「进入局内编辑」；布局会保存并用于下一局</li>
+          </ul>
+        </section>
+        <section class="tutorial-section">
+          <h2>基本操作</h2>
+          <ul>
+            <li><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> — 移动</li>
+            <li><kbd>Shift</kbd> — 冲刺 · <kbd>C</kbd> — 切换下蹲 · <kbd>Ctrl</kbd> — 按住下蹲 · 冲刺中按下蹲滑铲（结束后保持蹲姿；头顶有障碍时无法起身）</li>
+            <li><kbd>空格</kbd> — 跳跃 · 鼠标 — 视角 · <kbd>Esc</kbd> — 释放鼠标</li>
+            <li><kbd>左键</kbd> — 射击 · <kbd>右键</kbd> — 瞄准（ADS，散布更小）</li>
+            <li><kbd>R</kbd> — 换弹 · <kbd>V</kbd> — 冲刺（准星方向） · <kbd>G</kbd> — 先锋 C4（按住瞄准） · 滚轮 — 切换枪 / 刀 / 投掷物 · <kbd>Q</kbd> — 投掷（按住蓄力） · <kbd>Tab</kbd> — 背包 · <kbd>M</kbd> — 大地图</li>
+            <li><kbd>E</kbd> — 拾取部署核 / 掩体建材 · <kbd>F</kbd> — 乘坐滑索</li>
+          </ul>
+        </section>
+        <section class="tutorial-section">
+          <h2>装备栏</h2>
+          <ul>
+            <li><kbd>1</kbd> 主武器 — 突击步枪 / 卡宾枪 / 冲锋枪 / 轻机枪 / 精确射手 / 狙击枪</li>
+            <li><kbd>2</kbd> 副武器 — 霰弹枪 / 手枪</li>
+            <li><kbd>3</kbd> 战术匕首 — 仅无建造模式（死斗 / 混战 / 爆破）</li>
+            <li><kbd>Q</kbd> 投掷物 — 按住蓄力投掷，滚轮切换种类</li>
+          </ul>
+          <p>具体带哪几件在大厅「装备」里配。第一人称会显示枪身与双手；跑步时枪会随步伐轻微摆动。击杀敌人掉落弹药箱，走近自动拾取。</p>
+        </section>
+        <section class="tutorial-section">
+          <h2>建造（4–5，仅核心攻防）</h2>
+          <ul>
+            <li><kbd>4</kbd> 掩体 — 消耗建材，摆放短墙</li>
+            <li><kbd>5</kbd> 防御塔 — 消耗 1 个<strong>部署核</strong>（开局自带 1 个），放置你在大厅设计器里搭好的塔与滑索</li>
+          </ul>
+          <p>切到 4/5 时，手上的枪会换成灰色石块；半透明预览对准地面后左键放置。建材与核心在地图上以发光方块出现。</p>
+        </section>
+        <section class="tutorial-section">
+          <h2>战场与士兵</h2>
+          <ul>
+            <li>蓝方 / 红方士兵在各自出生点刷新，友军不会攻击你</li>
+            <li>士兵会交火附近敌军，清空后推进攻击对方核心</li>
+            <li>小地图：蓝/红点为士兵，圈为出生点；大地图按 <kbd>M</kbd> 查看基地与方位</li>
+          </ul>
+        </section>
+        <section class="tutorial-section">
+          <h2>基地、河流与工厂</h2>
+          <ul>
+            <li>基地有城墙与大门，内部可上城墙；核心在基座上，射击可造成伤害</li>
+            <li>中央河流固定，靠运河桥与高架/滑索跨越</li>
+            <li>两侧大型工厂为固定地标，内有木箱掩体，适合巷战</li>
+            <li>可破坏部分方块与木门，用来开路或打射孔</li>
+          </ul>
+        </section>
+        <section class="tutorial-section">
+          <h2>生存提示</h2>
+          <ul>
+            <li>血量偏低时找掩体周旋；蹲下可缩小暴露面</li>
+            <li>远距离打核心请用瞄准（右键）提高精度</li>
+            <li>1v1 中仅摧毁敌方核心可获胜；阵亡后可重新部署</li>
+            <li>卡顿时可降低浏览器缩放或关闭其他标签页</li>
+          </ul>
+        </section>
+        <section class="tutorial-section tutorial-cta">
+          <p>准备好了？返回封面进入大厅，点 PVE / PVP 开始游戏。</p>
+          <button id="tutorial-play-btn" type="button" class="cover-btn cover-btn-start">
+            <span class="cover-btn-icon play" aria-hidden="true"></span>
+            <span>进入基地</span>
+          </button>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Always-available back (top-left); shown in match / hub / range -->
+  <button id="game-back-btn" type="button" class="game-back-btn hidden" title="返回大厅">返回</button>
+
+  <!-- Game HUD -->
+  <div id="hud" class="hidden">
+    <!-- Top left: circular mini-map -->
+    <div id="minimap-wrap">
+      <canvas id="minimap" width="128" height="128"></canvas>
+      <span class="hud-label">MAP · M</span>
+    </div>
+
+    <!-- 死斗: kill feed + phase banner + team score numbers -->
+    <div id="tdm-feed" class="tdm-feed hidden" aria-live="polite"></div>
+    <div id="tdm-banner" class="tdm-banner hidden" aria-live="polite"></div>
+
+    <!-- 自由混战: live leaderboard (left) + kill feed / banner (reuse 死斗 styling) -->
+    <div id="ffa-rank" class="ffa-rank hidden" aria-hidden="true"></div>
+    <div id="ffa-feed" class="tdm-feed hidden" aria-live="polite"></div>
+    <div id="ffa-banner" class="tdm-banner hidden" aria-live="polite"></div>
+
+    <!-- 枪械模式: 个人武器进度条 + 按等级排序的排行榜 + 击杀播报 / 横幅 -->
+    <div id="gg-progress" class="gg-progress hidden" aria-live="polite"></div>
+    <div id="gg-rank" class="ffa-rank gg-rank hidden" aria-hidden="true"></div>
+    <div id="gg-feed" class="tdm-feed hidden" aria-live="polite"></div>
+    <div id="gg-banner" class="tdm-banner hidden" aria-live="polite"></div>
+
+    <!-- 爆破: contextual plant / defuse / drop / pickup prompt with progress -->
+    <div id="sd-prompt" class="sd-prompt hidden" aria-live="polite">
+      <div id="sd-prompt-text" class="sd-prompt-text"></div>
+      <div id="sd-prompt-bar" class="sd-prompt-bar hidden"><i id="sd-prompt-fill"></i></div>
+    </div>
+
+    <!-- Top center: blue core | pixel clock | red core -->
+    <div id="mission-row">
+      <span id="tdm-score-blue" class="tdm-score blue hidden">0</span>
+      <span id="tdm-score-red" class="tdm-score red hidden">0</span>
+      <div id="home-status" class="core-status blue" title="蓝方核心">
+        <div id="home-seg-bar" class="core-seg-bar blue" aria-hidden="true">
+          <span class="seg"><i class="seg-fill"></i></span>
+          <span class="seg"><i class="seg-fill"></i></span>
+          <span class="seg"><i class="seg-fill"></i></span>
+          <span class="seg"><i class="seg-fill"></i></span>
+          <span class="seg"><i class="seg-fill"></i></span>
+        </div>
+        <div id="home-title" class="visually-hidden">蓝方核心</div>
+        <div id="home-percent" class="visually-hidden">100%</div>
+        <div id="home-bar-track" class="core-bar-track visually-hidden" aria-hidden="true">
+          <div id="home-bar-fill" class="core-bar-fill blue"></div>
+        </div>
+      </div>
+      <div id="match-clock">
+        <div id="match-target">50</div>
+        <div id="timer">00:00</div>
+      </div>
+      <div id="mission-status" class="core-status red" title="红方核心">
+        <div id="mission-seg-bar" class="core-seg-bar red" aria-hidden="true">
+          <span class="seg"><i class="seg-fill"></i></span>
+          <span class="seg"><i class="seg-fill"></i></span>
+          <span class="seg"><i class="seg-fill"></i></span>
+          <span class="seg"><i class="seg-fill"></i></span>
+          <span class="seg"><i class="seg-fill"></i></span>
+        </div>
+        <div id="mission-title" class="visually-hidden">红方核心</div>
+        <div id="mission-percent" class="visually-hidden">100%</div>
+        <div id="mission-bar-track" class="core-bar-track visually-hidden" aria-hidden="true">
+          <div id="mission-bar-fill" class="core-bar-fill red"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 爆破: 计时正下方的双方存活/阵亡指示条 + 当前包点字母 -->
+    <div id="sd-status" class="sd-status hidden" aria-hidden="true">
+      <span class="sd-status-icons blue" id="sd-status-blue"></span>
+      <span class="sd-status-site hidden" id="sd-status-site">B</span>
+      <span class="sd-status-icons red" id="sd-status-red"></span>
+    </div>
+
+    <!-- Legacy wave panel kept hidden (timer moved to match-clock) -->
+    <div id="wave-info" class="hidden" aria-hidden="true">
+      <div id="wave-label">战场</div>
+      <div id="objective">摧毁对方核心</div>
+      <div id="squad-info">
+        蓝方士兵 <span id="blue-count">0</span> · 红方士兵 <span id="red-count">0</span>
+      </div>
+      <div id="squad-info-side" class="hidden">
+        友军 <span id="squad-count">0</span> · 敌军 <span id="hostile-count">0</span>
+      </div>
+    </div>
+
+    <!-- Center crosshair -->
+    <div id="crosshair">
+      <span class="ch ch-h"></span>
+      <span class="ch ch-v"></span>
+      <span class="ch ch-dot"></span>
+      <span class="hit-mi" aria-hidden="true">
+        <span class="hit-plus">
+          <span class="hm hm-plus-h"></span>
+          <span class="hm hm-plus-v"></span>
+        </span>
+        <span class="hit-x">
+          <span class="hm hm-x1"></span>
+          <span class="hm hm-x2"></span>
+          <span class="hm hm-x3"></span>
+          <span class="hm hm-x4"></span>
+        </span>
+      </span>
+    </div>
+
+    <!-- Scope overlay (RMB ADS) -->
+    <div id="scope-overlay" class="hidden" aria-hidden="true">
+      <div class="scope-vignette"></div>
+      <div class="scope-lens">
+        <div class="scope-glass"></div>
+        <div class="scope-reticle">
+          <span class="sr-h"></span>
+          <span class="sr-v"></span>
+          <span class="sr-dot"></span>
+          <span class="sr-tick t1"></span>
+          <span class="sr-tick t2"></span>
+          <span class="sr-tick t3"></span>
+          <span class="sr-tick t4"></span>
+          <span class="sr-tick t5"></span>
+          <span class="sr-tick t6"></span>
+          <span class="sr-tick t7"></span>
+          <span class="sr-tick t8"></span>
+        </div>
+        <div class="scope-ring"></div>
+      </div>
+    </div>
+
+    <!-- Bottom right: skills above loadout -->
+    <div id="hud-br">
+    <div id="skill-row">
+    <!-- Class skills: active + passive (vanguard / medic / ghost / juggernaut) -->
+    <div id="skill-hud" class="hidden">
+      <div class="skill-slot" id="skill-active" title="">
+        <div class="skill-icon-wrap">
+          <div class="skill-icon skill-icon-c4" data-skill-icon="vanguard" aria-hidden="true">
+            <span class="c4-body"></span>
+            <span class="c4-band"></span>
+            <span class="c4-led"></span>
+          </div>
+          <div class="skill-icon skill-icon-heal hidden" data-skill-icon="medic" aria-hidden="true">
+            <span class="heal-box"></span>
+            <span class="heal-cross-h"></span>
+            <span class="heal-cross-v"></span>
+          </div>
+          <div class="skill-icon skill-icon-cloak hidden" data-skill-icon="ghost" aria-hidden="true">
+            <span class="cloak-ring"></span>
+            <span class="cloak-eye"></span>
+            <span class="cloak-slash"></span>
+          </div>
+          <div class="skill-icon skill-icon-riot hidden" data-skill-icon="juggernaut" aria-hidden="true">
+            <span class="riot-plate"></span>
+            <span class="riot-glow"></span>
+            <span class="riot-stripe"></span>
+          </div>
+          <div class="skill-icon skill-icon-emp hidden" data-skill-icon="raider" aria-hidden="true">
+            <span class="emp-core"></span>
+            <span class="emp-ring"></span>
+            <span class="emp-bolt"></span>
+          </div>
+          <div class="skill-icon skill-icon-turret hidden" data-skill-icon="engineer" aria-hidden="true">
+            <span class="turret-base"></span>
+            <span class="turret-gun"></span>
+            <span class="turret-barrel"></span>
+          </div>
+          <div class="skill-cd-overlay hidden" id="skill-cd-overlay">
+            <span id="skill-cd-num"></span>
+          </div>
+        </div>
+        <div class="skill-keybind">G</div>
+      </div>
+      <div class="skill-slot" id="skill-passive" title="">
+        <div class="skill-icon-wrap">
+          <div class="skill-icon skill-icon-passive" data-skill-icon="vanguard" aria-hidden="true">
+            <span class="pas-reload"></span>
+            <span class="pas-boost"></span>
+          </div>
+          <div class="skill-icon skill-icon-shield hidden" data-skill-icon="medic" aria-hidden="true">
+            <span class="shield-body"></span>
+            <span class="shield-plus"></span>
+          </div>
+          <div class="skill-icon skill-icon-backstab hidden" data-skill-icon="ghost" aria-hidden="true">
+            <span class="stab-blade"></span>
+            <span class="stab-hilt"></span>
+            <span class="stab-mark"></span>
+          </div>
+          <div class="skill-icon skill-icon-armor hidden" data-skill-icon="juggernaut" aria-hidden="true">
+            <span class="armor-plate"></span>
+            <span class="armor-bolt"></span>
+          </div>
+          <div class="skill-icon skill-icon-loot hidden" data-skill-icon="raider" aria-hidden="true">
+            <span class="loot-box"></span>
+            <span class="loot-plus"></span>
+          </div>
+          <div class="skill-icon skill-icon-buildpass hidden" data-skill-icon="engineer" aria-hidden="true">
+            <span class="build-brick"></span>
+            <span class="build-shield"></span>
+          </div>
+          <div class="skill-buff-ring hidden" id="skill-buff-ring"></div>
+          <div class="skill-cd-overlay skill-buff-time hidden" id="skill-passive-time">
+            <span id="skill-passive-time-num"></span>
+          </div>
+        </div>
+        <div class="skill-keybind skill-keybind-passive">被动</div>
+      </div>
+    </div>
+      <div id="dash-hud">
+        <div class="skill-slot" id="skill-dash" title="冲刺 — V · 沿准星方向三维突进（球形范围 · CD 10s）">
+          <div class="skill-icon-wrap">
+            <div class="skill-icon skill-icon-dash" aria-hidden="true">
+              <span class="dash-chev a"></span>
+              <span class="dash-chev b"></span>
+              <span class="dash-chev c"></span>
+            </div>
+            <div class="skill-cd-overlay hidden" id="dash-cd-overlay">
+              <span id="dash-cd-num"></span>
+            </div>
+          </div>
+          <div class="skill-keybind">V</div>
+        </div>
+      </div>
+    </div>
+    <div id="hotbar">
+        <div class="slot active" data-slot="1" title="AKM (1)">
+          <span class="slot-key">1</span>
+          <span class="slot-icon weapon-ar"></span>
+          <span class="slot-name">AKM</span>
+          <span class="slot-ammo">30/150</span>
+        </div>
+        <div class="slot" data-slot="2" title="Remington 870 (2)">
+          <span class="slot-key">2</span>
+          <span class="slot-icon weapon-sg"></span>
+          <span class="slot-name">870</span>
+          <span class="slot-ammo">7/35</span>
+        </div>
+        <div class="slot melee" data-slot="3" title="战术匕首 (3)">
+          <span class="slot-key">3</span>
+          <span class="slot-icon weapon-knife"></span>
+          <span class="slot-name">匕首</span>
+          <span class="slot-ammo">—</span>
+        </div>
+        <div class="slot throw" data-slot="throw" title="投掷物 (Q)">
+          <span class="slot-key">Q</span>
+          <span class="slot-icon nade-icon"></span>
+          <span class="slot-name">手雷</span>
+          <span class="slot-ammo">1</span>
+        </div>
+        <div class="slot build" data-slot="4" title="Cover / 掩体 (4)">
+          <span class="slot-key">4</span>
+          <span class="slot-icon cover-icon"></span>
+          <span class="slot-name">掩体</span>
+          <span class="slot-ammo"></span>
+        </div>
+        <div class="slot build" data-slot="5" title="防御塔 (5) — 消耗部署核">
+          <span class="slot-key">5</span>
+          <span class="slot-icon tower-b"></span>
+          <span class="slot-name">防御塔</span>
+          <span class="slot-ammo"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Throwables (in-match type swap). Hidden from the dock; Q lives on the right loadout list. -->
+    <div id="throw-hud" class="hidden" aria-label="投掷物">
+      <button type="button" class="skill-slot throw-slot" data-throw-id="frag" title="破片手雷">
+        <div class="skill-icon-wrap">
+          <div class="skill-icon throw-icon throw-icon-frag" aria-hidden="true">
+            <span class="th-body"></span>
+            <span class="th-pin"></span>
+          </div>
+          <div class="skill-cd-overlay throw-cook hidden" data-throw-cook></div>
+        </div>
+        <div class="skill-keybind">Q</div>
+      </button>
+      <button type="button" class="skill-slot throw-slot" data-throw-id="semtex" title="黏性炸弹">
+        <div class="skill-icon-wrap">
+          <div class="skill-icon throw-icon throw-icon-semtex" aria-hidden="true">
+            <span class="th-body"></span>
+            <span class="th-led"></span>
+          </div>
+          <div class="skill-cd-overlay throw-cook hidden" data-throw-cook></div>
+        </div>
+        <div class="skill-keybind">Q</div>
+      </button>
+      <button type="button" class="skill-slot throw-slot" data-throw-id="molotov" title="燃烧瓶">
+        <div class="skill-icon-wrap">
+          <div class="skill-icon throw-icon throw-icon-molotov" aria-hidden="true">
+            <span class="th-bottle"></span>
+            <span class="th-flame"></span>
+          </div>
+          <div class="skill-cd-overlay throw-cook hidden" data-throw-cook></div>
+        </div>
+        <div class="skill-keybind">Q</div>
+      </button>
+      <button type="button" class="skill-slot throw-slot" data-throw-id="flash" title="闪光弹">
+        <div class="skill-icon-wrap">
+          <div class="skill-icon throw-icon throw-icon-flash" aria-hidden="true">
+            <span class="th-body"></span>
+            <span class="th-burst"></span>
+          </div>
+          <div class="skill-cd-overlay throw-cook hidden" data-throw-cook></div>
+        </div>
+        <div class="skill-keybind">Q</div>
+      </button>
+      <button type="button" class="skill-slot throw-slot" data-throw-id="stun" title="震撼弹">
+        <div class="skill-icon-wrap">
+          <div class="skill-icon throw-icon throw-icon-stun" aria-hidden="true">
+            <span class="th-body"></span>
+            <span class="th-wave"></span>
+          </div>
+          <div class="skill-cd-overlay throw-cook hidden" data-throw-cook></div>
+        </div>
+        <div class="skill-keybind">Q</div>
+      </button>
+      <button type="button" class="skill-slot throw-slot" data-throw-id="smoke" title="烟雾弹">
+        <div class="skill-icon-wrap">
+          <div class="skill-icon throw-icon throw-icon-smoke" aria-hidden="true">
+            <span class="th-can"></span>
+            <span class="th-puff a"></span>
+            <span class="th-puff b"></span>
+          </div>
+          <div class="skill-cd-overlay throw-cook hidden" data-throw-cook></div>
+        </div>
+        <div class="skill-keybind">Q</div>
+      </button>
+    </div>
+
+    <!-- Bottom left: vitals + ammo pips (doodle-style) -->
+    <div id="hud-bl">
+      <div id="vitals">
+        <div id="hp-row">
+          <span class="vital-label">生命</span>
+          <div class="vital-track hp" aria-hidden="true"><i id="hp-fill"></i></div>
+          <span id="hp-num">100</span>
+        </div>
+        <div id="armor-row">
+          <span class="vital-label">护甲</span>
+          <div class="vital-track armor" aria-hidden="true"><i id="armor-fill"></i></div>
+          <span id="armor-num">50</span>
+        </div>
+      </div>
+      <div id="ammo">
+        <div id="ammo-readout">
+          <span id="ammo-mag">30</span><span class="ammo-sep">/</span><span id="ammo-reserve">150</span>
+          <span id="ammo-mags" aria-hidden="true"></span>
+          <span id="ammo-reload" class="hidden">换弹</span>
+        </div>
+        <div id="ammo-pips" aria-hidden="true"></div>
+      </div>
+      <div id="resources">
+        <div class="res-row">
+          <span class="res-icon core"></span>
+          <span>部署核</span>
+          <strong id="core-count">0</strong>
+        </div>
+        <div class="res-row">
+          <span class="res-icon blocks"></span>
+          <span>掩体建材</span>
+          <strong id="block-count">0</strong>
+        </div>
+        <div id="interact-hint" class="hidden">按 <kbd>E</kbd> 拾取</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Character select -->
+  <div id="class-overlay" class="hidden">
+    <div class="class-panel class-panel-flat">
+      <header class="class-header">
+        <h2>选择角色</h2>
+        <p class="class-lead">点选右侧头像预览 · 确认后进入落点</p>
+      </header>
+      <div class="class-body">
+        <div class="class-stage" id="class-stage">
+          <canvas id="class-stage-canvas" width="480" height="640"></canvas>
+          <div class="class-stage-role" id="class-stage-role" aria-hidden="true">
+            <span class="class-stage-role-label">角色定位</span>
+            <span class="class-stage-role-text" id="class-stage-role-text"></span>
+          </div>
+          <div class="class-stage-skills hidden" id="class-stage-skills">
+            <div class="class-skill-slot" id="class-skill-active" data-skill-kind="active" tabindex="0">
+              <div class="skill-icon-wrap">
+                <div class="skill-icon skill-icon-c4" data-skill-icon="vanguard" aria-hidden="true">
+                  <span class="c4-body"></span>
+                  <span class="c4-band"></span>
+                  <span class="c4-led"></span>
+                </div>
+                <div class="skill-icon skill-icon-heal hidden" data-skill-icon="medic" aria-hidden="true">
+                  <span class="heal-box"></span>
+                  <span class="heal-cross-h"></span>
+                  <span class="heal-cross-v"></span>
+                </div>
+                <div class="skill-icon skill-icon-cloak hidden" data-skill-icon="ghost" aria-hidden="true">
+                  <span class="cloak-ring"></span>
+                  <span class="cloak-eye"></span>
+                  <span class="cloak-slash"></span>
+                </div>
+                <div class="skill-icon skill-icon-riot hidden" data-skill-icon="juggernaut" aria-hidden="true">
+                  <span class="riot-plate"></span>
+                  <span class="riot-glow"></span>
+                  <span class="riot-stripe"></span>
+                </div>
+                <div class="skill-icon skill-icon-emp hidden" data-skill-icon="raider" aria-hidden="true">
+                  <span class="emp-core"></span>
+                  <span class="emp-ring"></span>
+                  <span class="emp-bolt"></span>
+                </div>
+                <div class="skill-icon skill-icon-turret hidden" data-skill-icon="engineer" aria-hidden="true">
+                  <span class="turret-base"></span>
+                  <span class="turret-gun"></span>
+                  <span class="turret-barrel"></span>
+                </div>
+              </div>
+              <div class="skill-keybind">G</div>
+            </div>
+            <div class="class-skill-slot" id="class-skill-passive" data-skill-kind="passive" tabindex="0">
+              <div class="skill-icon-wrap">
+                <div class="skill-icon skill-icon-passive" data-skill-icon="vanguard" aria-hidden="true">
+                  <span class="pas-reload"></span>
+                  <span class="pas-boost"></span>
+                </div>
+                <div class="skill-icon skill-icon-shield hidden" data-skill-icon="medic" aria-hidden="true">
+                  <span class="shield-body"></span>
+                  <span class="shield-plus"></span>
+                </div>
+                <div class="skill-icon skill-icon-backstab hidden" data-skill-icon="ghost" aria-hidden="true">
+                  <span class="stab-blade"></span>
+                  <span class="stab-hilt"></span>
+                  <span class="stab-mark"></span>
+                </div>
+                <div class="skill-icon skill-icon-armor hidden" data-skill-icon="juggernaut" aria-hidden="true">
+                  <span class="armor-plate"></span>
+                  <span class="armor-bolt"></span>
+                </div>
+                <div class="skill-icon skill-icon-loot hidden" data-skill-icon="raider" aria-hidden="true">
+                  <span class="loot-box"></span>
+                  <span class="loot-plus"></span>
+                </div>
+                <div class="skill-icon skill-icon-buildpass hidden" data-skill-icon="engineer" aria-hidden="true">
+                  <span class="build-brick"></span>
+                  <span class="build-shield"></span>
+                </div>
+              </div>
+              <div class="skill-keybind skill-keybind-passive">被动</div>
+            </div>
+            <div class="class-skill-tip hidden" id="class-skill-tip" role="tooltip">
+              <strong class="class-skill-tip-name" id="class-skill-tip-name"></strong>
+              <span class="class-skill-tip-desc" id="class-skill-tip-desc"></span>
+            </div>
+          </div>
+          <p class="class-stage-placeholder" id="class-stage-placeholder">点击右侧头像预览全身</p>
+          <p class="class-stage-name" id="class-stage-name"></p>
+        </div>
+        <div class="class-list" id="class-grid"></div>
+      </div>
+      <div class="class-actions">
+        <button id="class-cancel-btn" type="button" class="cover-btn">返回</button>
+        <button id="class-confirm-btn" type="button" class="cover-btn cover-btn-start" disabled>
+          <span class="cover-btn-icon play" aria-hidden="true"></span>
+          <span>确认角色</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shooting range HUD -->
+  <div id="range-overlay" class="hidden">
+    <div class="range-hud">
+      <p class="range-title">射击靶场</p>
+      <p class="range-hint">局内枪械手感 · WASD · RMB 开镜 · R 换弹 · 1/2/3 换枪 · T 切换模式 · Esc 返回</p>
+      <p class="range-weapon">当前：<span id="range-weapon-label">步枪</span>（弹匣有限 · 后备无限）</p>
+      <p class="range-mode">模式：<span id="range-mode-label">自由练习</span></p>
+      <p class="range-score" id="range-score">分数 0 · 命中 0 · 击破 0</p>
+      <p class="range-lock hidden" id="range-lock-hint">点击画面锁定鼠标后才能移动/射击</p>
+      <div class="range-actions">
+        <button type="button" id="range-mode-btn" class="cover-btn">切换限时/自由</button>
+        <button type="button" id="range-reset-btn" class="cover-btn">重置分数</button>
+        <button type="button" id="range-back-btn" class="cover-btn">返回前线基地</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Defense tower builder (after character select) -->
+  <div id="tower-builder-overlay" class="hidden">
+    <div class="class-panel">
+      <header class="class-header">
+        <h2>防御建造</h2>
+        <p class="class-lead">
+          拖拽旋转 · 单击放置/连滑索 · 右键拆除 · 滚轮缩放 · 完成后对局按 5 生成
+        </p>
+      </header>
+      <div class="class-body">
+        <div class="class-stage tower-stage">
+          <canvas id="tower-builder-canvas" width="640" height="640"></canvas>
+        </div>
+        <div class="class-list tower-tools">
+          <section class="tower-section tower-section-mode">
+            <h3 class="tower-tools-title">工具模式</h3>
+            <div class="tower-mode-row">
+              <button type="button" class="tower-pal selected" id="tower-mode-block" data-mode="block">
+                <span class="tower-pal-swatch" style="background:#6e7278"></span>
+                <span>放置方块</span>
+              </button>
+              <button type="button" class="tower-pal" id="tower-mode-zip" data-mode="zip">
+                <span class="tower-pal-swatch" style="background:#e8c76a"></span>
+                <span>连接滑索</span>
+              </button>
+            </div>
+          </section>
+          <section class="tower-section tower-section-palette" id="tower-palette-section">
+            <h3 class="tower-tools-title">方块种类</h3>
+            <div id="tower-palette" class="tower-palette"></div>
+          </section>
+          <section class="tower-section tower-section-info">
+            <p id="tower-stock" class="tower-stock">石块 库存 <b>0</b> · 钢缆 <b>0</b></p>
+            <p id="tower-block-count" class="tower-count">额度 0/120币 · 超出 0 · 方块 0 · 滑索 0/8</p>
+            <p id="tower-zip-hint" class="tower-count">滑索：点两块方块，绳索挂在朝向对方的外表面</p>
+          </section>
+          <section class="tower-section tower-section-actions">
+            <button type="button" class="class-card tower-tool-btn" id="tower-default-btn">
+              <span class="class-card-name">恢复模板</span>
+            </button>
+            <button type="button" class="class-card tower-tool-btn" id="tower-clear-btn">
+              <span class="class-card-name">清空</span>
+            </button>
+          </section>
+        </div>
+      </div>
+      <div class="class-actions">
+        <button type="button" class="cover-btn" id="tower-back-btn">返回基地</button>
+        <button type="button" class="cover-btn cover-btn-start" id="tower-save-btn">
+          <span class="cover-btn-icon play" aria-hidden="true"></span>
+          <span>完成建造</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Spawn point select (before match starts) -->
+  <div id="spawn-overlay" class="hidden">
+    <div class="class-panel spawn-panel">
+      <header class="class-header">
+        <h2>选择阵营与出生点</h2>
+        <p class="class-lead">先选蓝 / 红阵营，再在本方 3 个分散出生点中选一处出发</p>
+      </header>
+      <div class="spawn-body">
+        <div class="team-pick-row" id="team-pick-row">
+          <button type="button" class="team-pick ally" data-team="ally" id="team-pick-ally">
+            蓝方
+          </button>
+          <button type="button" class="team-pick enemy" data-team="enemy" id="team-pick-enemy">
+            红方
+          </button>
+        </div>
+        <canvas id="spawn-map" width="512" height="512"></canvas>
+        <div class="spawn-groups">
+          <div class="spawn-group ally" id="spawn-group-ally">
+            <h3>蓝方出生点</h3>
+            <div class="spawn-btn-row" id="spawn-btns-ally"></div>
+          </div>
+          <div class="spawn-group enemy" id="spawn-group-enemy">
+            <h3>红方出生点</h3>
+            <div class="spawn-btn-row" id="spawn-btns-enemy"></div>
+          </div>
+        </div>
+      </div>
+      <div class="class-actions spawn-actions">
+        <button id="spawn-cancel-btn" type="button" class="cover-btn">返回</button>
+        <button id="spawn-confirm-btn" type="button" class="cover-btn cover-btn-start" disabled>
+          <span class="cover-btn-icon play" aria-hidden="true"></span>
+          <span>确认出发</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full tactical map (toggle with M) -->
+  <div id="map-overlay" class="hidden">
+    <div class="map-panel">
+      <div class="map-header">
+        <h2>战术地图</h2>
+        <span class="map-hint">再按 <kbd>M</kbd> 关闭 · 箭头为朝向</span>
+      </div>
+      <canvas id="big-map" width="512" height="512"></canvas>
+      <div class="map-legend">
+        <span><i class="leg you"></i>你 / 朝向</span>
+        <span><i class="leg ally"></i>蓝方基地</span>
+        <span><i class="leg enemy"></i>红方基地</span>
+        <span><i class="leg squad"></i>蓝方士兵</span>
+        <span><i class="leg hostile"></i>红方士兵</span>
+        <span><i class="leg factory"></i>工厂</span>
+        <span><i class="leg spawn-a"></i>蓝出生点</span>
+        <span><i class="leg spawn-e"></i>红出生点</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PVP: post-spawn sync ready (enter same battlefield) -->
+  <div id="pvp-match-ready-overlay" class="hidden" role="dialog" aria-labelledby="pvp-match-ready-heading">
+    <div class="pvp-match-shell px-panel">
+      <div class="pvp-match-stage pvp-match-you">
+        <canvas id="pvp-match-you-canvas" width="360" height="520" aria-hidden="true"></canvas>
+        <div class="pvp-match-stage-meta">
+          <span class="pvp-match-stage-label">你</span>
+          <span id="pvp-match-you-class" class="pvp-match-stage-class">—</span>
+          <span id="pvp-match-you-ready" class="pvp-ready-state">未准备</span>
+        </div>
+      </div>
+
+      <div class="pvp-match-center">
+        <h1 id="pvp-match-ready-heading">同步进入战场</h1>
+        <p class="subtitle">双方选点完成后，一起进入同一战场</p>
+        <p id="pvp-match-foe-info" class="pvp-foe-info">对手选点同步中…</p>
+        <div class="pvp-ready-row">
+          <div class="pvp-ready-card">
+            <span class="pvp-ready-title">你</span>
+            <span id="pvp-match-you-ready-badge" class="pvp-ready-state">未准备</span>
+          </div>
+          <div class="pvp-ready-card">
+            <span class="pvp-ready-title">对手</span>
+            <span id="pvp-match-foe-ready" class="pvp-ready-state">等待中…</span>
+          </div>
+        </div>
+        <p id="pvp-match-ready-status" class="pvp-status">选点完成 · 双方都点「准备进入」后进入同一战场</p>
+        <div class="pvp-actions">
+          <button id="pvp-match-ready-btn" type="button" class="cover-btn cover-btn-start">准备进入</button>
+          <button id="pvp-match-ready-back" type="button" class="cover-btn">返回选点</button>
+        </div>
+      </div>
+
+      <div class="pvp-match-stage pvp-match-foe">
+        <canvas id="pvp-match-foe-canvas" width="360" height="520" aria-hidden="true"></canvas>
+        <div class="pvp-match-stage-meta">
+          <span class="pvp-match-stage-label">对手</span>
+          <span id="pvp-match-foe-class" class="pvp-match-stage-class">等待中…</span>
+          <span id="pvp-match-foe-ready-badge" class="pvp-ready-state">等待中…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab inventory overlay (stub for later) -->
+  <div id="inventory" class="hidden">
+    <div class="inv-panel">
+      <h2>CRAFTING / INVENTORY</h2>
+      <p>按 Tab 关闭 · 完整背包稍后开放</p>
+      <div id="inv-grid"></div>
+    </div>
+  </div>
+
+  <!-- Victory overlay -->
+  <div id="victory-overlay" class="hidden" role="dialog" aria-labelledby="victory-title">
+    <div class="end-card end-card--win">
+      <div class="end-card-badge" aria-hidden="true">
+        <svg class="end-card-icon end-card-icon--win" viewBox="0 0 16 16" width="28" height="28" shape-rendering="crispEdges">
+          <path fill="currentColor" d="M3 2h2v1h1v1h1V3h1V2h2v1h1v1h1V2h2v2h-1v2h-1v1H9v1h2v1h1v3H4V9h1V8h2V7H5V6H4V4H3V2zm3 9h4v1H6v-1z"/>
+        </svg>
+        <svg class="end-card-icon end-card-icon--fail" viewBox="0 0 16 16" width="28" height="28" shape-rendering="crispEdges">
+          <path fill="currentColor" d="M5 2h6v1h1v1h1v4h-1v1H4V8H3V4h1V3h1V2zm1 3v2h1V5H6zm3 0v2h1V5H9zM5 10h1v1h4v-1h1v2H5v-2z"/>
+        </svg>
+      </div>
+      <h1 id="victory-title">大获全胜</h1>
+      <p class="end-card-sub" id="victory-sub">敌人已肃清，顺利通关</p>
+      <div class="end-card-rule" aria-hidden="true"></div>
+      <p class="end-card-flavor" id="victory-flavor">干得漂亮，指挥官！</p>
+      <button id="victory-btn" type="button" class="end-card-btn">
+        返回大厅<span class="end-card-btn-arrow" aria-hidden="true">›</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Death overlay -->
+  <div id="death-overlay" class="hidden" role="dialog" aria-labelledby="death-title">
+    <div class="end-card end-card--fail">
+      <div class="end-card-badge" aria-hidden="true">
+        <svg class="end-card-icon" viewBox="0 0 16 16" width="28" height="28" shape-rendering="crispEdges">
+          <path fill="currentColor" d="M5 2h6v1h1v1h1v4h-1v1H4V8H3V4h1V3h1V2zm1 3v2h1V5H6zm3 0v2h1V5H9zM5 10h1v1h4v-1h1v2H5v-2z"/>
+        </svg>
+      </div>
+      <h1 id="death-title">你已阵亡</h1>
+      <p class="end-card-sub" id="death-sub">血量耗尽 · 等待重新部署</p>
+      <div class="end-card-rule" aria-hidden="true"></div>
+      <p class="end-card-flavor" id="death-flavor">选个出生点再上！</p>
+      <div class="end-card-actions">
+        <button id="death-btn" type="button" class="end-card-btn">
+          重新部署<span class="end-card-btn-arrow" aria-hidden="true">›</span>
+        </button>
+        <button id="death-hub-btn" type="button" class="end-card-btn end-card-btn--ghost">
+          返回大厅
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Three.js (global THREE) — works with file:// -->
+  <script src="../../js/vendor/three.gltf.global.js?v=rifle1"></script>
+  <!-- PeerJS for 1v1 PVP rooms (WebRTC) -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+  <!-- Game modules (order matters) -->
+  <!-- feel-config.js: KEEP on production (baked feel numbers) -->
+  <script src="js/feel-config.js"></script>
+  <!-- render-config.js/render-pipeline.js/render-scene.js: KEEP on production -->
+  <script src="js/render-config.js"></script>
+  <script src="js/render-pipeline.js"></script>
+  <script src="js/render-scene.js"></script>
+  <script src="js/gamemodes.js"></script>
+  <script src="js/tdm-match.js"></script>
+  <script src="js/tdm-spawn.js"></script>
+  <script src="js/tdm-ui.js"></script>
+  <script src="js/sd-bomb.js"></script>
+  <script src="js/sd-match.js"></script>
+  <script src="js/sd-spawn.js"></script>
+  <script src="js/sd-ui.js"></script>
+  <script src="js/sd-field.js"></script>
+  <script src="js/sd-net.js"></script>
+  <script src="js/sd-stats.js"></script>
+  <script src="js/sd-result.js"></script>
+  <script src="js/ffa-match.js"></script>
+  <script src="js/ffa-spawn.js"></script>
+  <script src="js/ffa-marker.js"></script>
+  <script src="js/ffa-ui.js"></script>
+  <script src="js/gg-match.js"></script>
+  <script src="js/gg-ui.js"></script>
+  <script src="js/voxel-world.js"></script>
+  <script src="js/pve-district.js"></script>
+  <script src="js/terrain-fine.js"></script>
+  <script src="js/world-outskirts.js"></script>
+  <script src="js/bases.js"></script>
+  <script src="js/soldier.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/weapon-catalog.js"></script>
+  <script src="js/weapon-viewmodels.js"></script>
+  <script src="js/weapons.js"></script>
+  <script src="js/melee.js"></script>
+  <script src="js/skills.js"></script>
+  <script src="js/throwables.js"></script>
+  <script src="js/weapon-inspect.js"></script>
+  <script src="js/building.js"></script>
+  <script src="js/tower-designer.js"></script>
+  <script src="js/hub.js"></script>
+  <script src="js/economy.js"></script>
+  <script src="js/career.js"></script>
+  <script src="js/arsenal.js"></script>
+  <script src="js/lobby.js"></script>
+  <script src="js/range.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/atmosphere.js"></script>
+  <script src="js/battlefield-events.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/kubee-bridge.js"></script>
+  <script src="js/pvp.js"></script>
+  <script src="js/main.js"></script>
+  <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
+  <script src="js/maps/dust2-default.js"></script>
+  <script src="js/feel-tuner.js"></script>
+  <!-- render-tuner.js: F9 后处理参数调节（生产环境删除） -->
+  <script src="js/render-tuner.js"></script>
+  <script src="js/map-editor.js"></script>
+</body>
+</html>

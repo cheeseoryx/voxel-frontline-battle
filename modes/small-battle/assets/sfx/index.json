@@ -1,0 +1,42 @@
+{
+  "_license": "All files CC0 (public domain) by rubberduck / yd via opengameart.org. See README.md.",
+  "sfx": {
+    "nade_pin": [
+      { "file": "throwables/pin_spring.ogg", "gain": 0.55 },
+      { "file": "throwables/pin_click.ogg", "gain": 0.5, "delay": 0.05 }
+    ],
+    "nade_throw": [
+      { "file": "throwables/throw_whoosh.ogg", "gain": 0.7 }
+    ],
+    "nade_bounce": [
+      { "file": "throwables/bounce_metal.ogg", "gain": 0.6 }
+    ],
+    "explosion": [
+      { "file": "throwables/frag_boom.ogg", "gain": 1.0 },
+      { "file": "throwables/debris.ogg", "gain": 0.45, "delay": 0.12 }
+    ],
+    "semtex_stick": [
+      { "file": "throwables/stick_thud.ogg", "gain": 0.7 }
+    ],
+    "semtex_beep": [
+      { "file": "throwables/beep.ogg", "gain": 0.4 }
+    ],
+    "semtex": [
+      { "file": "throwables/semtex_boom.ogg", "gain": 1.0 }
+    ],
+    "molotov": [
+      { "file": "throwables/glass_smash.ogg", "gain": 0.85 },
+      { "file": "throwables/fire_whoosh.ogg", "gain": 0.5, "delay": 0.05 }
+    ],
+    "flashbang": [
+      { "file": "throwables/flash_crack.ogg", "gain": 1.0 }
+    ],
+    "stun": [
+      { "file": "throwables/stun_body.ogg", "gain": 0.92, "rate": 0.8, "lowpass": 900, "dur": 1.05 },
+      { "file": "throwables/stun_sub.ogg", "gain": 0.2, "rate": 0.9, "lowpass": 400, "dur": 1.15, "delay": 0.01 }
+    ],
+    "smoke": [
+      { "file": "throwables/smoke_hiss.ogg", "gain": 0.7 }
+    ]
+  }
+}
