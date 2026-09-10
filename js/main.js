@@ -1853,8 +1853,8 @@
         VF.Pvp.els.matchReadyOverlay.classList.add('hidden');
       }
       game.player.team = game.world._playerTeam;
-      if (game.playerClass && game.player.applyClass) {
-        game.player.applyClass(game.playerClass);
+      if (game.player.applyClass) {
+        game.player.applyClass(game.playerClass || game.player.classId || 'assault');
       }
       if (game.player.respawn) game.player.respawn();
       game.player._reviveProtection =
@@ -1998,8 +1998,8 @@
       if (VF.UI && VF.UI.hideDeath) VF.UI.hideDeath();
 
       game.player.team = game.world._playerTeam;
-      if (game.playerClass && game.player.applyClass) {
-        game.player.applyClass(game.playerClass);
+      if (game.player.applyClass) {
+        game.player.applyClass(game.playerClass || game.player.classId || 'assault');
       }
       applyPreferredWeapon();
       if (game.player.respawn) game.player.respawn();

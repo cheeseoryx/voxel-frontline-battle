@@ -503,10 +503,10 @@
     return addGun(root, 'rifle', -0.85);
   }
 
-  function buildMedic(root) {
-    const white = PALETTE.white;
-    const whiteDim = PALETTE.whiteDim;
-    const olive = PALETTE.olive;
+  function buildMedic(root, enemyTint) {
+    const white = enemyTint ? 0xc8a0a0 : PALETTE.white;
+    const whiteDim = enemyTint ? 0xa87878 : PALETTE.whiteDim;
+    const olive = enemyTint ? PALETTE.enemyDark : PALETTE.olive;
     const red = PALETTE.redCross;
 
     addLegPair(root, {
@@ -711,9 +711,9 @@
     return addGun(root, 'rifle', -0.85);
   }
 
-  function buildEngineer(root) {
-    const suit = PALETTE.oliveDark;
-    const orange = PALETTE.orange;
+  function buildEngineer(root, enemyTint) {
+    const suit = enemyTint ? PALETTE.enemyDark : PALETTE.oliveDark;
+    const orange = enemyTint ? PALETTE.enemyOrange : PALETTE.orange;
 
     addLegPair(root, {
       x: 0.17,
@@ -761,29 +761,40 @@
     return addGun(root, 'rifle', -0.85);
   }
 
+  function resolveFactionTeam(team) {
+    if (team === 'enemy' || team === 'ally') return team;
+    const g = global.VF && global.VF.game;
+    const worldTeam = g && g.world && g.world._playerTeam;
+    if (worldTeam === 'enemy' || worldTeam === 'ally') return worldTeam;
+    const playerTeam = g && g.player && g.player.team;
+    if (playerTeam === 'enemy' || playerTeam === 'ally') return playerTeam;
+    return 'ally';
+  }
+
   /**
+   * Uniform colors follow the faction id (ally = 蓝, enemy = 红).
+   * HUD rings still use TeamLook (friend = blue, foe = red).
    * @param {string} classId
    * @param {{ team?: 'ally'|'enemy' }} opts
    */
   function createClassSoldier(classId, opts) {
     opts = opts || {};
     classId = normalizeClassId(classId);
-    const team = opts.team || 'ally';
-    const L = global.VF && global.VF.TeamLook;
-    const enemyTint = L && L.kind ? L.kind(team) === 'foe' : team === 'enemy';
+    const team = opts.team === 'enemy' ? 'enemy' : 'ally';
+    const enemyTint = team === 'enemy';
     const root = new THREE.Group();
     root.name = 'Soldier_' + classId;
 
     let gunBits;
     switch (classId) {
       case 'support':
-        gunBits = buildMedic(root);
+        gunBits = buildMedic(root, enemyTint);
         break;
       case 'recon':
         gunBits = buildGhost(root, enemyTint);
         break;
       case 'engineer':
-        gunBits = buildEngineer(root);
+        gunBits = buildEngineer(root, enemyTint);
         break;
       case 'assault':
       default:
@@ -814,33 +825,37 @@
 
   /** FPS arms + full rifle — all meshes stay in front of camera (-Z) */
   /** FPS viewmodel — detailed voxel rifle + articulated hands (ref: lower-right hipfire) */
-  function createViewModel(classId, weaponId) {
+  function createViewModel(classId, weaponId, opts) {
     classId = normalizeClassId(classId);
+    opts = opts || {};
+    const team = resolveFactionTeam(opts.team);
+    const enemyTint = team === 'enemy';
+    const pal = viewModelSleeveColors(classId, enemyTint);
     const root = new THREE.Group();
     root.name = 'SoldierViewModel';
     root.frustumCulled = false;
     // Comfortable lower-right hip-fire: moderate size, barrel toward crosshair
     root.position.set(0.3, -0.34, -0.52);
 
-    let skin = PALETTE.skin;
-    let skinDark = 0xa88860;
-    let sleeveA = 0x4a5c28;
-    let sleeveB = 0x2f3d1c;
+    const skin = pal.skin;
+    const skinDark = pal.skinDark;
+    const sleeveA = pal.sleeveA;
+    const sleeveB = pal.sleeveB;
     let camo = [0xc07028, 0x8a4a20, 0x5a3020, 0x2a2a28, 0xa85820];
     if (classId === 'support') {
-      skin = PALETTE.skinLight;
-      skinDark = 0xc4a882;
-      sleeveA = 0xe8e8e8;
-      sleeveB = 0xc8c8c8;
-      camo = [0xe8e8e8, 0xc8c8c8, 0xd02828, 0x2a2a28, 0x4a5c28];
+      camo = enemyTint
+        ? [0xc8a0a0, 0xa87878, 0xd02828, 0x2a2a28, PALETTE.enemyDark]
+        : [0xe8e8e8, 0xc8c8c8, 0xd02828, 0x2a2a28, 0x4a5c28];
     } else if (classId === 'recon') {
-      sleeveA = PALETTE.ghillie;
-      sleeveB = PALETTE.ghillieDark;
-      camo = [0x4a6a30, 0x3a5020, 0x5a4a28, 0x2a2a28, 0x1a1a18];
+      camo = enemyTint
+        ? [0x5a3038, 0x3a1820, 0x4a2820, 0x2a2a28, 0x1a1a18]
+        : [0x4a6a30, 0x3a5020, 0x5a4a28, 0x2a2a28, 0x1a1a18];
     } else if (classId === 'engineer') {
-      sleeveA = PALETTE.oliveDark;
-      sleeveB = PALETTE.charcoal;
-      camo = [0x2f3d1c, 0xc07028, 0x2a2a2e, 0x8a8a8a, 0x1a1a18];
+      camo = enemyTint
+        ? [PALETTE.enemyDark, PALETTE.enemyOrange, 0x2a2a2e, 0x8a8a8a, 0x1a1a18]
+        : [0x2f3d1c, 0xc07028, 0x2a2a2e, 0x8a8a8a, 0x1a1a18];
+    } else if (enemyTint) {
+      camo = [PALETTE.enemyOrange, PALETTE.enemyRed, PALETTE.enemyDark, 0x2a2a28, 0xa85820];
     }
 
     const long = classId === 'recon';
@@ -1011,31 +1026,32 @@
     root.add(lArm);
 
     root.userData.classId = classId;
+    root.userData.team = team;
     return { root, gun, muzzle, flash, rightArm: arm, leftArm: lArm };
   }
 
-  function viewModelSleeveColors(classId) {
+  function viewModelSleeveColors(classId, enemyTint) {
     let skin = PALETTE.skin;
     let skinDark = 0xa88860;
-    let sleeveA = 0x4a5c28;
-    let sleeveB = 0x2f3d1c;
+    let sleeveA = enemyTint ? PALETTE.enemyRed : 0x4a5c28;
+    let sleeveB = enemyTint ? PALETTE.enemyDark : 0x2f3d1c;
     if (classId === 'medic' || classId === 'support') {
       skin = PALETTE.skinLight;
       skinDark = 0xc4a882;
-      sleeveA = 0xe8e8e8;
-      sleeveB = 0xc8c8c8;
+      sleeveA = enemyTint ? 0xc8a0a0 : 0xe8e8e8;
+      sleeveB = enemyTint ? 0xa07070 : 0xc8c8c8;
     } else if (classId === 'ghost' || classId === 'recon') {
-      sleeveA = PALETTE.ghillie;
-      sleeveB = PALETTE.ghillieDark;
+      sleeveA = enemyTint ? 0x5a3038 : PALETTE.ghillie;
+      sleeveB = enemyTint ? 0x3a1820 : PALETTE.ghillieDark;
     } else if (classId === 'juggernaut') {
-      sleeveA = PALETTE.plate;
-      sleeveB = PALETTE.charcoal;
+      sleeveA = enemyTint ? 0x4a2020 : PALETTE.plate;
+      sleeveB = enemyTint ? PALETTE.enemyDark : PALETTE.charcoal;
     } else if (classId === 'raider') {
       sleeveA = skin;
       sleeveB = skinDark;
     } else if (classId === 'engineer') {
-      sleeveA = PALETTE.oliveDark;
-      sleeveB = PALETTE.charcoal;
+      sleeveA = enemyTint ? PALETTE.enemyDark : PALETTE.oliveDark;
+      sleeveB = enemyTint ? 0x1a0808 : PALETTE.charcoal;
     }
     return { skin: skin, skinDark: skinDark, sleeveA: sleeveA, sleeveB: sleeveB };
   }
@@ -1044,9 +1060,10 @@
    * FPS combat knife: right fist on the handle, forearm from lower-right,
    * blade toward the crosshair. Left fist stays in a ready guard.
    */
-  function createKnifeViewModel(classId) {
+  function createKnifeViewModel(classId, opts) {
     classId = classId || 'assault';
-    const pal = viewModelSleeveColors(classId);
+    const team = resolveFactionTeam(opts && opts.team);
+    const pal = viewModelSleeveColors(classId, team === 'enemy');
     const b = viewBox;
     const skin = pal.skin;
     const skinDark = pal.skinDark;
@@ -1121,6 +1138,7 @@
     root.add(slash);
     root.add(lArm);
     root.userData.classId = classId;
+    root.userData.team = team;
     root.userData.slash = slash;
     root.userData.rest = {
       x: slash.position.x,
@@ -1138,9 +1156,10 @@
    * occupancy as the rifle. Throwables.js animates the root through
    * draw / cook / throw — the nade must stay on-screen while charging.
    */
-  function createThrowableViewModel(classId) {
+  function createThrowableViewModel(classId, opts) {
     classId = classId || 'assault';
-    const pal = viewModelSleeveColors(classId);
+    const team = resolveFactionTeam(opts && opts.team);
+    const pal = viewModelSleeveColors(classId, team === 'enemy');
     const b = viewBox;
     const skin = pal.skin;
     const skinDark = pal.skinDark;
@@ -1248,6 +1267,7 @@
     lArm.visible = false;
     root.add(rig);
     root.userData.classId = classId;
+    root.userData.team = team;
     root.userData.rig = rig;
     root.userData.arm = rig;
     root.userData.rArm = rArm;
@@ -1291,9 +1311,10 @@
    * FPS gadgets (slots 3/4): arms + held crate / C4 / detonator / binoculars.
    * styleGadgetViewModel() swaps the item without rebuilding sleeves.
    */
-  function createGadgetViewModel(classId) {
+  function createGadgetViewModel(classId, opts) {
     classId = classId || 'assault';
-    const pal = viewModelSleeveColors(classId);
+    const team = resolveFactionTeam(opts && opts.team);
+    const pal = viewModelSleeveColors(classId, team === 'enemy');
     const b = viewBox;
     const skin = pal.skin;
     const skinDark = pal.skinDark;
@@ -1416,6 +1437,7 @@
     rig.add(lArm);
     root.add(rig);
     root.userData.classId = classId;
+    root.userData.team = team;
     root.userData.rig = rig;
     root.userData.arm = rig;
     root.userData.rArm = rArm;
@@ -1820,8 +1842,10 @@
   }
 
   /** Strip team ring for clean select-screen previews */
-  function createPreviewSoldier(classId) {
-    const root = createClassSoldier(classId, { team: 'ally' });
+  function createPreviewSoldier(classId, opts) {
+    const root = createClassSoldier(classId, {
+      team: resolveFactionTeam(opts && opts.team),
+    });
     const marker = root.getObjectByName('TeamMarker');
     if (marker) root.remove(marker);
     initLocomotion(root);

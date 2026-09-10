@@ -56,6 +56,17 @@ function checkSources() {
     /[?&]kubee=1/.test(kubee) && /global\.parent !== global/.test(kubee),
     'the explicit Kubee embed route is missing'
   );
+  const soldier = read('js/soldier.js');
+  ok(
+    /const enemyTint = team === 'enemy'/.test(soldier) &&
+      !/enemyTint = L && L\.kind \? L\.kind\(team\) === 'foe'/.test(soldier),
+    'soldier uniforms must follow faction id, not relative TeamLook'
+  );
+  ok(
+    /createPreviewSoldier\(classId, opts\)/.test(soldier) &&
+      /resolveFactionTeam\(opts && opts\.team\)/.test(soldier),
+    'class previews must use the assigned faction'
+  );
 }
 
 async function checkServer() {

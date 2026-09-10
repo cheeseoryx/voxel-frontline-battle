@@ -805,8 +805,8 @@
           mgOptic && weaponState && weaponState.overheated
             ? 1
             : mgOptic
-              ? 0.5 + 0.5 * heatRatio
-              : 0.5;
+              ? heatRatio
+              : 0;
         const armFillText = armFill.toFixed(3);
         const fillTargets = [this.els.hud, this.els.vehicleHeOptic];
         for (let i = 0; i < fillTargets.length; i++) {
@@ -3440,8 +3440,11 @@
 
       const models = {};
       const classes = global.VF.Soldier.CLASSES;
+      const previewTeam = this._playerTeam() === 'enemy' ? 'enemy' : 'ally';
       for (let i = 0; i < classes.length; i++) {
-        const m = global.VF.Soldier.createPreviewSoldier(classes[i].id);
+        const m = global.VF.Soldier.createPreviewSoldier(classes[i].id, {
+          team: previewTeam,
+        });
         m.visible = false;
         m.position.set(0, 0, 0);
         if (global.VF.Soldier.initLocomotion) global.VF.Soldier.initLocomotion(m);
@@ -3745,10 +3748,12 @@
       if (!renderer) return;
       const positions = [-2.25, -0.75, 0.75, 2.25];
       const models = [];
+      const previewTeam = this._playerTeam() === 'enemy' ? 'enemy' : 'ally';
       for (let i = 0; i < this._squadIntroRoster.length; i++) {
         const member = this._squadIntroRoster[i];
         const model = global.VF.Soldier.createPreviewSoldier(
-          member.classId || 'assault'
+          member.classId || 'assault',
+          { team: previewTeam }
         );
         model.position.set(positions[i] || 0, 0, 0);
         model.rotation.y = Math.PI;
@@ -4100,8 +4105,11 @@
       if (!renderer) return;
       const models = {};
       const classes = global.VF.Soldier.CLASSES || [];
+      const previewTeam = this._playerTeam() === 'enemy' ? 'enemy' : 'ally';
       for (let i = 0; i < classes.length; i++) {
-        const model = global.VF.Soldier.createPreviewSoldier(classes[i].id);
+        const model = global.VF.Soldier.createPreviewSoldier(classes[i].id, {
+          team: previewTeam,
+        });
         model.visible = false;
         if (global.VF.Soldier.initLocomotion) {
           global.VF.Soldier.initLocomotion(model);

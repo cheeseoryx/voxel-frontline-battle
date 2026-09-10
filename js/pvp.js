@@ -3339,6 +3339,9 @@
       if (game.player) game.player.team = team;
       game.teamLocked = true;
       game.lockedTeam = team;
+      if (game.player && game.player.applyClass) {
+        game.player.applyClass(game.playerClass || game.player.classId || 'assault');
+      }
       const hq = this._pickHqSpawn(team);
       if (hq && game.world && game.world.setSelectedSpawn) {
         game.world.setSelectedSpawn(hq.id);

@@ -148,7 +148,8 @@
     } else if (this.viewModel && this.viewModel.parent && this.viewModel !== this.buildViewModel) {
       this.viewModel.parent.remove(this.viewModel);
     }
-    const vm = global.VF.Soldier.createViewModel(classId, weaponId);
+    const team = this.team === 'enemy' ? 'enemy' : 'ally';
+    const vm = global.VF.Soldier.createViewModel(classId, weaponId, { team: team });
     this._weaponViewModel = vm.root;
     this._weaponGunNode = vm.gun;
     this._weaponMuzzle = vm.muzzle;
@@ -268,15 +269,17 @@
       return null;
     }
     const classId = this.classId || 'assault';
+    const team = this.team === 'enemy' ? 'enemy' : 'ally';
     const stale =
       !this._gadgetNode ||
       this._gadgetNode.parent !== this.camera ||
-      this._gadgetNode.userData.classId !== classId;
+      this._gadgetNode.userData.classId !== classId ||
+      this._gadgetNode.userData.team !== team;
     if (stale) {
       if (this._gadgetNode && this._gadgetNode.parent) {
         this._gadgetNode.parent.remove(this._gadgetNode);
       }
-      this._gadgetNode = global.VF.Soldier.createGadgetViewModel(classId);
+      this._gadgetNode = global.VF.Soldier.createGadgetViewModel(classId, { team: team });
       this.camera.add(this._gadgetNode);
     }
     return this._gadgetNode;

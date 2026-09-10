@@ -594,16 +594,16 @@ function checkVehicleHud() {
     'tank coaxial MG did not reuse the IFV HE optic without an ammo count'
   );
   ok(
-    hud.style['--mg-arm-fill'] === '0.500' &&
-      heOpticEl.style['--mg-arm-fill'] === '0.500' &&
+    hud.style['--mg-arm-fill'] === '0.000' &&
+      heOpticEl.style['--mg-arm-fill'] === '0.000' &&
       !hud.classList.contains('vehicle-mg-overheat'),
-    'idle coaxial MG reticle arms were not half-faded'
+    'idle coaxial MG reticle arms were not fully faded'
   );
   vehicle.weapons.tank_coax_mg.heat = 50;
   UI.updateVehicleHud(player, vehicles);
   ok(
-    hud.style['--mg-arm-fill'] === '0.750' &&
-      heOpticEl.style['--mg-arm-fill'] === '0.750',
+    hud.style['--mg-arm-fill'] === '0.500' &&
+      heOpticEl.style['--mg-arm-fill'] === '0.500',
     'firing coaxial MG did not fill reticle arms from the inside out'
   );
   vehicle.weapons.tank_coax_mg.heat = 100;

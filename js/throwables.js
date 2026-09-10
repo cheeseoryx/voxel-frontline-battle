@@ -1030,10 +1030,12 @@
     _showHeldVm: function () {
       const p = VF.game && VF.game.player;
       if (!p || !p.camera) return;
+      const team = p.team === 'enemy' ? 'enemy' : 'ally';
       const stale =
         !p._throwNode ||
         p._throwNode.parent !== p.camera ||
         p._throwNode.userData.classId !== p.classId ||
+        p._throwNode.userData.team !== team ||
         !p._throwNode.userData.hip ||
         !p._throwNode.userData.rArmRest ||
         !p._throwNode.userData.lArm ||
@@ -1041,7 +1043,7 @@
       if (stale) {
         if (p._throwNode && p._throwNode.parent) p._throwNode.parent.remove(p._throwNode);
         if (VF.Soldier && VF.Soldier.createThrowableViewModel) {
-          p._throwNode = VF.Soldier.createThrowableViewModel(p.classId);
+          p._throwNode = VF.Soldier.createThrowableViewModel(p.classId, { team: team });
           p._throwNode.userData.classId = p.classId;
           p.camera.add(p._throwNode);
         }

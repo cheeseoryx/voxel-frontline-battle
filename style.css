@@ -4588,7 +4588,7 @@ canvas {
 }
 
 #hud.vehicle-optic.vehicle-mg-optic .vr-he-optic {
-  --mg-arm-fill: 0.5;
+  --mg-arm-fill: 0;
   --mg-arm-len: 92px;
 }
 

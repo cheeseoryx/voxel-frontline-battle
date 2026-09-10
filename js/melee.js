@@ -214,10 +214,12 @@
   function ensureKnifeVm(player) {
     if (!player || !player.viewModel) return null;
     const classId = player.classId || (player.viewModel.userData && player.viewModel.userData.classId);
+    const team = player.team === 'enemy' ? 'enemy' : 'ally';
     if (
       player._knifeNode &&
       player._knifeNode.parent === player.viewModel &&
-      player._knifeNode.userData.classId === classId
+      player._knifeNode.userData.classId === classId &&
+      player._knifeNode.userData.team === team
     ) {
       return player._knifeNode;
     }
@@ -226,7 +228,7 @@
     }
     let root = null;
     if (global.VF.Soldier && global.VF.Soldier.createKnifeViewModel) {
-      root = global.VF.Soldier.createKnifeViewModel(classId);
+      root = global.VF.Soldier.createKnifeViewModel(classId, { team: team });
     }
     if (!root) return null;
     player.viewModel.add(root);
