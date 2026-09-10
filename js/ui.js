@@ -52,6 +52,7 @@
         vehicleHudService: document.getElementById('vehicle-hud-service'),
         vehicleHudWeaponRack: document.getElementById('vehicle-hud-weapon-rack'),
         vehicleReticle: document.getElementById('vehicle-reticle'),
+        vehicleHeOptic: document.querySelector('.vr-he-optic'),
         vehicleReticleRange: document.getElementById('vehicle-reticle-range'),
         vehicleReticlePitch: document.getElementById('vehicle-reticle-pitch'),
         vehicleReticleSpeed: document.getElementById('vehicle-reticle-speed'),
@@ -697,7 +698,9 @@
             'vehicle-jeep',
             'vehicle-cannon-optic',
             'vehicle-he-optic',
-            'vehicle-optic-no-count'
+            'vehicle-optic-no-count',
+            'vehicle-mg-optic',
+            'vehicle-mg-overheat'
           );
         }
         if (this.els.vehicleHudWeaponRack) {
@@ -758,6 +761,7 @@
         (weaponId === 'ifv_he_autocannon' || weaponId === 'tank_coax_mg')
       );
       const hideOpticAmmo = !!(heOptic && weaponDef && weaponDef.maxHeat != null);
+      const mgOptic = !!(heOptic && weaponId === 'tank_coax_mg');
       const heavyShell = !!(
         weaponDef &&
         weaponState &&
@@ -779,6 +783,41 @@
         this.els.hud.classList.toggle('vehicle-cannon-optic', cannonOptic);
         this.els.hud.classList.toggle('vehicle-he-optic', heOptic);
         this.els.hud.classList.toggle('vehicle-optic-no-count', hideOpticAmmo);
+        this.els.hud.classList.toggle('vehicle-mg-optic', mgOptic);
+        this.els.hud.classList.toggle(
+          'vehicle-mg-overheat',
+          !!(mgOptic && weaponState && weaponState.overheated)
+        );
+        const heatValue =
+          mgOptic && weaponState && weaponState.heat != null
+            ? Number(weaponState.heat)
+            : 0;
+        const heatRatio = mgOptic
+          ? Math.max(
+              0,
+              Math.min(
+                1,
+                heatValue / Math.max(1, (weaponDef && weaponDef.maxHeat) || 100)
+              )
+            )
+          : 0;
+        const armFill =
+          mgOptic && weaponState && weaponState.overheated
+            ? 1
+            : mgOptic
+              ? 0.5 + 0.5 * heatRatio
+              : 0.5;
+        const armFillText = armFill.toFixed(3);
+        const fillTargets = [this.els.hud, this.els.vehicleHeOptic];
+        for (let i = 0; i < fillTargets.length; i++) {
+          const target = fillTargets[i];
+          if (!target || !target.style) continue;
+          if (typeof target.style.setProperty === 'function') {
+            target.style.setProperty('--mg-arm-fill', armFillText);
+          } else {
+            target.style['--mg-arm-fill'] = armFillText;
+          }
+        }
         this.els.hud.classList.toggle('vehicle-tank', vehicle.type === 'tank');
         this.els.hud.classList.toggle('vehicle-ifv', vehicle.type === 'ifv');
         this.els.hud.classList.toggle('vehicle-jeep', vehicle.type === 'jeep');

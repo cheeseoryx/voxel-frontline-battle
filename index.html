@@ -16,7 +16,7 @@
       background: #1a1008;
     }
   </style>
-  <link rel="stylesheet" href="style.css?v=wepammo1" />
+  <link rel="stylesheet" href="style.css?v=mgoptic2" />
 </head>
 <body>
   <div id="throw-flash" aria-hidden="true"></div>
@@ -80,16 +80,23 @@
         <span class="mode-card-label">快速匹配 (32 VS 32)</span>
         <span class="mode-card-info">
           <strong>快速匹配 (32 VS 32)</strong>
-          <small>加入延迟最低的征服服务器</small>
+          <small>优先加入可进入的房间；没有房间时立即创建匹配房间</small>
         </span>
       </button>
-      <button type="button" class="mode-card locked" aria-disabled="true" data-mode-card>
+      <button type="button" class="mode-card playable mode-card-solo" data-mode-action="solo" data-mode-card>
+        <span class="mode-card-art solo"></span>
+        <span class="mode-card-label">单人游戏</span>
+        <span class="mode-card-info">
+          <strong>单人游戏</strong>
+          <small>本地运行 · 1 名真人 + 31 AI 对战 32 AI</small>
+        </span>
+      </button>
+      <button type="button" class="mode-card playable" data-mode-action="range" data-mode-card hidden>
         <span class="mode-card-art range"></span>
-        <span class="mode-card-lock">即将开放</span>
         <span class="mode-card-label">靶场</span>
         <span class="mode-card-info">
           <strong>靶场</strong>
-          <small>测试武器、装备与移动技巧</small>
+          <small>室内射击场 · 5 / 10 / 20 / 35 / 50 米固定标靶</small>
         </span>
       </button>
     </div>
@@ -535,10 +542,10 @@
         <i class="vr-center"></i>
         <div class="vr-he-optic" aria-hidden="true">
           <i class="vr-he-dot"></i>
-          <i class="vr-he-tick n"></i>
-          <i class="vr-he-tick e"></i>
-          <i class="vr-he-tick s"></i>
-          <i class="vr-he-tick w"></i>
+          <i class="vr-he-tick n"><b class="vr-he-arm faint"></b><b class="vr-he-arm solid"></b></i>
+          <i class="vr-he-tick e"><b class="vr-he-arm faint"></b><b class="vr-he-arm solid"></b></i>
+          <i class="vr-he-tick s"><b class="vr-he-arm faint"></b><b class="vr-he-arm solid"></b></i>
+          <i class="vr-he-tick w"><b class="vr-he-arm faint"></b><b class="vr-he-arm solid"></b></i>
         </div>
         <b class="vr-range" id="vehicle-reticle-range">-- M</b>
         <span class="vr-pitch" id="vehicle-reticle-pitch">0°</span>
@@ -1533,7 +1540,7 @@
   <script src="js/match-flow.js?v=scorch3"></script>
   <script src="js/soldier-menu.js?v=wepammo1"></script>
   <script src="js/arsenal.js?v=infantryhud1"></script>
-  <script src="js/ui.js?v=wepammo1"></script>
+  <script src="js/ui.js?v=mgoptic2"></script>
   <script src="js/audio.js?v=sfx5"></script>
   <script src="js/vehicle-effects.js?v=sfx2"></script>
   <script src="js/atmosphere.js?v=scorch3"></script>

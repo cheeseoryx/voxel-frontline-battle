@@ -333,7 +333,11 @@ function checkVehicleHud() {
           return classes.has(name);
         },
       },
-      style: {},
+      style: {
+        setProperty(name, value) {
+          this[name] = String(value);
+        },
+      },
       textContent: '',
       offsetWidth: 88,
       setAttribute(name, value) {
@@ -487,11 +491,13 @@ function checkVehicleHud() {
   ok(tankRange.textContent === '142', 'tank optic range was incorrect');
 
   const hud = element();
+  const heOpticEl = element();
   const ammoType = element();
   const ammoCount = element();
   const tankStatus = element();
   const reticleRange = element();
   UI.els.hud = hud;
+  UI.els.vehicleHeOptic = heOpticEl;
   UI.els.vehicleReticleAmmoType = ammoType;
   UI.els.vehicleReticleAmmoCount = ammoCount;
   UI.els.vehicleTankWeaponStatus = tankStatus;
@@ -549,7 +555,8 @@ function checkVehicleHud() {
   UI.updateVehicleHud(player, vehicles);
   ok(
     hud.classList.contains('vehicle-he-optic') &&
-      !hud.classList.contains('vehicle-cannon-optic'),
+      !hud.classList.contains('vehicle-cannon-optic') &&
+      !hud.classList.contains('vehicle-mg-optic'),
     'IFV autocannon still used the tank cannon optic'
   );
   ok(
@@ -580,13 +587,39 @@ function checkVehicleHud() {
   ok(
     hud.classList.contains('vehicle-he-optic') &&
       hud.classList.contains('vehicle-optic-no-count') &&
+      hud.classList.contains('vehicle-mg-optic') &&
       !hud.classList.contains('vehicle-cannon-optic') &&
       ammoType.textContent === '同轴重机枪' &&
       ammoCount.textContent === '',
     'tank coaxial MG did not reuse the IFV HE optic without an ammo count'
   );
+  ok(
+    hud.style['--mg-arm-fill'] === '0.500' &&
+      heOpticEl.style['--mg-arm-fill'] === '0.500' &&
+      !hud.classList.contains('vehicle-mg-overheat'),
+    'idle coaxial MG reticle arms were not half-faded'
+  );
+  vehicle.weapons.tank_coax_mg.heat = 50;
+  UI.updateVehicleHud(player, vehicles);
+  ok(
+    hud.style['--mg-arm-fill'] === '0.750' &&
+      heOpticEl.style['--mg-arm-fill'] === '0.750',
+    'firing coaxial MG did not fill reticle arms from the inside out'
+  );
+  vehicle.weapons.tank_coax_mg.heat = 100;
+  vehicle.weapons.tank_coax_mg.overheated = true;
+  UI.updateVehicleHud(player, vehicles);
+  ok(
+    hud.style['--mg-arm-fill'] === '1.000' &&
+      heOpticEl.style['--mg-arm-fill'] === '1.000' &&
+      hud.classList.contains('vehicle-mg-overheat'),
+    'overheated coaxial MG did not fully fill reticle arms'
+  );
+  vehicle.weapons.tank_coax_mg.heat = 0;
+  vehicle.weapons.tank_coax_mg.overheated = false;
 
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'style.css'), 'utf8');
   ok(
     html.indexOf('id="vehicle-cannon-cooldown"') >= 0 &&
       html.indexOf('id="vehicle-heavy-hit"') >= 0 &&
@@ -601,6 +634,12 @@ function checkVehicleHud() {
       html.indexOf('class="vr-he-optic"') >= 0 &&
       html.indexOf('class="vr-he-tick n"') >= 0 &&
     'vehicle cooldown or heavy hit HUD markup is missing'
+  );
+  ok(
+      css.indexOf('#hud.vehicle-optic.vehicle-mg-optic') >= 0 &&
+      css.indexOf('--mg-arm-fill') >= 0 &&
+      css.indexOf('vr-he-arm.solid') >= 0,
+    'coaxial MG reticle arm styles are missing'
   );
   ok(
     html.indexOf('js/vehicle-effects.js') < html.indexOf('js/main.js'),
