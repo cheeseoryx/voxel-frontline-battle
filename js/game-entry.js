@@ -5,7 +5,22 @@ const root=new URL('../',document.currentScript.src);
 const ids=['tdm','demo','ffa','gungame','core'];
 const names={tdm:'团队死斗',demo:'爆破模式',ffa:'自由混战',gungame:'枪械模式',core:'核心攻防'};
 const params=new URLSearchParams(global.location.search);
-const selection={mode:ids.includes(params.get('mode'))?params.get('mode'):null,screen:params.get('screen')==='modes'?'modes':null,room:/^[A-Z0-9]{4,8}$/.test(params.get('room')||'')?params.get('room'):null};
+// Only an in-game return may bypass the cover; stale/bookmarked queries may not.
+const lobbyReturnKey='vf_lobby_return:'+root.href;
+let returnToLobby=false;
+const currentUrl=new URL(global.location.href);
+if(currentUrl.pathname===root.pathname||currentUrl.pathname===new URL('index.html',root).pathname){
+ try{
+  const pending=JSON.parse(global.sessionStorage.getItem(lobbyReturnKey)||'null');
+  global.sessionStorage.removeItem(lobbyReturnKey);
+  returnToLobby=params.get('screen')==='modes'&&!!pending&&pending.destination===currentUrl.origin+currentUrl.pathname&&Date.now()-pending.at>=0&&Date.now()-pending.at<30000;
+ }catch(_){}
+ if(params.get('screen')==='modes'){
+  currentUrl.searchParams.delete('screen');
+  global.history.replaceState(global.history.state,'',currentUrl.href);
+ }
+}
+const selection={mode:ids.includes(params.get('mode'))?params.get('mode'):null,screen:returnToLobby?'modes':null,room:/^[A-Z0-9]{4,8}$/.test(params.get('room')||'')?params.get('room'):null};
 let navigationPending=false,coverClick=null;
 function showTransition(message){
  if(!document.body)return;
@@ -21,6 +36,10 @@ function navigate(relative){
  global.dispatchEvent(new Event('vf:navigate'));
  const destination=new URL(relative,root);
  if(global.parent!==global && /[?&]kubee=1(?:&|$)/.test(global.location.search))destination.searchParams.set('kubee','1');
+ try{
+  if(destination.searchParams.get('screen')==='modes')global.sessionStorage.setItem(lobbyReturnKey,JSON.stringify({destination:destination.origin+destination.pathname,at:Date.now()}));
+  else global.sessionStorage.removeItem(lobbyReturnKey);
+ }catch(_){}
  global.location.assign(destination.href);
 }
 function listSmallServers(){

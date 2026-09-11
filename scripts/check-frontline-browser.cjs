@@ -31,7 +31,7 @@ const before=await host.evaluate(()=>({code:VF.Pvp.roomCode,seed:VF.game.mapSeed
 assert.equal(before.blue,11);assert.equal(before.red,12);
 console.log('HOST',before);
 const directory=await context.newPage();watch(directory);
-await directory.goto('http://127.0.0.1:8765/?screen=modes',{waitUntil:'domcontentloaded'});await directory.waitForSelector('#mode-overlay:not(.hidden)',{timeout:60000});await directory.click('[data-mode-action=servers]');await directory.waitForSelector('[data-server-runtime=small][data-server-mode-id=tdm]');await directory.close();
+await directory.goto('http://127.0.0.1:8765/',{waitUntil:'domcontentloaded'});await directory.waitForSelector('#enter-hub-btn:not([disabled])',{timeout:60000});await directory.click('#enter-hub-btn');await directory.waitForSelector('#mode-overlay:not(.hidden)',{timeout:60000});await directory.click('[data-mode-action=servers]');await directory.waitForSelector('[data-server-runtime=small][data-server-mode-id=tdm]');await directory.close();
 const guest=await context.newPage();watch(guest);
 await guest.goto('http://127.0.0.1:8765/modes/small-battle/index.html?mode=tdm',{waitUntil:'domcontentloaded'});
 await guest.waitForSelector('#class-overlay:not(.hidden)',{timeout:60000});
@@ -59,7 +59,7 @@ for(const mode of ['demo','ffa','gungame','core']){
  await page.close();
 }
 const page=await context.newPage();watch(page);
-await page.goto('http://127.0.0.1:8765/?screen=modes',{waitUntil:'domcontentloaded'});await page.waitForSelector('#mode-overlay:not(.hidden)',{timeout:60000});
+await page.goto('http://127.0.0.1:8765/',{waitUntil:'domcontentloaded'});await page.waitForSelector('#enter-hub-btn:not([disabled])',{timeout:60000});await page.click('#enter-hub-btn');await page.waitForSelector('#mode-overlay:not(.hidden)',{timeout:60000});
 await page.screenshot({path:outputDir+'/ui-lobby.png'});
 await page.click('[data-mode-action=servers]');assert(await page.locator('#server-browser').isVisible());await page.click('[data-mode-action=server-back]');
 await page.click('[data-mode-action=solo]');await page.waitForSelector('#class-overlay:not(.hidden)');await page.waitForTimeout(800);await page.screenshot({path:outputDir+'/ui-large-loadout.png'});
@@ -73,7 +73,7 @@ await page.click('#squad-intro-back');await page.waitForSelector('#class-overlay
 await page.click('[data-mode-action=conquest32]');await page.waitForSelector('#class-overlay:not(.hidden)');assert.equal(await page.evaluate(()=>VF.game.mode),'pvp');
 await page.click('#class-confirm-btn');await page.waitForSelector('#squad-intro-overlay:not(.hidden)');await page.click('#squad-intro-customize');await page.waitForSelector('#loadout-customize-overlay:not(.hidden)');await page.waitForTimeout(3200);assert.equal(await page.evaluate(()=>VF.game.running),false);
 await page.click('#loadout-customize-cancel');await page.waitForFunction(()=>VF.game.running,{timeout:10000});console.log('LARGE_QUICK_AUTO_DEPLOY ok');
-const returning=await context.newPage();watch(returning);await returning.goto('http://127.0.0.1:8765/modes/small-battle/index.html?mode=tdm',{waitUntil:'domcontentloaded'});await returning.waitForSelector('#class-overlay:not(.hidden)',{timeout:60000});await returning.click('#class-cancel-btn');await returning.waitForSelector('#mode-overlay:not(.hidden)',{timeout:60000});assert(returning.url().includes('screen=modes'));await returning.close();console.log('CANCEL_RETURNS_SHARED_LOBBY ok');
+const returning=await context.newPage();watch(returning);await returning.goto('http://127.0.0.1:8765/modes/small-battle/index.html?mode=tdm',{waitUntil:'domcontentloaded'});await returning.waitForSelector('#class-overlay:not(.hidden)',{timeout:60000});await returning.click('#class-cancel-btn');await returning.waitForSelector('#mode-overlay:not(.hidden)',{timeout:60000});assert(!returning.url().includes('screen=modes'));await returning.close();console.log('CANCEL_RETURNS_SHARED_LOBBY ok');
 console.log('ERRORS',errors);console.log('MISSING',Array.from(new Set(missing)));assert.equal(errors.length,0);
 assert(missing.every(url=>url.endsWith('/assets/music/theme.mp3')),'Unexpected missing resource');
 } finally { await browser.close(); }

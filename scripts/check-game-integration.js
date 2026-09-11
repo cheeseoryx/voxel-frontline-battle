@@ -29,7 +29,7 @@ manifest.modeAssets.forEach(f=>assert(fs.existsSync(path.join(small,'assets',f))
 const entry=fs.readFileSync(path.join(root,'js/game-entry.js'),'utf8');
 function navigation(base, search='', embedded=false) {
   let click, destination;
-  const window={location:{search,assign:url=>{destination=url;}},dispatchEvent(){},addEventListener(){}};
+  const window={location:{href:new URL(search||'./',base).href,search,assign:url=>{destination=url;}},dispatchEvent(){},addEventListener(){},history:{replaceState(){}}};
   window.parent=embedded?{}:window;
   const document={currentScript:{src:new URL('js/game-entry.js',base).href},addEventListener:(name,fn)=>{if(name==='click')click=fn;}};
   vm.runInNewContext(entry,{window,document,URL,URLSearchParams,Event:function(){}});
