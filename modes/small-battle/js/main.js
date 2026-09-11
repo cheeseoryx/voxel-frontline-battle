@@ -50,6 +50,7 @@
   };
 
   function init() {
+    if(!VFEntry.selection.mode){VFEntry.goLobby();return;}
     const enterHubBtn = document.getElementById('enter-hub-btn');
     const quitBtn = document.getElementById('quit-btn');
     const tutorialBtn = document.getElementById('tutorial-btn');
@@ -165,9 +166,12 @@
 
       // Unlock cover once systems are ready
       _enableCoverReady();
-      // Selected from the shared cover: open this mode lobby once ready.
-      openFrontlineHub();
+      if (VFEntry.selection.mode) {
+        VF.GameModes.setMode(VFEntry.selection.mode);
+        VF.Pvp.quickMatch(VFEntry.selection.mode, VFEntry.selection.room);
+      } else VFEntry.goLobby();
     } catch (err) {
+      VFEntry.hideTransition();
       console.error(err);
       if (enterHubBtn) {
         enterHubBtn.disabled = false;
@@ -242,16 +246,13 @@
     }
 
     // Voxel world
-    game.world = new VF.VoxelWorld(scene);
+    game.world = new VF.VoxelWorld(scene, { deferGeneration: true });
 
     // Ally / enemy glowing bases (sets spawn + objective positions)
     game.bases = new VF.Bases(scene, game.world);
 
-    // Restore hand-built map kit (empty terrain + stamps); no procedural city
-    game._mapKitLayout = true;
-    if (VF.MapEditor && VF.MapEditor.applyMatchMap) {
-      VF.MapEditor.applyMatchMap();
-    }
+    // Selected-mode terrain is generated once when its room seed is available.
+    game._mapKitLayout = false;
 
     // Player (spawns at ally base)
     game.player = new VF.Player(camera, game.world);
@@ -308,8 +309,7 @@
     VF.UI.updateMissionCore(1000, 1000);
     VF.UI.updateHomeCore(1000, 1000);
 
-    // Scatter glowing Voxel Core / build block pickups
-    seedResources();
+    // Match resources are seeded with the selected map in prepareMatchMap().
 
     // Flat pixel lobby (+ keep Hub craft overlays via Hub.init)
     if (VF.Hub) {
@@ -420,20 +420,7 @@
   game.spawnResource = spawnResource;
 
   function openFrontlineHub() {
-    game.teamLocked = false;
-    game.lockedTeam = null;
-    const overlay = document.getElementById('start-overlay');
-    const tutorial = document.getElementById('tutorial-overlay');
-    if (overlay) overlay.classList.add('hidden');
-    if (tutorial) tutorial.classList.add('hidden');
-    if (VF.TowerDesigner && VF.TowerDesigner.open) VF.TowerDesigner.close();
-    if (VF.Range && VF.Range.isOpen) VF.Range.close(true);
-    if (VF.MapEditor && VF.MapEditor.isOpen && VF.MapEditor.isOpen()) {
-      VF.MapEditor.close({ skipLobby: true });
-    }
-    if (VF.Hub && VF.Hub.hide) VF.Hub.hide();
-    if (VF.Lobby) VF.Lobby.openLobby();
-    syncGameBackBtn();
+    VFEntry.goLobby();
   }
 
   function openMapFromLobby() {
@@ -595,6 +582,10 @@
       VF.Lobby && typeof VF.Lobby.getSelectedClassId === 'function'
         ? VF.Lobby.getSelectedClassId()
         : null;
+    if (VF.Pvp && VF.Pvp.quickSession) {
+      if (game._mapReadyForSeed !== game.mapSeed) prepareMatchMap();
+      assignTdmStartSpawn();
+    }
     VF.UI.openClassSelect(
       function (classId) {
         if (game.player && game.player.applyClass) {
@@ -603,8 +594,8 @@
         game.playerClass = classId;
         if (VF.Lobby && VF.Lobby.setPreviewClass) VF.Lobby.setPreviewClass(classId);
         VF.UI.closeClassSelect();
-        // Tower design moved to hub — go straight to spawn
-        openSpawnSelect();
+        if (VF.Pvp && VF.Pvp.quickSession) openQuickDeployment();
+        else openSpawnSelect();
       },
       function () {
         VF.UI.closeClassSelect();
@@ -616,9 +607,27 @@
       },
       preferredClass
     );
+    VFEntry.hideTransition();
+  }
+
+  function openQuickDeployment(remainingSec) {
+    const classes = VF.Soldier.CLASSES;
+    const selected = classes.find(c => c.id === game.playerClass) || classes[0];
+    const teamless = VF.GameModes.isTeamless();
+    const ids = teamless ? [selected] : [classes.find(c => c.id !== selected.id), selected].concat(classes.filter(c => c.id !== selected.id).slice(1,3));
+    const weaponId = VF.GameModes.isGg() ? null : VF.Economy.weaponForSlot(1);
+    const weapon = weaponId && VF.WEAPONS[weaponId];
+    const roster = ids.map((c,i) => ({classId:c.id,className:c.nameZh||(c.label||'').split('|').pop().trim()||c.id,name:c.id === selected.id?'你':'AI 支援 '+(i+1),isPlayer:c.id === selected.id,weapon:c.id===selected.id?(weapon?weapon.nameZh||weapon.name:'武器阶梯'):'兵种制式装备'}));
+    VF.UI.openSquadIntro(roster, function () {
+      VF.Pvp.enterQuickBattle({classId:game.playerClass,team:game.world._playerTeam,spawnId:game.world._selectedSpawnId}, beginMatch);
+    }, {durationSec:remainingSec == null ? 3 : remainingSec,mapName:game.world._mapName||'作战区域',modeName:VFEntry.modeNames[VF.GameModes.currentId()],factionName:game.world._playerTeam==='enemy'?'赤焰军团':'和平军团',
+      onBack:openClassSelect,
+      onCustomize:function(left){ if(VF.GameModes.isGg()) { openClassSelect(); return; } VF.Arsenal.show({onClose:function(){openQuickDeployment(left);}}); }
+    });
   }
 
   function returnToPvpLobby() {
+    if (VF.Pvp && VF.Pvp.quickSession) { VF.Pvp.destroySession(); VFEntry.goLobby(); return; }
     if (!VF.Pvp) return;
     VF.Pvp.localReady = false;
     VF.Pvp._send({ type: 'ready', ready: false });
@@ -664,7 +673,7 @@
     if (VF.Pvp && game.mapSeed != null) VF.Pvp.matchSeed = game.mapSeed;
     if (VF.UI && VF.UI.toast) {
       const side = info && info.team === 'enemy' ? '红方' : '蓝方';
-      VF.UI.toast('1v1 开始 · 你是' + side);
+      VF.UI.toast('房间已连接 · 你是' + side + ' · 空余席位由 AI 补充');
     }
     openClassSelect();
   }
@@ -802,7 +811,7 @@
     if (VF.TowerDesigner && VF.TowerDesigner.open) VF.TowerDesigner.close();
 
     // 1v1: lock faction from lobby (host=blue/ally, guest=red/enemy)
-    if (game.mode === 'pvp' && game.pvp && game.pvp.team && game.world.setPlayerTeam) {
+    if (game.mode === 'pvp' && game.pvp && game.pvp.team && game.world.setPlayerTeam && !(VF.GameModes && VF.GameModes.isTeamless())) {
       game.world.setPlayerTeam(game.pvp.team);
     } else if (game.teamLocked && game.lockedTeam && game.world.setPlayerTeam) {
       game.world.setPlayerTeam(game.lockedTeam);
@@ -1070,7 +1079,7 @@
     setTimeout(function () {
       if (game.running && document.pointerLockElement !== canvas) {
         try {
-          canvas.requestPointerLock();
+          VF.FrontlineUI.requestPointerLock(canvas);
         } catch (_) {}
       }
     }, 0);
@@ -1160,13 +1169,14 @@
     setTimeout(function () {
       if (game.running && document.pointerLockElement !== canvas) {
         try {
-          canvas.requestPointerLock();
+          VF.FrontlineUI.requestPointerLock(canvas);
         } catch (_) {}
       }
     }, 0);
   }
 
   function returnFromDeathToHub() {
+    if(VFEntry.selection.mode){game.running=false;game._leaving=true;VFEntry.goLobby();return;}
     if (VF.UI && VF.UI.hideDeath) VF.UI.hideDeath();
     if (VF.UI && VF.UI.hideVictory) VF.UI.hideVictory();
     if (VF.UI && VF.UI.closeSpawnSelect) VF.UI.closeSpawnSelect();
@@ -1212,11 +1222,11 @@
       if (VF.Hub && VF.Hub.isOpen) return;
       if (VF.UI && VF.UI.isMenuOpen && VF.UI.isMenuOpen()) return;
       if (VF.Range && VF.Range.isOpen) {
-        if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
+        if (document.pointerLockElement !== canvas) VF.FrontlineUI.requestPointerLock(canvas);
         return;
       }
       if (game.running && document.pointerLockElement !== canvas) {
-        canvas.requestPointerLock();
+        VF.FrontlineUI.requestPointerLock(canvas);
       }
     });
   }
@@ -1231,7 +1241,7 @@
       if (open) {
         document.exitPointerLock();
       } else if (game.running) {
-        game.renderer.domElement.requestPointerLock();
+        VF.FrontlineUI.requestPointerLock(game.renderer.domElement);
       }
     });
   }
@@ -1250,7 +1260,7 @@
         document.exitPointerLock();
         VF.UI.drawBigMap(game.player, game.world, game.ai.enemies, game.ai.allies);
       } else if (game.running) {
-        game.renderer.domElement.requestPointerLock();
+        VF.FrontlineUI.requestPointerLock(game.renderer.domElement);
       }
     });
   }
@@ -1274,6 +1284,8 @@
 
   function _animateFrame() {
     const rawDt = Math.min(game.clock.getDelta(), 0.05);
+    const cover=document.getElementById('start-overlay');
+    if(game._leaving||(!game.running&&VF.UI&&(VF.UI.modeSelectOpen||VF.UI.classSelectOpen||VF.UI.squadIntroOpen||(cover&&!cover.classList.contains('hidden')))))return;
     if (game._hitstop > 0) {
       game._hitstop -= rawDt;
       if (game._hitstop <= 0) {
@@ -1573,8 +1585,16 @@
     }
   }
 
-  // Boot — paint LOADING before heavy sync world gen
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => init());
+  // A hidden/transitioning tab may not receive animation frames. Boot exactly once.
+  let booted=false;
+  function boot(){if(booted||VFEntry.navigating)return;booted=true;init();}
+  window.addEventListener('vf:navigate',()=>{
+    game._leaving=true;game.running=false;
+    const ui=VF.UI;if(!ui)return;
+    clearInterval(ui._squadIntroTimer);clearInterval(ui._classAutoTimer);
+    for(const method of ['_stopClassPreviews','_stopSquadIntroPreview','_stopLoadoutCustomizePreview'])if(ui[method])ui[method]();
   });
+  function scheduleBoot(){requestAnimationFrame(()=>requestAnimationFrame(boot));setTimeout(boot,100);}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scheduleBoot,{once:true});
+  else scheduleBoot();
 })();

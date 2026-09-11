@@ -1104,13 +1104,13 @@
      */
     _frameBodyCamera(cam, aspect) {
       const midY = 1.05;
-      const bodyH = 2.35; // head-to-toe + margin (covers heavy scale)
+      const bodyH = 2.18; // Shared presentation framing.
       cam.fov = 40;
       cam.aspect = aspect;
       const vFov = THREE.MathUtils.degToRad(cam.fov);
       let dist = (bodyH * 0.5) / Math.tan(vFov * 0.5);
       // Keep full height when panel is wide; when tall, still fit height
-      dist *= 1.22;
+      dist *= 1.06;
       cam.near = 0.1;
       cam.far = 40;
       cam.position.set(0, midY, dist);
@@ -1189,7 +1189,7 @@
           const model = prev.models[id];
           model.visible = true;
           model.position.set(0, 0, 0);
-          model.rotation.set(0, Math.PI + t * 0.75, 0);
+          model.rotation.set(0, Math.PI + (this._menuRotation || 0.12) + Math.sin(t * 0.45) * 0.025, 0);
           if (global.VF.Soldier.updateLocomotion) {
             global.VF.Soldier.updateLocomotion(model, dt, {
               moving: false,

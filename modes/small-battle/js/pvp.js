@@ -403,6 +403,7 @@
         ready: !!this.localReady,
         spawnReady: !!this.spawnReadyLocal,
         phase: this.phase || 'lobby',
+        ended: !!this._matchEnded,
         ts: now,
       };
       if (this.localLoadout) {
@@ -541,6 +542,7 @@
       if (
         this._lobbyDone &&
         !this._battlefieldEntered &&
+        !this.quickSession &&
         state.enter &&
         state.enter.seed
       ) {

@@ -42,7 +42,7 @@
   }
 
   function humanSlots() {
-    return VF.game && VF.game.mode === 'pvp' ? 2 : 1;
+    return VF.Pvp && VF.Pvp.quickSession ? 1 + VF.Pvp.remoteHumanSlots() : VF.game && VF.game.mode === 'pvp' ? 2 : 1;
   }
 
   function aiTarget() {

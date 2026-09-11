@@ -1,0 +1,7 @@
+
+const{chromium}=require('playwright');
+(async()=>{const b=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--enable-unsafe-swiftshader']});const p=await b.newPage({viewport:{width:1440,height:900}});const pending=new Set();p.on('request',r=>pending.add(r.url()));p.on('requestfinished',r=>pending.delete(r.url()));p.on('requestfailed',r=>pending.delete(r.url()));p.on('pageerror',e=>console.log('ERROR',e.message));
+try{await p.goto('http://127.0.0.1:8765/',{waitUntil:'domcontentloaded',timeout:15000});await p.waitForSelector('#enter-hub-btn:not([disabled])',{timeout:15000});await p.click('#enter-hub-btn');await p.waitForTimeout(1200);console.log('SINGLE',await p.evaluate(()=>({url:location.href,selection:VFEntry.selection,mode:VF.game.mode,running:VF.game.running,visible:[...document.querySelectorAll('[id$="-overlay"]')].filter(e=>getComputedStyle(e).display!=='none').map(e=>e.id)})));
+await p.evaluate(()=>VF.UI.closeModeSelect());await p.dblclick('#enter-hub-btn',{delay:70});await p.waitForTimeout(1200);console.log('DOUBLE',await p.evaluate(()=>({url:location.href,mode:VF.game.mode,running:VF.game.running,visible:[...document.querySelectorAll('[id$="-overlay"]')].filter(e=>getComputedStyle(e).display!=='none').map(e=>e.id)})));
+}catch(e){console.log('FAIL',e.message,'PENDING',[...pending]);console.log(await p.evaluate(()=>({ready:document.readyState,scripts:[...document.scripts].map(s=>s.src).slice(-5),vf:!!window.VF,entry:!!window.VFEntry})));}finally{await b.close();}})();
+

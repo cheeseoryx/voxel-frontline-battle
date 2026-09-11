@@ -51,7 +51,7 @@
     if (enterHubBtn) {
       enterHubBtn.disabled = true;
       const label = enterHubBtn.querySelector('span:last-child');
-      if (label) label.textContent = '大型战争 · 加载中…';
+      if (label) label.textContent = '进入大厅 · 加载中…';
     }
 
     function showTutorial() {
@@ -103,7 +103,7 @@
         if (enterHubBtn) {
           enterHubBtn.disabled = false;
           const label = enterHubBtn.querySelector('span:last-child');
-          if (label) label.textContent = '大型战争';
+          if (label) label.textContent = '进入大厅';
         }
       }
 
@@ -151,12 +151,14 @@
 
       // Unlock cover once systems are ready
       _enableCoverReady();
+      if (VFEntry.selection.screen === "modes") openFrontlineHub();
     } catch (err) {
+      VFEntry.hideTransition();
       console.error(err);
       if (enterHubBtn) {
         enterHubBtn.disabled = false;
         const label = enterHubBtn.querySelector('span:last-child');
-        if (label) label.textContent = '大型战争 · 重试';
+        if (label) label.textContent = '进入大厅 · 重试';
         enterHubBtn.onclick = () => location.reload();
       }
     }
@@ -1263,8 +1265,7 @@
         }
         framePreMatchMapView();
         VF.UI.closeClassSelect();
-        if (pvpSkipsPrep()) beginMatch();
-        else openSquadIntro();
+        openSquadIntro();
       },
       function () {
         VF.UI.closeClassSelect();
@@ -1283,7 +1284,7 @@
         playerMax: playerMax,
         playerState: isPvp ? '对局进行中 · 可中途加入' : '作战编制已就绪',
         factionName: assignedTeam === 'enemy' ? '赤焰军团' : '和平军团',
-        autoAdvanceSec: 10,
+        autoAdvanceSec: 0,
       }
     );
   }
@@ -1457,7 +1458,7 @@
       mapName: mapName,
       modeName: matchModeName(),
       factionName: team === 'enemy' ? '赤焰军团' : '和平军团',
-      durationSec: durationSec != null ? durationSec : 5,
+      durationSec: durationSec != null ? durationSec : 3,
       onBack: function () {
         openClassSelect();
       },
@@ -1937,7 +1938,7 @@
     setTimeout(function () {
       if (game.running && document.pointerLockElement !== canvas) {
         try {
-          canvas.requestPointerLock();
+          VF.FrontlineUI.requestPointerLock(canvas);
         } catch (_) {}
       }
     }, 0);
@@ -2070,7 +2071,7 @@
     setTimeout(function () {
       if (game.running && document.pointerLockElement !== canvas) {
         try {
-          canvas.requestPointerLock();
+          VF.FrontlineUI.requestPointerLock(canvas);
         } catch (_) {}
       }
     }, 0);
@@ -2129,11 +2130,11 @@
       if (VF.Hub && VF.Hub.isOpen) return;
       if (VF.UI && VF.UI.isMenuOpen && VF.UI.isMenuOpen()) return;
       if (VF.Range && VF.Range.isOpen) {
-        if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
+        if (document.pointerLockElement !== canvas) VF.FrontlineUI.requestPointerLock(canvas);
         return;
       }
       if (game.running && document.pointerLockElement !== canvas) {
-        canvas.requestPointerLock();
+        VF.FrontlineUI.requestPointerLock(canvas);
       }
     });
   }
@@ -2154,7 +2155,7 @@
       if (open) {
         document.exitPointerLock();
       } else if (game.running) {
-        game.renderer.domElement.requestPointerLock();
+        VF.FrontlineUI.requestPointerLock(game.renderer.domElement);
       }
     });
   }
@@ -2174,7 +2175,7 @@
         document.exitPointerLock();
         VF.UI.drawBigMap(game.player, game.world, game.ai.enemies, game.ai.allies);
       } else if (game.running) {
-        game.renderer.domElement.requestPointerLock();
+        VF.FrontlineUI.requestPointerLock(game.renderer.domElement);
       }
     });
   }
@@ -2198,6 +2199,8 @@
 
   function _animateFrame() {
     const rawDt = Math.min(game.clock.getDelta(), 0.05);
+    const cover=document.getElementById('start-overlay');
+    if(game._leaving||(!game.running&&VF.UI&&(VF.UI.modeSelectOpen||VF.UI.classSelectOpen||VF.UI.squadIntroOpen||(cover&&!cover.classList.contains('hidden')))))return;
     if (game._hitstop > 0) {
       game._hitstop -= rawDt;
       if (game._hitstop <= 0) {
@@ -2575,8 +2578,16 @@
     }
   }
 
-  // Boot — paint LOADING before heavy sync world gen
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => init());
+  // A hidden/transitioning tab may not receive animation frames. Boot exactly once.
+  let booted=false;
+  function boot(){if(booted||VFEntry.navigating)return;booted=true;init();}
+  window.addEventListener('vf:navigate',()=>{
+    game._leaving=true;game.running=false;
+    const ui=VF.UI;if(!ui)return;
+    clearInterval(ui._squadIntroTimer);clearInterval(ui._classAutoTimer);
+    for(const method of ['_stopClassPreviews','_stopSquadIntroPreview','_stopLoadoutCustomizePreview'])if(ui[method])ui[method]();
   });
+  function scheduleBoot(){requestAnimationFrame(()=>requestAnimationFrame(boot));setTimeout(boot,100);}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scheduleBoot,{once:true});
+  else scheduleBoot();
 })();

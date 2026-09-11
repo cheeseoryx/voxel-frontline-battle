@@ -197,7 +197,13 @@ ok(!Net.validateEnvelope(duplicate).ok, 'invalid sequence was accepted');
 load('js/pvp.js', context);
 const Pvp = context.window.VF.Pvp;
 ok(Pvp.pickJoinTeam({ ally: 1, enemy: 0 }) === 'enemy', '1/0 should join red');
-ok(Pvp.pickJoinTeam({ ally: 1, enemy: 1 }) === 'enemy', 'equal counts should join red');
+// Equal teams already use a random tie break; cover both outcomes deterministically.
+context.Math = Object.create(Math);
+context.Math.random = () => 0.25;
+ok(Pvp.pickJoinTeam({ ally: 1, enemy: 1 }) === 'enemy', 'low random tie break should join red');
+context.Math.random = () => 0.75;
+ok(Pvp.pickJoinTeam({ ally: 1, enemy: 1 }) === 'ally', 'high random tie break should join blue');
+delete context.Math;
 ok(Pvp.pickJoinTeam({ ally: 1, enemy: 2 }) === 'ally', '1/2 should join blue');
 ok(Pvp.pickJoinTeam({ ally: 8, enemy: 5 }) === 'enemy', 'full blue should join red');
 ok(Pvp.pickJoinTeam({ ally: 8, enemy: 8 }) === null, '8/8 should reject join');

@@ -23,3 +23,6 @@ _pose_dump.txt
 diag-*.html
 diag-*.png
 diag-*.txt
+
+# Reproducible UI browser-test screenshots
+tmp/frontline-ui-check/

@@ -152,7 +152,7 @@
         }
         state.aiQueue.splice(i, 1);
         // The player counts toward their own side's headcount
-        const playerOn = g.player && g.player.team === job.team ? 1 : 0;
+        const playerOn = (g.player && g.player.team === job.team ? 1 : 0) + (VF.Pvp && VF.Pvp.remoteHumanSlots ? VF.Pvp.remoteHumanSlots(job.team) : 0);
         if (ai.aliveCount(job.team) + playerOn >= target) continue;
         const pick = this.pickSpawn(job.team);
         if (!pick) continue;

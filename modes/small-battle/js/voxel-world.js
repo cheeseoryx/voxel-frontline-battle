@@ -82,7 +82,7 @@
   const DOOR_THICK = 0.5;
   const STEP_H = 0.4; // unused by voxel stairs; kept for compat
 
-  function VoxelWorld(scene) {
+  function VoxelWorld(scene, opts) {
     this.scene = scene;
     this.chunkSize = CHUNK_SIZE;
     this.worldChunks = WORLD_CHUNKS;
@@ -122,6 +122,7 @@
     this.group.name = 'VoxelWorld';
     scene.add(this.group);
 
+    if (opts && opts.deferGeneration) return;
     this._generate();
     this._finalizeTerrainHeight();
     // Mesh near bases + map center first; far chunks stream in by player distance

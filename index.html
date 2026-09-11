@@ -17,9 +17,13 @@
     }
   </style>
   <link rel="stylesheet" href="style.css?v=mgoptic3" />
-  <script src="js/game-entry.js?v=1" defer></script>
+  <script src="js/game-entry.js?v=navigation3"></script>
+  <link rel="stylesheet" href="styles/deployment-base.css?v=2" />
+  <link rel="stylesheet" href="styles/frontline-ui.css?v=3" />
+  <link rel="stylesheet" href="styles/preview-fidelity.css?v=original-art1" />
+  <link rel="stylesheet" href="styles/squad-ui.css?v=2" />
 </head>
-<body>
+<body data-game-runtime="large">
   <div id="throw-flash" aria-hidden="true"></div>
   <div id="throw-stun" aria-hidden="true"></div>
   <div id="throw-smoke-veil" aria-hidden="true"></div>
@@ -35,13 +39,9 @@
       <p class="cover-tagline">BUILD · FIGHT · CAPTURE</p>
     </div>
     <div class="cover-ui">
-      <button id="enter-hub-btn" type="button" class="cover-btn cover-btn-start">
+      <button id="enter-hub-btn" type="button" disabled class="cover-btn cover-btn-start">
         <span class="cover-btn-icon play" aria-hidden="true"></span>
-        <span>大型战争</span>
-      </button>
-      <button id="enter-small-battle-btn" type="button" class="cover-btn cover-btn-start" data-game-entry="small-battle">
-        <span class="cover-btn-icon play" aria-hidden="true"></span>
-        <span>小型战斗</span>
+        <span>进入大厅</span>
       </button>
       <button id="quit-btn" type="button" class="cover-btn cover-btn-quit">
         <span class="cover-btn-icon stop" aria-hidden="true"></span>
@@ -55,57 +55,34 @@
   </div>
 
   <!-- Main lobby / multiplayer mode select -->
-  <div id="mode-overlay" class="hidden" role="dialog" aria-label="多人游戏">
+  <div id="mode-overlay" class="hidden" role="dialog" aria-label="模式大厅">
     <div class="mode-blur" aria-hidden="true"></div>
     <header class="mode-top">
+      <a class="frontline-brand" href="#" data-mode-action="mode-home">体素战争</a>
       <div class="mode-player">
         <span class="mode-prestige">0<span>声望</span></span>
         <span class="mode-level">1<span>等级</span></span>
         <span class="mode-name" id="mode-player-name">指挥官</span>
       </div>
       <nav class="mode-tabs" aria-label="大厅分页">
-        <button type="button" class="mode-tab active" data-mode-action="mode-home" data-mode-tab="multiplayer">多人游戏</button>
-        <button type="button" class="mode-tab" data-mode-action="soldier" data-mode-tab="soldier">士兵</button>
+        <button type="button" class="mode-tab active" data-mode-action="mode-home" data-mode-tab="multiplayer">开始游戏</button>
+        <button type="button" class="mode-tab" data-mode-action="soldier" data-mode-tab="soldier">装备档案</button>
         <button type="button" class="mode-tab" data-mode-action="settings">设置</button>
       </nav>
-      <button type="button" class="mode-quit" data-mode-action="close">退出</button>
+
     </header>
-    <div class="mode-cards">
-      <button type="button" class="mode-card playable mode-card-servers" data-mode-action="servers" data-mode-card>
-        <span class="mode-card-art servers"></span>
-        <span class="mode-card-kicker">现已支持社区服务器</span>
-        <span class="mode-card-label">服务器列表</span>
-        <span class="mode-card-info">
-          <strong>服务器列表</strong>
-          <small>浏览并加入玩家创建的对战服务器</small>
-        </span>
-      </button>
-      <button type="button" class="mode-card playable" data-mode-action="conquest32" data-mode-card>
-        <span class="mode-card-art m32"></span>
-        <span class="mode-card-label">快速匹配 (32 VS 32)</span>
-        <span class="mode-card-info">
-          <strong>快速匹配 (32 VS 32)</strong>
-          <small>优先加入可进入的房间；没有房间时立即创建匹配房间</small>
-        </span>
-      </button>
-      <button type="button" class="mode-card playable mode-card-solo" data-mode-action="solo" data-mode-card>
-        <span class="mode-card-art solo"></span>
-        <span class="mode-card-label">单人游戏</span>
-        <span class="mode-card-info">
-          <strong>单人游戏</strong>
-          <small>本地运行 · 1 名真人 + 31 AI 对战 32 AI</small>
-        </span>
-      </button>
-      <button type="button" class="mode-card playable" data-mode-action="range" data-mode-card hidden>
-        <span class="mode-card-art range"></span>
-        <span class="mode-card-label">靶场</span>
-        <span class="mode-card-info">
-          <strong>靶场</strong>
-          <small>室内射击场 · 5 / 10 / 20 / 35 / 50 米固定标靶</small>
-        </span>
-      </button>
-    </div>
-    <section id="server-browser" class="server-browser hidden" aria-label="服务器列表">
+<div class="frontline-subnav"><button type="button" class="mode-quit" data-mode-action="close">← 返回首页</button><span>选择游戏模式</span><button type="button" class="frontline-server-button" data-mode-action="servers">☷ 浏览服务器</button></div>
+<div class="frontline-scroll" id="mode-scroll">
+<section class="solo-banner"><div class="solo-copy"><span class="solo-tag">单人游戏 · PVE</span><h2>搜打撤</h2><p>独自进入战区，带着战利品安全撤离。</p><div class="solo-chips"><span>玩家 vs AI</span><span>搜索物资</span><span>生存撤离</span></div><span class="solo-status">单人搜打撤 · 筹备中</span><button type="button" data-mode-action="solo">开始单人对局 <span>↗</span></button><small>当前开放：征服人机对战</small></div><span class="solo-caption">EXTRACTION / 单人行动</span></section>
+<section class="frontline-section-title"><h2>多人作战</h2><span>快速加入房间 · 空余席位由 AI 补充</span></section>
+<div class="frontline-mode-grid"><button type="button" class="operation-card" data-mode-action="conquest32" style="--operation-art:url(../assets/mode-quickmatch32-bg.png)"><span class="operation-image" style="background-image:url(assets/mode-quickmatch32-bg.png)"></span><span class="operation-index">01 / CONQUEST</span><span class="operation-copy"><small>占领据点 · 全面征服</small><strong>大型战争</strong><span>在可破坏的大战场争夺控制权。</span><b>快速匹配 <i>↗</i></b></span></button>
+<button type="button" class="operation-card" data-quick-mode="tdm" style="--operation-art:url(../modes/small-battle/assets/mode-tdm.png)"><span class="operation-image" style="background-image:url(modes/small-battle/assets/mode-tdm.png)"></span><span class="operation-index">02 / TEAM DEATHMATCH</span><span class="operation-copy"><small>12 vs 12 · 击杀计分</small><strong>团队死斗</strong><span>与队友协作，率先达成击杀目标。</span><b>快速匹配 <i>↗</i></b></span></button>
+<button type="button" class="operation-card" data-quick-mode="demo" style="--operation-art:url(../modes/small-battle/assets/mode-demo.png)"><span class="operation-image" style="background-image:url(modes/small-battle/assets/mode-demo.png)"></span><span class="operation-index">03 / DEMOLITION</span><span class="operation-copy"><small>5 vs 5 · 单命回合</small><strong>爆破模式</strong><span>进攻或防守包点，每一次决策都至关重要。</span><b>快速匹配 <i>↗</i></b></span></button>
+<button type="button" class="operation-card" data-quick-mode="ffa" style="--operation-art:url(../modes/small-battle/assets/mode-ffa.png)"><span class="operation-image" style="background-image:url(modes/small-battle/assets/mode-ffa.png)"></span><span class="operation-index">04 / FREE FOR ALL</span><span class="operation-copy"><small>各自为战 · 个人竞技</small><strong>自由混战</strong><span>没有队友，争夺战场上的最高排名。</span><b>快速匹配 <i>↗</i></b></span></button>
+<button type="button" class="operation-card" data-quick-mode="gungame" style="--operation-art:url(../modes/small-battle/assets/mode-gun.png)"><span class="operation-image" style="background-image:url(modes/small-battle/assets/mode-gun.png)"></span><span class="operation-index">05 / GUN GAME</span><span class="operation-copy"><small>武器晋级 · 个人竞技</small><strong>枪械模式</strong><span>以击杀推进武器阶梯，完成最终挑战。</span><b>快速匹配 <i>↗</i></b></span></button>
+<button type="button" class="operation-card" data-quick-mode="core" style="--operation-art:url(../modes/small-battle/assets/mode-core.png)"><span class="operation-image" style="background-image:url(modes/small-battle/assets/mode-core.png)"></span><span class="operation-index">06 / CORE ASSAULT</span><span class="operation-copy"><small>25 vs 25 · 建造攻防</small><strong>核心攻防</strong><span>构筑阵地，突破防线，摧毁敌方核心。</span><b>快速匹配 <i>↗</i></b></span></button></div>
+<footer class="frontline-lobby-foot"><span>你的装备准备好，战斗即可开始。</span><span>浏览服务器可选择具体房间</span></footer></div>
+        <section id="server-browser" class="server-browser hidden" aria-label="服务器列表">
       <aside class="server-filters">
         <label class="server-search">
           <span class="visually-hidden">搜索服务器</span>
@@ -123,12 +100,12 @@
           <label><input type="checkbox" data-server-filter="protected" checked /> 显示密码保护服务器</label>
         </fieldset>
         <fieldset>
-          <legend>服务器规模</legend>
-          <label><input type="checkbox" data-server-size="16" checked /> 8 v 8</label>
+          <legend>真人席位</legend>
+          <label><input type="checkbox" data-server-size="16" checked /> 大型战争 · 16 席</label><label><input type="checkbox" data-server-size="2" checked /> 其他模式 · 2 席</label>
         </fieldset>
         <fieldset>
           <legend>游戏模式</legend>
-          <label><input type="checkbox" data-server-mode="conquest" checked /> 征服</label>
+          <label><input type="checkbox" data-server-mode="conquest" checked /> 大型战争</label><label><input type="checkbox" data-server-mode="tdm" checked /> 团队死斗</label><label><input type="checkbox" data-server-mode="demo" checked /> 爆破模式</label><label><input type="checkbox" data-server-mode="ffa" checked /> 自由混战</label><label><input type="checkbox" data-server-mode="gungame" checked /> 枪械模式</label><label><input type="checkbox" data-server-mode="core" checked /> 核心攻防</label>
         </fieldset>
       </aside>
       <div class="server-results">
@@ -176,9 +153,6 @@
       <span class="mode-party-slot"></span>
       <span class="mode-party-slot"></span>
     </aside>
-    <button type="button" class="mode-back" data-mode-action="close">
-      <span aria-hidden="true">‹</span> 返回
-    </button>
   </div>
   <button id="pvp-create-btn" type="button" class="hidden" aria-hidden="true"></button>
   <button id="pvp-open-join-btn" type="button" class="hidden" aria-hidden="true"></button>
@@ -961,8 +935,8 @@
           </span>
         </div>
         <div class="squad-intro-ready">
-          <strong>小队集结 · 4/4</strong>
-          <small>进入战场 <b id="squad-intro-countdown">5</b></small>
+          <strong id="squad-intro-title">小队部署</strong>
+          <small id="squad-intro-summary">支援编组预览</small>
         </div>
         <div class="squad-intro-faction">
           <span>
@@ -971,24 +945,29 @@
           </span>
           <i aria-hidden="true"></i>
         </div>
+        <button type="button" id="squad-intro-back" class="squad-intro-back">← 返回兵种</button>
       </header>
+      <p class="squad-deploy-countdown"><b id="squad-intro-countdown">3</b> 秒后自动进入战场</p>
 
       <main class="squad-intro-stage">
         <canvas id="squad-intro-canvas" width="1280" height="720"></canvas>
-        <div class="squad-intro-cards" id="squad-intro-cards"></div>
       </main>
+      <div class="squad-intro-cards" id="squad-intro-cards"></div>
 
       <footer class="squad-intro-footer">
         <div class="squad-intro-current">
-          <span>当前兵种</span>
+          <span>你的装备</span>
           <strong id="squad-intro-current-class">突击兵</strong>
         </div>
         <div class="squad-intro-loadout" id="squad-intro-loadout"></div>
+        <div class="squad-intro-actions">
         <button type="button" id="squad-intro-customize" class="squad-intro-customize">
-          <kbd>X</kbd><span>自订</span>
+          <kbd>X</kbd><span>调整装备</span>
         </button>
-        <button type="button" id="squad-intro-back" class="squad-intro-back">返回兵种</button>
-        <button type="button" id="squad-intro-skip" class="squad-intro-skip">进入战场</button>
+        <button type="button" id="squad-intro-skip" class="squad-intro-skip">立即进入战场</button>
+          <small class="squad-action-hint">可跳过小队展示，无需等待其他玩家</small>
+        </div>
+        <small id="squad-deploy-note" class="squad-deploy-note">真人加入后替换 AI 席位</small>
       </footer>
     </div>
   </div>
@@ -1490,7 +1469,7 @@
        + SkeletonUtils + EXRLoader/RGBELoader (built by scripts/three-global-entry.js) -->
   <script src="js/vendor/three.gltf.global.js?v=rifle1"></script>
   <!-- PeerJS for PVP rooms (WebRTC) -->
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="js/vendor/peerjs-1.5.4.min.js"></script>
 
   <!-- Game modules (order matters) -->
   <!-- feel-config.js: KEEP on production (baked feel numbers) -->
@@ -1545,14 +1524,16 @@
   <script src="js/match-flow.js?v=scorch3"></script>
   <script src="js/soldier-menu.js?v=wepammo1"></script>
   <script src="js/arsenal.js?v=infantryhud1"></script>
-  <script src="js/ui.js?v=faction-mesh1"></script>
+  <script src="js/ui.js?v=navigation2"></script>
   <script src="js/audio.js?v=sfx5"></script>
   <script src="js/vehicle-effects.js?v=sfx2"></script>
   <script src="js/atmosphere.js?v=scorch3"></script>
   <script src="js/config.js?v=scorch3"></script>
   <script src="js/kubee-bridge.js?v=scorch3"></script>
   <script src="js/pvp.js?v=faction-mesh1"></script>
-  <script src="js/main.js?v=game-entry1"></script>
+  <script src="js/deployment-presentation.js?v=original-art1"></script>
+  <script src="js/frontline-ui.js?v=6"></script>
+  <script src="js/main.js?v=navigation2"></script>
   <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
   <script src="js/feel-tuner.js?v=move2"></script>
   <!-- render-tuner.js: F9 后处理参数调节（生产环境删除） -->

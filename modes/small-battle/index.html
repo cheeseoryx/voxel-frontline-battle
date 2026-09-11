@@ -5,10 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>小型战斗 · 体素战争</title>
   <style>.hidden{display:none!important}#start-overlay{position:fixed;inset:0;z-index:1000;background:#1a1008}</style>
-  <script src="../../js/game-entry.js?v=1" defer></script>
+  <script src="../../js/game-entry.js?v=navigation3"></script>
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="../../styles/deployment-base.css?v=2" />
+  <link rel="stylesheet" href="../../styles/frontline-ui.css?v=3" />
+  <link rel="stylesheet" href="../../styles/preview-fidelity.css?v=original-art1" />
+  <link rel="stylesheet" href="../../styles/squad-ui.css?v=2" />
 </head>
-<body>
+<body data-game-runtime="small">
   <div id="throw-flash" aria-hidden="true"></div>
   <div id="throw-stun" aria-hidden="true"></div>
   <div id="throw-smoke-veil" aria-hidden="true"></div>
@@ -24,11 +28,11 @@
       <p class="cover-tagline">BUILD · FIGHT · CAPTURE</p>
     </div>
     <div class="cover-ui">
-      <button id="enter-hub-btn" type="button" class="cover-btn cover-btn-start">
+      <button id="enter-hub-btn" type="button" disabled class="cover-btn cover-btn-start">
         <span class="cover-btn-icon play" aria-hidden="true"></span>
         <span>小型战斗 · 加载中…</span>
       </button>
-      <button type="button" class="cover-btn" data-game-entry="home"><span>返回模式选择</span></button>
+      <button type="button" class="cover-btn" data-game-entry="lobby"><span>返回模式选择</span></button>
       <button id="quit-btn" type="button" class="cover-btn cover-btn-quit">
         <span class="cover-btn-icon stop" aria-hidden="true"></span>
         <span>结束游戏</span>
@@ -716,106 +720,136 @@
   </div>
 
   <!-- Character select -->
-  <div id="class-overlay" class="hidden">
-    <div class="class-panel class-panel-flat">
-      <header class="class-header">
-        <h2>选择角色</h2>
-        <p class="class-lead">点选右侧头像预览 · 确认后进入落点</p>
-      </header>
-      <div class="class-body">
-        <div class="class-stage" id="class-stage">
-          <canvas id="class-stage-canvas" width="480" height="640"></canvas>
-          <div class="class-stage-role" id="class-stage-role" aria-hidden="true">
-            <span class="class-stage-role-label">角色定位</span>
-            <span class="class-stage-role-text" id="class-stage-role-text"></span>
-          </div>
-          <div class="class-stage-skills hidden" id="class-stage-skills">
-            <div class="class-skill-slot" id="class-skill-active" data-skill-kind="active" tabindex="0">
-              <div class="skill-icon-wrap">
-                <div class="skill-icon skill-icon-c4" data-skill-icon="vanguard" aria-hidden="true">
-                  <span class="c4-body"></span>
-                  <span class="c4-band"></span>
-                  <span class="c4-led"></span>
-                </div>
-                <div class="skill-icon skill-icon-heal hidden" data-skill-icon="medic" aria-hidden="true">
-                  <span class="heal-box"></span>
-                  <span class="heal-cross-h"></span>
-                  <span class="heal-cross-v"></span>
-                </div>
-                <div class="skill-icon skill-icon-cloak hidden" data-skill-icon="ghost" aria-hidden="true">
-                  <span class="cloak-ring"></span>
-                  <span class="cloak-eye"></span>
-                  <span class="cloak-slash"></span>
-                </div>
-                <div class="skill-icon skill-icon-riot hidden" data-skill-icon="juggernaut" aria-hidden="true">
-                  <span class="riot-plate"></span>
-                  <span class="riot-glow"></span>
-                  <span class="riot-stripe"></span>
-                </div>
-                <div class="skill-icon skill-icon-emp hidden" data-skill-icon="raider" aria-hidden="true">
-                  <span class="emp-core"></span>
-                  <span class="emp-ring"></span>
-                  <span class="emp-bolt"></span>
-                </div>
-                <div class="skill-icon skill-icon-turret hidden" data-skill-icon="engineer" aria-hidden="true">
-                  <span class="turret-base"></span>
-                  <span class="turret-gun"></span>
-                  <span class="turret-barrel"></span>
-                </div>
-              </div>
-              <div class="skill-keybind">G</div>
-            </div>
-            <div class="class-skill-slot" id="class-skill-passive" data-skill-kind="passive" tabindex="0">
-              <div class="skill-icon-wrap">
-                <div class="skill-icon skill-icon-passive" data-skill-icon="vanguard" aria-hidden="true">
-                  <span class="pas-reload"></span>
-                  <span class="pas-boost"></span>
-                </div>
-                <div class="skill-icon skill-icon-shield hidden" data-skill-icon="medic" aria-hidden="true">
-                  <span class="shield-body"></span>
-                  <span class="shield-plus"></span>
-                </div>
-                <div class="skill-icon skill-icon-backstab hidden" data-skill-icon="ghost" aria-hidden="true">
-                  <span class="stab-blade"></span>
-                  <span class="stab-hilt"></span>
-                  <span class="stab-mark"></span>
-                </div>
-                <div class="skill-icon skill-icon-armor hidden" data-skill-icon="juggernaut" aria-hidden="true">
-                  <span class="armor-plate"></span>
-                  <span class="armor-bolt"></span>
-                </div>
-                <div class="skill-icon skill-icon-loot hidden" data-skill-icon="raider" aria-hidden="true">
-                  <span class="loot-box"></span>
-                  <span class="loot-plus"></span>
-                </div>
-                <div class="skill-icon skill-icon-buildpass hidden" data-skill-icon="engineer" aria-hidden="true">
-                  <span class="build-brick"></span>
-                  <span class="build-shield"></span>
-                </div>
-              </div>
-              <div class="skill-keybind skill-keybind-passive">被动</div>
-            </div>
-            <div class="class-skill-tip hidden" id="class-skill-tip" role="tooltip">
-              <strong class="class-skill-tip-name" id="class-skill-tip-name"></strong>
-              <span class="class-skill-tip-desc" id="class-skill-tip-desc"></span>
-            </div>
-          </div>
-          <p class="class-stage-placeholder" id="class-stage-placeholder">点击右侧头像预览全身</p>
-          <p class="class-stage-name" id="class-stage-name"></p>
+  <div id="class-overlay" class="hidden" role="dialog" aria-label="首次部署">
+    <div class="class-deploy-shell">
+      <div class="class-deploy-backdrop" aria-hidden="true"></div>
+      <header class="class-deploy-top">
+        <div class="class-deploy-map">
+          <span class="class-deploy-mode-mark" aria-hidden="true"></span>
+          <span>
+            <strong id="class-deploy-map-name">荒盆</strong>
+            <small id="class-deploy-mode-name">征服 · 32 VS 32</small>
+          </span>
         </div>
+        <div class="class-deploy-population">
+          <strong id="class-deploy-player-count">64/64 玩家</strong>
+          <small id="class-deploy-player-state">比赛即将开始</small>
+        </div>
+        <div class="class-deploy-faction">
+          <span>
+            <strong id="class-deploy-faction-name">和平军团</strong>
+            <small>作战编制已就绪</small>
+          </span>
+          <i aria-hidden="true"></i>
+        </div>
+      </header>
+
+      <aside class="class-deploy-brief">
+        <span class="class-deploy-eyebrow">兵种简报</span>
+        <h1 class="class-stage-name" id="class-stage-name">突击兵</h1>
+        <div class="class-stage-role" id="class-stage-role" aria-hidden="true">
+          <span class="class-stage-role-label">作战定位</span>
+          <span class="class-stage-role-text" id="class-stage-role-text"></span>
+        </div>
+        <p class="class-deploy-blurb" id="class-deploy-blurb"></p>
+        <div class="class-stage-skills hidden" id="class-stage-skills">
+          <div class="class-skill-slot" id="class-skill-active" data-skill-kind="active" tabindex="0">
+            <span class="class-deploy-feature-icon">G</span>
+            <span class="class-deploy-feature-copy">
+              <strong id="class-skill-active-name">主动技能</strong>
+              <small id="class-skill-active-desc"></small>
+            </span>
+          </div>
+          <div class="class-skill-slot" id="class-skill-passive" data-skill-kind="passive" tabindex="0">
+            <span class="class-deploy-feature-icon passive">◆</span>
+            <span class="class-deploy-feature-copy">
+              <strong id="class-skill-passive-name">被动特性</strong>
+              <small id="class-skill-passive-desc"></small>
+            </span>
+          </div>
+          <div class="class-skill-tip hidden" id="class-skill-tip" role="tooltip">
+            <strong class="class-skill-tip-name" id="class-skill-tip-name"></strong>
+            <span class="class-skill-tip-desc" id="class-skill-tip-desc"></span>
+          </div>
+        </div>
+        <p class="class-deploy-inspect">点击武器栏更换装备 · <kbd>C</kbd> 打开装备</p>
+      </aside>
+
+      <main class="class-stage" id="class-stage">
+        <span class="class-deploy-stage-glow" aria-hidden="true"></span>
+        <canvas id="class-stage-canvas" width="640" height="760"></canvas>
+        <p class="class-stage-placeholder" id="class-stage-placeholder">请选择兵种</p>
+      </main>
+
+      <footer class="class-deploy-footer">
+        <span class="class-deploy-select-label">选择兵种</span>
         <div class="class-list" id="class-grid"></div>
-      </div>
-      <div class="class-actions">
-        <button id="class-cancel-btn" type="button" class="cover-btn">返回</button>
-        <button id="class-confirm-btn" type="button" class="cover-btn cover-btn-start" disabled>
-          <span class="cover-btn-icon play" aria-hidden="true"></span>
-          <span>确认角色</span>
-        </button>
-      </div>
+        <div class="class-deploy-current-loadout">
+          <span>当前装备</span>
+          <div class="class-deploy-loadout" id="class-deploy-loadout"></div>
+        </div>
+        <div class="class-actions">
+          <button id="class-cancel-btn" type="button" class="class-deploy-back">
+            <kbd>ESC</kbd><span>返回</span>
+          </button>
+          <button id="class-confirm-btn" type="button" class="class-deploy-confirm" disabled>
+            <span>部署</span>
+          </button>
+        </div>
+      </footer>
     </div>
   </div>
 
-  <!-- Shooting range HUD -->
+  <!-- Squad introduction shown between class selection and the match -->
+  <div id="squad-intro-overlay" class="hidden" role="dialog" aria-label="小队集结">
+    <div class="squad-intro-shell">
+      <div class="squad-intro-backdrop" aria-hidden="true"></div>
+      <header class="squad-intro-top">
+        <div class="squad-intro-map">
+          <span class="class-deploy-mode-mark" aria-hidden="true"></span>
+          <span>
+            <strong id="squad-intro-map-name">荒盆</strong>
+            <small id="squad-intro-mode-name">征服 · 32 VS 32</small>
+          </span>
+        </div>
+        <div class="squad-intro-ready">
+          <strong id="squad-intro-title">小队部署</strong>
+          <small id="squad-intro-summary">支援编组预览</small>
+        </div>
+        <div class="squad-intro-faction">
+          <span>
+            <strong id="squad-intro-faction-name">和平军团</strong>
+            <small>阿尔法小队</small>
+          </span>
+          <i aria-hidden="true"></i>
+        </div>
+        <button type="button" id="squad-intro-back" class="squad-intro-back">← 返回兵种</button>
+      </header>
+      <p class="squad-deploy-countdown"><b id="squad-intro-countdown">3</b> 秒后自动进入战场</p>
+
+      <main class="squad-intro-stage">
+        <canvas id="squad-intro-canvas" width="1280" height="720"></canvas>
+      </main>
+      <div class="squad-intro-cards" id="squad-intro-cards"></div>
+
+      <footer class="squad-intro-footer">
+        <div class="squad-intro-current">
+          <span>你的装备</span>
+          <strong id="squad-intro-current-class">突击兵</strong>
+        </div>
+        <div class="squad-intro-loadout" id="squad-intro-loadout"></div>
+        <div class="squad-intro-actions">
+        <button type="button" id="squad-intro-customize" class="squad-intro-customize">
+          <kbd>X</kbd><span>调整装备</span>
+        </button>
+        <button type="button" id="squad-intro-skip" class="squad-intro-skip">立即进入战场</button>
+          <small class="squad-action-hint">可跳过小队展示，无需等待其他玩家</small>
+        </div>
+        <small id="squad-deploy-note" class="squad-deploy-note">真人加入后替换 AI 席位</small>
+      </footer>
+    </div>
+  </div>
+
   <div id="range-overlay" class="hidden">
     <div class="range-hud">
       <p class="range-title">射击靶场</p>
@@ -1047,7 +1081,7 @@
   <!-- Three.js (global THREE) — works with file:// -->
   <script src="../../js/vendor/three.gltf.global.js?v=rifle1"></script>
   <!-- PeerJS for 1v1 PVP rooms (WebRTC) -->
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="../../js/vendor/peerjs-1.5.4.min.js"></script>
 
   <!-- Game modules (order matters) -->
   <!-- feel-config.js: KEEP on production (baked feel numbers) -->
@@ -1074,7 +1108,7 @@
   <script src="js/ffa-ui.js"></script>
   <script src="js/gg-match.js"></script>
   <script src="js/gg-ui.js"></script>
-  <script src="js/voxel-world.js"></script>
+  <script src="js/voxel-world.js?v=navigation2"></script>
   <script src="js/pve-district.js"></script>
   <script src="js/terrain-fine.js"></script>
   <script src="js/world-outskirts.js"></script>
@@ -1104,7 +1138,10 @@
   <script src="js/config.js"></script>
   <script src="js/kubee-bridge.js"></script>
   <script src="js/pvp.js"></script>
-  <script src="js/main.js"></script>
+  <script src="../../js/deployment-presentation.js?v=original-art1"></script>
+  <script src="../../js/frontline-ui.js?v=6"></script>
+  <script src="../../js/small-quickmatch.js?v=navigation3"></script>
+  <script src="js/main.js?v=navigation2"></script>
   <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
   <script src="js/maps/dust2-default.js"></script>
   <script src="js/feel-tuner.js"></script>

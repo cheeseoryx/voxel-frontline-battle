@@ -79,7 +79,8 @@
 
   /** Local human, plus the networked opponent in a 1v1 room. */
   function teamlessHumanSlots() {
-    return global.VF.game && global.VF.game.mode === 'pvp' ? 2 : 1;
+    const p = global.VF.Pvp;
+    return p && p.quickSession ? 1 + p.remoteHumanSlots() : global.VF.game && global.VF.game.mode === 'pvp' ? 2 : 1;
   }
 
   /** AI headcount so the board stays at `combatants` including humans. */
@@ -777,7 +778,8 @@
       teamSize = faction === 'ally' ? 0 : teamlessAiCount();
     } else {
       // 玩家本身占本阵营一个名额，AI 少生成一个，保证含玩家在内为满编
-      const reserve = hasPlayer && faction === playerTeam ? 1 : 0;
+      const pvp = global.VF.Pvp;
+      const reserve = (hasPlayer && faction === playerTeam ? 1 : 0) + (pvp && pvp.remoteHumanSlots ? pvp.remoteHumanSlots(faction) : 0);
       teamSize = Math.max(0, modeTeamSize() - reserve);
     }
     const types = this._mixTypes(teamSize);
