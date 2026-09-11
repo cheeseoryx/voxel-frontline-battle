@@ -1,0 +1,138 @@
+{
+  "designVersion": "1.0",
+  "bosses": [
+    {
+      "id": "boss_loader",
+      "map": "m01",
+      "name": "装卸队长",
+      "hp": 240,
+      "armor": "armor_q3",
+      "helmet": "helmet_q2",
+      "weaponBase": "lmg",
+      "warningSeconds": 1,
+      "fireWindowSeconds": 3,
+      "reloadWindowSeconds": 3,
+      "guards": 2,
+      "guaranteedLoot": "valuable_archive",
+      "weaponQualityWeights": {
+        "q3": 40,
+        "q4": 60
+      },
+      "optional": true
+    },
+    {
+      "id": "boss_observer",
+      "map": "m02",
+      "name": "海关观察员",
+      "hp": 220,
+      "armor": "armor_q3",
+      "helmet": "helmet_q3",
+      "weaponBase": "dmr",
+      "warningSeconds": 1.2,
+      "burstShots": 2,
+      "repositionAfterBurst": true,
+      "guards": 2,
+      "guaranteedLoot": "valuable_gold_badge",
+      "weaponQualityWeights": {
+        "q3": 40,
+        "q4": 60
+      },
+      "optional": true
+    },
+    {
+      "id": "boss_defender",
+      "map": "m03",
+      "name": "厂区防卫官",
+      "hp": 280,
+      "armor": "armor_q4",
+      "helmet": "helmet_q2",
+      "weaponBase": "heavy_assault",
+      "warningSeconds": 1,
+      "grenadeCooldownSeconds": 10,
+      "maxGrenades": 3,
+      "guards": 2,
+      "guaranteedLoot": "valuable_server_core",
+      "weaponQualityWeights": {
+        "q3": 40,
+        "q4": 60
+      },
+      "optional": true
+    }
+  ],
+  "events": [
+    {
+      "id": "convoy",
+      "name": "物资搬运队",
+      "extraEnemies": 2,
+      "maxPerRun": 1,
+      "description": "预告线路、有限护卫；箱到终点保留",
+      "durationSeconds": null
+    },
+    {
+      "id": "search",
+      "name": "临时搜查",
+      "extraEnemies": 0,
+      "description": "重新调度现有巡逻",
+      "durationSeconds": 180
+    },
+    {
+      "id": "blackout",
+      "name": "局部断电",
+      "extraEnemies": 0,
+      "description": "指定区域照明关闭，不能关闭交互或出口",
+      "durationSeconds": 300
+    },
+    {
+      "id": "rain",
+      "name": "暴雨经过",
+      "extraEnemies": 0,
+      "description": "双方视距和脚步听距乘0.8",
+      "durationSeconds": 180
+    },
+    {
+      "id": "rescue_signal",
+      "name": "救援信号",
+      "extraEnemies": 0,
+      "description": "10秒交互得到补给，无强制波次",
+      "durationSeconds": null
+    },
+    {
+      "id": "leak",
+      "name": "危险泄漏",
+      "extraEnemies": 0,
+      "description": "10秒预警后局部危险区，避开必要锚点",
+      "durationSeconds": 120
+    }
+  ],
+  "eventLimits": {
+    "maxEvents": 2,
+    "earliestSeconds": 180,
+    "minGapSeconds": 300,
+    "maxExtraEnemies": 2
+  },
+  "aiAmmoBudget": {
+    "light": {
+      "magazines": 4
+    },
+    "rifle": {
+      "magazines": 4
+    },
+    "heavy": {
+      "magazines": 4
+    },
+    "shell": {
+      "magazines": 4
+    },
+    "refill": false
+  },
+  "categoryLabels": {
+    "weapon": "枪械",
+    "equipment": "装备",
+    "ammo": "弹药",
+    "recovery": "恢复品",
+    "throwable": "投掷物",
+    "utility": "工程与通行物",
+    "objective": "合同物",
+    "valuable": "计分战利品"
+  }
+}

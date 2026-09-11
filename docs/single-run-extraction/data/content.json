@@ -1,0 +1,3417 @@
+{
+  "schemaVersion": 1,
+  "designVersion": "1.0",
+  "status": "design_initial_values_not_implemented",
+  "date": "2026-09-11",
+  "modeId": "extraction",
+  "noMetaProgression": true,
+  "noAttachments": true,
+  "currency": false,
+  "qualities": [
+    {
+      "id": "q1",
+      "name": "普通",
+      "mark": "I",
+      "damage": 1,
+      "recoil": 1,
+      "spread": 1,
+      "reload": 1,
+      "armorDR": 0.1,
+      "helmetDR": 0.1,
+      "capacity": 12
+    },
+    {
+      "id": "q2",
+      "name": "精良",
+      "mark": "II",
+      "damage": 1.05,
+      "recoil": 0.92,
+      "spread": 0.95,
+      "reload": 0.97,
+      "armorDR": 0.18,
+      "helmetDR": 0.16,
+      "capacity": 16
+    },
+    {
+      "id": "q3",
+      "name": "优异",
+      "mark": "III",
+      "damage": 1.1,
+      "recoil": 0.84,
+      "spread": 0.9,
+      "reload": 0.94,
+      "armorDR": 0.24,
+      "helmetDR": 0.22,
+      "capacity": 20
+    },
+    {
+      "id": "q4",
+      "name": "卓越",
+      "mark": "IV",
+      "damage": 1.15,
+      "recoil": 0.76,
+      "spread": 0.85,
+      "reload": 0.9,
+      "armorDR": 0.3,
+      "helmetDR": 0.28,
+      "capacity": 24
+    }
+  ],
+  "weapons": [
+    {
+      "id": "pistol",
+      "name": "制式手枪",
+      "slot": "secondary",
+      "ammo": "light",
+      "damagePerProjectile": 24,
+      "rpm": 360,
+      "magazine": 12,
+      "reloadSeconds": 1.6,
+      "recoilVerticalDeg": 1.4,
+      "adsSpreadHalfAngleDeg": 0.4,
+      "falloffStartM": 20,
+      "falloffEndM": 60,
+      "projectilesPerShot": 1,
+      "penetration": 0,
+      "headMultiplier": 1.6,
+      "hipSpreadMultiplier": 2,
+      "scopeMultiplier": 1,
+      "fireMode": "semi",
+      "minFalloffMultiplier": 0.55
+    },
+    {
+      "id": "heavy_pistol",
+      "name": "重型手枪",
+      "slot": "secondary",
+      "ammo": "heavy",
+      "damagePerProjectile": 38,
+      "rpm": 240,
+      "magazine": 8,
+      "reloadSeconds": 1.9,
+      "recoilVerticalDeg": 2.2,
+      "adsSpreadHalfAngleDeg": 0.35,
+      "falloffStartM": 30,
+      "falloffEndM": 80,
+      "projectilesPerShot": 1,
+      "penetration": 0.18,
+      "headMultiplier": 1.6,
+      "hipSpreadMultiplier": 2,
+      "scopeMultiplier": 1,
+      "fireMode": "semi",
+      "minFalloffMultiplier": 0.55
+    },
+    {
+      "id": "compact_smg",
+      "name": "紧凑冲锋枪",
+      "slot": "primary",
+      "ammo": "light",
+      "damagePerProjectile": 18,
+      "rpm": 850,
+      "magazine": 30,
+      "reloadSeconds": 2,
+      "recoilVerticalDeg": 1,
+      "adsSpreadHalfAngleDeg": 0.65,
+      "falloffStartM": 15,
+      "falloffEndM": 55,
+      "projectilesPerShot": 1,
+      "penetration": 0,
+      "headMultiplier": 1.6,
+      "hipSpreadMultiplier": 2,
+      "scopeMultiplier": 1,
+      "fireMode": "auto",
+      "minFalloffMultiplier": 0.55
+    },
+    {
+      "id": "tactical_smg",
+      "name": "战术冲锋枪",
+      "slot": "primary",
+      "ammo": "light",
+      "damagePerProjectile": 20,
+      "rpm": 700,
+      "magazine": 30,
+      "reloadSeconds": 2.1,
+      "recoilVerticalDeg": 0.9,
+      "adsSpreadHalfAngleDeg": 0.5,
+      "falloffStartM": 20,
+      "falloffEndM": 65,
+      "projectilesPerShot": 1,
+      "penetration": 0,
+      "headMultiplier": 1.6,
+      "hipSpreadMultiplier": 2,
+      "scopeMultiplier": 1,
+      "fireMode": "auto",
+      "minFalloffMultiplier": 0.55
+    },
+    {
+      "id": "assault",
+      "name": "标准突击步枪",
+      "slot": "primary",
+      "ammo": "rifle",
+      "damagePerProjectile": 26,
+      "rpm": 600,
+      "magazine": 30,
+      "reloadSeconds": 2.4,
+      "recoilVerticalDeg": 1.6,
+      "adsSpreadHalfAngleDeg": 0.35,
+      "falloffStartM": 40,
+      "falloffEndM": 120,
+      "projectilesPerShot": 1,
+      "penetration": 0.1,
+      "headMultiplier": 1.6,
+      "hipSpreadMultiplier": 2,
+      "scopeMultiplier": 1,
+      "fireMode": "auto",
+      "minFalloffMultiplier": 0.55
+    },
+    {
+      "id": "short_assault",
+      "name": "短突击步枪",
+      "slot": "primary",
+      "ammo": "rifle",
+      "damagePerProjectile": 24,
+      "rpm": 720,
+      "magazine": 30,
+      "reloadSeconds": 2.1,
+      "recoilVerticalDeg": 1.8,
+      "adsSpreadHalfAngleDeg": 0.45,
+      "falloffStartM": 30,
+      "falloffEndM": 95,
+      "projectilesPerShot": 1,
+      "penetration": 0.1,
+      "headMultiplier": 1.6,
+      "hipSpreadMultiplier": 2,
+      "scopeMultiplier": 1,
+      "fireMode": "auto",
+      "minFalloffMultiplier": 0.55
+    },
+    {
+      "id": "heavy_assault",
+      "name": "重突击步枪",
+      "slot": "primary",
+      "ammo": "rifle",
+      "damagePerProjectile": 30,
+      "rpm": 480,
+      "magazine": 20,
+      "reloadSeconds": 2.7,
+      "recoilVerticalDeg": 2,
+      "adsSpreadHalfAngleDeg": 0.35,
+      "falloffStartM": 50,
+      "falloffEndM": 135,
+      "projectilesPerShot": 1,
+      "penetration": 0.1,
+      "headMultiplier": 1.6,
+      "hipSpreadMultiplier": 2,
+      "scopeMultiplier": 1,
+      "fireMode": "auto",
+      "minFalloffMultiplier": 0.55
+    },
+    {
+      "id": "lmg",
+      "name": "轻机枪",
+      "slot": "primary",
+      "ammo": "rifle",
+      "damagePerProjectile": 24,
+      "rpm": 650,
+      "magazine": 60,
+      "reloadSeconds": 4,
+      "recoilVerticalDeg": 1.8,
+      "adsSpreadHalfAngleDeg": 0.55,
+      "falloffStartM": 45,
+      "falloffEndM": 130,
+      "projectilesPerShot": 1,
+      "penetration": 0.1,
+      "headMultiplier": 1.6,
+      "hipSpreadMultiplier": 2,
+      "scopeMultiplier": 1,
+      "fireMode": "auto",
+      "minFalloffMultiplier": 0.55
+    },
+    {
+      "id": "dmr",
+      "name": "精确射手步枪",
+      "slot": "primary",
+      "ammo": "heavy",
+      "damagePerProjectile": 42,
+      "rpm": 180,
+      "magazine": 10,
+      "reloadSeconds": 2.5,
+      "recoilVerticalDeg": 2.3,
+      "adsSpreadHalfAngleDeg": 0.2,
+      "falloffStartM": 70,
+      "falloffEndM": 180,
+      "projectilesPerShot": 1,
+      "penetration": 0.18,
+      "headMultiplier": 1.6,
+      "hipSpreadMultiplier": 2,
+      "scopeMultiplier": 1,
+      "fireMode": "semi",
+      "minFalloffMultiplier": 0.55
+    },
+    {
+      "id": "bolt",
+      "name": "栓动步枪",
+      "slot": "primary",
+      "ammo": "heavy",
+      "damagePerProjectile": 76,
+      "rpm": 45,
+      "magazine": 5,
+      "reloadSeconds": 3,
+      "recoilVerticalDeg": 3.2,
+      "adsSpreadHalfAngleDeg": 0.1,
+      "falloffStartM": 90,
+      "falloffEndM": 220,
+      "projectilesPerShot": 1,
+      "penetration": 0.18,
+      "headMultiplier": 1.6,
+      "hipSpreadMultiplier": 2,
+      "scopeMultiplier": 3,
+      "fireMode": "cycle",
+      "minFalloffMultiplier": 0.55
+    },
+    {
+      "id": "pump",
+      "name": "泵动霰弹枪",
+      "slot": "primary",
+      "ammo": "shell",
+      "damagePerProjectile": 8,
+      "rpm": 70,
+      "magazine": 6,
+      "reloadSeconds": 3.5,
+      "recoilVerticalDeg": 3,
+      "adsSpreadHalfAngleDeg": 3,
+      "falloffStartM": 8,
+      "falloffEndM": 35,
+      "projectilesPerShot": 8,
+      "penetration": 0,
+      "headMultiplier": 1.15,
+      "hipSpreadMultiplier": 1.1,
+      "scopeMultiplier": 1,
+      "fireMode": "cycle",
+      "minFalloffMultiplier": 0.55
+    },
+    {
+      "id": "auto_shotgun",
+      "name": "半自动霰弹枪",
+      "slot": "primary",
+      "ammo": "shell",
+      "damagePerProjectile": 7,
+      "rpm": 180,
+      "magazine": 8,
+      "reloadSeconds": 3.1,
+      "recoilVerticalDeg": 2.8,
+      "adsSpreadHalfAngleDeg": 3.4,
+      "falloffStartM": 8,
+      "falloffEndM": 32,
+      "projectilesPerShot": 8,
+      "penetration": 0,
+      "headMultiplier": 1.15,
+      "hipSpreadMultiplier": 1.1,
+      "scopeMultiplier": 1,
+      "fireMode": "semi",
+      "minFalloffMultiplier": 0.55
+    }
+  ],
+  "items": [
+    {
+      "id": "weapon_pistol_q1",
+      "name": "普通·制式手枪",
+      "category": "weapon",
+      "quality": "q1",
+      "baseId": "pistol",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "secondary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 24,
+        "recoilVerticalDeg": 1.4,
+        "adsSpreadHalfAngleDeg": 0.4,
+        "reloadSeconds": 1.6,
+        "ammo": "light",
+        "magazine": 12,
+        "rpm": 360,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_pistol_q2",
+      "name": "精良·制式手枪",
+      "category": "weapon",
+      "quality": "q2",
+      "baseId": "pistol",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "secondary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 25.2,
+        "recoilVerticalDeg": 1.288,
+        "adsSpreadHalfAngleDeg": 0.38,
+        "reloadSeconds": 1.552,
+        "ammo": "light",
+        "magazine": 12,
+        "rpm": 360,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_pistol_q3",
+      "name": "优异·制式手枪",
+      "category": "weapon",
+      "quality": "q3",
+      "baseId": "pistol",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "secondary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 26.4,
+        "recoilVerticalDeg": 1.176,
+        "adsSpreadHalfAngleDeg": 0.36,
+        "reloadSeconds": 1.504,
+        "ammo": "light",
+        "magazine": 12,
+        "rpm": 360,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_pistol_q4",
+      "name": "卓越·制式手枪",
+      "category": "weapon",
+      "quality": "q4",
+      "baseId": "pistol",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "secondary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 27.6,
+        "recoilVerticalDeg": 1.064,
+        "adsSpreadHalfAngleDeg": 0.34,
+        "reloadSeconds": 1.44,
+        "ammo": "light",
+        "magazine": 12,
+        "rpm": 360,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_heavy_pistol_q1",
+      "name": "普通·重型手枪",
+      "category": "weapon",
+      "quality": "q1",
+      "baseId": "heavy_pistol",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "secondary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 38,
+        "recoilVerticalDeg": 2.2,
+        "adsSpreadHalfAngleDeg": 0.35,
+        "reloadSeconds": 1.9,
+        "ammo": "heavy",
+        "magazine": 8,
+        "rpm": 240,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_heavy_pistol_q2",
+      "name": "精良·重型手枪",
+      "category": "weapon",
+      "quality": "q2",
+      "baseId": "heavy_pistol",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "secondary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 39.9,
+        "recoilVerticalDeg": 2.024,
+        "adsSpreadHalfAngleDeg": 0.332,
+        "reloadSeconds": 1.843,
+        "ammo": "heavy",
+        "magazine": 8,
+        "rpm": 240,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_heavy_pistol_q3",
+      "name": "优异·重型手枪",
+      "category": "weapon",
+      "quality": "q3",
+      "baseId": "heavy_pistol",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "secondary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 41.8,
+        "recoilVerticalDeg": 1.848,
+        "adsSpreadHalfAngleDeg": 0.315,
+        "reloadSeconds": 1.786,
+        "ammo": "heavy",
+        "magazine": 8,
+        "rpm": 240,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_heavy_pistol_q4",
+      "name": "卓越·重型手枪",
+      "category": "weapon",
+      "quality": "q4",
+      "baseId": "heavy_pistol",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "secondary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 43.7,
+        "recoilVerticalDeg": 1.672,
+        "adsSpreadHalfAngleDeg": 0.297,
+        "reloadSeconds": 1.71,
+        "ammo": "heavy",
+        "magazine": 8,
+        "rpm": 240,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_compact_smg_q1",
+      "name": "普通·紧凑冲锋枪",
+      "category": "weapon",
+      "quality": "q1",
+      "baseId": "compact_smg",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 18,
+        "recoilVerticalDeg": 1,
+        "adsSpreadHalfAngleDeg": 0.65,
+        "reloadSeconds": 2,
+        "ammo": "light",
+        "magazine": 30,
+        "rpm": 850,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_compact_smg_q2",
+      "name": "精良·紧凑冲锋枪",
+      "category": "weapon",
+      "quality": "q2",
+      "baseId": "compact_smg",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 18.9,
+        "recoilVerticalDeg": 0.92,
+        "adsSpreadHalfAngleDeg": 0.617,
+        "reloadSeconds": 1.94,
+        "ammo": "light",
+        "magazine": 30,
+        "rpm": 850,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_compact_smg_q3",
+      "name": "优异·紧凑冲锋枪",
+      "category": "weapon",
+      "quality": "q3",
+      "baseId": "compact_smg",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 19.8,
+        "recoilVerticalDeg": 0.84,
+        "adsSpreadHalfAngleDeg": 0.585,
+        "reloadSeconds": 1.88,
+        "ammo": "light",
+        "magazine": 30,
+        "rpm": 850,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_compact_smg_q4",
+      "name": "卓越·紧凑冲锋枪",
+      "category": "weapon",
+      "quality": "q4",
+      "baseId": "compact_smg",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 20.7,
+        "recoilVerticalDeg": 0.76,
+        "adsSpreadHalfAngleDeg": 0.552,
+        "reloadSeconds": 1.8,
+        "ammo": "light",
+        "magazine": 30,
+        "rpm": 850,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_tactical_smg_q1",
+      "name": "普通·战术冲锋枪",
+      "category": "weapon",
+      "quality": "q1",
+      "baseId": "tactical_smg",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 20,
+        "recoilVerticalDeg": 0.9,
+        "adsSpreadHalfAngleDeg": 0.5,
+        "reloadSeconds": 2.1,
+        "ammo": "light",
+        "magazine": 30,
+        "rpm": 700,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_tactical_smg_q2",
+      "name": "精良·战术冲锋枪",
+      "category": "weapon",
+      "quality": "q2",
+      "baseId": "tactical_smg",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 21,
+        "recoilVerticalDeg": 0.828,
+        "adsSpreadHalfAngleDeg": 0.475,
+        "reloadSeconds": 2.037,
+        "ammo": "light",
+        "magazine": 30,
+        "rpm": 700,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_tactical_smg_q3",
+      "name": "优异·战术冲锋枪",
+      "category": "weapon",
+      "quality": "q3",
+      "baseId": "tactical_smg",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 22,
+        "recoilVerticalDeg": 0.756,
+        "adsSpreadHalfAngleDeg": 0.45,
+        "reloadSeconds": 1.974,
+        "ammo": "light",
+        "magazine": 30,
+        "rpm": 700,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_tactical_smg_q4",
+      "name": "卓越·战术冲锋枪",
+      "category": "weapon",
+      "quality": "q4",
+      "baseId": "tactical_smg",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 23,
+        "recoilVerticalDeg": 0.684,
+        "adsSpreadHalfAngleDeg": 0.425,
+        "reloadSeconds": 1.89,
+        "ammo": "light",
+        "magazine": 30,
+        "rpm": 700,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_assault_q1",
+      "name": "普通·标准突击步枪",
+      "category": "weapon",
+      "quality": "q1",
+      "baseId": "assault",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 26,
+        "recoilVerticalDeg": 1.6,
+        "adsSpreadHalfAngleDeg": 0.35,
+        "reloadSeconds": 2.4,
+        "ammo": "rifle",
+        "magazine": 30,
+        "rpm": 600,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_assault_q2",
+      "name": "精良·标准突击步枪",
+      "category": "weapon",
+      "quality": "q2",
+      "baseId": "assault",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 27.3,
+        "recoilVerticalDeg": 1.472,
+        "adsSpreadHalfAngleDeg": 0.332,
+        "reloadSeconds": 2.328,
+        "ammo": "rifle",
+        "magazine": 30,
+        "rpm": 600,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_assault_q3",
+      "name": "优异·标准突击步枪",
+      "category": "weapon",
+      "quality": "q3",
+      "baseId": "assault",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 28.6,
+        "recoilVerticalDeg": 1.344,
+        "adsSpreadHalfAngleDeg": 0.315,
+        "reloadSeconds": 2.256,
+        "ammo": "rifle",
+        "magazine": 30,
+        "rpm": 600,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_assault_q4",
+      "name": "卓越·标准突击步枪",
+      "category": "weapon",
+      "quality": "q4",
+      "baseId": "assault",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 29.9,
+        "recoilVerticalDeg": 1.216,
+        "adsSpreadHalfAngleDeg": 0.297,
+        "reloadSeconds": 2.16,
+        "ammo": "rifle",
+        "magazine": 30,
+        "rpm": 600,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_short_assault_q1",
+      "name": "普通·短突击步枪",
+      "category": "weapon",
+      "quality": "q1",
+      "baseId": "short_assault",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 24,
+        "recoilVerticalDeg": 1.8,
+        "adsSpreadHalfAngleDeg": 0.45,
+        "reloadSeconds": 2.1,
+        "ammo": "rifle",
+        "magazine": 30,
+        "rpm": 720,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_short_assault_q2",
+      "name": "精良·短突击步枪",
+      "category": "weapon",
+      "quality": "q2",
+      "baseId": "short_assault",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 25.2,
+        "recoilVerticalDeg": 1.656,
+        "adsSpreadHalfAngleDeg": 0.427,
+        "reloadSeconds": 2.037,
+        "ammo": "rifle",
+        "magazine": 30,
+        "rpm": 720,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_short_assault_q3",
+      "name": "优异·短突击步枪",
+      "category": "weapon",
+      "quality": "q3",
+      "baseId": "short_assault",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 26.4,
+        "recoilVerticalDeg": 1.512,
+        "adsSpreadHalfAngleDeg": 0.405,
+        "reloadSeconds": 1.974,
+        "ammo": "rifle",
+        "magazine": 30,
+        "rpm": 720,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_short_assault_q4",
+      "name": "卓越·短突击步枪",
+      "category": "weapon",
+      "quality": "q4",
+      "baseId": "short_assault",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 27.6,
+        "recoilVerticalDeg": 1.368,
+        "adsSpreadHalfAngleDeg": 0.383,
+        "reloadSeconds": 1.89,
+        "ammo": "rifle",
+        "magazine": 30,
+        "rpm": 720,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_heavy_assault_q1",
+      "name": "普通·重突击步枪",
+      "category": "weapon",
+      "quality": "q1",
+      "baseId": "heavy_assault",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 30,
+        "recoilVerticalDeg": 2,
+        "adsSpreadHalfAngleDeg": 0.35,
+        "reloadSeconds": 2.7,
+        "ammo": "rifle",
+        "magazine": 20,
+        "rpm": 480,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_heavy_assault_q2",
+      "name": "精良·重突击步枪",
+      "category": "weapon",
+      "quality": "q2",
+      "baseId": "heavy_assault",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 31.5,
+        "recoilVerticalDeg": 1.84,
+        "adsSpreadHalfAngleDeg": 0.332,
+        "reloadSeconds": 2.619,
+        "ammo": "rifle",
+        "magazine": 20,
+        "rpm": 480,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_heavy_assault_q3",
+      "name": "优异·重突击步枪",
+      "category": "weapon",
+      "quality": "q3",
+      "baseId": "heavy_assault",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 33,
+        "recoilVerticalDeg": 1.68,
+        "adsSpreadHalfAngleDeg": 0.315,
+        "reloadSeconds": 2.538,
+        "ammo": "rifle",
+        "magazine": 20,
+        "rpm": 480,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_heavy_assault_q4",
+      "name": "卓越·重突击步枪",
+      "category": "weapon",
+      "quality": "q4",
+      "baseId": "heavy_assault",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 34.5,
+        "recoilVerticalDeg": 1.52,
+        "adsSpreadHalfAngleDeg": 0.297,
+        "reloadSeconds": 2.43,
+        "ammo": "rifle",
+        "magazine": 20,
+        "rpm": 480,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_lmg_q1",
+      "name": "普通·轻机枪",
+      "category": "weapon",
+      "quality": "q1",
+      "baseId": "lmg",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 24,
+        "recoilVerticalDeg": 1.8,
+        "adsSpreadHalfAngleDeg": 0.55,
+        "reloadSeconds": 4,
+        "ammo": "rifle",
+        "magazine": 60,
+        "rpm": 650,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_lmg_q2",
+      "name": "精良·轻机枪",
+      "category": "weapon",
+      "quality": "q2",
+      "baseId": "lmg",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 25.2,
+        "recoilVerticalDeg": 1.656,
+        "adsSpreadHalfAngleDeg": 0.522,
+        "reloadSeconds": 3.88,
+        "ammo": "rifle",
+        "magazine": 60,
+        "rpm": 650,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_lmg_q3",
+      "name": "优异·轻机枪",
+      "category": "weapon",
+      "quality": "q3",
+      "baseId": "lmg",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 26.4,
+        "recoilVerticalDeg": 1.512,
+        "adsSpreadHalfAngleDeg": 0.495,
+        "reloadSeconds": 3.76,
+        "ammo": "rifle",
+        "magazine": 60,
+        "rpm": 650,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_lmg_q4",
+      "name": "卓越·轻机枪",
+      "category": "weapon",
+      "quality": "q4",
+      "baseId": "lmg",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 27.6,
+        "recoilVerticalDeg": 1.368,
+        "adsSpreadHalfAngleDeg": 0.468,
+        "reloadSeconds": 3.6,
+        "ammo": "rifle",
+        "magazine": 60,
+        "rpm": 650,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_dmr_q1",
+      "name": "普通·精确射手步枪",
+      "category": "weapon",
+      "quality": "q1",
+      "baseId": "dmr",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 42,
+        "recoilVerticalDeg": 2.3,
+        "adsSpreadHalfAngleDeg": 0.2,
+        "reloadSeconds": 2.5,
+        "ammo": "heavy",
+        "magazine": 10,
+        "rpm": 180,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_dmr_q2",
+      "name": "精良·精确射手步枪",
+      "category": "weapon",
+      "quality": "q2",
+      "baseId": "dmr",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 44.1,
+        "recoilVerticalDeg": 2.116,
+        "adsSpreadHalfAngleDeg": 0.19,
+        "reloadSeconds": 2.425,
+        "ammo": "heavy",
+        "magazine": 10,
+        "rpm": 180,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_dmr_q3",
+      "name": "优异·精确射手步枪",
+      "category": "weapon",
+      "quality": "q3",
+      "baseId": "dmr",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 46.2,
+        "recoilVerticalDeg": 1.932,
+        "adsSpreadHalfAngleDeg": 0.18,
+        "reloadSeconds": 2.35,
+        "ammo": "heavy",
+        "magazine": 10,
+        "rpm": 180,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_dmr_q4",
+      "name": "卓越·精确射手步枪",
+      "category": "weapon",
+      "quality": "q4",
+      "baseId": "dmr",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 48.3,
+        "recoilVerticalDeg": 1.748,
+        "adsSpreadHalfAngleDeg": 0.17,
+        "reloadSeconds": 2.25,
+        "ammo": "heavy",
+        "magazine": 10,
+        "rpm": 180,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_bolt_q1",
+      "name": "普通·栓动步枪",
+      "category": "weapon",
+      "quality": "q1",
+      "baseId": "bolt",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 76,
+        "recoilVerticalDeg": 3.2,
+        "adsSpreadHalfAngleDeg": 0.1,
+        "reloadSeconds": 3,
+        "ammo": "heavy",
+        "magazine": 5,
+        "rpm": 45,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_bolt_q2",
+      "name": "精良·栓动步枪",
+      "category": "weapon",
+      "quality": "q2",
+      "baseId": "bolt",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 79.8,
+        "recoilVerticalDeg": 2.944,
+        "adsSpreadHalfAngleDeg": 0.095,
+        "reloadSeconds": 2.91,
+        "ammo": "heavy",
+        "magazine": 5,
+        "rpm": 45,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_bolt_q3",
+      "name": "优异·栓动步枪",
+      "category": "weapon",
+      "quality": "q3",
+      "baseId": "bolt",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 83.6,
+        "recoilVerticalDeg": 2.688,
+        "adsSpreadHalfAngleDeg": 0.09,
+        "reloadSeconds": 2.82,
+        "ammo": "heavy",
+        "magazine": 5,
+        "rpm": 45,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_bolt_q4",
+      "name": "卓越·栓动步枪",
+      "category": "weapon",
+      "quality": "q4",
+      "baseId": "bolt",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 87.4,
+        "recoilVerticalDeg": 2.432,
+        "adsSpreadHalfAngleDeg": 0.085,
+        "reloadSeconds": 2.7,
+        "ammo": "heavy",
+        "magazine": 5,
+        "rpm": 45,
+        "projectilesPerShot": 1
+      }
+    },
+    {
+      "id": "weapon_pump_q1",
+      "name": "普通·泵动霰弹枪",
+      "category": "weapon",
+      "quality": "q1",
+      "baseId": "pump",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 8,
+        "recoilVerticalDeg": 3,
+        "adsSpreadHalfAngleDeg": 3,
+        "reloadSeconds": 3.5,
+        "ammo": "shell",
+        "magazine": 6,
+        "rpm": 70,
+        "projectilesPerShot": 8
+      }
+    },
+    {
+      "id": "weapon_pump_q2",
+      "name": "精良·泵动霰弹枪",
+      "category": "weapon",
+      "quality": "q2",
+      "baseId": "pump",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 8.4,
+        "recoilVerticalDeg": 2.76,
+        "adsSpreadHalfAngleDeg": 2.85,
+        "reloadSeconds": 3.395,
+        "ammo": "shell",
+        "magazine": 6,
+        "rpm": 70,
+        "projectilesPerShot": 8
+      }
+    },
+    {
+      "id": "weapon_pump_q3",
+      "name": "优异·泵动霰弹枪",
+      "category": "weapon",
+      "quality": "q3",
+      "baseId": "pump",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 8.8,
+        "recoilVerticalDeg": 2.52,
+        "adsSpreadHalfAngleDeg": 2.7,
+        "reloadSeconds": 3.29,
+        "ammo": "shell",
+        "magazine": 6,
+        "rpm": 70,
+        "projectilesPerShot": 8
+      }
+    },
+    {
+      "id": "weapon_pump_q4",
+      "name": "卓越·泵动霰弹枪",
+      "category": "weapon",
+      "quality": "q4",
+      "baseId": "pump",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 9.2,
+        "recoilVerticalDeg": 2.28,
+        "adsSpreadHalfAngleDeg": 2.55,
+        "reloadSeconds": 3.15,
+        "ammo": "shell",
+        "magazine": 6,
+        "rpm": 70,
+        "projectilesPerShot": 8
+      }
+    },
+    {
+      "id": "weapon_auto_shotgun_q1",
+      "name": "普通·半自动霰弹枪",
+      "category": "weapon",
+      "quality": "q1",
+      "baseId": "auto_shotgun",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 7,
+        "recoilVerticalDeg": 2.8,
+        "adsSpreadHalfAngleDeg": 3.4,
+        "reloadSeconds": 3.1,
+        "ammo": "shell",
+        "magazine": 8,
+        "rpm": 180,
+        "projectilesPerShot": 8
+      }
+    },
+    {
+      "id": "weapon_auto_shotgun_q2",
+      "name": "精良·半自动霰弹枪",
+      "category": "weapon",
+      "quality": "q2",
+      "baseId": "auto_shotgun",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 7.35,
+        "recoilVerticalDeg": 2.576,
+        "adsSpreadHalfAngleDeg": 3.23,
+        "reloadSeconds": 3.007,
+        "ammo": "shell",
+        "magazine": 8,
+        "rpm": 180,
+        "projectilesPerShot": 8
+      }
+    },
+    {
+      "id": "weapon_auto_shotgun_q3",
+      "name": "优异·半自动霰弹枪",
+      "category": "weapon",
+      "quality": "q3",
+      "baseId": "auto_shotgun",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 7.7,
+        "recoilVerticalDeg": 2.352,
+        "adsSpreadHalfAngleDeg": 3.06,
+        "reloadSeconds": 2.914,
+        "ammo": "shell",
+        "magazine": 8,
+        "rpm": 180,
+        "projectilesPerShot": 8
+      }
+    },
+    {
+      "id": "weapon_auto_shotgun_q4",
+      "name": "卓越·半自动霰弹枪",
+      "category": "weapon",
+      "quality": "q4",
+      "baseId": "auto_shotgun",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "primary",
+      "score": 0,
+      "source": [
+        "enemy",
+        "weapon_case"
+      ],
+      "use": "装备到对应武器位，提高本局战斗能力",
+      "stats": {
+        "damagePerProjectile": 8.05,
+        "recoilVerticalDeg": 2.128,
+        "adsSpreadHalfAngleDeg": 2.89,
+        "reloadSeconds": 2.79,
+        "ammo": "shell",
+        "magazine": 8,
+        "rpm": 180,
+        "projectilesPerShot": 8
+      }
+    },
+    {
+      "id": "armor_q1",
+      "name": "普通·护甲",
+      "category": "equipment",
+      "quality": "q1",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "armor",
+      "score": 0,
+      "source": [
+        "enemy",
+        "equipment_case"
+      ],
+      "use": "提高对应部位防护",
+      "stats": {
+        "damageReduction": 0.1
+      }
+    },
+    {
+      "id": "helmet_q1",
+      "name": "普通·头盔",
+      "category": "equipment",
+      "quality": "q1",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "helmet",
+      "score": 0,
+      "source": [
+        "enemy",
+        "equipment_case"
+      ],
+      "use": "提高对应部位防护",
+      "stats": {
+        "damageReduction": 0.1
+      }
+    },
+    {
+      "id": "backpack_q1",
+      "name": "普通·背包",
+      "category": "equipment",
+      "quality": "q1",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "backpack",
+      "score": 0,
+      "source": [
+        "enemy",
+        "equipment_case"
+      ],
+      "use": "增加当局背包容量",
+      "stats": {
+        "capacity": 12
+      }
+    },
+    {
+      "id": "armor_q2",
+      "name": "精良·护甲",
+      "category": "equipment",
+      "quality": "q2",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "armor",
+      "score": 0,
+      "source": [
+        "enemy",
+        "equipment_case"
+      ],
+      "use": "提高对应部位防护",
+      "stats": {
+        "damageReduction": 0.18
+      }
+    },
+    {
+      "id": "helmet_q2",
+      "name": "精良·头盔",
+      "category": "equipment",
+      "quality": "q2",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "helmet",
+      "score": 0,
+      "source": [
+        "enemy",
+        "equipment_case"
+      ],
+      "use": "提高对应部位防护",
+      "stats": {
+        "damageReduction": 0.16
+      }
+    },
+    {
+      "id": "backpack_q2",
+      "name": "精良·背包",
+      "category": "equipment",
+      "quality": "q2",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "backpack",
+      "score": 0,
+      "source": [
+        "enemy",
+        "equipment_case"
+      ],
+      "use": "增加当局背包容量",
+      "stats": {
+        "capacity": 16
+      }
+    },
+    {
+      "id": "armor_q3",
+      "name": "优异·护甲",
+      "category": "equipment",
+      "quality": "q3",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "armor",
+      "score": 0,
+      "source": [
+        "enemy",
+        "equipment_case"
+      ],
+      "use": "提高对应部位防护",
+      "stats": {
+        "damageReduction": 0.24
+      }
+    },
+    {
+      "id": "helmet_q3",
+      "name": "优异·头盔",
+      "category": "equipment",
+      "quality": "q3",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "helmet",
+      "score": 0,
+      "source": [
+        "enemy",
+        "equipment_case"
+      ],
+      "use": "提高对应部位防护",
+      "stats": {
+        "damageReduction": 0.22
+      }
+    },
+    {
+      "id": "backpack_q3",
+      "name": "优异·背包",
+      "category": "equipment",
+      "quality": "q3",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "backpack",
+      "score": 0,
+      "source": [
+        "enemy",
+        "equipment_case"
+      ],
+      "use": "增加当局背包容量",
+      "stats": {
+        "capacity": 20
+      }
+    },
+    {
+      "id": "armor_q4",
+      "name": "卓越·护甲",
+      "category": "equipment",
+      "quality": "q4",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "equipSlot": "armor",
+      "score": 0,
+      "source": [
+        "enemy",
+        "equipment_case"
+      ],
+      "use": "提高对应部位防护",
+      "stats": {
+        "damageReduction": 0.3
+      }
+    },
+    {
+      "id": "helmet_q4",
+      "name": "卓越·头盔",
+      "category": "equipment",
+      "quality": "q4",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "helmet",
+      "score": 0,
+      "source": [
+        "enemy",
+        "equipment_case"
+      ],
+      "use": "提高对应部位防护",
+      "stats": {
+        "damageReduction": 0.28
+      }
+    },
+    {
+      "id": "backpack_q4",
+      "name": "卓越·背包",
+      "category": "equipment",
+      "quality": "q4",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "equipSlot": "backpack",
+      "score": 0,
+      "source": [
+        "enemy",
+        "equipment_case"
+      ],
+      "use": "增加当局背包容量",
+      "stats": {
+        "capacity": 24
+      }
+    },
+    {
+      "id": "ammo_light",
+      "name": "轻型弹药",
+      "category": "ammo",
+      "capacityCost": 1,
+      "maxStack": 120,
+      "score": 0,
+      "source": [
+        "enemy",
+        "supply_case"
+      ],
+      "use": "补充同类武器弹药",
+      "stats": {
+        "ammo": "light"
+      }
+    },
+    {
+      "id": "ammo_rifle",
+      "name": "步枪弹药",
+      "category": "ammo",
+      "capacityCost": 1,
+      "maxStack": 120,
+      "score": 0,
+      "source": [
+        "enemy",
+        "supply_case"
+      ],
+      "use": "补充同类武器弹药",
+      "stats": {
+        "ammo": "rifle"
+      }
+    },
+    {
+      "id": "ammo_heavy",
+      "name": "重型弹药",
+      "category": "ammo",
+      "capacityCost": 1,
+      "maxStack": 60,
+      "score": 0,
+      "source": [
+        "enemy",
+        "supply_case"
+      ],
+      "use": "补充同类武器弹药",
+      "stats": {
+        "ammo": "heavy"
+      }
+    },
+    {
+      "id": "ammo_shell",
+      "name": "霰弹",
+      "category": "ammo",
+      "capacityCost": 1,
+      "maxStack": 40,
+      "score": 0,
+      "source": [
+        "enemy",
+        "supply_case"
+      ],
+      "use": "补充同类武器弹药",
+      "stats": {
+        "ammo": "shell"
+      }
+    },
+    {
+      "id": "med_small",
+      "name": "小医疗包",
+      "category": "recovery",
+      "capacityCost": 1,
+      "maxStack": 2,
+      "score": 0,
+      "source": [
+        "medical_case",
+        "supply_case"
+      ],
+      "use": "恢复40生命",
+      "stats": {
+        "heal": 40,
+        "useSeconds": 3
+      }
+    },
+    {
+      "id": "med_large",
+      "name": "大医疗包",
+      "category": "recovery",
+      "capacityCost": 1,
+      "maxStack": 1,
+      "score": 0,
+      "source": [
+        "medical_case",
+        "supply_case"
+      ],
+      "use": "恢复80生命",
+      "stats": {
+        "heal": 80,
+        "useSeconds": 5
+      }
+    },
+    {
+      "id": "bandage",
+      "name": "止血绷带",
+      "category": "recovery",
+      "capacityCost": 1,
+      "maxStack": 3,
+      "score": 0,
+      "source": [
+        "medical_case",
+        "supply_case"
+      ],
+      "use": "立即清除流血",
+      "stats": {
+        "clearStatus": "bleeding",
+        "useSeconds": 2
+      }
+    },
+    {
+      "id": "splint",
+      "name": "固定夹板",
+      "category": "recovery",
+      "capacityCost": 1,
+      "maxStack": 2,
+      "score": 0,
+      "source": [
+        "medical_case",
+        "supply_case"
+      ],
+      "use": "清除扭伤",
+      "stats": {
+        "clearStatus": "sprain",
+        "useSeconds": 3
+      }
+    },
+    {
+      "id": "painkiller",
+      "name": "止痛片",
+      "category": "recovery",
+      "capacityCost": 1,
+      "maxStack": 2,
+      "score": 0,
+      "source": [
+        "medical_case",
+        "supply_case"
+      ],
+      "use": "压制扭伤效果60秒",
+      "stats": {
+        "suppressStatus": "sprain",
+        "durationSeconds": 60,
+        "useSeconds": 1.5
+      }
+    },
+    {
+      "id": "water",
+      "name": "清水",
+      "category": "recovery",
+      "capacityCost": 1,
+      "maxStack": 2,
+      "score": 0,
+      "source": [
+        "medical_case",
+        "supply_case"
+      ],
+      "use": "恢复30体力，不设置口渴属性",
+      "stats": {
+        "stamina": 30,
+        "useSeconds": 2
+      }
+    },
+    {
+      "id": "energy_drink",
+      "name": "能量饮料",
+      "category": "recovery",
+      "capacityCost": 1,
+      "maxStack": 2,
+      "score": 0,
+      "source": [
+        "medical_case",
+        "supply_case"
+      ],
+      "use": "恢复60体力",
+      "stats": {
+        "stamina": 60,
+        "useSeconds": 3
+      }
+    },
+    {
+      "id": "adrenaline",
+      "name": "应急注射剂",
+      "category": "recovery",
+      "capacityCost": 1,
+      "maxStack": 1,
+      "score": 0,
+      "source": [
+        "medical_case",
+        "supply_case"
+      ],
+      "use": "60秒体力回复提升50%，不可叠加",
+      "stats": {
+        "staminaRegenMultiplier": 1.5,
+        "durationSeconds": 60,
+        "useSeconds": 2
+      }
+    },
+    {
+      "id": "frag",
+      "name": "破片投掷物",
+      "category": "throwable",
+      "capacityCost": 1,
+      "maxStack": 2,
+      "score": 0,
+      "source": [
+        "supply_case",
+        "enemy"
+      ],
+      "use": "范围伤害并破坏轻型掩体",
+      "stats": {
+        "fuseSeconds": 3,
+        "radiusM": 6,
+        "centerDamage": 100
+      }
+    },
+    {
+      "id": "smoke",
+      "name": "烟雾投掷物",
+      "category": "throwable",
+      "capacityCost": 1,
+      "maxStack": 2,
+      "score": 0,
+      "source": [
+        "supply_case",
+        "enemy"
+      ],
+      "use": "降低视线获取，不消除敌人已有最后位置记忆",
+      "stats": {
+        "fuseSeconds": 1,
+        "radiusM": 6,
+        "durationSeconds": 20
+      }
+    },
+    {
+      "id": "flash",
+      "name": "闪光投掷物",
+      "category": "throwable",
+      "capacityCost": 1,
+      "maxStack": 2,
+      "score": 0,
+      "source": [
+        "supply_case",
+        "enemy"
+      ],
+      "use": "需要视线，转头和距离降低效果",
+      "stats": {
+        "fuseSeconds": 1.5,
+        "radiusM": 10,
+        "durationSeconds": 3
+      }
+    },
+    {
+      "id": "decoy",
+      "name": "声音诱饵",
+      "category": "throwable",
+      "capacityCost": 1,
+      "maxStack": 2,
+      "score": 0,
+      "source": [
+        "supply_case",
+        "enemy"
+      ],
+      "use": "吸引能听到它的敌人调查落点",
+      "stats": {
+        "fuseSeconds": 1,
+        "hearingRadiusM": 40,
+        "durationSeconds": 12
+      }
+    },
+    {
+      "id": "breach_charge",
+      "name": "破障装置",
+      "category": "utility",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "score": 0,
+      "source": [
+        "tool_case",
+        "fixed_supply"
+      ],
+      "use": "放置完成后显示3秒警告，打开可破障结构",
+      "stats": {
+        "useSeconds": 3,
+        "structureRadiusM": 2,
+        "playerDamageRadiusM": 3,
+        "centerDamage": 50,
+        "noiseRadiusM": 100
+      }
+    },
+    {
+      "id": "bridge_kit",
+      "name": "便携桥板",
+      "category": "utility",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "score": 0,
+      "source": [
+        "tool_case",
+        "fixed_supply"
+      ],
+      "use": "在有效支点建立跨越不超过8米的通路",
+      "stats": {
+        "useSeconds": 4,
+        "maxSpanM": 8,
+        "widthM": 1.4
+      }
+    },
+    {
+      "id": "signal_battery",
+      "name": "信号电池",
+      "category": "utility",
+      "capacityCost": 1,
+      "maxStack": 1,
+      "score": 0,
+      "source": [
+        "tool_case",
+        "fixed_supply"
+      ],
+      "use": "激活本局应急出口",
+      "stats": {
+        "useSeconds": 2
+      }
+    },
+    {
+      "id": "access_key",
+      "name": "临时通行卡",
+      "category": "utility",
+      "capacityCost": 1,
+      "maxStack": 1,
+      "score": 0,
+      "source": [
+        "tool_case",
+        "fixed_supply"
+      ],
+      "use": "开启一个普通奖励房门；不用卡可选择破障路线",
+      "stats": {
+        "useSeconds": 1
+      }
+    },
+    {
+      "id": "intel_case",
+      "name": "封装情报箱",
+      "category": "objective",
+      "capacityCost": 1,
+      "maxStack": 1,
+      "score": 0,
+      "source": [
+        "contract_anchor"
+      ],
+      "use": "当前主合同专用，携至撤离结算，不可出售",
+      "stats": {
+        "contractOnly": true,
+        "rescueOnVoid": true
+      }
+    },
+    {
+      "id": "medical_sample",
+      "name": "医疗样本",
+      "category": "objective",
+      "capacityCost": 1,
+      "maxStack": 1,
+      "score": 0,
+      "source": [
+        "contract_anchor"
+      ],
+      "use": "当前主合同专用，携至撤离结算，不可出售",
+      "stats": {
+        "contractOnly": true,
+        "rescueOnVoid": true
+      }
+    },
+    {
+      "id": "grid_record",
+      "name": "电网记录",
+      "category": "objective",
+      "capacityCost": 1,
+      "maxStack": 1,
+      "score": 0,
+      "source": [
+        "contract_anchor"
+      ],
+      "use": "当前主合同专用，携至撤离结算，不可出售",
+      "stats": {
+        "contractOnly": true,
+        "rescueOnVoid": true
+      }
+    },
+    {
+      "id": "command_chip",
+      "name": "指挥芯片",
+      "category": "objective",
+      "capacityCost": 1,
+      "maxStack": 1,
+      "score": 0,
+      "source": [
+        "contract_anchor"
+      ],
+      "use": "当前主合同专用，携至撤离结算，不可出售",
+      "stats": {
+        "contractOnly": true,
+        "rescueOnVoid": true
+      }
+    },
+    {
+      "id": "valuable_watch",
+      "name": "旧制腕表",
+      "category": "valuable",
+      "capacityCost": 1,
+      "maxStack": 1,
+      "score": 100,
+      "source": [
+        "valuable_case",
+        "elite_cache"
+      ],
+      "use": "成功撤离时按携带数量计分，无货币或跨局用途",
+      "stats": {}
+    },
+    {
+      "id": "valuable_camera",
+      "name": "便携相机",
+      "category": "valuable",
+      "capacityCost": 1,
+      "maxStack": 1,
+      "score": 150,
+      "source": [
+        "valuable_case",
+        "elite_cache"
+      ],
+      "use": "成功撤离时按携带数量计分，无货币或跨局用途",
+      "stats": {}
+    },
+    {
+      "id": "valuable_radio",
+      "name": "加密收音机",
+      "category": "valuable",
+      "capacityCost": 1,
+      "maxStack": 1,
+      "score": 200,
+      "source": [
+        "valuable_case",
+        "elite_cache"
+      ],
+      "use": "成功撤离时按携带数量计分，无货币或跨局用途",
+      "stats": {}
+    },
+    {
+      "id": "valuable_sensor",
+      "name": "工业传感器",
+      "category": "valuable",
+      "capacityCost": 1,
+      "maxStack": 1,
+      "score": 250,
+      "source": [
+        "valuable_case",
+        "elite_cache"
+      ],
+      "use": "成功撤离时按携带数量计分，无货币或跨局用途",
+      "stats": {}
+    },
+    {
+      "id": "valuable_memory",
+      "name": "工业存储器",
+      "category": "valuable",
+      "capacityCost": 1,
+      "maxStack": 1,
+      "score": 300,
+      "source": [
+        "valuable_case",
+        "elite_cache"
+      ],
+      "use": "成功撤离时按携带数量计分，无货币或跨局用途",
+      "stats": {}
+    },
+    {
+      "id": "valuable_lens",
+      "name": "精密镜头",
+      "category": "valuable",
+      "capacityCost": 1,
+      "maxStack": 1,
+      "score": 350,
+      "source": [
+        "valuable_case",
+        "elite_cache"
+      ],
+      "use": "成功撤离时按携带数量计分，无货币或跨局用途",
+      "stats": {}
+    },
+    {
+      "id": "valuable_meter",
+      "name": "检测仪",
+      "category": "valuable",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "score": 450,
+      "source": [
+        "valuable_case",
+        "elite_cache"
+      ],
+      "use": "成功撤离时按携带数量计分，无货币或跨局用途",
+      "stats": {}
+    },
+    {
+      "id": "valuable_battery_pack",
+      "name": "高密度电源",
+      "category": "valuable",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "score": 500,
+      "source": [
+        "valuable_case",
+        "elite_cache"
+      ],
+      "use": "成功撤离时按携带数量计分，无货币或跨局用途",
+      "stats": {}
+    },
+    {
+      "id": "valuable_sealed_art",
+      "name": "封装藏品",
+      "category": "valuable",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "score": 600,
+      "source": [
+        "valuable_case",
+        "elite_cache"
+      ],
+      "use": "成功撤离时按携带数量计分，无货币或跨局用途",
+      "stats": {}
+    },
+    {
+      "id": "valuable_server_core",
+      "name": "服务器核心",
+      "category": "valuable",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "score": 750,
+      "source": [
+        "valuable_case",
+        "elite_cache"
+      ],
+      "use": "成功撤离时按携带数量计分，无货币或跨局用途",
+      "stats": {}
+    },
+    {
+      "id": "valuable_gold_badge",
+      "name": "纪念金章",
+      "category": "valuable",
+      "capacityCost": 2,
+      "maxStack": 1,
+      "score": 850,
+      "source": [
+        "valuable_case",
+        "elite_cache"
+      ],
+      "use": "成功撤离时按携带数量计分，无货币或跨局用途",
+      "stats": {}
+    },
+    {
+      "id": "valuable_archive",
+      "name": "封存档案",
+      "category": "valuable",
+      "capacityCost": 3,
+      "maxStack": 1,
+      "score": 1000,
+      "source": [
+        "valuable_case",
+        "elite_cache"
+      ],
+      "use": "成功撤离时按携带数量计分，无货币或跨局用途",
+      "stats": {}
+    }
+  ],
+  "maps": [
+    {
+      "id": "m01",
+      "name": "边境仓储区",
+      "widthM": 384,
+      "heightM": 384,
+      "durationSeconds": 1500,
+      "initialEnemyCount": 20,
+      "reinforcementMax": 8,
+      "bossCount": 1,
+      "bossGuards": 2,
+      "bossOptional": true,
+      "landmarks": [
+        {
+          "id": "m01_poi1",
+          "name": "入场营地",
+          "normalizedPosition": [
+            0.1,
+            0.15
+          ]
+        },
+        {
+          "id": "m01_poi2",
+          "name": "旧仓库",
+          "normalizedPosition": [
+            0.3,
+            0.25
+          ]
+        },
+        {
+          "id": "m01_poi3",
+          "name": "医疗站",
+          "normalizedPosition": [
+            0.38,
+            0.58
+          ]
+        },
+        {
+          "id": "m01_poi4",
+          "name": "调度楼",
+          "normalizedPosition": [
+            0.66,
+            0.36
+          ]
+        },
+        {
+          "id": "m01_poi5",
+          "name": "装卸场",
+          "normalizedPosition": [
+            0.72,
+            0.68
+          ]
+        },
+        {
+          "id": "m01_poi6",
+          "name": "铁路堤",
+          "normalizedPosition": [
+            0.9,
+            0.85
+          ]
+        }
+      ],
+      "extracts": [
+        {
+          "id": "m01_e0",
+          "type": "return",
+          "position": [
+            0.08,
+            0.12
+          ],
+          "unlockSeconds": 0,
+          "countdownSeconds": 8
+        },
+        {
+          "id": "m01_e1",
+          "type": "pickup",
+          "position": [
+            0.9,
+            0.8
+          ],
+          "unlockSeconds": 480,
+          "arrivalDelaySeconds": 45,
+          "countdownSeconds": 8
+        },
+        {
+          "id": "m01_e2",
+          "type": "emergency",
+          "position": [
+            0.15,
+            0.88
+          ],
+          "unlockSeconds": 900,
+          "consume": "signal_battery",
+          "countdownSeconds": 5
+        }
+      ],
+      "routeLinks": [
+        [
+          1,
+          2
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          5,
+          6
+        ]
+      ],
+      "mainContracts": [
+        "m01_main1",
+        "m01_main2",
+        "m01_main3"
+      ]
+    },
+    {
+      "id": "m02",
+      "name": "滨海货运港",
+      "widthM": 512,
+      "heightM": 384,
+      "durationSeconds": 1500,
+      "initialEnemyCount": 28,
+      "reinforcementMax": 8,
+      "bossCount": 1,
+      "bossGuards": 2,
+      "bossOptional": true,
+      "landmarks": [
+        {
+          "id": "m02_poi1",
+          "name": "排水出口",
+          "normalizedPosition": [
+            0.1,
+            0.15
+          ]
+        },
+        {
+          "id": "m02_poi2",
+          "name": "货运站",
+          "normalizedPosition": [
+            0.3,
+            0.25
+          ]
+        },
+        {
+          "id": "m02_poi3",
+          "name": "检疫所",
+          "normalizedPosition": [
+            0.38,
+            0.58
+          ]
+        },
+        {
+          "id": "m02_poi4",
+          "name": "通信塔",
+          "normalizedPosition": [
+            0.66,
+            0.36
+          ]
+        },
+        {
+          "id": "m02_poi5",
+          "name": "海关楼",
+          "normalizedPosition": [
+            0.72,
+            0.68
+          ]
+        },
+        {
+          "id": "m02_poi6",
+          "name": "渡口",
+          "normalizedPosition": [
+            0.9,
+            0.85
+          ]
+        }
+      ],
+      "extracts": [
+        {
+          "id": "m02_e0",
+          "type": "return",
+          "position": [
+            0.08,
+            0.12
+          ],
+          "unlockSeconds": 0,
+          "countdownSeconds": 8
+        },
+        {
+          "id": "m02_e1",
+          "type": "pickup",
+          "position": [
+            0.9,
+            0.8
+          ],
+          "unlockSeconds": 480,
+          "arrivalDelaySeconds": 45,
+          "countdownSeconds": 8
+        },
+        {
+          "id": "m02_e2",
+          "type": "emergency",
+          "position": [
+            0.15,
+            0.88
+          ],
+          "unlockSeconds": 900,
+          "consume": "signal_battery",
+          "countdownSeconds": 5
+        }
+      ],
+      "routeLinks": [
+        [
+          1,
+          2
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          5,
+          6
+        ]
+      ],
+      "mainContracts": [
+        "m02_main1",
+        "m02_main2",
+        "m02_main3"
+      ]
+    },
+    {
+      "id": "m03",
+      "name": "断电工业区",
+      "widthM": 448,
+      "heightM": 448,
+      "durationSeconds": 1500,
+      "initialEnemyCount": 32,
+      "reinforcementMax": 8,
+      "bossCount": 1,
+      "bossGuards": 2,
+      "bossOptional": true,
+      "landmarks": [
+        {
+          "id": "m03_poi1",
+          "name": "检修营地",
+          "normalizedPosition": [
+            0.1,
+            0.15
+          ]
+        },
+        {
+          "id": "m03_poi2",
+          "name": "冷却车间",
+          "normalizedPosition": [
+            0.3,
+            0.25
+          ]
+        },
+        {
+          "id": "m03_poi3",
+          "name": "配电室",
+          "normalizedPosition": [
+            0.38,
+            0.58
+          ]
+        },
+        {
+          "id": "m03_poi4",
+          "name": "控制中心",
+          "normalizedPosition": [
+            0.66,
+            0.36
+          ]
+        },
+        {
+          "id": "m03_poi5",
+          "name": "重装车间",
+          "normalizedPosition": [
+            0.72,
+            0.68
+          ]
+        },
+        {
+          "id": "m03_poi6",
+          "name": "山脊站",
+          "normalizedPosition": [
+            0.9,
+            0.85
+          ]
+        }
+      ],
+      "extracts": [
+        {
+          "id": "m03_e0",
+          "type": "return",
+          "position": [
+            0.08,
+            0.12
+          ],
+          "unlockSeconds": 0,
+          "countdownSeconds": 8
+        },
+        {
+          "id": "m03_e1",
+          "type": "pickup",
+          "position": [
+            0.9,
+            0.8
+          ],
+          "unlockSeconds": 480,
+          "arrivalDelaySeconds": 45,
+          "countdownSeconds": 8
+        },
+        {
+          "id": "m03_e2",
+          "type": "emergency",
+          "position": [
+            0.15,
+            0.88
+          ],
+          "unlockSeconds": 900,
+          "consume": "signal_battery",
+          "countdownSeconds": 5
+        }
+      ],
+      "routeLinks": [
+        [
+          1,
+          2
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          5,
+          6
+        ]
+      ],
+      "mainContracts": [
+        "m03_main1",
+        "m03_main2",
+        "m03_main3"
+      ]
+    }
+  ],
+  "mainContracts": [
+    {
+      "id": "m01_main1",
+      "map": "m01",
+      "name": "失落货单",
+      "kind": "main",
+      "targetPoi": "m01_poi2",
+      "requiredItem": "intel_case",
+      "interactSeconds": 3,
+      "steps": [
+        "到达区域并定位目标交互点",
+        "完成交互并取得唯一合同物",
+        "携带合同物完成任一撤离"
+      ],
+      "score": 3000,
+      "afterDeath": "failed",
+      "persistentProgress": false,
+      "criticalSpawnGuaranteed": true,
+      "destructionFallback": "rescue_nearest_reachable_anchor"
+    },
+    {
+      "id": "m01_main2",
+      "map": "m01",
+      "name": "抢救样本",
+      "kind": "main",
+      "targetPoi": "m01_poi3",
+      "requiredItem": "medical_sample",
+      "interactSeconds": 3,
+      "steps": [
+        "到达区域并定位目标交互点",
+        "完成交互并取得唯一合同物",
+        "携带合同物完成任一撤离"
+      ],
+      "score": 3000,
+      "afterDeath": "failed",
+      "persistentProgress": false,
+      "criticalSpawnGuaranteed": true,
+      "destructionFallback": "rescue_nearest_reachable_anchor"
+    },
+    {
+      "id": "m01_main3",
+      "map": "m01",
+      "name": "恢复调度",
+      "kind": "main",
+      "targetPoi": "m01_poi4",
+      "requiredItem": "grid_record",
+      "interactSeconds": 8,
+      "steps": [
+        "到达区域并定位目标交互点",
+        "完成交互并取得唯一合同物",
+        "携带合同物完成任一撤离"
+      ],
+      "score": 3000,
+      "afterDeath": "failed",
+      "persistentProgress": false,
+      "criticalSpawnGuaranteed": true,
+      "destructionFallback": "rescue_nearest_reachable_anchor"
+    },
+    {
+      "id": "m02_main1",
+      "map": "m02",
+      "name": "走私航线",
+      "kind": "main",
+      "targetPoi": "m02_poi2",
+      "requiredItem": "intel_case",
+      "interactSeconds": 3,
+      "steps": [
+        "到达区域并定位目标交互点",
+        "完成交互并取得唯一合同物",
+        "携带合同物完成任一撤离"
+      ],
+      "score": 3000,
+      "afterDeath": "failed",
+      "persistentProgress": false,
+      "criticalSpawnGuaranteed": true,
+      "destructionFallback": "rescue_nearest_reachable_anchor"
+    },
+    {
+      "id": "m02_main2",
+      "map": "m02",
+      "name": "封存检疫",
+      "kind": "main",
+      "targetPoi": "m02_poi3",
+      "requiredItem": "medical_sample",
+      "interactSeconds": 3,
+      "steps": [
+        "到达区域并定位目标交互点",
+        "完成交互并取得唯一合同物",
+        "携带合同物完成任一撤离"
+      ],
+      "score": 3000,
+      "afterDeath": "failed",
+      "persistentProgress": false,
+      "criticalSpawnGuaranteed": true,
+      "destructionFallback": "rescue_nearest_reachable_anchor"
+    },
+    {
+      "id": "m02_main3",
+      "map": "m02",
+      "name": "截取密钥",
+      "kind": "main",
+      "targetPoi": "m02_poi4",
+      "requiredItem": "command_chip",
+      "interactSeconds": 8,
+      "steps": [
+        "到达区域并定位目标交互点",
+        "完成交互并取得唯一合同物",
+        "携带合同物完成任一撤离"
+      ],
+      "score": 3000,
+      "afterDeath": "failed",
+      "persistentProgress": false,
+      "criticalSpawnGuaranteed": true,
+      "destructionFallback": "rescue_nearest_reachable_anchor"
+    },
+    {
+      "id": "m03_main1",
+      "map": "m03",
+      "name": "熄灯记录",
+      "kind": "main",
+      "targetPoi": "m03_poi2",
+      "requiredItem": "grid_record",
+      "interactSeconds": 3,
+      "steps": [
+        "到达区域并定位目标交互点",
+        "完成交互并取得唯一合同物",
+        "携带合同物完成任一撤离"
+      ],
+      "score": 3000,
+      "afterDeath": "failed",
+      "persistentProgress": false,
+      "criticalSpawnGuaranteed": true,
+      "destructionFallback": "rescue_nearest_reachable_anchor"
+    },
+    {
+      "id": "m03_main2",
+      "map": "m03",
+      "name": "指挥断链",
+      "kind": "main",
+      "targetPoi": "m03_poi3",
+      "requiredItem": "command_chip",
+      "interactSeconds": 3,
+      "steps": [
+        "到达区域并定位目标交互点",
+        "完成交互并取得唯一合同物",
+        "携带合同物完成任一撤离"
+      ],
+      "score": 3000,
+      "afterDeath": "failed",
+      "persistentProgress": false,
+      "criticalSpawnGuaranteed": true,
+      "destructionFallback": "rescue_nearest_reachable_anchor"
+    },
+    {
+      "id": "m03_main3",
+      "map": "m03",
+      "name": "撤离证据",
+      "kind": "main",
+      "targetPoi": "m03_poi4",
+      "requiredItem": "intel_case",
+      "interactSeconds": 8,
+      "steps": [
+        "到达区域并定位目标交互点",
+        "完成交互并取得唯一合同物",
+        "携带合同物完成任一撤离"
+      ],
+      "score": 3000,
+      "afterDeath": "failed",
+      "persistentProgress": false,
+      "criticalSpawnGuaranteed": true,
+      "destructionFallback": "rescue_nearest_reachable_anchor"
+    }
+  ],
+  "sideContracts": [
+    {
+      "id": "side_survey",
+      "name": "地标勘察",
+      "kind": "side",
+      "eventType": "visit_landmarks",
+      "count": 3,
+      "description": "抵达3个不同地标",
+      "score": 600,
+      "selection": "每局不重复抽3个，先验证事件和路径存在；桥板任务预放桥板，扫描任务预放终端；主目标不依赖委托",
+      "commit": "成功撤离结算，未完成清零"
+    },
+    {
+      "id": "side_cache",
+      "name": "补给核查",
+      "kind": "side",
+      "eventType": "search_containers",
+      "count": 4,
+      "description": "搜索4个不同容器",
+      "score": 600,
+      "selection": "每局不重复抽3个，先验证事件和路径存在；桥板任务预放桥板，扫描任务预放终端；主目标不依赖委托",
+      "commit": "成功撤离结算，未完成清零"
+    },
+    {
+      "id": "side_clinic",
+      "name": "医疗盘点",
+      "kind": "side",
+      "eventType": "search_medical",
+      "count": 2,
+      "description": "搜索2个医疗箱",
+      "score": 600,
+      "selection": "每局不重复抽3个，先验证事件和路径存在；桥板任务预放桥板，扫描任务预放终端；主目标不依赖委托",
+      "commit": "成功撤离结算，未完成清零"
+    },
+    {
+      "id": "side_rival",
+      "name": "威胁清理",
+      "kind": "side",
+      "eventType": "kill_common",
+      "count": 3,
+      "description": "击败3名普通敌人",
+      "score": 600,
+      "selection": "每局不重复抽3个，先验证事件和路径存在；桥板任务预放桥板，扫描任务预放终端；主目标不依赖委托",
+      "commit": "成功撤离结算，未完成清零"
+    },
+    {
+      "id": "side_elite",
+      "name": "清除警戒",
+      "kind": "side",
+      "eventType": "kill_elite",
+      "count": 1,
+      "description": "击败1名精英敌人",
+      "score": 600,
+      "selection": "每局不重复抽3个，先验证事件和路径存在；桥板任务预放桥板，扫描任务预放终端；主目标不依赖委托",
+      "commit": "成功撤离结算，未完成清零"
+    },
+    {
+      "id": "side_flank",
+      "name": "另辟蹊径",
+      "kind": "side",
+      "eventType": "use_breach_route",
+      "count": 1,
+      "description": "穿过1条自己打开的指定破障路线",
+      "score": 600,
+      "selection": "每局不重复抽3个，先验证事件和路径存在；桥板任务预放桥板，扫描任务预放终端；主目标不依赖委托",
+      "commit": "成功撤离结算，未完成清零"
+    },
+    {
+      "id": "side_bridge",
+      "name": "修复近道",
+      "kind": "side",
+      "eventType": "cross_player_bridge",
+      "count": 1,
+      "description": "通过自己铺设的桥板",
+      "score": 600,
+      "selection": "每局不重复抽3个，先验证事件和路径存在；桥板任务预放桥板，扫描任务预放终端；主目标不依赖委托",
+      "commit": "成功撤离结算，未完成清零"
+    },
+    {
+      "id": "side_signal",
+      "name": "重启信标",
+      "kind": "side",
+      "eventType": "activate_beacon",
+      "count": 1,
+      "description": "在指定地标交互6秒",
+      "score": 600,
+      "selection": "每局不重复抽3个，先验证事件和路径存在；桥板任务预放桥板，扫描任务预放终端；主目标不依赖委托",
+      "commit": "成功撤离结算，未完成清零"
+    },
+    {
+      "id": "side_data",
+      "name": "终端扫描",
+      "kind": "side",
+      "eventType": "scan_terminals",
+      "count": 2,
+      "description": "对两个已标记终端各交互5秒",
+      "score": 600,
+      "selection": "每局不重复抽3个，先验证事件和路径存在；桥板任务预放桥板，扫描任务预放终端；主目标不依赖委托",
+      "commit": "成功撤离结算，未完成清零"
+    },
+    {
+      "id": "side_salvage",
+      "name": "高值回收",
+      "kind": "side",
+      "eventType": "extract_valuable_count",
+      "count": 3,
+      "description": "带出3件计分物",
+      "score": 600,
+      "selection": "每局不重复抽3个，先验证事件和路径存在；桥板任务预放桥板，扫描任务预放终端；主目标不依赖委托",
+      "commit": "成功撤离结算，未完成清零"
+    },
+    {
+      "id": "side_evade",
+      "name": "谨慎行动",
+      "kind": "side",
+      "eventType": "reach_goal_low_alert",
+      "count": 1,
+      "description": "在目标区域警戒未达到2级时完成一次指定观察",
+      "score": 600,
+      "selection": "每局不重复抽3个，先验证事件和路径存在；桥板任务预放桥板，扫描任务预放终端；主目标不依赖委托",
+      "commit": "成功撤离结算，未完成清零"
+    },
+    {
+      "id": "side_boss",
+      "name": "清除首领",
+      "kind": "side",
+      "eventType": "kill_boss",
+      "count": 1,
+      "description": "击败该图首领",
+      "score": 600,
+      "selection": "每局不重复抽3个，先验证事件和路径存在；桥板任务预放桥板，扫描任务预放终端；主目标不依赖委托",
+      "commit": "成功撤离结算，未完成清零"
+    }
+  ],
+  "aiRoles": [
+    {
+      "id": "patrol",
+      "name": "游荡巡逻兵",
+      "ammo": "light",
+      "quality": "q1",
+      "hp": 100,
+      "behavior": "短连射后寻找掩体；允许绕行",
+      "reactionSeconds": [
+        0.8,
+        1.2
+      ],
+      "memorySeconds": 8,
+      "hearingM": 40,
+      "chaseLimitM": 100,
+      "viewDistanceM": 65,
+      "visionHalfAngleDeg": 55,
+      "burst": [
+        2,
+        5
+      ],
+      "burstPauseSeconds": [
+        0.6,
+        1.2
+      ]
+    },
+    {
+      "id": "guard",
+      "name": "据点守卫",
+      "ammo": "rifle",
+      "quality": "q2",
+      "hp": 100,
+      "behavior": "守住视线扇区，不无限追击",
+      "reactionSeconds": [
+        0.8,
+        1.2
+      ],
+      "memorySeconds": 8,
+      "hearingM": 40,
+      "chaseLimitM": 100,
+      "viewDistanceM": 65,
+      "visionHalfAngleDeg": 55,
+      "burst": [
+        2,
+        5
+      ],
+      "burstPauseSeconds": [
+        0.6,
+        1.2
+      ]
+    },
+    {
+      "id": "rusher",
+      "name": "近距突击兵",
+      "ammo": "shell",
+      "quality": "q2",
+      "hp": 100,
+      "behavior": "听到交火侧绕，接近前有明显脚步",
+      "reactionSeconds": [
+        0.8,
+        1.2
+      ],
+      "memorySeconds": 8,
+      "hearingM": 40,
+      "chaseLimitM": 100,
+      "viewDistanceM": 65,
+      "visionHalfAngleDeg": 55,
+      "burst": [
+        2,
+        5
+      ],
+      "burstPauseSeconds": [
+        0.6,
+        1.2
+      ]
+    },
+    {
+      "id": "marksman",
+      "name": "远距射手",
+      "ammo": "heavy",
+      "quality": "q2",
+      "hp": 100,
+      "behavior": "瞄准预警后单发，换位有间隔",
+      "reactionSeconds": [
+        0.8,
+        1.2
+      ],
+      "memorySeconds": 8,
+      "hearingM": 40,
+      "chaseLimitM": 100,
+      "viewDistanceM": 65,
+      "visionHalfAngleDeg": 55,
+      "burst": [
+        2,
+        5
+      ],
+      "burstPauseSeconds": [
+        0.6,
+        1.2
+      ]
+    },
+    {
+      "id": "heavy",
+      "name": "重装守卫",
+      "ammo": "rifle",
+      "quality": "q3",
+      "hp": 100,
+      "behavior": "慢速推进，身体防护较高，侧翼可绕",
+      "reactionSeconds": [
+        0.8,
+        1.2
+      ],
+      "memorySeconds": 8,
+      "hearingM": 40,
+      "chaseLimitM": 100,
+      "viewDistanceM": 65,
+      "visionHalfAngleDeg": 55,
+      "burst": [
+        2,
+        5
+      ],
+      "burstPauseSeconds": [
+        0.6,
+        1.2
+      ]
+    },
+    {
+      "id": "gunner",
+      "name": "压制机枪手",
+      "ammo": "rifle",
+      "quality": "q2",
+      "hp": 100,
+      "behavior": "固定射界连射后长换弹",
+      "reactionSeconds": [
+        0.8,
+        1.2
+      ],
+      "memorySeconds": 8,
+      "hearingM": 40,
+      "chaseLimitM": 100,
+      "viewDistanceM": 65,
+      "visionHalfAngleDeg": 55,
+      "burst": [
+        2,
+        5
+      ],
+      "burstPauseSeconds": [
+        0.6,
+        1.2
+      ]
+    },
+    {
+      "id": "support",
+      "name": "烟雾支援兵",
+      "ammo": "light",
+      "quality": "q2",
+      "hp": 100,
+      "behavior": "有限烟雾1枚，保护同伴移动",
+      "reactionSeconds": [
+        0.8,
+        1.2
+      ],
+      "memorySeconds": 8,
+      "hearingM": 40,
+      "chaseLimitM": 100,
+      "viewDistanceM": 65,
+      "visionHalfAngleDeg": 55,
+      "burst": [
+        2,
+        5
+      ],
+      "burstPauseSeconds": [
+        0.6,
+        1.2
+      ]
+    },
+    {
+      "id": "leader",
+      "name": "警戒指挥员",
+      "ammo": "rifle",
+      "quality": "q3",
+      "hp": 100,
+      "behavior": "明确呼叫动作4秒；全局援军预算最多8人",
+      "reactionSeconds": [
+        0.8,
+        1.2
+      ],
+      "memorySeconds": 8,
+      "hearingM": 40,
+      "chaseLimitM": 100,
+      "viewDistanceM": 65,
+      "visionHalfAngleDeg": 55,
+      "burst": [
+        2,
+        5
+      ],
+      "burstPauseSeconds": [
+        0.6,
+        1.2
+      ]
+    }
+  ],
+  "startingPresets": [
+    {
+      "id": "balanced",
+      "name": "均衡",
+      "weapon": "weapon_assault_q1",
+      "reserve": {
+        "ammo_rifle": 90
+      },
+      "secondary": "weapon_pistol_q1",
+      "armor": "armor_q1",
+      "helmet": "helmet_q1",
+      "backpack": "backpack_q1",
+      "extra": {
+        "ammo_light": 24,
+        "med_small": 2,
+        "bandage": 2,
+        "smoke": 1
+      },
+      "startWeaponsLoaded": true
+    },
+    {
+      "id": "close",
+      "name": "近距",
+      "weapon": "weapon_pump_q1",
+      "reserve": {
+        "ammo_shell": 24
+      },
+      "secondary": "weapon_pistol_q1",
+      "armor": "armor_q1",
+      "helmet": "helmet_q1",
+      "backpack": "backpack_q1",
+      "extra": {
+        "ammo_light": 24,
+        "med_small": 2,
+        "bandage": 2,
+        "smoke": 1
+      },
+      "startWeaponsLoaded": true
+    },
+    {
+      "id": "recon",
+      "name": "侦察",
+      "weapon": "weapon_dmr_q1",
+      "reserve": {
+        "ammo_heavy": 30
+      },
+      "secondary": "weapon_pistol_q1",
+      "armor": "armor_q1",
+      "helmet": "helmet_q1",
+      "backpack": "backpack_q1",
+      "extra": {
+        "ammo_light": 24,
+        "med_small": 2,
+        "bandage": 2,
+        "smoke": 1
+      },
+      "startWeaponsLoaded": true
+    }
+  ],
+  "loot": {
+    "equipmentQualityWeights": {
+      "normal": {
+        "q1": 55,
+        "q2": 30,
+        "q3": 12,
+        "q4": 3
+      },
+      "highRisk": {
+        "q1": 10,
+        "q2": 30,
+        "q3": 40,
+        "q4": 20
+      },
+      "boss": {
+        "q3": 40,
+        "q4": 60
+      }
+    },
+    "normalCategoryWeights": {
+      "weapon": 15,
+      "equipment": 15,
+      "ammo": 25,
+      "recovery": 20,
+      "throwable": 5,
+      "utility": 5,
+      "valuable": 15
+    },
+    "slotsMin": 2,
+    "slotsMax": 4,
+    "maxEquipmentPerContainer": 1
+  },
+  "score": {
+    "extract": 700,
+    "main": 3000,
+    "sideEach": 600,
+    "sideCap": 1800,
+    "cargoCap": 3000,
+    "combatCap": 900,
+    "explorationCap": 600,
+    "max": 10000,
+    "rank": {
+      "S": 8000,
+      "A": 6500,
+      "B": 4500,
+      "C": 0
+    },
+    "withoutMainMaxRank": "B"
+  },
+  "player": {
+    "hp": 100,
+    "stamina": 100,
+    "walkMps": 3.8,
+    "sprintMps": 6,
+    "crouchMps": 2,
+    "sprintDrainPerSecond": 12,
+    "staminaRegenPerSecond": 18,
+    "regenDelaySeconds": 1.5
+  },
+  "difficulty": {
+    "standard": {
+      "reactionMultiplier": 1,
+      "spreadMultiplier": 1
+    },
+    "challenge": {
+      "reactionMultiplier": 0.8,
+      "spreadMultiplier": 0.85
+    }
+  },
+  "runSave": {
+    "maxActiveRuns": 1,
+    "snapshotIntervalSeconds": 15,
+    "criticalEventsCommit": true
+  }
+}

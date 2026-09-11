@@ -1,0 +1,875 @@
+[
+  {
+    "id": "B01",
+    "milestone": "M0",
+    "priority": "P0",
+    "owner": "主策划",
+    "title": "冻结范围与术语",
+    "dependsOn": [],
+    "effortPersonDays": [
+      1,
+      2
+    ],
+    "acceptance": "评审确认没有跨局装备/货币/等级/配件入口",
+    "status": "planned"
+  },
+  {
+    "id": "B02",
+    "milestone": "M0",
+    "priority": "P0",
+    "owner": "程序负责人",
+    "title": "现有运行模块依赖审计",
+    "dependsOn": [
+      "B01"
+    ],
+    "effortPersonDays": [
+      2,
+      4
+    ],
+    "acceptance": "列出新入口实际加载链，旧PVP/经济/技能不进入新模式",
+    "status": "planned"
+  },
+  {
+    "id": "B03",
+    "milestone": "M0",
+    "priority": "P0",
+    "owner": "引擎程序",
+    "title": "世界/破坏性能基线",
+    "dependsOn": [
+      "B02"
+    ],
+    "effortPersonDays": [
+      3,
+      5
+    ],
+    "acceptance": "提交普通交战及连续爆炸的CPU/GPU/内存采样",
+    "status": "planned"
+  },
+  {
+    "id": "B04",
+    "milestone": "M0",
+    "priority": "P0",
+    "owner": "系统程序",
+    "title": "配置导入与静态校验",
+    "dependsOn": [
+      "B01"
+    ],
+    "effortPersonDays": [
+      2,
+      3
+    ],
+    "acceptance": "未知物品/品质/引用拒绝加载，输出可定位的错误",
+    "status": "planned"
+  },
+  {
+    "id": "B05",
+    "milestone": "M1",
+    "priority": "P0",
+    "owner": "系统程序",
+    "title": "runId状态机与固定步长计时",
+    "dependsOn": [
+      "B04"
+    ],
+    "effortPersonDays": [
+      3,
+      5
+    ],
+    "acceptance": "暂停、恢复、死亡/超时/撤离同时发生按规则唯一结算",
+    "status": "planned"
+  },
+  {
+    "id": "B06",
+    "milestone": "M1",
+    "priority": "P0",
+    "owner": "系统程序",
+    "title": "独立模式入口和首页行为",
+    "dependsOn": [
+      "B02",
+      "B05"
+    ],
+    "effortPersonDays": [
+      2,
+      3
+    ],
+    "acceptance": "首页不被跳过，点击单人Banner进入整备且无PVP房间",
+    "status": "planned"
+  },
+  {
+    "id": "B07",
+    "milestone": "M1",
+    "priority": "P0",
+    "owner": "系统程序",
+    "title": "物品实例与容量事务",
+    "dependsOn": [
+      "B04",
+      "B05"
+    ],
+    "effortPersonDays": [
+      4,
+      6
+    ],
+    "acceptance": "移动/堆叠/拆分/替换原子执行，任何实例只有一位所有者",
+    "status": "planned"
+  },
+  {
+    "id": "B08",
+    "milestone": "M1",
+    "priority": "P0",
+    "owner": "战斗程序",
+    "title": "品质与伤害适配",
+    "dependsOn": [
+      "B04",
+      "B02"
+    ],
+    "effortPersonDays": [
+      3,
+      5
+    ],
+    "acceptance": "12个类型接口支持4品质，同类型同品质同数值",
+    "status": "planned"
+  },
+  {
+    "id": "B09",
+    "milestone": "M1",
+    "priority": "P0",
+    "owner": "战斗程序",
+    "title": "首轮3枪与弹药装填",
+    "dependsOn": [
+      "B08",
+      "B07"
+    ],
+    "effortPersonDays": [
+      3,
+      5
+    ],
+    "acceptance": "突击/手枪/霰弹可用，取消换弹不增弹",
+    "status": "planned"
+  },
+  {
+    "id": "B10",
+    "milestone": "M1",
+    "priority": "P0",
+    "owner": "系统程序",
+    "title": "种子容器和敌人固定掉落",
+    "dependsOn": [
+      "B07",
+      "B04"
+    ],
+    "effortPersonDays": [
+      3,
+      5
+    ],
+    "acceptance": "同seed开箱/重载结果固定，破箱不重抽",
+    "status": "planned"
+  },
+  {
+    "id": "B11",
+    "milestone": "M1",
+    "priority": "P0",
+    "owner": "关卡策划",
+    "title": "测试地图灰盒",
+    "dependsOn": [
+      "B03"
+    ],
+    "effortPersonDays": [
+      3,
+      5
+    ],
+    "acceptance": "两条主路线、一处破墙、目标、E0/E1可达",
+    "status": "planned"
+  },
+  {
+    "id": "B12",
+    "milestone": "M1",
+    "priority": "P0",
+    "owner": "AI程序",
+    "title": "巡逻与守卫两种原型",
+    "dependsOn": [
+      "B05",
+      "B11"
+    ],
+    "effortPersonDays": [
+      4,
+      7
+    ],
+    "acceptance": "视线/听觉/最后位置有效，不隔墙追踪实时玩家",
+    "status": "planned"
+  },
+  {
+    "id": "B13",
+    "milestone": "M1",
+    "priority": "P0",
+    "owner": "系统程序",
+    "title": "主合同物与事件进度",
+    "dependsOn": [
+      "B07",
+      "B11"
+    ],
+    "effortPersonDays": [
+      2,
+      4
+    ],
+    "acceptance": "一个主合同物，携带撤离才完成，不重复记进度",
+    "status": "planned"
+  },
+  {
+    "id": "B14",
+    "milestone": "M1",
+    "priority": "P0",
+    "owner": "系统程序",
+    "title": "E0/E1撤离读条",
+    "dependsOn": [
+      "B05",
+      "B11"
+    ],
+    "effortPersonDays": [
+      3,
+      4
+    ],
+    "acceptance": "开放时间可读，出圈重置、死亡优先、成功只一次",
+    "status": "planned"
+  },
+  {
+    "id": "B15",
+    "milestone": "M1",
+    "priority": "P0",
+    "owner": "系统程序",
+    "title": "评分和结算清理",
+    "dependsOn": [
+      "B13",
+      "B14"
+    ],
+    "effortPersonDays": [
+      2,
+      4
+    ],
+    "acceptance": "上限10000，无合同最高B，下一局重置普通装备",
+    "status": "planned"
+  },
+  {
+    "id": "B16",
+    "milestone": "M1",
+    "priority": "P0",
+    "owner": "UI程序",
+    "title": "最小整备/HUD/搜索/结算",
+    "dependsOn": [
+      "B06",
+      "B07",
+      "B15"
+    ],
+    "effortPersonDays": [
+      4,
+      6
+    ],
+    "acceptance": "1280×720操作闭环，无商店配件成长按钮",
+    "status": "planned"
+  },
+  {
+    "id": "B17",
+    "milestone": "M1",
+    "priority": "P0",
+    "owner": "系统程序",
+    "title": "统一暂停与输入隔离",
+    "dependsOn": [
+      "B05",
+      "B16"
+    ],
+    "effortPersonDays": [
+      2,
+      4
+    ],
+    "acceptance": "Esc/切出停止所有模拟，菜单不触发射击",
+    "status": "planned"
+  },
+  {
+    "id": "B18",
+    "milestone": "M1",
+    "priority": "P0",
+    "owner": "系统程序",
+    "title": "原子存档与当前局恢复",
+    "dependsOn": [
+      "B05",
+      "B07",
+      "B10"
+    ],
+    "effortPersonDays": [
+      5,
+      8
+    ],
+    "acceptance": "中断恢复同一局，结算/物品不复制",
+    "status": "planned"
+  },
+  {
+    "id": "B19",
+    "milestone": "M1",
+    "priority": "P0",
+    "owner": "QA",
+    "title": "闭环里程碑验收",
+    "dependsOn": [
+      "B09",
+      "B12",
+      "B15",
+      "B16",
+      "B17",
+      "B18"
+    ],
+    "effortPersonDays": [
+      2,
+      3
+    ],
+    "acceptance": "可从首页完成成功/死亡/保存退出三条路径",
+    "status": "planned"
+  },
+  {
+    "id": "B20",
+    "milestone": "M2",
+    "priority": "P0",
+    "owner": "引擎程序",
+    "title": "破墙碰撞与局部寻路失效",
+    "dependsOn": [
+      "B03",
+      "B11",
+      "B12"
+    ],
+    "effortPersonDays": [
+      5,
+      8
+    ],
+    "acceptance": "破坏后能穿过真实缺口，未破坏墙保持阻挡",
+    "status": "planned"
+  },
+  {
+    "id": "B21",
+    "milestone": "M2",
+    "priority": "P0",
+    "owner": "引擎程序",
+    "title": "关键物恢复锚点",
+    "dependsOn": [
+      "B13",
+      "B20"
+    ],
+    "effortPersonDays": [
+      3,
+      5
+    ],
+    "acceptance": "目标被炸/埋/落空后回可达点且实例不重复",
+    "status": "planned"
+  },
+  {
+    "id": "B22",
+    "milestone": "M2",
+    "priority": "P0",
+    "owner": "战斗程序",
+    "title": "三类装备的四档品质",
+    "dependsOn": [
+      "B07",
+      "B08"
+    ],
+    "effortPersonDays": [
+      2,
+      4
+    ],
+    "acceptance": "头盔/护甲/背包数值正确，降级背包容量不足不删物",
+    "status": "planned"
+  },
+  {
+    "id": "B23",
+    "milestone": "M2",
+    "priority": "P0",
+    "owner": "战斗程序",
+    "title": "八种恢复品与短期状态",
+    "dependsOn": [
+      "B08",
+      "B17"
+    ],
+    "effortPersonDays": [
+      3,
+      5
+    ],
+    "acceptance": "受伤打断不扣药，叠加与满血行为符合规则",
+    "status": "planned"
+  },
+  {
+    "id": "B24",
+    "milestone": "M2",
+    "priority": "P0",
+    "owner": "战斗程序",
+    "title": "烟雾/闪光/诱饵/破片",
+    "dependsOn": [
+      "B12",
+      "B20"
+    ],
+    "effortPersonDays": [
+      4,
+      7
+    ],
+    "acceptance": "遮挡影响AI，不误清记忆，范围效果受几何遮挡",
+    "status": "planned"
+  },
+  {
+    "id": "B25",
+    "milestone": "M2",
+    "priority": "P0",
+    "owner": "关卡策划",
+    "title": "M01正式灰盒与路线调优",
+    "dependsOn": [
+      "B11",
+      "B20"
+    ],
+    "effortPersonDays": [
+      5,
+      8
+    ],
+    "acceptance": "三主合同路线、三撤离点和备用通路均可达",
+    "status": "planned"
+  },
+  {
+    "id": "B26",
+    "milestone": "M2",
+    "priority": "P0",
+    "owner": "系统程序",
+    "title": "三个基础装备方案与侦察枪适配",
+    "dependsOn": [
+      "B09",
+      "B22",
+      "B16"
+    ],
+    "effortPersonDays": [
+      2,
+      3
+    ],
+    "acceptance": "各方案5/12初始容量，枪已装满且备弹独立",
+    "status": "planned"
+  },
+  {
+    "id": "B27",
+    "milestone": "M2",
+    "priority": "P0",
+    "owner": "AI程序",
+    "title": "有限警戒与援军",
+    "dependsOn": [
+      "B12",
+      "B25"
+    ],
+    "effortPersonDays": [
+      4,
+      6
+    ],
+    "acceptance": "4秒呼叫可打断，最多两批8人，不近身刷怪",
+    "status": "planned"
+  },
+  {
+    "id": "B28",
+    "milestone": "M2",
+    "priority": "P0",
+    "owner": "UI程序",
+    "title": "完整背包与地图交互",
+    "dependsOn": [
+      "B16",
+      "B22",
+      "B25"
+    ],
+    "effortPersonDays": [
+      5,
+      8
+    ],
+    "acceptance": "全拿/替换/丢弃/排序/条件提示可键盘和鼠标完成",
+    "status": "planned"
+  },
+  {
+    "id": "B29",
+    "milestone": "M2",
+    "priority": "P0",
+    "owner": "系统程序",
+    "title": "E2电池应急撤离",
+    "dependsOn": [
+      "B14",
+      "B07",
+      "B25"
+    ],
+    "effortPersonDays": [
+      2,
+      3
+    ],
+    "acceptance": "只扣一次电池，重复激活无额外消耗",
+    "status": "planned"
+  },
+  {
+    "id": "B30",
+    "milestone": "M2",
+    "priority": "P0",
+    "owner": "主策划+QA",
+    "title": "10人垂直切片试玩",
+    "dependsOn": [
+      "B21",
+      "B23",
+      "B24",
+      "B27",
+      "B28",
+      "B29"
+    ],
+    "effortPersonDays": [
+      3,
+      5
+    ],
+    "acceptance": "记录搜/打/撤选择及前3局撤离率，决定是否扩大内容",
+    "status": "planned"
+  },
+  {
+    "id": "B31",
+    "milestone": "M3",
+    "priority": "P1",
+    "owner": "战斗程序+美术",
+    "title": "12枪类型完整接入",
+    "dependsOn": [
+      "B09",
+      "B30"
+    ],
+    "effortPersonDays": [
+      6,
+      10
+    ],
+    "acceptance": "每类型表现/音频/弹道均匹配，品质无配件槽",
+    "status": "planned"
+  },
+  {
+    "id": "B32",
+    "milestone": "M3",
+    "priority": "P1",
+    "owner": "AI程序",
+    "title": "其余6种普通AI原型",
+    "dependsOn": [
+      "B27",
+      "B30"
+    ],
+    "effortPersonDays": [
+      6,
+      10
+    ],
+    "acceptance": "每原型存在可观察行为差异且共享视听公平规则",
+    "status": "planned"
+  },
+  {
+    "id": "B33",
+    "milestone": "M3",
+    "priority": "P1",
+    "owner": "关卡策划+美术",
+    "title": "M02场景与锚点",
+    "dependsOn": [
+      "B25",
+      "B30"
+    ],
+    "effortPersonDays": [
+      10,
+      15
+    ],
+    "acceptance": "海港3主合同/3撤离点/2非战斗路线验收",
+    "status": "planned"
+  },
+  {
+    "id": "B34",
+    "milestone": "M3",
+    "priority": "P1",
+    "owner": "关卡策划+美术",
+    "title": "M03场景与锚点",
+    "dependsOn": [
+      "B25",
+      "B30"
+    ],
+    "effortPersonDays": [
+      10,
+      15
+    ],
+    "acceptance": "工业区断电、破墙和回撤路径完整",
+    "status": "planned"
+  },
+  {
+    "id": "B35",
+    "milestone": "M3",
+    "priority": "P1",
+    "owner": "AI程序+策划",
+    "title": "3首领与有限护卫",
+    "dependsOn": [
+      "B31",
+      "B32",
+      "B33",
+      "B34"
+    ],
+    "effortPersonDays": [
+      6,
+      10
+    ],
+    "acceptance": "预警可读、能绕行，地形击杀有效且掉落唯一",
+    "status": "planned"
+  },
+  {
+    "id": "B36",
+    "milestone": "M3",
+    "priority": "P1",
+    "owner": "系统程序+策划",
+    "title": "9主合同与12委托",
+    "dependsOn": [
+      "B13",
+      "B25",
+      "B33",
+      "B34"
+    ],
+    "effortPersonDays": [
+      4,
+      6
+    ],
+    "acceptance": "抽取前验证对象存在，主线不依赖可选任务",
+    "status": "planned"
+  },
+  {
+    "id": "B37",
+    "milestone": "M3",
+    "priority": "P1",
+    "owner": "系统程序+策划",
+    "title": "6事件与调度预算",
+    "dependsOn": [
+      "B27",
+      "B33",
+      "B34"
+    ],
+    "effortPersonDays": [
+      4,
+      7
+    ],
+    "acceptance": "每局至多2事件，额外敌人最多2，不封死出口",
+    "status": "planned"
+  },
+  {
+    "id": "B38",
+    "milestone": "M3",
+    "priority": "P1",
+    "owner": "引擎程序",
+    "title": "支撑图与有限结构坍塌",
+    "dependsOn": [
+      "B20",
+      "B21",
+      "B30"
+    ],
+    "effortPersonDays": [
+      10,
+      18
+    ],
+    "acceptance": "断支撑后结构下落，导航/任务恢复同步且预算受控",
+    "status": "planned"
+  },
+  {
+    "id": "B39",
+    "milestone": "M3",
+    "priority": "P1",
+    "owner": "系统程序+战斗程序",
+    "title": "4工程通行物",
+    "dependsOn": [
+      "B20",
+      "B21",
+      "B29"
+    ],
+    "effortPersonDays": [
+      4,
+      6
+    ],
+    "acceptance": "无效桥板不扣物，卡门和破障存在替代路线",
+    "status": "planned"
+  },
+  {
+    "id": "B40",
+    "milestone": "M3",
+    "priority": "P1",
+    "owner": "系统程序+美术",
+    "title": "96物品图标与世界拾取表现",
+    "dependsOn": [
+      "B31",
+      "B39"
+    ],
+    "effortPersonDays": [
+      5,
+      8
+    ],
+    "acceptance": "无缺失图标，不为品质复制48套模型",
+    "status": "planned"
+  },
+  {
+    "id": "B41",
+    "milestone": "M3",
+    "priority": "P1",
+    "owner": "UI程序",
+    "title": "多尺寸与可访问性",
+    "dependsOn": [
+      "B28",
+      "B40"
+    ],
+    "effortPersonDays": [
+      4,
+      6
+    ],
+    "acceptance": "800×600至2705×1623无遮挡，品质不只靠颜色",
+    "status": "planned"
+  },
+  {
+    "id": "B42",
+    "milestone": "M3",
+    "priority": "P1",
+    "owner": "音频+美术",
+    "title": "战斗/任务/撤离反馈",
+    "dependsOn": [
+      "B35",
+      "B37",
+      "B41"
+    ],
+    "effortPersonDays": [
+      4,
+      7
+    ],
+    "acceptance": "关键提示可辨认，无暂停后残留循环音",
+    "status": "planned"
+  },
+  {
+    "id": "B43",
+    "milestone": "M3",
+    "priority": "P1",
+    "owner": "主策划",
+    "title": "教程与两档难度",
+    "dependsOn": [
+      "B25",
+      "B32",
+      "B41"
+    ],
+    "effortPersonDays": [
+      3,
+      5
+    ],
+    "acceptance": "教程不发跨局奖励，挑战只应用公开参数",
+    "status": "planned"
+  },
+  {
+    "id": "B44",
+    "milestone": "M4",
+    "priority": "P0",
+    "owner": "系统程序",
+    "title": "存档迁移/配额/双页写入",
+    "dependsOn": [
+      "B18",
+      "B38"
+    ],
+    "effortPersonDays": [
+      4,
+      7
+    ],
+    "acceptance": "坏档不覆盖有效档，同一run不能双写",
+    "status": "planned"
+  },
+  {
+    "id": "B45",
+    "milestone": "M4",
+    "priority": "P0",
+    "owner": "QA+系统程序",
+    "title": "事务与结算故障注入",
+    "dependsOn": [
+      "B44",
+      "B36"
+    ],
+    "effortPersonDays": [
+      4,
+      6
+    ],
+    "acceptance": "在关键提交点中断100次无双领取和物品复制",
+    "status": "planned"
+  },
+  {
+    "id": "B46",
+    "milestone": "M4",
+    "priority": "P0",
+    "owner": "引擎程序",
+    "title": "连续局性能与内存优化",
+    "dependsOn": [
+      "B38",
+      "B37",
+      "B40"
+    ],
+    "effortPersonDays": [
+      5,
+      10
+    ],
+    "acceptance": "记录最重场景P95与20次进出资源曲线",
+    "status": "planned"
+  },
+  {
+    "id": "B47",
+    "milestone": "M4",
+    "priority": "P0",
+    "owner": "QA+关卡策划",
+    "title": "1000种子可达性与破坏验收",
+    "dependsOn": [
+      "B33",
+      "B34",
+      "B38",
+      "B39"
+    ],
+    "effortPersonDays": [
+      4,
+      7
+    ],
+    "acceptance": "每图种子检查通过，目标与E0不会永久卡死",
+    "status": "planned"
+  },
+  {
+    "id": "B48",
+    "milestone": "M4",
+    "priority": "P0",
+    "owner": "QA",
+    "title": "旧玩法与首页回归",
+    "dependsOn": [
+      "B06",
+      "B46"
+    ],
+    "effortPersonDays": [
+      3,
+      5
+    ],
+    "acceptance": "大征服及五种小型模式流程和原UI/模型/背景保留",
+    "status": "planned"
+  },
+  {
+    "id": "B49",
+    "milestone": "M4",
+    "priority": "P0",
+    "owner": "主策划+QA",
+    "title": "平衡复测与冻结配置",
+    "dependsOn": [
+      "B35",
+      "B36",
+      "B37",
+      "B43",
+      "B47"
+    ],
+    "effortPersonDays": [
+      5,
+      8
+    ],
+    "acceptance": "三方案均可完成全部标准合同，无唯一压倒性路线",
+    "status": "planned"
+  },
+  {
+    "id": "B50",
+    "milestone": "M4",
+    "priority": "P0",
+    "owner": "程序负责人",
+    "title": "离线包与发布开关",
+    "dependsOn": [
+      "B45",
+      "B46",
+      "B48",
+      "B49"
+    ],
+    "effortPersonDays": [
+      2,
+      4
+    ],
+    "acceptance": "断网整局可完成，功能开关启用前完成验收记录",
+    "status": "planned"
+  }
+]

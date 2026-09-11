@@ -1,0 +1,72 @@
+{
+  "status": "passed",
+  "scope": "Design data consistency only; game systems and playtests are not implemented or tested by this script.",
+  "checkedAt": "2026-09-11T03:41:25.830Z",
+  "counts": {
+    "documents": 8,
+    "items": 96,
+    "weaponBases": 12,
+    "maps": 3,
+    "mainContracts": 9,
+    "sideContracts": 12,
+    "aiRoles": 8,
+    "bosses": 3,
+    "events": 6,
+    "workPackages": 50,
+    "publishTestCases": 32
+  },
+  "checks": [
+    {
+      "name": "Scope: no meta progression, currency or attachments",
+      "passed": true
+    },
+    {
+      "name": "Content counts and unique IDs",
+      "passed": true
+    },
+    {
+      "name": "Item schema and finite numerical values",
+      "passed": true
+    },
+    {
+      "name": "Weapons: four fixed tiers and exact formulas",
+      "passed": true
+    },
+    {
+      "name": "Equipment quality values",
+      "passed": true
+    },
+    {
+      "name": "Starting presets: Q1, valid references, 5/12 capacity",
+      "passed": true
+    },
+    {
+      "name": "Map and contract references, authored graph connectivity",
+      "passed": true
+    },
+    {
+      "name": "Loot weights, boss and event budgets",
+      "passed": true
+    },
+    {
+      "name": "Score cap and worked example",
+      "passed": true
+    },
+    {
+      "name": "Backlog dependencies are valid and acyclic",
+      "passed": true
+    },
+    {
+      "name": "Readable catalog covers each item once",
+      "passed": true
+    },
+    {
+      "name": "Document package local links and expected files",
+      "passed": true
+    }
+  ],
+  "effortPersonDays": [
+    194,
+    320
+  ]
+}
