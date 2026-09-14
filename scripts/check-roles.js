@@ -78,6 +78,8 @@ function serve() {
       const file = path.join(outDir, id + '.png');
       await page.locator('#stage').screenshot({ path: file });
       shots[id] = fs.readFileSync(file);
+      // 阈值 10000 的说明：swiftshader 软渲染下真实角色截图约 14KB，纯空白 PNG 只有
+      // 2-5KB——10000 足以抓空白画面。真正防"换皮失败"的是后面的两两不同断言。
       assert.ok(shots[id].length > 10000, id + ' 截图疑似空白画面');
 
       // 移动驱动：截图应与待机不同（动画在推进）

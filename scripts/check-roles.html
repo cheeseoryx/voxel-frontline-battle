@@ -2,6 +2,8 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
+<!-- base href="/" 是必须的：本页位于 /scripts/ 下，而 js/soldier-voxel.js 以相对路径
+     加载 assets/characters/*.glb；没有 base 时它们会解析到 /scripts/assets/ 而 404。 -->
 <base href="/" />
 <title>check-roles harness</title>
 <style>html,body{margin:0;background:#16202a}canvas{display:block}</style>
