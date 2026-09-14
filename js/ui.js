@@ -207,6 +207,7 @@
         modeOverlay: document.getElementById('mode-overlay'),
         classOverlay: document.getElementById('class-overlay'),
         classGrid: document.getElementById('class-grid'),
+        skinGrid: document.getElementById('class-skin-grid'),
         classStageCanvas: document.getElementById('class-stage-canvas'),
         classStageName: document.getElementById('class-stage-name'),
         classStageRole: document.getElementById('class-stage-role'),
@@ -3137,6 +3138,8 @@
       }
       this.els.classOverlay.classList.remove('hidden');
       this._buildClassGrid();
+      this._buildSkinGrid();
+      this._startSkinPreload();
       this._bindClassSelect();
       if (this.selectedClassId && this.els.classGrid) {
         this.els.classGrid.querySelectorAll('.class-card').forEach((el) => {
@@ -3250,6 +3253,174 @@
           this._syncClassConfirm();
         });
         grid.appendChild(btn);
+      }
+    },
+
+    /* ---------- 角色形象（皮肤）选择 ---------- */
+
+    _buildSkinGrid() {
+      const grid = this.els.skinGrid;
+      if (!grid) return;
+      grid.innerHTML = '';
+      const current =
+        global.VF.Soldier && global.VF.Soldier.getPlayerSkinId
+          ? global.VF.Soldier.getPlayerSkinId()
+          : 'box';
+      const skins = [{ id: 'box', nameZh: '原型兵' }].concat(
+        (global.VF.SoldierVoxel && global.VF.SoldierVoxel.SKINS) || []
+      );
+      skins.forEach((s) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'class-card class-skin-card';
+        btn.dataset.skinId = s.id;
+        const canvas = document.createElement('canvas');
+        canvas.width = 96;
+        canvas.height = 96;
+        canvas.className = 'class-avatar';
+        canvas.dataset.skinId = s.id;
+        const name = document.createElement('span');
+        name.className = 'class-card-name';
+        name.textContent = s.nameZh;
+        btn.appendChild(canvas);
+        btn.appendChild(name);
+        if (s.id !== 'box') btn.classList.add('is-loading');
+        btn.classList.toggle('selected', s.id === current);
+        btn.setAttribute('aria-pressed', s.id === current ? 'true' : 'false');
+        btn.addEventListener('click', () => this._selectSkin(s.id));
+        grid.appendChild(btn);
+      });
+      this._bakeSkinAvatars();
+    },
+
+    _startSkinPreload() {
+      const V = global.VF.SoldierVoxel;
+      if (!V || !V.SKINS) return;
+      V.SKINS.forEach((s) => {
+        V.preload(s.id).then((ok) => {
+          const grid = this.els.skinGrid;
+          const btn = grid
+            ? grid.querySelector('button[data-skin-id="' + s.id + '"]')
+            : null;
+          if (!ok) {
+            if (btn) {
+              btn.classList.remove('is-loading');
+              btn.classList.add('is-disabled');
+              btn.title = '角色资源加载失败';
+            }
+            return;
+          }
+          if (btn) btn.classList.remove('is-loading');
+          // 当前选中的皮肤刚刚就绪 → 重建站台模型换上它
+          if (
+            global.VF.Soldier &&
+            global.VF.Soldier.getPlayerSkinId &&
+            global.VF.Soldier.getPlayerSkinId() === s.id
+          ) {
+            this._refreshClassStageSkin();
+          }
+          this._bakeSkinAvatars();
+        });
+      });
+    },
+
+    _selectSkin(id) {
+      const V = global.VF.SoldierVoxel;
+      if (id !== 'box' && (!V || !V.isReady(id))) return; // 未就绪不可选
+      if (global.VF.Soldier && global.VF.Soldier.setPlayerSkinId) {
+        global.VF.Soldier.setPlayerSkinId(id);
+      }
+      const grid = this.els.skinGrid;
+      if (grid) {
+        grid.querySelectorAll('.class-skin-card').forEach((el) => {
+          const on = el.dataset.skinId === id;
+          el.classList.toggle('selected', on);
+          el.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+      }
+      this._refreshClassStageSkin();
+      this._bakeSkinAvatars();
+    },
+
+    _refreshClassStageSkin() {
+      const prev = this._classPreview;
+      if (!prev || !global.VF.Soldier) return;
+      const classes = global.VF.Soldier.CLASSES || [];
+      const skinId = global.VF.Soldier.getPlayerSkinId
+        ? global.VF.Soldier.getPlayerSkinId()
+        : 'box';
+      const previewTeam = this._playerTeam() === 'enemy' ? 'enemy' : 'ally';
+      for (const k in prev.models) {
+        if (prev.models[k] && prev.scene) prev.scene.remove(prev.models[k]);
+      }
+      prev.models = {};
+      for (let i = 0; i < classes.length; i++) {
+        const m = global.VF.Soldier.createPreviewSoldier(classes[i].id, {
+          team: previewTeam,
+          skinId: skinId,
+        });
+        m.visible = false;
+        if (global.VF.Soldier.initLocomotion) global.VF.Soldier.initLocomotion(m);
+        prev.scene.add(m);
+        prev.models[classes[i].id] = m;
+      }
+      this._bakeClassAvatars();
+    },
+
+    _bakeSkinAvatars() {
+      const prev = this._classPreview;
+      const grid = this.els.skinGrid;
+      if (!prev || !grid || !global.VF.Soldier) return;
+      const V = global.VF.SoldierVoxel;
+      if (!prev.skinModels) prev.skinModels = {};
+      const previewTeam = this._playerTeam() === 'enemy' ? 'enemy' : 'ally';
+      const size = 96;
+      prev.renderer.setSize(size, size, false);
+      prev.headCam.aspect = 1;
+      prev.headCam.updateProjectionMatrix();
+
+      const hideAll = () => {
+        for (const k in prev.models) prev.models[k].visible = false;
+        for (const k in prev.skinModels) prev.skinModels[k].visible = false;
+      };
+      const bake = (skinId, model) => {
+        const canvas = grid.querySelector(
+          'canvas[data-skin-id="' + skinId + '"]'
+        );
+        if (!canvas || !model) return;
+        hideAll();
+        model.visible = true;
+        model.rotation.y = Math.PI + 0.15;
+        model.position.set(0, 0, 0);
+        prev.renderer.render(prev.scene, prev.headCam);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(
+            prev.renderer.domElement,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+        }
+        model.visible = false;
+      };
+
+      // 原型兵：直接借 assault 的盒子模型烘头像
+      if (prev.models && prev.models.assault) bake('box', prev.models.assault);
+      if (V && V.SKINS) {
+        V.SKINS.forEach((s) => {
+          if (!V.isReady(s.id)) return;
+          if (!prev.skinModels[s.id]) {
+            const m = V.create(s.id, { classId: 'assault', team: previewTeam });
+            if (!m) return;
+            m.visible = false;
+            prev.scene.add(m);
+            prev.skinModels[s.id] = m;
+          }
+          bake(s.id, prev.skinModels[s.id]);
+        });
       }
     },
 
@@ -3433,6 +3604,9 @@
       for (let i = 0; i < classes.length; i++) {
         const m = global.VF.Soldier.createPreviewSoldier(classes[i].id, {
           team: previewTeam,
+          skinId: global.VF.Soldier.getPlayerSkinId
+            ? global.VF.Soldier.getPlayerSkinId()
+            : 'box',
         });
         m.visible = false;
         m.position.set(0, 0, 0);
@@ -3453,6 +3627,7 @@
       };
 
       this._bakeClassAvatars();
+      this._bakeSkinAvatars();
 
       const tick = () => {
         if (!this.classSelectOpen || !this._classPreview) return;
@@ -3837,6 +4012,9 @@
       for (let i = 0; i < classes.length; i++) {
         const model = global.VF.Soldier.createPreviewSoldier(classes[i].id, {
           team: previewTeam,
+          skinId: global.VF.Soldier.getPlayerSkinId
+            ? global.VF.Soldier.getPlayerSkinId()
+            : 'box',
         });
         model.visible = false;
         if (global.VF.Soldier.initLocomotion) {
