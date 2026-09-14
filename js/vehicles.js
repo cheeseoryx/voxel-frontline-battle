@@ -731,6 +731,17 @@
     const THREE = global.THREE;
     const def = VEHICLE_DEFS[type];
     if (!THREE || !def) return null;
+
+    // Authored GLB art (js/vehicle-models.js) wins once it has finished
+    // loading; until then — or if the asset is missing — fall through to the
+    // procedural builder below, which stays the permanent fallback and is the
+    // only path scripts/check-vehicles.js can reach.
+    const models = global.VF && global.VF.VehicleModels;
+    if (models && typeof models.build === 'function') {
+      const built = models.build(type, team);
+      if (built) return built;
+    }
+
     ensureModelCache(THREE);
 
     const root = new THREE.Group();
@@ -1224,12 +1235,29 @@
   VehicleSystem.prototype.refreshDisplayColors = function () {
     const L = global.VF && global.VF.TeamLook;
     if (!L || !L.kind) return;
+    const models = global.VF && global.VF.VehicleModels;
     const friend = 0x3d8fbd;
     const foe = 0xb43f36;
     for (let i = 0; i < this._vehicles.length; i++) {
       const vehicle = this._vehicles[i];
       if (!vehicle || !vehicle.mesh) continue;
       const col = L.kind(vehicle.team) === 'foe' ? foe : friend;
+      // GLB models carry the team wash on the body material and the team
+      // colour on unlit TeamMark panels. Both are shared per-team instances,
+      // so re-teaming is a material swap — never a per-vehicle clone (which
+      // is what leaks in the procedural path below).
+      if (vehicle.mesh.userData && vehicle.mesh.userData.glbModel) {
+        const mat = models && models.materialFor(vehicle.type, vehicle.team);
+        const markMat = models && models.markMaterialFor
+          ? models.markMaterialFor(vehicle.team)
+          : null;
+        vehicle.mesh.traverse(function (c) {
+          if (!c.userData) return;
+          if (c.userData.vehicleTint && mat) c.material = mat;
+          else if (c.userData.teamMark && markMat) c.material = markMat;
+        });
+        continue;
+      }
       vehicle.mesh.traverse(function (c) {
         if (c.name !== 'TeamMark' || !c.material || !c.material.color) return;
         c.material.color.setHex(col);
@@ -4198,6 +4226,34 @@
 
   VehicleSystem.prototype.createModel = function (type, team) {
     return createVehicleModel(type, team);
+  };
+
+  /**
+   * Rebuild meshes for vehicles that spawned before the GLB art finished
+   * loading. Safe to call repeatedly: vehicles already on a GLB model, and
+   * types whose asset failed to load, are left alone.
+   */
+  VehicleSystem.prototype.refreshModels = function () {
+    const models = global.VF && global.VF.VehicleModels;
+    if (!global.THREE || !models || typeof models.has !== 'function') return 0;
+    const root = this._ensureRoot();
+    let swapped = 0;
+    for (let i = 0; i < this._vehicles.length; i++) {
+      const vehicle = this._vehicles[i];
+      if (!vehicle) continue;
+      if (vehicle.mesh && vehicle.mesh.userData && vehicle.mesh.userData.glbModel) continue;
+      if (!models.has(vehicle.type)) continue;
+      const next = createVehicleModel(vehicle.type, vehicle.team);
+      if (!next || !next.userData.glbModel) continue;
+      if (vehicle.mesh && vehicle.mesh.parent) vehicle.mesh.parent.remove(vehicle.mesh);
+      vehicle.mesh = next;
+      vehicle.mesh.userData.vehicleId = vehicle.id;
+      if (root) root.add(vehicle.mesh);
+      this._syncVisual(vehicle);
+      this._syncAABB(vehicle);
+      swapped++;
+    }
+    return swapped;
   };
 
   VehicleSystem.prototype.getModelCacheStats = function () {
