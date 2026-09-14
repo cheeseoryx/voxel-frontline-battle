@@ -124,6 +124,32 @@
     return CLASS_ALIASES[classId] || 'assault';
   }
 
+  /* ---------- 角色形象（皮肤） ---------- */
+
+  const SKIN_STORAGE_KEY = 'vf_soldier_skin';
+
+  function getPlayerSkinId() {
+    try {
+      const v = localStorage.getItem(SKIN_STORAGE_KEY);
+      if (v === 'box') return 'box';
+      if (
+        v &&
+        global.VF.SoldierVoxel &&
+        global.VF.SoldierVoxel.isValidSkin &&
+        global.VF.SoldierVoxel.isValidSkin(v)
+      ) {
+        return v;
+      }
+    } catch (_) {}
+    return 'box';
+  }
+
+  function setPlayerSkinId(id) {
+    try {
+      localStorage.setItem(SKIN_STORAGE_KEY, id || 'box');
+    } catch (_) {}
+  }
+
   const _geoCache = {};
   const _matCache = {};
   function _mat(color) {
@@ -295,7 +321,11 @@
     makeLeg(1, opts.thighColorR);
   }
 
-  function addGun(root, style, muzzleZ) {
+  /**
+   * 只造枪体（无手臂、不摆位、不挂 root）。盒子兵由 addGun 补手臂；
+   * 体素角色（soldier-voxel.js）拿它做背部挂枪。
+   */
+  function buildGunProp(style, muzzleZ) {
     const gun = new THREE.Group();
     gun.name = 'Weapon';
     const g = PALETTE.gun;
@@ -335,6 +365,20 @@
       gun.add(box(0.06, 0.06, 0.08, 0x222222, 0, 0.26, -0.08));
     }
 
+    const muzzle = new THREE.Object3D();
+    muzzle.name = 'Muzzle';
+    muzzle.position.set(0, 0.02, muzzleZ != null ? muzzleZ : -1.05);
+    gun.add(muzzle);
+    const flash = new THREE.Object3D();
+    flash.name = 'MuzzleFlash';
+    muzzle.add(flash);
+    return { gun, muzzle, flash };
+  }
+
+  function addGun(root, style, muzzleZ) {
+    const built = buildGunProp(style, muzzleZ);
+    const gun = built.gun;
+
     // Hands + forearms parented to gun (survive finishSoldier facing wrap)
     const skin = PALETTE.skin;
     const sleeve = PALETTE.olive;
@@ -363,15 +407,8 @@
     gun.position.set(0.18, 1.22, -0.35);
     gun.rotation.set(-0.2, 0.05, 0.08);
 
-    const muzzle = new THREE.Object3D();
-    muzzle.name = 'Muzzle';
-    muzzle.position.set(0, 0.02, muzzleZ != null ? muzzleZ : -1.05);
-    gun.add(muzzle);
-    const flash = new THREE.Object3D();
-    flash.name = 'MuzzleFlash';
-    muzzle.add(flash);
     root.add(gun);
-    return { gun, muzzle, flash };
+    return built;
   }
 
   function addTeamMarker(root, team) {
@@ -781,6 +818,19 @@
     opts = opts || {};
     classId = normalizeClassId(classId);
     const team = opts.team === 'enemy' ? 'enemy' : 'ally';
+    const skinId = opts.skinId || 'box';
+    if (
+      skinId !== 'box' &&
+      global.VF.SoldierVoxel &&
+      global.VF.SoldierVoxel.isReady(skinId)
+    ) {
+      const voxel = global.VF.SoldierVoxel.create(skinId, {
+        classId: classId,
+        team: team,
+      });
+      if (voxel) return voxel;
+      // 创建失败静默回退盒子兵
+    }
     const enemyTint = team === 'enemy';
     const root = new THREE.Group();
     root.name = 'Soldier_' + classId;
@@ -1777,6 +1827,17 @@
    */
   function updateLocomotion(root, dt, state) {
     if (!root) return;
+    // 体素骨骼角色：走 AnimationMixer 驱动（见 js/soldier-voxel.js）。
+    // 必须分支在 initLocomotion 之前——否则盒子兵的腿部摆动逻辑会找到
+    // 背挂的 Weapon 并和 mixer 抢着改它的变换。
+    if (
+      root.userData.glbAnim &&
+      global.VF.SoldierVoxel &&
+      global.VF.SoldierVoxel.drive
+    ) {
+      global.VF.SoldierVoxel.drive(root, dt, state);
+      return;
+    }
     const loco = root.userData.loco || initLocomotion(root);
     if (!loco || (!loco.leftLeg && !loco.rightLeg && !loco.gun)) return;
 
@@ -1845,6 +1906,7 @@
   function createPreviewSoldier(classId, opts) {
     const root = createClassSoldier(classId, {
       team: resolveFactionTeam(opts && opts.team),
+      skinId: opts && opts.skinId,
     });
     const marker = root.getObjectByName('TeamMarker');
     if (marker) root.remove(marker);
@@ -1855,6 +1917,9 @@
   global.VF = global.VF || {};
   global.VF.Soldier = {
     createSoldier,
+    buildGunProp,
+    getPlayerSkinId,
+    setPlayerSkinId,
     createClassSoldier,
     createPreviewSoldier,
     createViewModel,
