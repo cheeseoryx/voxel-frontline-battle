@@ -2854,6 +2854,19 @@
         if (global.VF.Soldier.updateCrouchPose) {
           global.VF.Soldier.updateCrouchPose(m, dt);
         }
+        if (m.userData && m.userData.glbAnim && global.VF.Soldier.updateLocomotion) {
+          const dx = m.position.x - (av._prevLX != null ? av._prevLX : m.position.x);
+          const dz = m.position.z - (av._prevLZ != null ? av._prevLZ : m.position.z);
+          const step = Math.sqrt(dx * dx + dz * dz);
+          const speed = dt > 0 ? step / dt : 0;
+          av._prevLX = m.position.x;
+          av._prevLZ = m.position.z;
+          global.VF.Soldier.updateLocomotion(m, dt, {
+            moving: speed > 0.5,
+            speedRatio: Math.min(1.2, speed / 6),
+            onGround: true,
+          });
+        }
       }
     },
 

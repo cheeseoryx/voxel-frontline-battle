@@ -206,6 +206,8 @@
       idle.time = IDLE_TIME;
       idle.paused = true;
     }
+    // 防御「只创建不驱动」的消费者（PvP 远端化身曾因此渲染成 A-pose）
+    mixer.update(0);
 
     root.userData.glbAnim = {
       mixer: mixer,

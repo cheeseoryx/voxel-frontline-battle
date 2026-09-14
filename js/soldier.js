@@ -1728,6 +1728,8 @@
   }
 
   function updateCrouchPose(root, dt) {
+    // 体素绑定骨架无蹲伏 clip；Y 缩放与 gun.rotation.x 写入会压扁骨架并摧毁背挂枪的推导四元数
+    if (root && root.userData && root.userData.glbAnim) return;
     if (!root) return;
     const k = Math.min(1, (dt || 0.016) * 12);
     if (root.userData.crouchPose) {
