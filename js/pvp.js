@@ -2147,14 +2147,13 @@
       if (model) model.visible = false;
     },
 
-    _makePreviewModel(classId, team) {
+    _makePreviewModel(classId, team, skinId) {
       const Soldier = global.VF.Soldier;
       let m;
       if (Soldier.createClassSoldier) {
         m = Soldier.createClassSoldier(classId || 'assault', {
           team: team || 'ally',
-          skinId:
-            (Soldier.getPlayerSkinId && Soldier.getPlayerSkinId()) || 'box',
+          skinId: skinId || 'box',
         });
       } else {
         m = Soldier.createPreviewSoldier(classId || 'assault');
@@ -2173,19 +2172,32 @@
       if (!prev || !prev.scene) return;
       const ll = this.localLoadout;
       const rl = this.remoteLoadout;
+      const youSkin =
+        (global.VF.Soldier &&
+          global.VF.Soldier.getPlayerSkinId &&
+          global.VF.Soldier.getPlayerSkinId()) ||
+        'box';
+      const foeSkin = (rl && rl.skinId) || 'box';
       const youKey =
         (ll && ll.classId ? ll.classId : 'assault') +
         '|' +
-        (ll && ll.team ? ll.team : 'ally');
+        (ll && ll.team ? ll.team : 'ally') +
+        '|' +
+        youSkin;
       const foeKey = rl
-          ? (rl.classId || 'assault') + '|' + (rl.team || 'enemy')
+          ? (rl.classId || 'assault') +
+            '|' +
+            (rl.team || 'enemy') +
+            '|' +
+            foeSkin
         : '';
 
       if (youKey !== prev.youKey) {
         if (prev.youModel) prev.scene.remove(prev.youModel);
         prev.youModel = this._makePreviewModel(
           ll && ll.classId,
-          ll && ll.team
+          ll && ll.team,
+          youSkin
         );
         prev.scene.add(prev.youModel);
         prev.youKey = youKey;
@@ -2199,7 +2211,8 @@
         if (foeKey) {
           prev.foeModel = this._makePreviewModel(
             rl.classId,
-            rl.team
+            rl.team,
+            foeSkin
           );
           prev.scene.add(prev.foeModel);
         }
