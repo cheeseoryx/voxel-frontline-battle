@@ -3311,6 +3311,8 @@
             return;
           }
           if (btn) btn.classList.remove('is-loading');
+          // 皮肤选择页已关闭时不修改预览状态，避免持有共享 renderer 的其他界面受影响
+          if (!this.classSelectOpen) return;
           // 当前选中的皮肤刚刚就绪 → 重建站台模型换上它
           if (
             global.VF.Soldier &&
@@ -3351,7 +3353,7 @@
         : 'box';
       const previewTeam = this._playerTeam() === 'enemy' ? 'enemy' : 'ally';
       for (const k in prev.models) {
-        if (prev.models[k] && prev.scene) prev.scene.remove(prev.models[k]);
+        this._disposePreviewModel(prev.models[k], prev.scene);
       }
       prev.models = {};
       for (let i = 0; i < classes.length; i++) {
@@ -3392,6 +3394,10 @@
         model.visible = true;
         model.rotation.y = Math.PI + 0.15;
         model.position.set(0, 0, 0);
+        const gun = model.getObjectByName('Weapon');
+        if (gun) gun.visible = false;
+        const marker = model.getObjectByName('TeamMarker');
+        if (marker) marker.visible = false;
         prev.renderer.render(prev.scene, prev.headCam);
         const ctx = canvas.getContext('2d');
         if (ctx) {
@@ -3404,11 +3410,21 @@
             canvas.height
           );
         }
+        if (gun) gun.visible = true;
+        if (marker) marker.visible = true;
         model.visible = false;
       };
 
-      // 原型兵：直接借 assault 的盒子模型烘头像
-      if (prev.models && prev.models.assault) bake('box', prev.models.assault);
+      // 原型兵：用专用盒子兵模型烘焙，避免切换皮肤后 assault 已换成体素模型
+      if (!prev.skinModels.box) {
+        const boxM = global.VF.Soldier.createPreviewSoldier('assault', { team: previewTeam, skinId: 'box' });
+        if (boxM) {
+          boxM.visible = false;
+          prev.scene.add(boxM);
+          prev.skinModels.box = boxM;
+        }
+      }
+      if (prev.skinModels.box) bake('box', prev.skinModels.box);
       if (V && V.SKINS) {
         V.SKINS.forEach((s) => {
           if (!V.isReady(s.id)) return;
@@ -3713,14 +3729,32 @@
       prev.avatarsReady = true;
     },
 
+    /** 移除并仅 dispose 每实例资源（骨架贴图、TeamMarker 几何体/材质）。
+     *  不 dispose 共享的几何体/材质（体素克隆与 GLTF 模板共享；盒子兵与 _geoCache/_matCache 共享）。 */
+    _disposePreviewModel(m, scene) {
+      if (!m) return;
+      if (scene) scene.remove(m);
+      m.traverse((o) => {
+        if (o.name === 'TeamMarker') {
+          if (o.geometry) o.geometry.dispose();
+          if (o.material) o.material.dispose();
+        }
+        if (o.isSkinnedMesh && o.skeleton && o.skeleton.boneTexture) {
+          o.skeleton.boneTexture.dispose();
+        }
+      });
+    },
+
     _stopClassPreviews() {
       const prev = this._classPreview;
       if (!prev) return;
       if (prev.raf) cancelAnimationFrame(prev.raf);
       prev.raf = 0;
       for (const k in prev.models) {
-        const m = prev.models[k];
-        if (m && prev.scene) prev.scene.remove(m);
+        this._disposePreviewModel(prev.models[k], prev.scene);
+      }
+      for (const k in prev.skinModels || {}) {
+        this._disposePreviewModel(prev.skinModels[k], prev.scene);
       }
       this._classPreview = null;
     },
@@ -4077,6 +4111,15 @@
         preview.raf = requestAnimationFrame(tick);
       };
       this._loadoutCustomizePreview.raf = requestAnimationFrame(tick);
+      // 体素皮肤就绪后重建预览，替换盒子兵占位（spec 目标 #2：所选形象在所有展示位生效）
+      const _lcSkinId = global.VF.Soldier.getPlayerSkinId ? global.VF.Soldier.getPlayerSkinId() : 'box';
+      const _lcVoxel = global.VF.SoldierVoxel;
+      if (_lcSkinId !== 'box' && _lcVoxel && !_lcVoxel.isReady(_lcSkinId)) {
+        _lcVoxel.preload(_lcSkinId).then((ok) => {
+          if (!ok || !this.loadoutCustomizeOpen) return;
+          this._startLoadoutCustomizePreview();
+        });
+      }
     },
 
     _stopLoadoutCustomizePreview() {
