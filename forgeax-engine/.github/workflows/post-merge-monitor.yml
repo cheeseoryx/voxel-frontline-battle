@@ -1,0 +1,347 @@
+# post-merge-monitor.yml — monitor the conclusion of the first ci.yml run after a main push
+# (feat-20260508-verify-gpu-smoke-gate K-11 + AC-01 (b))
+#
+# Stance: after merging to main, the first ci.yml run triggered by the push must
+# have conclusion === 'success'. Failure → automatically open a tracking issue
+# (machine-enforceable anchor for the K-11 "main red 24h must-fix" stance); no
+# "fix on the next PR" delay allowed.
+#
+# Difference from nightly.yml:
+#   - nightly: scheduled full-platform fallback, opens issue on failure (does not block PR)
+#   - post-merge-monitor: immediate monitoring after main push, opens issue on
+#     failure (strong signal + 24h SLO; bound to K-11 stance)
+#
+# Implementation strategy: use workflow_run to listen for ci.yml push-to-main
+# completion events — avoids recursively triggering ci.yml itself. conclusion is
+# written to GITHUB_STEP_SUMMARY + issue create fallback on failure.
+#
+# The monitor no longer preempts an earlier post-merge observation when a newer
+# workflow_run arrives. The cancelled-run classifier below remains as a
+# compatibility path for manual/runner cancellations and never masks failures.
+
+name: post-merge-monitor
+
+on:
+  workflow_run:
+    workflows: [CI]  # listen to ci.yml (jobs.primary-pnpm + jobs.portability-bun + jobs.metrics-validate + jobs.sticky-comment)
+    types: [completed]
+    branches: [main]
+
+# When the same SHA completes multiple times, only keep the latest (workflow_run
+# generally does not repeat, but this avoids duplicate issues on retry / re-run)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+env:
+  # Opt-in to Node.js 24 for JavaScript actions ahead of GitHub's June 2026
+  # forced cutover. See ci.yml for context.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  monitor:
+    name: ci.yml conclusion check (main post-merge)
+    # push event only (PR uses the built-in PR feedback channel in ci.yml; main push is the merge signal)
+    if: github.event.workflow_run.event == 'push'
+    runs-on: [self-hosted, Linux, X64, standard]
+    permissions:
+      issues: write
+      actions: read
+    steps:
+      - name: Inspect ci.yml run conclusion
+        id: inspect
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const wr = context.payload.workflow_run;
+            const conclusion = wr.conclusion;
+            const headSha = wr.head_sha;
+            const runUrl = wr.html_url;
+            core.setOutput('conclusion', conclusion);
+            core.setOutput('headSha', headSha);
+            core.setOutput('runUrl', runUrl);
+            await core.summary
+              .addHeading('post-merge ci.yml run')
+              .addRaw(`**conclusion**: \`${conclusion}\``)
+              .addBreak()
+              .addRaw(`**headSha**: \`${headSha}\``)
+              .addBreak()
+              .addLink('run url', runUrl)
+              .write();
+            return conclusion;
+
+      # Cancelled-superseded filter (todo-061 / fix for issue #29): when
+      # conclusion == 'cancelled', check whether the same branch + same workflow
+      # has a newer run (different head_sha + newer created_at). If yes →
+      # superseded=true, downstream issue step skips issue creation.
+      # failure / timed_out and other non-success values do not enter this step
+      # (condition restricted to cancelled), preserving the Iron Law of "do not
+      # silently swallow real failures".
+      - name: Detect cancelled-superseded vs cancelled-genuine
+        id: superseded
+        if: steps.inspect.outputs.conclusion == 'cancelled'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const wr = context.payload.workflow_run;
+            const branch = wr.head_branch;
+            const workflowId = wr.workflow_id;
+            const headSha = wr.head_sha;
+            const createdAt = new Date(wr.created_at);
+            const runs = await github.paginate(
+              github.rest.actions.listWorkflowRuns,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: workflowId,
+                branch,
+                event: 'push',
+                per_page: 50,
+              },
+            );
+            const newer = runs.find(
+              (r) =>
+                new Date(r.created_at) > createdAt &&
+                r.head_sha !== headSha,
+            );
+            if (newer) {
+              core.info(
+                `cancelled run ${wr.id} (sha=${headSha.slice(0, 7)}) ` +
+                  `was superseded by newer run ${newer.id} ` +
+                  `(sha=${newer.head_sha.slice(0, 7)}, ` +
+                  `created_at=${newer.created_at}); ` +
+                  `not a real CI failure, skipping issue creation.`,
+              );
+              core.setOutput('superseded', 'true');
+              await core.summary
+                .addRaw(`**superseded**: \`true\` (newer run ${newer.id})`)
+                .addBreak()
+                .write();
+            } else {
+              core.info(
+                `cancelled run ${wr.id} (sha=${headSha.slice(0, 7)}) ` +
+                  `has no newer run on branch ${branch}; ` +
+                  `genuine cancellation (timeout / user / runner failure), ` +
+                  `opening issue.`,
+              );
+              core.setOutput('superseded', 'false');
+            }
+
+      # List existing open `post-merge` issues that already track the same
+      # head_sha. Shared across red (dedup) and green (auto-close) paths via
+      # `steps.listOpen.outputs.matchingIssues` JSON array (bug-20260511
+      # plan-strategy D-P2 + D-P3 — single listForRepo call covers both).
+      # Triple-label filter narrows the candidate set; body sentinel match
+      # `**merge sha**: \`<headSha>\`` (yaml line ~144 SSOT, mirrored by
+      # scripts/__tests__/post-merge-monitor-auto-close.test.mjs helper
+      # `findMatchingOpenIssues`) keeps the matcher conservative — an
+      # external human-opened issue carrying the same triple label without
+      # the sentinel is NOT matched (charter proposition 4: explicit
+      # failure beats silent false positive).
+      - name: List existing open post-merge issues for this head_sha
+        id: listOpen
+        if: steps.superseded.outputs.superseded != 'true'
+        uses: actions/github-script@v7
+        with:
+          # GitHub API transport is external and transient 5xx/fetch failures
+          # must not turn a healthy main run into a false monitor failure.
+          retries: 3
+          retry-exempt-status-codes: 400,401,403,404,422
+          script: |
+            const { owner, repo } = context.repo;
+            const headSha = '${{ steps.inspect.outputs.headSha }}';
+            const sentinel = '**merge sha**: `' + headSha + '`';
+            const allOpen = await github.paginate(
+              github.rest.issues.listForRepo,
+              {
+                owner,
+                repo,
+                labels: 'post-merge,ci-failure,sla-24h',
+                state: 'open',
+                per_page: 50,
+              },
+            );
+            const matched = allOpen
+              .filter((issue) => typeof issue.body === 'string' && issue.body.includes(sentinel))
+              .map((issue) => issue.number);
+            // matchingIssues = same-sha-only (dedup branch SSOT — open-on-red
+            // must not mistake issues for different shas as dedup targets)
+            core.setOutput('matchingIssues', JSON.stringify(matched));
+            // allOpenIssues = all unclosed post-merge issues (including numbers),
+            // used by the auto-close stage to distinguish the sha-rerun-green /
+            // sha-progressed scenarios (AGENTS.md §post-merge-monitor two-channel
+            // docs stipulation originally only took effect on the sha-rerun-green
+            // path = dead code; after the fix, sha-progressed auto-closes
+            // historical red issues when main advances to a new green sha).
+            const allOpenNumbers = allOpen.map((issue) => issue.number);
+            core.setOutput('allOpenIssues', JSON.stringify(allOpenNumbers));
+            core.info(
+              `head_sha ${headSha.slice(0, 7)} matched ${matched.length} same-sha issue(s); ` +
+                `${allOpenNumbers.length} total open post-merge issue(s).`,
+            );
+
+      - name: Open or comment tracking issue on failure (K-11 24h SLO)
+        if: steps.inspect.outputs.conclusion != 'success' && steps.superseded.outputs.superseded != 'true'
+        uses: actions/github-script@v7
+        with:
+          # The issue is the hand-off for a red main run. Retry only the
+          # external GitHub API transport; never retry a failed CI job here.
+          retries: 3
+          retry-exempt-status-codes: 400,401,403,404,422
+          script: |
+            const { owner, repo } = context.repo;
+            const conclusion = '${{ steps.inspect.outputs.conclusion }}';
+            const headSha = '${{ steps.inspect.outputs.headSha }}';
+            const runUrl = '${{ steps.inspect.outputs.runUrl }}';
+            const matched = JSON.parse('${{ steps.listOpen.outputs.matchingIssues }}' || '[]');
+            const jobs = await github.paginate(
+              github.rest.actions.listJobsForWorkflowRun,
+              {
+                owner,
+                repo,
+                run_id: context.payload.workflow_run.id,
+                per_page: 100,
+              },
+            );
+            const failedJobs = jobs
+              .filter((job) => job.conclusion && !['success', 'skipped'].includes(job.conclusion))
+              .map((job) => ({
+                name: job.name,
+                conclusion: job.conclusion,
+                url: job.html_url,
+                steps: (job.steps ?? [])
+                  .filter((step) => step.conclusion && !['success', 'skipped'].includes(step.conclusion))
+                  .map((step) => `${step.name} (${step.conclusion})`),
+              }));
+            const failureEvidence = failedJobs.length > 0
+              ? failedJobs.flatMap((job) => [
+                  `- [${job.name}](${job.url}) — \`${job.conclusion}\``,
+                  ...job.steps.map((step) => `  - ${step}`),
+                ]).join('\n')
+              : '- Job details were unavailable from the Actions API; inspect the run directly.';
+            if (matched.length > 0) {
+              // Dedup branch (bug-20260511 AC-04): same head_sha already
+              // tracked -> comment on each existing issue, do NOT call
+              // issues.create. Preserves audit trail without N x same-sha
+              // issue noise (charter proposition 5 consistent abstraction).
+              const dedupBody = [
+                'duplicate red detected on same head_sha `' + headSha + '`',
+                '',
+                '**ci run url**: ' + runUrl,
+                '',
+                '**failed jobs / steps**:',
+                failureEvidence,
+              ].join('\n');
+              for (const issue_number of matched) {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number,
+                  body: dedupBody,
+                });
+                core.info(`dedup comment posted on issue #${issue_number}`);
+              }
+              return;
+            }
+            // New-red branch (K-11 existing behaviour preserved, AC-01).
+            const date = new Date().toISOString().slice(0, 10);
+            const title = `[post-merge] ${date} ci.yml conclusion=${conclusion} after main merge`;
+            const body = [
+              `🚨 first ci.yml run after main push is **${conclusion}** (non-success) — see ${runUrl}`,
+              ``,
+              `**merge sha**: \`${headSha}\``,
+              ``,
+              `**failed jobs / steps**:`,
+              failureEvidence,
+              ``,
+              `**SLO (feat-20260508-verify-gpu-smoke-gate K-11 stance + AC-01 (b))**: must be fixed within 24h; on timeout, automatically \`git revert ${headSha}\` then open a hot-fix loop.`,
+              ``,
+              `**Forbidden**:`,
+              `- "fix on the next PR" delay (conflicts with K-11 stance)`,
+              `- introducing manual override (K-10 stance + architecture principle #5 Fail Fast + charter proposition 4; for the disabled channel, see plan-strategy.md §K-10 / §5.4 stance verbatim)`,
+              ``,
+              `**Rollback command template** (after 24h timeout; confirm before running):`,
+              `\`\`\``,
+              `git revert ${headSha}`,
+              `\`\`\``,
+            ].join('\n');
+            await github.rest.issues.create({
+              owner,
+              repo,
+              title,
+              body,
+              labels: ['post-merge', 'ci-failure', 'sla-24h'],
+            });
+
+      # Auto-close tracked issues on success (bug-20260511 AC-02 + AC-03).
+      # When the post-merge ci.yml run turns green, close every previously
+      # tracked open `post-merge` issue and leave a three-field evidence
+      # comment so AI users + human reviewers can audit:
+      #   1. **ci run url**: workflow_run.html_url
+      #   2. **timestamp**:  ISO 8601 UTC (new Date().toISOString())
+      #   3. **scenario**:   'sha-rerun-green' | 'sha-progressed'
+      # `sha-rerun-green` = same head_sha rerun turned green (could be
+      #                     transient flake — charter proposition 4 do NOT
+      #                     silently treat as fixed).
+      # `sha-progressed`  = newer push sha overtook the previous red sha
+      #                     (root cause probably addressed).
+      # Reuses the candidate set produced by `listOpen`; AI users consume
+      # evidence via `gh issue view <id> --json comments` (plan-strategy
+      # §8.1 evidence comment consumption path). Logic mirrors helpers
+      # `findMatchingOpenIssues` / `buildEvidenceComment` in
+      # scripts/__tests__/post-merge-monitor-auto-close.test.mjs.
+      - name: Auto-close tracked issues on success
+        if: steps.inspect.outputs.conclusion == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const headSha = '${{ steps.inspect.outputs.headSha }}';
+            const runUrl = '${{ steps.inspect.outputs.runUrl }}';
+            // Use allOpenIssues (all unclosed post-merge issues) rather than
+            // matchingIssues (same-sha-only) — the sha-progressed scenario
+            // (main has advanced to a new green sha but the historical red
+            // issue is still open) requires this full set to trigger.
+            const matched = JSON.parse('${{ steps.listOpen.outputs.allOpenIssues }}' || '[]');
+            if (matched.length === 0) {
+              core.info(`no open post-merge issue to consider — nothing to close.`);
+              return;
+            }
+            // Fetch full issue bodies so we can extract each issue's own merge
+            // sha (used to compute per-issue scenario: sha-rerun-green vs
+            // sha-progressed).
+            const isoTimestamp = new Date().toISOString();
+            for (const issue_number of matched) {
+              const { data: issue } = await github.rest.issues.get({
+                owner,
+                repo,
+                issue_number,
+              });
+              const m = (issue.body || '').match(/\*\*merge sha\*\*: `([^`]+)`/);
+              const issueMergeSha = m ? m[1] : '';
+              const scenario = issueMergeSha === headSha ? 'sha-rerun-green' : 'sha-progressed';
+              const body = [
+                'Auto-closed by post-merge-monitor: main ci.yml run turned green.',
+                '',
+                '**ci run url**: ' + runUrl,
+                '**timestamp**: ' + isoTimestamp,
+                '**scenario**: ' + scenario,
+                '',
+                scenario === 'sha-rerun-green'
+                  ? '(same head_sha rerun turned green — could be transient flake; review before treating as fixed.)'
+                  : '(newer push sha overtook the previous red sha — root cause may have been addressed.)',
+              ].join('\n');
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number,
+                state: 'closed',
+              });
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+              core.info(`auto-closed issue #${issue_number} (scenario=${scenario})`);
+            }

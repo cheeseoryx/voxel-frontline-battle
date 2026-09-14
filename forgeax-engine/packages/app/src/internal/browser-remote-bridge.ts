@@ -1,0 +1,486 @@
+// @forgeax/engine-app/internal/browser-remote-bridge — DEV-only page-side bridge
+// that makes a live BROWSER engine drivable over a loopback relay.
+//
+// WHY: @forgeax/engine-remote's only external transport is a Node WebSocket
+// server (packages/remote/src/server.ts). A browser page cannot bind a listening
+// socket, so createApp's startServer attempt throws on ws's browser shim and
+// app.remote stays undefined — the running engine is unreachable in a real
+// `pnpm --filter <app> dev` browser. But a page CAN dial OUT. So we open a
+// WebSocket CLIENT to the loopback relay
+// (skills/forgeax-engine-cli/scripts/remote-bridge-server.mjs) and run
+// @forgeax/engine-remote/execute (the ws-free eval core) in the page realm
+// against the live world/renderer/assets/rhiCapture. A CLI POSTs to the relay;
+// the relay forwards to us; we eval and reply. This is the engine-side mirror of
+// the editor's ViewportComponent DEV bridge.
+//
+// This module is reached only via a DEV-gated dynamic import from create-app.ts,
+// so production (import.meta.env.DEV === false) never bundles it (tree-shake /
+// zero-injection). It carries NO static top-level @forgeax/engine-remote
+// dependency — the eval core is pulled by a further dynamic import, keeping
+// @forgeax/engine-app free of a runtime dep on @forgeax/engine-remote (same
+// discipline as the createApp startServer path). The import is deliberately
+// left visible to Vite: the SDK host aliases the focused package to its exact
+// installed path, while @vite-ignore would make a browser resolve the bare
+// specifier from the consumer document root and yield a 500.
+
+import type { AssetRegistry } from '@forgeax/engine-assets-runtime';
+import { Update, type World } from '@forgeax/engine-ecs';
+import type { ExecutionRemoteEval } from '../types';
+import { createEcsImportModule } from './ecs-import';
+
+type ExecuteResult = { ok: true; value: unknown } | { ok: false; error: unknown };
+
+type ExecuteModule = {
+  executeScript: (
+    script: string,
+    ctx: {
+      world: unknown;
+      renderer: unknown;
+      assets: AssetRegistry;
+      rhiCapture?: unknown;
+      profiler?: unknown;
+      execution?: unknown;
+      plugins?: unknown;
+      simulation?: unknown;
+      importModule?: (specifier: string) => Promise<unknown>;
+    },
+  ) => Promise<ExecuteResult>;
+};
+
+type ComponentLike = { readonly name: string };
+
+/**
+ * Project component exports onto the tokens already stored by this World.
+ *
+ * WHY: Vite may evaluate a workspace package once through the host package's
+ * dist graph and once through a source graph. Component ids are process-local,
+ * so equal `{ name, schema }` objects are not interchangeable with World
+ * access. The bridge is the one place that can reconcile the public module
+ * recipe with the live World's archetype SSOT.
+ */
+function canonicalRuntimeModule(moduleValue: unknown, world: World): unknown {
+  if (moduleValue === null || typeof moduleValue !== 'object') return moduleValue;
+  const componentsByName = new Map<string, ComponentLike>();
+  for (const [name, component] of world.components.entries()) {
+    if (!componentsByName.has(name)) componentsByName.set(name, component);
+  }
+  const projected: Record<string, unknown> = { ...(moduleValue as Record<string, unknown>) };
+  for (const [key, value] of Object.entries(projected)) {
+    if (value === null || typeof value !== 'object' || !('name' in value)) continue;
+    const canonical = componentsByName.get((value as ComponentLike).name);
+    if (canonical !== undefined) projected[key] = canonical;
+  }
+  return projected;
+}
+
+export interface BrowserRemoteBridgeDeps {
+  readonly world: World;
+  readonly renderer: unknown;
+  /** Remote root `assets` is the App's AssetRegistry, not the render service. */
+  readonly assets: AssetRegistry;
+  /** The host's already-loaded runtime namespace; preserves component-token identity. */
+  readonly runtimeModule: unknown;
+  readonly rhiCapture?: unknown;
+  /** The host's explicit CPU profiler capability, when opted in. */
+  readonly profiler?: unknown;
+  readonly execution?: unknown;
+  /** Mutable plugin projection bridge supplied by the generated DevKit host. */
+  readonly plugins?: unknown;
+  /** App-owned observation root; all live commands execute beside this World. */
+  readonly simulation?: unknown;
+  /** Relay port. */
+  readonly port: string;
+}
+
+/**
+ * Install the same loopback bridge for an Engine Worker execution tier. The
+ * browser owns only the socket; the supplied executor posts the code into the
+ * Worker, so no host-side shadow World can become the observation authority.
+ */
+export async function installBrowserExecutionBridge(deps: {
+  readonly execute: NonNullable<ExecutionRemoteEval>;
+  readonly port: string;
+}): Promise<() => void> {
+  let ws: WebSocket | null = null;
+  let backoff = 1000;
+  let stopped = false;
+  const pending = new Map<number, ReturnType<NonNullable<ExecutionRemoteEval>>>();
+  const connect = (): void => {
+    if (stopped) return;
+    try {
+      ws = new WebSocket(`ws://127.0.0.1:${deps.port}/bridge`);
+    } catch {
+      return;
+    }
+    ws.addEventListener('open', () => {
+      backoff = 1000;
+    });
+    ws.addEventListener('message', (event: MessageEvent) => {
+      let message: {
+        readonly type?: string;
+        readonly id?: number;
+        readonly code?: string;
+        readonly worldIdentity?: string;
+      };
+      try {
+        message = JSON.parse(typeof event.data === 'string' ? event.data : '');
+      } catch {
+        return;
+      }
+      if (!Number.isSafeInteger(message.id)) return;
+      const id = message.id as number;
+      if (message.type === 'cancel') {
+        const call = pending.get(id);
+        if (call !== undefined) {
+          void call.cancel().then((admitted) => {
+            try {
+              ws?.send(JSON.stringify({ type: 'canceled', id, admitted }));
+            } catch {
+              // The relay owns timeout/retry semantics when the socket closes.
+            }
+          });
+        }
+        return;
+      }
+      if (message.type !== 'eval' || typeof message.code !== 'string') return;
+      const call = deps.execute(message.code, message.worldIdentity);
+      pending.set(id, call);
+      void call.started.then(
+        () => {
+          try {
+            ws?.send(JSON.stringify({ type: 'started', id }));
+          } catch {
+            // The relay owns timeout/retry semantics when the socket closes.
+          }
+        },
+        () => {
+          // Queued cancellation rejects the admission witness; its explicit
+          // cancellation acknowledgement is the terminal signal.
+        },
+      );
+      void call.then(
+        (value) => {
+          pending.delete(id);
+          try {
+            ws?.send(JSON.stringify({ type: 'result', id, payload: { ok: true, value } }));
+          } catch {
+            // The relay owns timeout/retry semantics when the socket closes.
+          }
+        },
+        (error) => {
+          pending.delete(id);
+          try {
+            ws?.send(
+              JSON.stringify({
+                type: 'result',
+                id,
+                payload: { ok: false, error: serializeError(error) },
+              }),
+            );
+          } catch {
+            // The relay owns timeout/retry semantics when the socket closes.
+          }
+        },
+      );
+    });
+    const retry = (): void => {
+      ws = null;
+      if (stopped) return;
+      setTimeout(connect, backoff);
+      backoff = Math.min(backoff * 2, 15_000);
+    };
+    ws.addEventListener('close', retry);
+    ws.addEventListener('error', () => {
+      try {
+        ws?.close();
+      } catch {
+        // The socket already closed.
+      }
+    });
+  };
+  connect();
+  const teardown = (): void => {
+    if (stopped) return;
+    stopped = true;
+    for (const call of pending.values()) call.cancel();
+    pending.clear();
+    const current = ws;
+    ws = null;
+    if (current !== null) {
+      current.onclose = null;
+      current.close();
+    }
+  };
+  const hot = (import.meta as { hot?: { dispose(cb: () => void): void } }).hot;
+  if (hot) hot.dispose(teardown);
+  return teardown;
+}
+
+/** Serialize a RemoteError-shaped object (or any thrown value) into a JSON-safe
+ *  {code, expected, hint, detail?} envelope. AI users branch on error.code by
+ *  property access, so the four structured fields must survive the wire. */
+function serializeError(error: unknown): Record<string, unknown> {
+  if (error !== null && typeof error === 'object') {
+    const e = error as {
+      code?: unknown;
+      expected?: unknown;
+      hint?: unknown;
+      detail?: unknown;
+      message?: unknown;
+    };
+    const out: Record<string, unknown> = {
+      code: typeof e.code === 'string' ? e.code : 'script-runtime-error',
+    };
+    if (typeof e.expected === 'string') out.expected = e.expected;
+    if (typeof e.hint === 'string') out.hint = e.hint;
+    if (e.detail !== undefined) out.detail = e.detail;
+    if (out.hint === undefined && typeof e.message === 'string') out.hint = e.message;
+    return out;
+  }
+  return { code: 'script-runtime-error', hint: String(error) };
+}
+
+/**
+ * Install the DEV-only browser remote bridge. Idempotent per call site; the
+ * caller gates on import.meta.env.DEV so this never runs in production.
+ *
+ * Returns a teardown function that stops reconnection and closes the socket —
+ * the caller wires it to import.meta.hot.dispose so a vite HMR of the host app
+ * does not stack duplicate bridges.
+ */
+export async function installBrowserRemoteBridge(
+  deps: BrowserRemoteBridgeDeps,
+): Promise<() => void> {
+  const { world, renderer, assets, rhiCapture, profiler, execution, plugins, simulation, port } =
+    deps;
+
+  // The ws-free eval core. Dynamic import keeps @forgeax/engine-app free of a
+  // static @forgeax/engine-remote dependency while allowing the consumer's
+  // Vite config to resolve the focused package through its SDK alias.
+  const mod = (await import('@forgeax/engine-remote/execute')) as ExecuteModule;
+  const executeScript = mod.executeScript;
+  const importModule = createEcsImportModule((specifier: string): Promise<unknown> => {
+    // The host app and the bridge must share the same component-token objects.
+    // Vite can otherwise serve `/@id/@forgeax/engine-runtime` as a second
+    // module graph entry, so `world.get(entity, Transform)` sees a different
+    // Component id even though the token has the same name and schema.
+    if (specifier === '@forgeax/engine-runtime')
+      return Promise.resolve(canonicalRuntimeModule(deps.runtimeModule, world));
+    const browserSpecifier = specifier.startsWith('@') ? `/@id/${specifier}` : specifier;
+    return import(/* @vite-ignore */ browserSpecifier).then((moduleValue) =>
+      canonicalRuntimeModule(moduleValue, world),
+    );
+  });
+
+  let ws: WebSocket | null = null;
+  let backoff = 1000;
+  let stopped = false;
+
+  // Frame-start eval queue: a WebSocket `message` fires at an arbitrary phase of
+  // the rAF tick, so running eval inline would land world writes at an
+  // unpredictable phase. Enqueue instead and drain from Update system (frame
+  // start) so every bridge write passes through this frame's systems.
+  const evalQueue: Array<{ id: number; code: string; worldIdentity: string }> = [];
+  const cancelledEvalIds = new Set<number>();
+  const runningEvalIds = new Set<number>();
+
+  const drainEvalQueue = (): void => {
+    if (evalQueue.length === 0) return;
+    // Snapshot + clear so an eval that enqueues runs next frame, not in an
+    // unbounded same-frame loop.
+    const jobs = evalQueue.splice(0, evalQueue.length);
+    for (const job of jobs) {
+      if (cancelledEvalIds.delete(job.id)) continue;
+      if (job.worldIdentity !== world.identity) {
+        try {
+          ws?.send(
+            JSON.stringify({
+              type: 'result',
+              id: job.id,
+              payload: {
+                ok: false,
+                error: {
+                  code: 'live-world-stale',
+                  hint: 'The request crossed a World replacement before admission.',
+                  detail: { worldIdentity: world.identity },
+                },
+              },
+            }),
+          );
+        } catch {
+          // The relay owns timeout/retry semantics when the socket closes.
+        }
+        continue;
+      }
+      const reply = (payload: unknown): void => {
+        // Reply on the CURRENT socket (it may have reconnected since enqueue).
+        // The relay keys replies by request id, so the live socket resolves it.
+        try {
+          ws?.send(JSON.stringify({ type: 'result', id: job.id, payload }));
+        } catch {
+          /* socket gone; relay times the request out */
+        }
+      };
+      try {
+        ws?.send(JSON.stringify({ type: 'started', id: job.id }));
+      } catch {
+        // The relay owns the terminal timeout if the socket disappeared.
+      }
+      void (async () => {
+        // Once drained, cancellation can no longer remove the job. The relay
+        // must receive an admitted=true witness and keep tracking the result.
+        runningEvalIds.add(job.id);
+        let res: ExecuteResult;
+        try {
+          res = await executeScript(job.code, {
+            world,
+            renderer,
+            assets,
+            rhiCapture,
+            profiler: profiler,
+            execution,
+            plugins,
+            simulation,
+            importModule,
+          });
+        } catch (e) {
+          reply({
+            ok: false,
+            error: { code: 'BRIDGE_EVAL_THREW', hint: String((e as Error)?.message ?? e) },
+          });
+          return;
+        }
+        const envelope = res.ok
+          ? { ok: true as const, value: res.value }
+          : { ok: false as const, error: serializeError(res.error) };
+        // JSON-guard: non-serializable values (opaque engine handles, cycles)
+        // degrade to a marker so one bad field never wedges the channel.
+        try {
+          JSON.stringify(envelope);
+          reply(envelope);
+        } catch {
+          reply({ ok: true, value: '[unserializable value — inspect in the live window]' });
+        } finally {
+          runningEvalIds.delete(job.id);
+        }
+      })();
+    }
+  };
+  world
+    .addSystem(Update, {
+      name: 'browser-remote-bridge-drain-eval-queue',
+      queries: [],
+      fn: drainEvalQueue,
+    })
+    .unwrap();
+
+  const connect = (): void => {
+    if (stopped) return;
+    try {
+      ws = new WebSocket(`ws://127.0.0.1:${port}/bridge`);
+    } catch {
+      return;
+    }
+    ws.addEventListener('open', () => {
+      backoff = 1000;
+    });
+    ws.addEventListener('message', (ev: MessageEvent) => {
+      let msg: { type?: string; id?: number; code?: string; worldIdentity?: string };
+      try {
+        msg = JSON.parse(typeof ev.data === 'string' ? ev.data : '');
+      } catch {
+        return;
+      }
+      if (typeof msg.id !== 'number') return;
+      if (msg.type === 'cancel') {
+        const index = evalQueue.findIndex((job) => job.id === msg.id);
+        if (index >= 0) {
+          evalQueue.splice(index, 1);
+          try {
+            ws?.send(JSON.stringify({ type: 'canceled', id: msg.id, admitted: false }));
+          } catch {
+            // The relay owns timeout/retry semantics when the socket closes.
+          }
+        } else {
+          const admitted = runningEvalIds.has(msg.id);
+          if (!admitted) cancelledEvalIds.add(msg.id);
+          try {
+            ws?.send(JSON.stringify({ type: 'canceled', id: msg.id, admitted }));
+          } catch {
+            // The relay owns timeout/retry semantics when the socket closes.
+          }
+        }
+        return;
+      }
+      if (msg.type !== 'eval' || typeof msg.code !== 'string') return;
+      if (msg.worldIdentity !== undefined && msg.worldIdentity !== world.identity) {
+        try {
+          ws?.send(
+            JSON.stringify({
+              type: 'result',
+              id: msg.id,
+              payload: {
+                ok: false,
+                error: {
+                  code: 'live-world-stale',
+                  hint: 'The request belongs to an older World; fetch dev status and retry.',
+                  detail: { worldIdentity: world.identity },
+                },
+              },
+            }),
+          );
+        } catch {
+          // The relay owns retry/timeout semantics when the socket closes.
+        }
+        return;
+      }
+      evalQueue.push({
+        id: msg.id,
+        code: msg.code,
+        worldIdentity: msg.worldIdentity ?? world.identity,
+      });
+    });
+    const retry = (): void => {
+      ws = null;
+      if (stopped) return;
+      setTimeout(connect, backoff);
+      backoff = Math.min(backoff * 2, 15000);
+    };
+    ws.addEventListener('close', retry);
+    ws.addEventListener('error', () => {
+      try {
+        ws?.close();
+      } catch {
+        /* */
+      }
+    });
+  };
+  connect();
+
+  const teardown = (): void => {
+    if (stopped) return;
+    stopped = true;
+    evalQueue.length = 0;
+    cancelledEvalIds.clear();
+    world.removeSystem(Update, 'browser-remote-bridge-drain-eval-queue');
+    const s = ws;
+    ws = null;
+    if (s) {
+      try {
+        s.onclose = null;
+        s.close();
+      } catch {
+        /* */
+      }
+    }
+  };
+
+  // Self-register HMR teardown so a vite HMR of the host app does not stack
+  // duplicate bridges. Kept here (not in create-app.ts) so create-app.ts carries
+  // no import.meta.hot reference — the rhi-debug guard gate requires every
+  // import.meta.hot there to sit inside the FORGEAX_ENGINE_RHI_DEBUG block.
+  const hot = (import.meta as { hot?: { dispose(cb: () => void): void } }).hot;
+  if (hot) hot.dispose(teardown);
+
+  return teardown;
+}

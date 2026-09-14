@@ -1,0 +1,456 @@
+{
+  "version": 3,
+  "extractionRoot": ".",
+  "description": "Build artifact class and consumer contract for cross-job CI transfer. SSOT for file classes, consumer requirements, timing roster (AC-06), and provenance chain.",
+  "artifactClasses": {
+    "engine-dist": {
+      "description": "Package dist outputs (engine runtime, types, ECS, math, all packages)",
+      "fileClasses": ["packages/*/dist"],
+      "producer": "core-build",
+      "transferArtifact": "core-build"
+    },
+    "wasm-runtime": {
+      "description": "wgpu-wasm runtime package (Rust-to-WASM bridge)",
+      "fileClasses": ["packages/wgpu-wasm/pkg"],
+      "producer": "core-build",
+      "transferArtifact": "core-build"
+    },
+    "wasm-fbx": {
+      "description": "FBX WASM parser package",
+      "fileClasses": ["packages/fbx/pkg"],
+      "producer": "core-build",
+      "transferArtifact": "core-build"
+    },
+    "wasm-codec": {
+      "description": "Codec WASM package (KTX2/Basis transcode)",
+      "fileClasses": ["packages/codec/pkg"],
+      "producer": "core-build",
+      "transferArtifact": "core-build"
+    },
+    "shared-asset-pack": {
+      "description": "App-neutral LearnOpenGL pack payload produced once by shared-app-inputs",
+      "fileClasses": ["shared-app-inputs/assets/catalog.json"],
+      "producer": "shared-app-inputs",
+      "transferArtifact": "shared-app-inputs"
+    },
+    "shared-engine-shaders": {
+      "description": "Engine built-in shader payload produced once by shared-app-inputs",
+      "fileClasses": ["shared-app-inputs/shaders/manifest.json"],
+      "producer": "shared-app-inputs",
+      "transferArtifact": "shared-app-inputs"
+    },
+    "app-dist-0": {
+      "description": "App-owned shader manifest deltas plus roster-declared minimal Pack closures produced by app-shard-0; shared engine rows are restored by the consumer and payload membership is proven by its artifact inventory.",
+      "fileClasses": [
+        "apps/**/dist/shaders/manifest.json",
+        "apps/**/dist/pack-index.json",
+        "apps/**/dist/assets/*-body.bin",
+        "apps/**/dist/assets/*.pack*.json"
+      ],
+      "producer": "app-shard-0",
+      "transferArtifact": "app-dist-0"
+    },
+    "app-dist-1": {
+      "description": "App-owned shader manifest deltas plus roster-declared minimal Pack closures produced by app-shard-1; shared engine rows are restored by the consumer and payload membership is proven by its artifact inventory.",
+      "fileClasses": [
+        "apps/**/dist/shaders/manifest.json",
+        "apps/**/dist/pack-index.json",
+        "apps/**/dist/assets/*-body.bin",
+        "apps/**/dist/assets/*.pack*.json"
+      ],
+      "producer": "app-shard-1",
+      "transferArtifact": "app-dist-1"
+    },
+    "app-dist-2": {
+      "description": "App-owned shader manifest deltas plus roster-declared minimal Pack closures produced by app-shard-2; the heavy Sponza smoke closure is intentionally omitted from transfer and built by the owning smoke-fleet-0 model-loading consumer, shared engine rows are restored by the consumer, and payload membership is proven by its artifact inventory.",
+      "fileClasses": [
+        "apps/**/dist/shaders/manifest.json",
+        "apps/**/dist/pack-index.json",
+        "apps/**/dist/assets/*-body.bin",
+        "apps/**/dist/assets/*.pack*.json"
+      ],
+      "producer": "app-shard-2",
+      "transferArtifact": "app-dist-2"
+    }
+  },
+  "returnEvidence": {
+    "schemaVersion": 1,
+    "cacheFamilies": [
+      {
+        "family": "merged-ddc",
+        "producer": "cache-warm",
+        "consumer": "cost-reporter"
+      }
+    ],
+    "fieldApplicability": {
+      "common": ["identity", "inputFingerprint", "producer", "consumer"],
+      "cache": ["classification", "requestedKey", "matchedKey", "restore", "save"],
+      "artifact": [
+        "artifactId",
+        "compressedArchiveBytes",
+        "expandedDiskBytes",
+        "upload",
+        "download",
+        "physicalScope"
+      ]
+    },
+    "invalidEvidence": {
+      "requiredFields": ["code", "expected", "hint", "detail"],
+      "codes": {
+        "identity-missing": ["field"],
+        "cross-run": ["observedRunId"],
+        "aggregate-attempt-mismatch": ["observedRunAttempt"],
+        "provenance-missing": ["producer"],
+        "foreign-producer-attempt": ["observedProducerAttempt"],
+        "fingerprint-missing": ["producer"],
+        "fingerprint-mismatch": ["observedFingerprint"],
+        "artifact-identity-mismatch": ["observedArtifactId"],
+        "owner-fact-missing": ["owner", "field"],
+        "cache-output-inconsistent": ["cacheHit", "requestedKey", "matchedKey"],
+        "family-roster-mismatch": ["observedFamilies"],
+        "schema-incompatible": ["observedSchemaVersion"]
+      }
+    }
+  },
+  "consumers": {
+    "app-shard": {
+      "description": "Core artifact inputs required before every app shard build.",
+      "requiredArtifactClasses": [
+        "engine-dist",
+        "wasm-runtime",
+        "wasm-fbx",
+        "wasm-codec",
+        "shared-asset-pack",
+        "shared-engine-shaders"
+      ]
+    },
+    "primary-pnpm": {
+      "description": "pnpm CI source of truth: unit tests, typecheck, coverage, inspector e2e",
+      "requiredArtifactClasses": ["engine-dist", "wasm-runtime", "shared-engine-shaders"]
+    },
+    "coverage-pnpm": {
+      "description": "Vitest coverage gate with ci-core typecheck provenance and perf-budget evidence",
+      "requiredArtifactClasses": ["engine-dist", "wasm-runtime", "shared-engine-shaders"]
+    },
+    "coverage-perf": {
+      "description": "Uninstrumented ECS and render performance ratio gates",
+      "requiredArtifactClasses": ["engine-dist", "wasm-runtime"]
+    },
+    "vitest-browser": {
+      "description": "Browser-based vitest tests (chromium WebGPU)",
+      "requiredArtifactClasses": ["engine-dist", "wasm-runtime", "shared-engine-shaders"]
+    },
+    "directional-csm-browser": {
+      "description": "Directional CSM browser WebGPU producer",
+      "requiredArtifactClasses": ["engine-dist", "wasm-runtime", "shared-engine-shaders"]
+    },
+    "shared-inputs-browser": {
+      "description": "Preview asset catalog and Vite shader HMR browser probe",
+      "requiredArtifactClasses": ["engine-dist", "wasm-runtime"]
+    },
+    "multithread-browser-benchmark": {
+      "description": "Web TypeScript multithread capability, smoke, and production benchmark",
+      "requiredArtifactClasses": [
+        "engine-dist",
+        "wasm-runtime",
+        "app-dist-0",
+        "app-dist-1",
+        "app-dist-2"
+      ]
+    },
+    "smoke-fleet": {
+      "description": "Dawn-node headless smoke tests (~50 demos), including app pack carriers and the consumer-built Sponza smoke app",
+      "requiredArtifactClasses": [
+        "engine-dist",
+        "wasm-runtime",
+        "app-dist-0",
+        "app-dist-1",
+        "app-dist-2",
+        "shared-engine-shaders"
+      ]
+    },
+    "bevy-smoke-fleet": {
+      "description": "Bevy Dawn-node build and smoke pairs; each pair builds its own app",
+      "requiredArtifactClasses": ["engine-dist", "wasm-runtime", "shared-engine-shaders"]
+    },
+    "vitest-dawn": {
+      "description": "Dawn-native vitest tests",
+      "requiredArtifactClasses": ["engine-dist", "wasm-runtime"]
+    },
+    "webkit-fallback": {
+      "description": "Chromium WebGL2 fallback verify gate (protected context compatibility key)",
+      "requiredArtifactClasses": ["engine-dist", "wasm-runtime", "shared-engine-shaders"]
+    },
+    "deferred-membership-corpus": {
+      "description": "Deferred membership matrix producers and exact CPU-only join",
+      "requiredArtifactClasses": ["engine-dist", "wasm-runtime"]
+    },
+    "portability-bun": {
+      "description": "Bun channel portability gate (6 aligned base gates)",
+      "requiredArtifactClasses": ["engine-dist", "wasm-runtime"]
+    },
+    "metrics-validate": {
+      "description": "Metrics validation (FPS, bench, bundle-size)",
+      "requiredArtifactClasses": ["engine-dist", "wasm-runtime"]
+    },
+    "metrics-validate-browser": {
+      "description": "Browser and color metrics producer",
+      "requiredArtifactClasses": ["engine-dist", "wasm-runtime"]
+    },
+    "metrics-validate-runtime": {
+      "description": "Runtime and FPS metrics producer",
+      "requiredArtifactClasses": ["engine-dist", "wasm-runtime"]
+    },
+    "collectathon-boot-e2e": {
+      "description": "Collectathon game bootstrap e2e test",
+      "requiredArtifactClasses": ["engine-dist", "wasm-runtime", "wasm-fbx"]
+    },
+    "publish-fbx-wasm-release": {
+      "description": "Publish the FBX WASM payload from core-build on a main push",
+      "requiredArtifactClasses": ["wasm-fbx"]
+    },
+    "publish-wgpu-wasm-release": {
+      "description": "Publish the wgpu-wasm payload from core-build on a main push",
+      "requiredArtifactClasses": ["wasm-runtime"]
+    },
+    "publish-basis-wasm-release": {
+      "description": "Publish the codec WASM payload from core-build on a main push",
+      "requiredArtifactClasses": ["wasm-codec"]
+    }
+  },
+  "timingRoster": [
+    {
+      "jobIdentity": "app-shard-0",
+      "artifactProvider": "shared-app-inputs",
+      "allowedNonArtifactPrerequisites": ["core-build"],
+      "consumer": "app-shard"
+    },
+    {
+      "jobIdentity": "app-shard-1",
+      "artifactProvider": "shared-app-inputs",
+      "allowedNonArtifactPrerequisites": ["core-build"],
+      "consumer": "app-shard"
+    },
+    {
+      "jobIdentity": "app-shard-2",
+      "artifactProvider": "shared-app-inputs",
+      "allowedNonArtifactPrerequisites": ["core-build"],
+      "consumer": "app-shard"
+    },
+    {
+      "jobIdentity": "primary-pnpm",
+      "artifactProvider": "build-artifacts",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate"],
+      "consumer": "primary-pnpm"
+    },
+    {
+      "jobIdentity": "vitest-browser-shard",
+      "artifactProvider": "build-artifacts",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate", "shared-app-inputs"],
+      "consumer": "vitest-browser"
+    },
+    {
+      "jobIdentity": "directional-csm-browser",
+      "artifactProvider": "build-artifacts",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate", "shared-app-inputs"],
+      "consumer": "directional-csm-browser"
+    },
+    {
+      "jobIdentity": "shared-inputs-browser",
+      "artifactProvider": "build-artifacts",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate"],
+      "consumer": "shared-inputs-browser"
+    },
+    {
+      "jobIdentity": "multithread-browser-benchmark",
+      "artifactProvider": "build-artifacts",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate"],
+      "consumer": "multithread-browser-benchmark"
+    },
+    {
+      "jobIdentity": "smoke-fleet",
+      "artifactProvider": "build-artifacts",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate"],
+      "consumer": "smoke-fleet"
+    },
+    {
+      "jobIdentity": "bevy-smoke-fleet",
+      "artifactProvider": "build-artifacts",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate"],
+      "consumer": "bevy-smoke-fleet"
+    },
+    {
+      "jobIdentity": "coverage-pnpm",
+      "artifactProvider": "build-artifacts",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate"],
+      "consumer": "coverage-pnpm"
+    },
+    {
+      "jobIdentity": "coverage-perf",
+      "artifactProvider": "build-artifacts",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate"],
+      "consumer": "coverage-perf"
+    },
+    {
+      "jobIdentity": "vitest-dawn",
+      "artifactProvider": "core-build",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate", "shared-app-inputs"],
+      "consumer": "vitest-dawn"
+    },
+    {
+      "jobIdentity": "webkit-fallback",
+      "artifactProvider": "core-build",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate", "shared-app-inputs"],
+      "consumer": "webkit-fallback"
+    },
+    {
+      "jobIdentity": "portability-bun",
+      "artifactProvider": "build-artifacts",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate"],
+      "consumer": "portability-bun"
+    },
+    {
+      "jobIdentity": "metrics-validate-browser",
+      "artifactProvider": "core-build",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate", "webkit-fallback", "smoke-fleet"],
+      "consumer": "metrics-validate-browser"
+    },
+    {
+      "jobIdentity": "metrics-validate-runtime",
+      "artifactProvider": "core-build",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate", "smoke-fleet"],
+      "consumer": "metrics-validate-runtime"
+    },
+    {
+      "jobIdentity": "metrics-validate",
+      "artifactProvider": "core-build",
+      "allowedNonArtifactPrerequisites": [
+        "post-merge-gate",
+        "smoke-fleet",
+        "metrics-validate-browser",
+        "metrics-validate-runtime"
+      ],
+      "consumer": "metrics-validate"
+    },
+    {
+      "jobIdentity": "collectathon-boot-e2e",
+      "artifactProvider": "build-artifacts",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate"],
+      "consumer": "collectathon-boot-e2e"
+    },
+    {
+      "jobIdentity": "gpu-pass-timing-contract",
+      "artifactProvider": "build-artifacts",
+      "allowedNonArtifactPrerequisites": ["post-merge-gate"],
+      "consumer": "primary-pnpm"
+    },
+    {
+      "jobIdentity": "publish-fbx-wasm-release",
+      "allowedNonArtifactPrerequisites": [],
+      "notApplicable": true,
+      "notApplicableReason": "PR timing window only; this publisher runs on main pushes",
+      "consumer": "publish-fbx-wasm-release"
+    },
+    {
+      "jobIdentity": "publish-wgpu-wasm-release",
+      "allowedNonArtifactPrerequisites": [],
+      "notApplicable": true,
+      "notApplicableReason": "PR timing window only; this publisher runs on main pushes",
+      "consumer": "publish-wgpu-wasm-release"
+    },
+    {
+      "jobIdentity": "publish-basis-wasm-release",
+      "allowedNonArtifactPrerequisites": [],
+      "notApplicable": true,
+      "notApplicableReason": "PR timing window only; this publisher runs on main pushes",
+      "consumer": "publish-basis-wasm-release"
+    }
+  ],
+  "provenance": {
+    "producerRoster": [
+      "core-build",
+      "shared-app-inputs",
+      "app-shard-0",
+      "app-shard-1",
+      "app-shard-2"
+    ],
+    "namingTemplate": "provenance-<producerJobId>-a<runAttempt>",
+    "mergedClass": "provenance-merged",
+    "mergedWriter": "build-artifacts",
+    "mergedReader": "cost-reporter",
+    "payloadClasses": [
+      "engine-dist",
+      "wasm-runtime",
+      "wasm-fbx",
+      "wasm-codec",
+      "shared-asset-pack",
+      "shared-engine-shaders",
+      "app-dist-0",
+      "app-dist-1",
+      "app-dist-2"
+    ]
+  },
+  "sharedInputs": {
+    "producer": "shared-app-inputs",
+    "consumers": ["app-shard", "shared-inputs-browser"],
+    "schemaVersion": 1,
+    "manifestPath": "shared-app-inputs/manifest.json",
+    "inventory": [
+      "shared-app-inputs/assets/catalog.json",
+      "shared-app-inputs/shaders/manifest.json"
+    ],
+    "payload": {
+      "assetCatalog": "shared-app-inputs/assets/catalog.json",
+      "engineShaderManifest": "shared-app-inputs/shaders/manifest.json"
+    },
+    "payloadClasses": ["shared-asset-pack", "shared-engine-shaders"],
+    "artifactOutput": "shared_artifact_id",
+    "readOnlyConsumers": [
+      "primary-pnpm",
+      "coverage-pnpm",
+      "smoke-fleet",
+      "bevy-smoke-fleet",
+      "vitest-dawn",
+      "webkit-fallback",
+      "vitest-browser",
+      "directional-csm-browser"
+    ]
+  },
+  "requiredCIJobRoster": [
+    "post-merge-gate",
+    "shared-app-inputs",
+    "build-artifacts",
+    "primary-pnpm",
+    "coverage-pnpm",
+    "coverage-perf",
+    "vitest-browser",
+    "shared-inputs-browser",
+    "multithread-browser-benchmark",
+    "smoke-fleet",
+    "bevy-smoke-fleet",
+    "vitest-dawn",
+    "webkit-fallback",
+    "portability-bun",
+    "metrics-validate-browser",
+    "metrics-validate-runtime",
+    "metrics-validate",
+    "collectathon-boot-e2e",
+    "gpu-pass-timing-contract",
+    "publish-fbx-wasm-release",
+    "publish-wgpu-wasm-release",
+    "publish-basis-wasm-release",
+    "sticky-comment"
+  ],
+  "shardFamilies": [
+    {
+      "id": "app-dist",
+      "members": ["app-dist-0", "app-dist-1", "app-dist-2"],
+      "producerMapping": {
+        "app-dist-0": "app-shard-0",
+        "app-dist-1": "app-shard-1",
+        "app-dist-2": "app-shard-2"
+      },
+      "inventoryRequired": true
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+// @forgeax/engine-render - typed debug overlay graph contribution.
+//
+// App owns the concrete DebugDraw instance and injects its declaration-only
+// capability through the Renderer host. Render owns graph ordering and pass
+// encoding without depending on the debug-draw package.
+
+import { mat4 } from '@forgeax/engine-math';
+import type { RenderGraphBuilder, RenderGraphError } from '@forgeax/engine-render-graph';
+import type { Result } from '@forgeax/engine-types';
+import type { RenderPipelineFrame, RenderPipelineTarget } from './render-pipeline';
+
+export function addTypedDebugOverlayPass(
+  graph: RenderGraphBuilder<RenderPipelineFrame>,
+  output: RenderPipelineTarget,
+): Result<void, RenderGraphError> {
+  return graph.addRasterPass('debug-overlay', {
+    accesses: [{ resource: output.view, usage: 'color-attachment' }],
+    colorAttachments: [{ view: output.view, loadOp: 'load', storeOp: 'store' }],
+    encode: ({ pass, frame }) => {
+      const projection = mat4.create();
+      if (frame.camera.projection === 'orthographic') {
+        mat4.orthographic(
+          projection,
+          frame.camera.orthoLeft,
+          frame.camera.orthoRight,
+          frame.camera.orthoTop,
+          frame.camera.orthoBottom,
+          frame.camera.near,
+          frame.camera.far,
+        );
+      } else {
+        mat4.perspective(
+          projection,
+          frame.camera.fov,
+          frame.camera.aspect,
+          frame.camera.near,
+          frame.camera.far,
+        );
+      }
+      const view = mat4.invert(mat4.create(), frame.camera.world);
+      const result = frame.runtime.debugOverlay?.encode(
+        pass,
+        mat4.multiply(mat4.create(), projection, view),
+      );
+      if (result !== undefined && !result.ok) throw result.error;
+    },
+  });
+}

@@ -1,0 +1,736 @@
+import { isAbsolute, relative, resolve } from 'node:path';
+import type {
+  AcceptedPublicationStore,
+  ScriptablePackPublicationSnapshot,
+} from '@forgeax/engine-ddc';
+import { createAcceptedPublication } from '@forgeax/engine-ddc';
+import type { ImporterRegistry, ImportRunnerFs } from '@forgeax/engine-import';
+import {
+  canonicalScriptableSourcePath,
+  declaredPackExternalOutputs,
+  materializePreparedScriptablePack,
+  prepareDirectPackTransport,
+  prepareLegacyPackTransport,
+  produceScriptablePackProducts,
+  projectImportProductForBuild,
+  type ScriptablePackInput,
+} from '@forgeax/engine-import';
+import {
+  createRuntimePackPublication,
+  packageTransportRevision,
+  projectPackageCatalog,
+} from '@forgeax/engine-pack/build';
+import { AssetGuid, PackageId } from '@forgeax/engine-pack/guid';
+import type { ScanSourceDeclaration } from '@forgeax/engine-pack/scanner';
+import {
+  type AnyScriptablePackDefinition,
+  type PackParameterInheritanceSubject,
+  parsePackSourceJson,
+  projectDirectPackJson,
+  resolvePackParameterInheritance,
+  type ScriptablePackSourceClosureEntry,
+} from '@forgeax/engine-pack/source';
+import { loadScriptablePack } from '@forgeax/engine-pack/source-node';
+import type { AssetPublicationEnvelope, PackIndexEntry } from '@forgeax/engine-types';
+import type { PluginPackInternalOptions } from '../plugin-contract.js';
+import { structuredPluginError } from '../structured-plugin-error.js';
+import { sourceDeclarationForCatalogPath } from './source-path.js';
+
+export interface AuthoredPackPublicationContext {
+  readonly opts: PluginPackInternalOptions;
+  readonly transportBase?: string | undefined;
+  readonly metaPackBodies: Map<string, string>;
+  readonly devArtifactBodies: Map<
+    string,
+    { readonly bytes: Uint8Array; readonly mimeType: string }
+  >;
+  readonly publicationCandidates: Map<string, AssetPublicationEnvelope>;
+  readonly importedGuids: Set<string>;
+  readonly publicationStore: AcceptedPublicationStore;
+  /** Accepted rows, used to retire removed dynamic outputs on a new generation. */
+  readonly previousCatalogEntries?: readonly PackIndexEntry[];
+  readonly scopeId?: string;
+  readonly signal?: AbortSignal;
+  readonly sourceDeclarations: ReadonlyMap<string, ScanSourceDeclaration>;
+  readonly importerRegistry: ImporterRegistry;
+  readonly fsForImport: ImportRunnerFs;
+  readonly currentProjection: Record<string, unknown>;
+  readonly directProjection: Record<string, unknown>;
+  readonly authoredCookedProjection: Record<string, unknown>;
+}
+
+const DEV_PACK_PREFIX = '/__forgeax-ddc/';
+
+function dynamicPluginError(value: unknown): Error {
+  const candidate = value !== null && typeof value === 'object' ? value : {};
+  const failure = candidate as {
+    readonly code?: unknown;
+    readonly expected?: unknown;
+    readonly hint?: unknown;
+    readonly detail?: unknown;
+  };
+  return structuredPluginError({
+    code: typeof failure.code === 'string' ? failure.code : 'pack-build-failed',
+    expected:
+      typeof failure.expected === 'string'
+        ? failure.expected
+        : 'the Pack source generation to produce a valid terminal result',
+    hint:
+      typeof failure.hint === 'string'
+        ? failure.hint
+        : 'inspect the Pack source subject and rebuild the current generation',
+    ...(failure.detail === undefined ? {} : { detail: failure.detail }),
+  });
+}
+
+type PackDevSubject =
+  | {
+      readonly kind: 'source';
+      readonly packageId: PackageId;
+      readonly sourcePath: string;
+      readonly definition: AnyScriptablePackDefinition;
+      readonly sourceClosure: readonly ScriptablePackSourceClosureEntry[];
+    }
+  | {
+      readonly kind: 'instance';
+      readonly packageId: PackageId;
+      readonly parent: PackageId;
+      readonly values: Readonly<Record<string, unknown>>;
+      readonly sourcePath: string;
+    }
+  | {
+      readonly kind: 'direct';
+      readonly packageId: PackageId;
+      readonly sourcePath: string;
+    };
+
+function packCatalogSourcePath(
+  sourcePath: string,
+  sourceIdentityFor: ((sourcePath: string) => string) | undefined,
+): string {
+  const projected = sourceIdentityFor?.(sourcePath);
+  const logical =
+    projected === undefined || isAbsolute(projected)
+      ? relative(process.cwd(), sourcePath)
+      : projected;
+  return canonicalScriptableSourcePath(logical).replaceAll('\\', '/');
+}
+
+async function packDevInputs(
+  declarations: ReadonlyMap<string, ScanSourceDeclaration>,
+  generationFor: (displaySourcePath: string) => number,
+  sourceIdentityFor: ((sourcePath: string) => string) | undefined,
+): Promise<
+  | {
+      readonly ok: true;
+      readonly value: { readonly inputs: readonly ScriptablePackInput[] };
+    }
+  | { readonly ok: false; readonly error: unknown }
+> {
+  const subjects = new Map<string, PackDevSubject>();
+  for (const [sourcePath, declaration] of declarations) {
+    if (declaration.format === 'pack.ts') {
+      subjects.set(PackageId.format(declaration.definition.packageId).toLowerCase(), {
+        kind: 'source',
+        packageId: declaration.definition.packageId,
+        sourcePath,
+        definition: declaration.definition,
+        sourceClosure: declaration.sourceClosure,
+      });
+      continue;
+    }
+    if (declaration.format !== 'pack.json' || declaration.value.schemaVersion !== '3.0.0') {
+      continue;
+    }
+    const parsed = parsePackSourceJson(declaration.value);
+    if (!parsed.ok) return parsed;
+    if (parsed.value.format === 'direct') {
+      subjects.set(PackageId.format(parsed.value.packageId).toLowerCase(), {
+        kind: 'direct',
+        packageId: parsed.value.packageId,
+        sourcePath,
+      });
+    } else {
+      subjects.set(PackageId.format(parsed.value.packageId).toLowerCase(), {
+        kind: 'instance',
+        packageId: parsed.value.packageId,
+        parent: parsed.value.parent,
+        values: parsed.value.values,
+        sourcePath,
+      });
+    }
+  }
+
+  const readSubject = async (
+    packageId: PackageId,
+  ): Promise<PackParameterInheritanceSubject | undefined> => {
+    const subject = subjects.get(PackageId.format(packageId).toLowerCase());
+    if (subject === undefined) return undefined;
+    if (subject.kind === 'source') {
+      return {
+        format: 'source',
+        packageId: subject.packageId,
+        parameters: 'parameters' in subject.definition ? subject.definition.parameters : [],
+      };
+    }
+    if (subject.kind === 'instance') {
+      return {
+        format: 'instance',
+        packageId: subject.packageId,
+        parent: subject.parent,
+        values: subject.values,
+      };
+    }
+    return { format: 'direct', packageId: subject.packageId };
+  };
+
+  const orderedSubjects = [...subjects.values()].sort((left, right) =>
+    left.sourcePath.localeCompare(right.sourcePath),
+  );
+  const inputs: ScriptablePackInput[] = [];
+  for (const subject of orderedSubjects) {
+    if (subject.kind === 'source') {
+      // The scanner keeps one validated definition for identity projection.
+      // Each dynamic subject gets a fresh isolated executor so a root source
+      // can also serve any number of v3 instances in the same generation.
+      const loaded = await loadScriptablePack(subject.sourcePath);
+      if (!loaded.ok) return loaded;
+      if (PackageId.format(loaded.value.packageId) !== PackageId.format(subject.packageId)) {
+        return {
+          ok: false,
+          error: {
+            code: 'pack-source-revision-conflict',
+            expected: 'the ScriptablePack source packageId to remain fixed during publication',
+            hint: 'retry after source writes settle and rebuild the current generation',
+            detail: {
+              sourcePath: subject.sourcePath,
+              scannedPackageId: PackageId.format(subject.packageId),
+              loadedPackageId: PackageId.format(loaded.value.packageId),
+            },
+          },
+        };
+      }
+      const displaySourcePath = packCatalogSourcePath(subject.sourcePath, sourceIdentityFor);
+      inputs.push({
+        sourcePath: subject.sourcePath,
+        displaySourcePath,
+        definition: loaded.value,
+        sourceClosure: subject.sourceClosure,
+        publicationGeneration: generationFor(displaySourcePath),
+        policy: (product) => {
+          const transportRevision = `${product.inputFingerprint}:${packageTransportRevision(
+            projectImportProductForBuild(product.product),
+          )}`.replace(/[^a-zA-Z0-9._-]/g, '-');
+          return {
+            base: '/',
+            packagePath:
+              `${DEV_PACK_PREFIX}${PackageId.format(subject.packageId)}.${transportRevision}.pack.json`.replace(
+                /^\/+/,
+                '',
+              ),
+            artifactPath: (guid, key) =>
+              `${guid.toLowerCase()}/${transportRevision}/${key.includes('.') ? key : `${key}.bin`}`,
+          };
+        },
+      });
+    }
+  }
+  for (const subject of orderedSubjects) {
+    if (subject.kind !== 'instance') continue;
+    const resolved = await resolvePackParameterInheritance(
+      {
+        format: 'instance',
+        packageId: subject.packageId,
+        parent: subject.parent,
+        values: subject.values,
+      },
+      readSubject,
+    );
+    if (!resolved.ok) return resolved;
+    const root = subjects.get(PackageId.format(resolved.value.rootPackageId).toLowerCase());
+    if (root?.kind !== 'source') {
+      return {
+        ok: false,
+        error: {
+          code: 'pack-parent-has-no-parameters',
+          expected: 'the instance parent chain to terminate at a ScriptablePack with parameters',
+          hint: 'point the instance at a ScriptablePack pack.ts source',
+          detail: { packageId: PackageId.format(subject.packageId) },
+        },
+      };
+    }
+    const loaded = await loadScriptablePack(root.sourcePath);
+    if (!loaded.ok) return loaded;
+    if (PackageId.format(loaded.value.packageId) !== PackageId.format(root.packageId)) {
+      return {
+        ok: false,
+        error: {
+          code: 'pack-source-revision-conflict',
+          expected: 'the ScriptablePack parent packageId to remain fixed during publication',
+          hint: 'retry after source writes settle and rebuild the current generation',
+          detail: {
+            sourcePath: root.sourcePath,
+            scannedPackageId: PackageId.format(root.packageId),
+            loadedPackageId: PackageId.format(loaded.value.packageId),
+          },
+        },
+      };
+    }
+    const displaySourcePath = packCatalogSourcePath(subject.sourcePath, sourceIdentityFor);
+    inputs.push({
+      sourcePath: subject.sourcePath,
+      displaySourcePath,
+      definition: loaded.value,
+      sourceClosure: root.sourceClosure,
+      subjectPackageId: subject.packageId,
+      values: resolved.value.values,
+      publicationGeneration: generationFor(displaySourcePath),
+      policy: (product) => {
+        const transportRevision = `${product.inputFingerprint}:${packageTransportRevision(
+          projectImportProductForBuild(product.product),
+        )}`.replace(/[^a-zA-Z0-9._-]/g, '-');
+        return {
+          base: '/',
+          packagePath:
+            `${DEV_PACK_PREFIX}${PackageId.format(subject.packageId)}.${transportRevision}.pack.json`.replace(
+              /^\/+/,
+              '',
+            ),
+          artifactPath: (guid, key) =>
+            `${guid.toLowerCase()}/${transportRevision}/${key.includes('.') ? key : `${key}.bin`}`,
+        };
+      },
+    });
+  }
+
+  return { ok: true, value: { inputs } };
+}
+
+/**
+ * Keep a deterministic republish on the accepted generation.
+ *
+ * The production session generation is an attempt fence, while the
+ * publication generation is the durable identity carried by authored scene
+ * mounts. Watcher noise can schedule several attempts for the same source
+ * bytes; minting a new publication generation for each one makes an
+ * unchanged saved mount fail its own publication fence. Reuse the accepted
+ * generation only when the complete source/output tuple is unchanged.
+ */
+export function preserveAcceptedPublicationGeneration(
+  publication: AssetPublicationEnvelope,
+  snapshot: ScriptablePackPublicationSnapshot,
+): AssetPublicationEnvelope {
+  const accepted = snapshot.current;
+  if (
+    accepted === undefined ||
+    accepted.sourcePath !== publication.sourcePath ||
+    accepted.sourceRevision !== publication.sourceRevision ||
+    accepted.digest !== publication.digest ||
+    accepted.outputSetDigest !== publication.outputSetDigest ||
+    accepted.generation === publication.generation
+  ) {
+    return publication;
+  }
+  return {
+    ...publication,
+    generation: accepted.generation,
+    ...(publication.current === undefined
+      ? {}
+      : { current: { ...publication.current, generation: accepted.generation } }),
+  };
+}
+
+function assertPublicationOpen(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  throw structuredPluginError({
+    code: 'cleanup-failed',
+    expected: 'the active production generation to remain open while publishing authored Packs',
+    hint: 'discard the aborted candidate and retry the next generation',
+    detail: { stage: 'cleanup', subject: 'authored-pack-publication' },
+  });
+}
+
+export async function publishAuthoredDevPacks(
+  raw: readonly PackIndexEntry[],
+  context: AuthoredPackPublicationContext,
+): Promise<PackIndexEntry[]> {
+  assertPublicationOpen(context.signal);
+  const published = new Map<string, string>();
+  const stagedPackBodies = new Map<string, string>();
+  const stagedArtifactBodies = new Map<
+    string,
+    { readonly bytes: Uint8Array; readonly mimeType: string }
+  >();
+  const cookedRefs = new Map<string, ReadonlyMap<string, readonly string[]>>();
+  const cookReceiptUrls = new Map<string, ReadonlyMap<string, string>>();
+  const authoredRevisions = new Map<string, PackIndexEntry['revision']>();
+  const authoredPublications = new Map<string, AssetPublicationEnvelope>();
+  const dynamicPackEntries: PackIndexEntry[] = [];
+  const requiredGuids = raw.map((entry) => {
+    const parsed = AssetGuid.parse(entry.guid);
+    if (!parsed.ok) throw structuredPluginError(parsed.error);
+    return parsed.value;
+  });
+  // Catalog-declared Meta outputs prove identity for direct Pack refs, but
+  // they are not all content dependencies of a ScriptablePack build. Keep
+  // that availability set separate from required content reads so an
+  // unrelated procedural stub is not imported merely because it is scanned.
+  const availableGuids = new Set([
+    ...requiredGuids.map((guid) => AssetGuid.format(guid).toLowerCase()),
+    ...[...context.sourceDeclarations.values()].flatMap((declaration) =>
+      declaration.format === 'meta.json'
+        ? declaration.value.subAssets.map((asset) => asset.guid.toLowerCase())
+        : [],
+    ),
+  ]);
+  // ScriptablePack sources and v3 instances have no static output rows for the
+  // scanner to publish. Build every current subject in one fixed-point pass,
+  // then add the resulting rows to this generation's Catalog candidate. The
+  // route still serves the ordinary Pack v2 transport produced by the shared
+  // importer host.
+  const packInputsResult = await packDevInputs(
+    context.sourceDeclarations,
+    (displaySourcePath) =>
+      (context.publicationStore.observe(displaySourcePath).current?.generation ?? 0) + 1,
+    context.opts.sourceIdentityFor,
+  );
+  if (!packInputsResult.ok) {
+    throw dynamicPluginError(packInputsResult.error);
+  }
+  if (packInputsResult.value.inputs.length > 0) {
+    const dynamicSourcePaths = new Set(
+      packInputsResult.value.inputs.map((input) => input.displaySourcePath),
+    );
+    for (const entry of context.previousCatalogEntries ?? []) {
+      if (
+        dynamicSourcePaths.has(entry.sourcePath) &&
+        entry.provenance?.provider === 'pack-ts' &&
+        entry.execution === 'cooked'
+      ) {
+        context.importedGuids.delete(entry.guid.toLowerCase());
+        context.metaPackBodies.delete(entry.packageUrl);
+      }
+    }
+    const externalOutputs = await declaredPackExternalOutputs(
+      context.sourceDeclarations,
+      context.opts.cookers ?? [],
+      requiredGuids,
+      {
+        importerRegistry: context.importerRegistry,
+        fsForImport: context.fsForImport,
+      },
+    );
+    const preparedScriptablePacks = await produceScriptablePackProducts({
+      sources: packInputsResult.value.inputs,
+      ...(context.opts.cookers === undefined ? {} : { cookers: context.opts.cookers }),
+      declaredExternalOutputs: externalOutputs,
+      availableGuids,
+    });
+    if (!preparedScriptablePacks.ok) {
+      throw dynamicPluginError(preparedScriptablePacks.error);
+    }
+    for (const input of packInputsResult.value.inputs) {
+      assertPublicationOpen(context.signal);
+      const prepared = preparedScriptablePacks.value.get(input.displaySourcePath);
+      if (prepared === undefined) {
+        throw structuredPluginError({
+          code: 'catalog-declaration-missing',
+          expected: 'the dynamic Pack generation to retain every current source subject',
+          hint: 'rerun the source inventory and rebuild the accepted generation',
+          detail: { stage: 'scan', sourcePath: input.sourcePath },
+        });
+      }
+      const publication = preserveAcceptedPublicationGeneration(
+        prepared.publication,
+        context.publicationStore.observe(input.displaySourcePath),
+      );
+      const { product, finalized, facts, revision } = prepared;
+      const transportRevision = `${product.inputFingerprint}:${packageTransportRevision(
+        projectImportProductForBuild(product.product),
+      )}`.replace(/[^a-zA-Z0-9._-]/g, '-');
+      const receiptUrls = await materializePreparedScriptablePack(
+        prepared,
+        {
+          packagePath: finalized.packageUrl,
+          artifactPath: (path) => `${DEV_PACK_PREFIX}${path}`,
+          receiptPath: (guid) =>
+            `${DEV_PACK_PREFIX}${guid.toLowerCase()}.${transportRevision}.receipt.json`,
+        },
+        {
+          writePackage: (path, body) => {
+            stagedPackBodies.set(path, body);
+          },
+          writeArtifact: (path, bytes, mimeType) => {
+            stagedArtifactBodies.set(path, { bytes, mimeType });
+          },
+          writeReceipt: (path, body) => {
+            stagedArtifactBodies.set(path, {
+              bytes: new TextEncoder().encode(body),
+              mimeType: 'application/json',
+            });
+          },
+        },
+      );
+      const runtimePublication = createRuntimePackPublication({
+        pack: { assets: finalized.pack.assets },
+        scopeId: context.scopeId ?? 'asset-runtime',
+        sourcePath: publication.sourcePath,
+        sourceRevision: publication.sourceRevision,
+        packageUrl: finalized.packageUrl,
+        inputFingerprint: publication.receipt.inputFingerprint,
+        digest: finalized.digest,
+        generation: publication.generation,
+        outputs: facts.outputs,
+        externalEvidence: publication.externalEvidence,
+      });
+      stagedPackBodies.set(finalized.packageUrl, JSON.stringify(runtimePublication.pack));
+      const accepted = context.publicationStore.stage(input.displaySourcePath, {
+        envelope: publication,
+      });
+      assertPublicationOpen(context.signal);
+      if (!accepted.ok) {
+        throw structuredPluginError({
+          code: accepted.error.code,
+          expected: 'DDC to accept the dynamic Pack publication tuple',
+          hint: accepted.error.reason,
+          detail: { stage: accepted.error.stage, sourcePath: input.displaySourcePath },
+        });
+      }
+      context.publicationCandidates.set(input.displaySourcePath, publication);
+      const stagedByGuid = new Map(
+        product.stagedOutputs.map((output) => [
+          AssetGuid.format(output.guid).toLowerCase(),
+          output,
+        ]),
+      );
+      const projected = projectPackageCatalog(
+        product.product.assets.map((asset, sourceIndex) => {
+          const staged = stagedByGuid.get(asset.guid.toLowerCase());
+          return {
+            guid: asset.guid,
+            kind: asset.kind,
+            sourcePath: input.displaySourcePath,
+            sourceIndex,
+            ...(staged?.sourceKey === undefined ? {} : { sourceKey: staged.sourceKey }),
+            refs: asset.refs.map((reference) => reference.guid),
+            execution: 'cooked' as const,
+            packageId: PackageId.format(input.subjectPackageId ?? input.definition.packageId),
+            provenance: { provider: 'pack-ts', version: '2.0.0' },
+          };
+        }),
+        finalized.packageUrl,
+      ).map((entry) => {
+        const cookReceiptUrl = receiptUrls.get(entry.guid.toLowerCase());
+        return {
+          ...entry,
+          ...(cookReceiptUrl === undefined ? {} : { cookReceiptUrl }),
+          revision,
+          publication: runtimePublication.publication,
+          ...context.currentProjection,
+          refs: facts.refs.get(entry.guid.toLowerCase()) ?? [],
+        };
+      });
+      dynamicPackEntries.push(...projected);
+    }
+  }
+  for (const entry of raw) {
+    assertPublicationOpen(context.signal);
+    if (
+      !entry.packageUrl.endsWith('.pack.json') ||
+      entry.packageUrl.includes(DEV_PACK_PREFIX) ||
+      published.has(entry.packageUrl)
+    ) {
+      continue;
+    }
+    const sourceDeclaration = sourceDeclarationForCatalogPath(
+      entry.sourcePath,
+      context.sourceDeclarations,
+      context.opts.sourceIdentityFor,
+    );
+    const sourcePath = sourceDeclaration?.sourcePath ?? resolve(process.cwd(), entry.sourcePath);
+    const declaration = sourceDeclaration?.declaration;
+    if (declaration?.format !== 'pack.json') {
+      throw structuredPluginError({
+        code: 'catalog-declaration-missing',
+        expected: 'the scanner inventory to contain the authored Pack declaration',
+        hint: 'rerun Pack inventory and publish only the accepted declaration set',
+        detail: { stage: 'scan', sourcePath },
+      });
+    }
+    if (declaration.value.schemaVersion === '3.0.0') {
+      const parsed = parsePackSourceJson(declaration.value);
+      if (!parsed.ok) throw dynamicPluginError(parsed.error);
+      if (parsed.value.format !== 'direct') continue;
+      const projected = projectDirectPackJson(parsed.value);
+      if (!projected.ok) throw dynamicPluginError(projected.error);
+      const prepared = await prepareDirectPackTransport({
+        projected: projected.value,
+        sourcePath,
+        displaySourcePath: entry.sourcePath,
+        sourceRevision: declaration.sourceRevision,
+        availableGuids: new Set([
+          ...availableGuids,
+          ...dynamicPackEntries.map((candidate) => candidate.guid),
+        ]),
+        ...(context.opts.cookers === undefined ? {} : { cookers: context.opts.cookers }),
+        policy: {
+          base: '/',
+          packagePath: `__forgeax-ddc/${projected.value.packageId}.pack.json`,
+          artifactPath: (assetGuid, key) => `${assetGuid}/${key}.bin`,
+          sink: () => {},
+        },
+      });
+      if (!prepared.ok) throw dynamicPluginError(prepared.error);
+      const { product, finalized, facts, revision } = prepared.value;
+      const transportRevision = `${product.inputFingerprint}:${packageTransportRevision(
+        projectImportProductForBuild(product.product),
+      )}`.replace(/[^a-zA-Z0-9._-]/g, '-');
+      const generation =
+        (context.publicationStore.observe(entry.sourcePath).current?.generation ?? 0) + 1;
+      const candidate = createAcceptedPublication({
+        sourcePath: entry.sourcePath,
+        sourceRevision: product.inputFingerprint,
+        generation,
+        digest: finalized.digest,
+        packageUrl: finalized.packageUrl,
+        inputFingerprint: product.inputFingerprint,
+        outputs: facts.outputs,
+        externalEvidence: product.externalEvidence,
+      });
+      const publication = preserveAcceptedPublicationGeneration(
+        candidate,
+        context.publicationStore.observe(entry.sourcePath),
+      );
+      const accepted = context.publicationStore.stage(entry.sourcePath, {
+        envelope: publication,
+      });
+      assertPublicationOpen(context.signal);
+      if (!accepted.ok) {
+        throw structuredPluginError({
+          code: accepted.error.code,
+          expected: 'DDC to accept the direct Pack publication tuple',
+          hint: accepted.error.reason,
+          detail: { stage: accepted.error.stage, sourcePath: entry.sourcePath },
+        });
+      }
+      context.publicationCandidates.set(entry.sourcePath, publication);
+      const runtimePublication = createRuntimePackPublication({
+        pack: { assets: finalized.pack.assets },
+        scopeId: context.scopeId ?? 'asset-runtime',
+        sourcePath: publication.sourcePath,
+        sourceRevision: publication.sourceRevision,
+        packageUrl: finalized.packageUrl,
+        inputFingerprint: publication.receipt.inputFingerprint,
+        digest: finalized.digest,
+        generation: publication.generation,
+        outputs: facts.outputs,
+        externalEvidence: publication.externalEvidence,
+      });
+      published.set(entry.packageUrl, finalized.packageUrl);
+      authoredPublications.set(entry.packageUrl, runtimePublication.publication);
+      authoredRevisions.set(entry.packageUrl, revision);
+      stagedPackBodies.set(finalized.packageUrl, JSON.stringify(runtimePublication.pack));
+      for (const artifact of finalized.artifacts) {
+        stagedArtifactBodies.set(`${DEV_PACK_PREFIX}${artifact.path}`, {
+          bytes: artifact.bytes,
+          mimeType: artifact.mediaType,
+        });
+      }
+      const receipts = new Map<string, string>();
+      for (const receipt of product.product.receipts) {
+        const guid = receipt.guid.toLowerCase();
+        const receiptUrl = `${DEV_PACK_PREFIX}${guid}.${transportRevision}.receipt.json`;
+        stagedArtifactBodies.set(receiptUrl, {
+          bytes: new TextEncoder().encode(
+            JSON.stringify({ ...receipt, outputDigest: finalized.digest }),
+          ),
+          mimeType: 'application/json',
+        });
+        receipts.set(guid, receiptUrl);
+      }
+      cookReceiptUrls.set(entry.packageUrl, receipts);
+      cookedRefs.set(entry.packageUrl, facts.refs);
+      continue;
+    }
+    const prepared = await prepareLegacyPackTransport(
+      declaration.value,
+      context.opts.cookers,
+      (guid) => ({
+        base: '/',
+        packagePath: `${DEV_PACK_PREFIX}${guid}.pack.json`.replace(/^\/+/, ''),
+        artifactPath: (assetGuid, key) => `${assetGuid}/${key}.bin`,
+      }),
+      sourcePath,
+    );
+    const firstGuid = prepared.firstGuid;
+    if (firstGuid === undefined) continue;
+    assertPublicationOpen(context.signal);
+    const packageUrl = `${DEV_PACK_PREFIX}${firstGuid}.pack.json`;
+    published.set(entry.packageUrl, packageUrl);
+    const authoredPack = prepared.finalized?.pack ?? {
+      schemaVersion: '2.0.0' as const,
+      kind: 'internal-text-package' as const,
+      assets: declaration.value.assets.map((asset) => ({
+        guid: asset.guid,
+        kind: asset.kind,
+        ...(asset.name === undefined ? {} : { name: asset.name }),
+        payload: asset.payload,
+        refs: asset.refs,
+        artifacts: asset.artifacts ?? {},
+      })),
+    };
+    const runtimePublication = createRuntimePackPublication({
+      pack: { assets: authoredPack.assets },
+      scopeId: context.scopeId ?? 'asset-runtime',
+      sourcePath: entry.sourcePath,
+      sourceRevision: declaration.sourceRevision,
+      packageUrl,
+      ...(prepared.finalized?.digest === undefined ? {} : { digest: prepared.finalized.digest }),
+    });
+    authoredPublications.set(entry.packageUrl, runtimePublication.publication);
+    const finalPackageUrl = prepared.finalized?.packageUrl ?? packageUrl;
+    stagedPackBodies.set(finalPackageUrl, JSON.stringify(runtimePublication.pack));
+    if (prepared.finalized !== undefined) {
+      for (const artifact of prepared.finalized.artifacts) {
+        stagedArtifactBodies.set(`${DEV_PACK_PREFIX}${artifact.path}`, {
+          bytes: artifact.bytes,
+          mimeType: artifact.mediaType,
+        });
+      }
+    }
+    published.set(entry.packageUrl, finalPackageUrl);
+    cookedRefs.set(entry.packageUrl, prepared.cooked?.refsByGuid ?? new Map());
+  }
+  const projected = [...raw, ...dynamicPackEntries].map((entry) => {
+    const packageUrl = published.get(entry.packageUrl);
+    if (packageUrl === undefined) return entry;
+    const refs = cookedRefs.get(entry.packageUrl)?.get(entry.guid.toLowerCase());
+    if (refs !== undefined) {
+      const publication = authoredPublications.get(entry.packageUrl);
+      const cookReceiptUrl = cookReceiptUrls.get(entry.packageUrl)?.get(entry.guid.toLowerCase());
+      const revision = authoredRevisions.get(entry.packageUrl);
+      return {
+        ...entry,
+        packageUrl,
+        ...context.authoredCookedProjection,
+        ...(publication === undefined ? {} : { publication }),
+        refs,
+        ...(cookReceiptUrl === undefined ? {} : { cookReceiptUrl }),
+        ...(revision === undefined ? {} : { revision }),
+      };
+    }
+    const publication = authoredPublications.get(entry.packageUrl);
+    return publication === undefined
+      ? { ...entry, packageUrl, ...context.directProjection }
+      : { ...entry, packageUrl, publication, ...context.directProjection };
+  });
+  for (const [url, body] of stagedPackBodies) context.metaPackBodies.set(url, body);
+  assertPublicationOpen(context.signal);
+  for (const [url, body] of stagedArtifactBodies) context.devArtifactBodies.set(url, body);
+  for (const entry of projected) {
+    if (entry.packageUrl.startsWith(DEV_PACK_PREFIX)) {
+      context.importedGuids.add(entry.guid.toLowerCase());
+    }
+  }
+  return projected;
+}

@@ -1,0 +1,10 @@
+name: nightly (fixture)
+on:
+  schedule:
+    - cron: '0 0 * * *'
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Playwright Chrome Beta
+        uses: ./.github/actions/install-playwright-chrome-beta

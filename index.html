@@ -1498,7 +1498,11 @@
   <script src="js/terrain-fine.js?v=scorch3"></script>
   <script src="js/world-outskirts.js?v=scorch3"></script>
   <script src="js/bases.js?v=teamlook1"></script>
-  <script src="js/vehicles.js?v=wepammo1"></script>
+  <!-- vehicle-models.js 加载 assets/vehicles/*.glb，必须排在 vehicles.js 之前，
+       这样第一台载具生成时 VF.VehicleModels 就已经注册好了（模型本身是异步
+       拉取的，到位后由 main.js 调 refreshModels 热替换）。 -->
+  <script src="js/vehicle-models.js?v=glbveh8"></script>
+  <script src="js/vehicles.js?v=glbveh6"></script>
   <script src="js/weapon-viewmodels.js?v=wstat2"></script>
   <script src="js/soldier.js?v=voxelskin1"></script>
   <script src="js/soldier-voxel.js?v=voxelskin1"></script>
@@ -1536,7 +1540,7 @@
   <script src="js/pvp.js?v=voxelskin1"></script>
   <script src="js/deployment-presentation.js?v=voxelskin1"></script>
   <script src="js/frontline-ui.js?v=6"></script>
-  <script src="js/main.js?v=voxelskin1"></script>
+  <script src="js/main.js?v=voxveh1"></script>
   <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
   <script src="js/feel-tuner.js?v=move2"></script>
   <!-- render-tuner.js: F9 后处理参数调节（生产环境删除） -->

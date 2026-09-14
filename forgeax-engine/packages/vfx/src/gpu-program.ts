@@ -1,0 +1,101 @@
+import type {
+  BindGroupLayoutDescriptor,
+  ParticleEffectAsset,
+  ParticleEffectProgram,
+  ParticleEffectProgramEmitter,
+} from '@forgeax/engine-types';
+import type {
+  ParticleChannelSource,
+  ParticleEmitterSourceV2,
+  ParticleEventSource,
+  ParticleRendererOverflowPolicy,
+  ParticleRendererSorting,
+  ParticleRendererSource,
+  ParticleStageDomain,
+  ParticleStageResourceAccess,
+} from './code-source.js';
+import type { VfxDataInterfaceRequirement } from './data-interface.js';
+import type { VfxEffectReflection } from './effect-contract.js';
+
+export const VFX_GPU_PROGRAM_FORMAT = 'forgeax-vfx-program-2' as const;
+export const VFX_GPU_PROGRAM_ARTIFACT_KEY = 'particle-effect/program.json' as const;
+
+export interface VfxGpuStageReflection {
+  readonly id: string;
+  readonly entry: string;
+  readonly entryPoint: string;
+  readonly domain: ParticleStageDomain;
+  readonly resources: readonly {
+    readonly name: string;
+    readonly access: ParticleStageResourceAccess;
+  }[];
+  readonly dependsOn: readonly string[];
+  readonly iterationBudget: number;
+}
+
+export interface VfxGpuRendererReflection {
+  readonly topology: ParticleRendererSource['kind'];
+  readonly resource: string;
+  readonly capacity: number;
+  readonly overflow: ParticleRendererOverflowPolicy;
+  readonly enabled: boolean;
+  readonly shaderInputs: readonly string[];
+  readonly textureSheet?: {
+    readonly columns: number;
+    readonly rows: number;
+    readonly frameRate: number;
+    readonly frameCount: number;
+  };
+  readonly pivot?: readonly [number, number];
+  readonly softParticle?: { readonly fadeDistance: number; readonly requiresDepth: true };
+  readonly sorting?: ParticleRendererSorting;
+  readonly stripKey?: 'alive-index';
+  readonly historyLength?: number;
+  readonly endpointField?: 'velocity';
+}
+
+export interface VfxGpuProgramReflection {
+  readonly hooks: readonly ['vfx_spawn', 'vfx_update'];
+  readonly imports: readonly string[];
+  readonly resources: readonly string[];
+  readonly entryPoints: readonly string[];
+  readonly bindings: readonly BindGroupLayoutDescriptor[];
+  readonly layout?: VfxEffectReflection;
+  readonly dataInterfaces?: readonly VfxDataInterfaceRequirement[];
+  readonly eventChannels?: readonly ParticleChannelSource[];
+  readonly events?: readonly ParticleEventSource[];
+  readonly eventEntryPoint?: 'forgeax_vfx_event_main';
+  readonly stages?: readonly VfxGpuStageReflection[];
+  readonly renderers?: readonly VfxGpuRendererReflection[];
+}
+
+export interface VfxGpuEmitterProgram
+  extends Omit<
+    ParticleEffectProgramEmitter,
+    'schedule' | 'bounds' | 'renderers' | 'reflection' | 'channels' | 'events'
+  > {
+  readonly id: string;
+  readonly module: string;
+  readonly capacity: number;
+  readonly backend: ParticleEmitterSourceV2['backend'];
+  readonly space: ParticleEmitterSourceV2['space'];
+  readonly schedule: ParticleEmitterSourceV2['schedule'];
+  readonly bounds: ParticleEmitterSourceV2['bounds'];
+  readonly renderers: ParticleEmitterSourceV2['renderers'];
+  readonly channels?: readonly ParticleChannelSource[];
+  readonly events?: readonly ParticleEventSource[];
+  readonly simulationWhenCulled: NonNullable<ParticleEmitterSourceV2['simulationWhenCulled']>;
+  readonly wgsl: string;
+  readonly reflection: VfxGpuProgramReflection;
+}
+
+export interface VfxGpuProgram extends Omit<ParticleEffectProgram, 'emitters'> {
+  readonly format: typeof VFX_GPU_PROGRAM_FORMAT;
+  readonly fingerprint: string;
+  readonly emitters: readonly VfxGpuEmitterProgram[];
+}
+
+export interface VfxGpuEffectAsset extends ParticleEffectAsset {
+  readonly guid: string;
+  readonly program: VfxGpuProgram;
+}

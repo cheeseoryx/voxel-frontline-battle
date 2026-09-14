@@ -1,0 +1,275 @@
+name: SDK PR Preflight
+
+on:
+  # Keep an operator recovery path when a pull_request synchronize webhook is
+  # delayed or lost; the dispatched ref is still checked out and verified as
+  # the exact product head.
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/sdk-pr-preflight.yml'
+      - '.github/workflows/sdk-release-candidate.yml'
+      - '.github/workflows/sdk-release-promote.yml'
+      - '.github/actions/install-mesa-vulkan-drivers/**'
+      - '.github/actions/install-playwright-chrome-beta/**'
+      - '.github/actions/editor-prerequisite-build/**'
+      - 'packages/fbx/**'
+      - 'packages/wgpu-wasm/**'
+      - 'scripts/lib/ensure-wasm-lib.mjs'
+      - 'scripts/ci/build-editor-prerequisite.mjs'
+      - 'scripts/ci/editor-prerequisite-build.contract.json'
+      - 'scripts/ci/setup-emscripten-no-xz.py'
+      - 'scripts/ci/prepare-emscripten-no-xz-archive.py'
+      - 'scripts/ci/emscripten-no-xz.lock.json'
+      - '.pnpm-version'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'packages/*/package.json'
+      # The SDK source snapshot includes the public types barrel and contracts.
+      - 'packages/types/**'
+      - 'packages/devkit/**'
+      - 'packages/engine/**'
+      - 'scripts/forgeax/build-sdk.mjs'
+      - 'scripts/forgeax/check-sdk-*.mjs'
+      - 'scripts/forgeax/finalize-sdk-release.mjs'
+      - 'scripts/forgeax/publish-sdk-npm.mjs'
+      - 'scripts/forgeax/sdk-candidate.mjs'
+      - 'scripts/forgeax/sdk-lib.mjs'
+      - 'scripts/forgeax/verify-sdk.mjs'
+      - 'scripts/forgeax/__tests__/sdk-*.mjs'
+      - 'scripts/ci/__tests__/sdk-pr-preflight-contract.test.mjs'
+      - 'sdk-candidate.schema.json'
+      - 'skills/**'
+      - 'templates/**'
+concurrency:
+  group: sdk-pr-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-sdk:
+    name: sdk-build
+    runs-on: ${{ fromJSON('["self-hosted", "Linux", "X64", "heavy"]') }}
+    timeout-minutes: 120
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+      GH_TOKEN: ${{ github.token }}
+      SDK_PREFLIGHT_VERSION: 0.0.0-pr.${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.GHA }}
+
+      - name: Prepare XDG runtime directory
+        uses: ./.github/actions/prepare-xdg-runtime
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      # Build, npm-consumer, and headed archive verification intentionally share
+      # one heavy self-hosted workspace. This preserves exact-byte consumption
+      # without transferring the SDK through GitHub artifact storage.
+      - name: Verify heavy runner capacity
+        run: node scripts/ci/verify-runner-pool-capacity.mjs --pool heavy
+
+      # An exact PR may change the wgpu-wasm content key before main publishes
+      # its immutable release asset. Fall back to the same source build only
+      # when the release artifact is unavailable.
+      - name: Cache wgpu-wasm pkg/ (content-keyed)
+        uses: actions/cache@v5
+        with:
+          path: packages/wgpu-wasm/pkg
+          key: sdk-pr-${{ runner.os }}-${{ runner.arch }}-wgpu-wasm-pkg-v1-${{ hashFiles('packages/wgpu-wasm/src/**/*.rs', 'packages/wgpu-wasm/Cargo.toml', 'packages/wgpu-wasm/Cargo.lock', 'packages/wgpu-wasm/rust-toolchain.toml', 'packages/wgpu-wasm/build.sh') }}
+
+      - name: Ensure wgpu-wasm release artifact
+        id: wgpu-release
+        env:
+          GH_TOKEN: ${{ secrets.GHA }}
+        run: |
+          set -eu
+          node packages/wgpu-wasm/scripts/ensure-wasm.mjs
+          if [ -f packages/wgpu-wasm/pkg/wgpu_wasm.js ] && [ -f packages/wgpu-wasm/pkg/wgpu_wasm_bg.wasm ] && [ -f packages/wgpu-wasm/pkg/provenance.json ]; then
+            echo "needs_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Rust toolchain for wgpu-wasm source fallback
+        if: steps.wgpu-release.outputs.needs_build == 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.93'
+          targets: wasm32-unknown-unknown
+
+      - name: Setup wasm-pack for wgpu-wasm source fallback
+        if: steps.wgpu-release.outputs.needs_build == 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.14.0
+
+      - name: Enable repository pnpm
+        run: corepack enable && corepack prepare "pnpm@$(cat .pnpm-version)" --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Ensure FBX release artifact
+        id: fbx-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GHA }}
+        run: |
+          set -eu
+          node packages/fbx/scripts/ensure-wasm.mjs
+          if [ -f packages/fbx/pkg/fbx-wasm.mjs ] && [ -f packages/fbx/pkg/fbx-wasm.wasm ]; then
+            echo "needs_build=false" >> "$GITHUB_OUTPUT"
+            echo "source=release" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_build=true" >> "$GITHUB_OUTPUT"
+            echo "source=source-build" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve checked source SHA for FBX fallback
+        id: checked-source
+        if: steps.fbx-release.outputs.needs_build == 'true'
+        run: echo "value=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # A PR may change bridge.c before the main-only publisher has emitted its
+      # content-keyed release asset. Reuse the canonical source-build action so
+      # the SDK seed is built from this exact checkout with the locked
+      # Emscripten recipe. This produces CI evidence only; it never publishes a
+      # release asset or weakens the checked-release path.
+      - name: Build FBX WASM from source when release artifact is unavailable
+        if: steps.fbx-release.outputs.needs_build == 'true'
+        uses: ./.github/actions/editor-prerequisite-build
+        with:
+          engine-sha: ${{ steps.checked-source.outputs.value }}
+          payload-classes: fbx-wasm
+          output: ${{ runner.temp }}/forgeax-fbx-wasm-source-build
+
+      - name: Verify FBX WASM release or source fallback
+        env:
+          FBX_SOURCE_BUILD: ${{ steps.fbx-release.outputs.needs_build }}
+          FBX_MANIFEST: ${{ runner.temp }}/forgeax-fbx-wasm-source-build/engine-prerequisite-build-manifest.json
+        run: |
+          set -eu
+          test -s packages/fbx/pkg/fbx-wasm.mjs
+          test -s packages/fbx/pkg/fbx-wasm.wasm
+          if [ "$FBX_SOURCE_BUILD" = true ]; then
+            test -s "$FBX_MANIFEST"
+            MANIFEST="$FBX_MANIFEST" node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+
+          const manifest = JSON.parse(readFileSync(process.env.MANIFEST, 'utf8'));
+          if (manifest.schemaVersion !== 'forgeax-engine-editor-prerequisite-build/v1') {
+            throw new Error(`unexpected source-build manifest schema: ${manifest.schemaVersion}`);
+          }
+          if (manifest.status !== 'success' || manifest.productionMode !== 'source-build') {
+            throw new Error('FBX source fallback did not produce a successful source-build manifest');
+          }
+          const files = new Set(manifest.inventory.map((entry) => entry.path));
+          for (const suffix of ['fbx-wasm/fbx-wasm.mjs', 'fbx-wasm/fbx-wasm.wasm']) {
+            if (![...files].some((path) => path.endsWith(suffix))) {
+              throw new Error(`source-build inventory is missing ${suffix}`);
+            }
+          }
+          console.log(`verified FBX source-build inventory (${manifest.inventory.length} files)`);
+          NODE
+          fi
+
+      # The canonical source-build action intentionally uses --force to make
+      # its isolated payload output deterministic. Recreate the ordinary
+      # workspace install before sdk:build so pnpm's package index is complete
+      # for license and archive generation; a regular install may otherwise
+      # trust the action's force-install metadata and report "Already up to date"
+      # without restoring a missing package index.
+      - name: Rehydrate SDK dependencies after FBX source fallback
+        if: steps.fbx-release.outputs.needs_build == 'true'
+        run: |
+          set -eu
+          rm -rf node_modules
+          pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Build wgpu-wasm from source when release artifact is unavailable
+        if: steps.wgpu-release.outputs.needs_build == 'true'
+        run: pnpm -F @forgeax/engine-wgpu-wasm build:wasm
+
+      - name: Verify wgpu-wasm artifact and provenance
+        run: |
+          set -eu
+          test -f packages/wgpu-wasm/pkg/wgpu_wasm.js
+          test -f packages/wgpu-wasm/pkg/wgpu_wasm_bg.wasm
+          test -f packages/wgpu-wasm/pkg/provenance.json
+          node --input-type=module -e "import { verifyProvenance } from './packages/wgpu-wasm/scripts/provenance.mjs'; await verifyProvenance();"
+
+      - name: Verify SDK asset inputs
+        run: |
+          test -f forgeax-engine-assets/demo-assets/template-game-default/sky.hdr
+          test -f forgeax-engine-assets/demo-assets/template-game-default/sky.hdr.meta.json
+
+      - name: Hydrate checked-release WASM toolchain
+        run: |
+          node packages/fbx/scripts/ensure-wasm.mjs
+          node packages/codec/scripts/ensure-wasm.mjs
+          test -f packages/fbx/pkg/fbx-wasm.wasm
+          test -f packages/codec/pkg/basis_transcoder.wasm
+          test -f packages/codec/pkg/encode/basis_encoder.wasm
+
+      - name: Build exact PR SDK and npm tarballs once
+        run: pnpm sdk:build -- --version "$SDK_PREFLIGHT_VERSION"
+
+      # The exact SDK remains in artifacts/sdk from the producer step. Consume
+      # it locally so this preflight has no upload/download transfer artifact.
+      - name: Verify exact SDK build for local consumers
+        run: test -s artifacts/sdk/sdk-build-result.json
+
+      - name: Pin npm CLI for nested consumer gate
+        run: |
+          set -eu
+          NPM_ROOT="$RUNNER_TEMP/forgeax-npm-11.17.0"
+          npm install --prefix "$NPM_ROOT" --no-save --ignore-scripts --no-audit --no-fund npm@11.17.0
+          NPM_BIN="$NPM_ROOT/node_modules/.bin"
+          test -x "$NPM_BIN/npm"
+          test "$("$NPM_BIN/npm" --version)" = "11.17.0"
+          echo "$NPM_BIN" >> "$GITHUB_PATH"
+
+      - name: Install Engine and SDK through the exact PR consumer route
+        run: |
+          set -eu
+          NPM_BIN="$RUNNER_TEMP/forgeax-npm-11.17.0/node_modules/.bin"
+          export PATH="$NPM_BIN:$PATH"
+          test "$(npm --version)" = "11.17.0"
+          pnpm sdk:check:npm -- --version "$SDK_PREFLIGHT_VERSION"
+
+      # The archive gate is a real headed WebGPU journey. Keep it after the
+      # npm consumer and on the same capacity-checked heavy pool so lavapipe
+      # validates the exact archive built above without an artifact handoff.
+      - name: Install Mesa Vulkan (lavapipe software path for SDK WebGPU)
+        uses: ./.github/actions/install-mesa-vulkan-drivers
+        with:
+          cache-scope: sdk-pr-archive-browser
+
+      - name: Install Playwright Chrome Beta (for SDK verifier WebGPU)
+        uses: ./.github/actions/install-playwright-chrome-beta
+        with:
+          cache-scope: sdk-pr-archive-browser
+
+      - name: Detect lavapipe ICD (for SDK verifier Chrome WebGPU)
+        run: |
+          set -eu
+          ICD_PATH=$(find /usr/share/vulkan/icd.d -maxdepth 1 -type f -name 'lvp_icd*.json' -print -quit)
+          test -n "$ICD_PATH"
+          echo "VK_ICD_FILENAMES=$ICD_PATH" >> "$GITHUB_ENV"
+          echo "VK_DRIVER_FILES=$ICD_PATH" >> "$GITHUB_ENV"
+
+      - name: Verify exact SDK archive through real browser
+        env:
+          FORGEAX_CHROME_CHANNEL: chrome-beta
+        run: |
+          xvfb-run -a env FORGEAX_BROWSER_HEADLESS=0 pnpm sdk:verify -- --archive "artifacts/sdk/forgeax-sdk-v${SDK_PREFLIGHT_VERSION}.zip"

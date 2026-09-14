@@ -29,3 +29,6 @@ diag-*.txt
 # Reproducible UI browser-test screenshots
 tmp/frontline-ui-check/
 tmp/roles-check/
+
+# Local game server process state and logs
+tmp/game-server/

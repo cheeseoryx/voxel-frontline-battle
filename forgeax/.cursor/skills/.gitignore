@@ -1,0 +1,19 @@
+# BEGIN FORGEAX MANAGED SKILLS
+/forgeax-engine-app
+/forgeax-engine-assets
+/forgeax-engine-audio
+/forgeax-engine-cli
+/forgeax-engine-debug
+/forgeax-engine-debug-draw
+/forgeax-engine-ecs
+/forgeax-engine-material
+/forgeax-engine-math
+/forgeax-engine-physics
+/forgeax-engine-render-pipeline
+/forgeax-engine-rhi
+/forgeax-engine-rhi-debug
+/forgeax-engine-sdk
+/forgeax-engine-shader
+/forgeax-engine-state
+/forgeax-engine-vfx
+# END FORGEAX MANAGED SKILLS

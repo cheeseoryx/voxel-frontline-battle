@@ -1,0 +1,13 @@
+{
+  "id": "game-capability-lab",
+  "name": "Capability Lab",
+  "schemaVersion": "2.0.0",
+  "defaultScene": "1036f6f0-d3c2-5f31-9593-3432942d4c93",
+  "plugins": [
+    {
+      "id": "gameplay",
+      "name": "./assets/capability-matrix.plugin.ts",
+      "realm": "engine"
+    }
+  ]
+}

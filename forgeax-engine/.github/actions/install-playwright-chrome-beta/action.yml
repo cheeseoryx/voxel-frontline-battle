@@ -1,0 +1,188 @@
+name: Install Playwright Chrome Beta
+description: >
+  Install Playwright Chrome Beta browser binary plus host system dependencies.
+  Used by the vitest browser project (channel chrome-beta) and any workflow that
+  needs a chromium binary with full WebGPU support.
+
+  Persistent Linux runners first reuse a valid host installation. This keeps a
+  transient GitHub Cache Service outage from evicting and reinstalling a browser
+  that is already usable; the deb cache remains the fallback for cold hosts.
+
+  Caching v3 (extends 75baa99 chrome-beta-cache, **Linux only**): persist not
+  just the google-chrome-beta deb but ALSO every deb pulled in by `playwright
+  install-deps chromium` (~17 MB of fonts-* / xfonts-* / libnss3 etc.). The
+  v1 cache only short-circuited chrome-beta itself, leaving install-deps to
+  hit Azure noble apt mirrors on every run -- which on slow nodes spent
+  60-120s per font deb (observed on PR-103 run 25812517411: install-deps
+  alone took 3min 9s out of the step's 3min 18s wall-time). v2 stages every
+  resolved deb under ~/.cache/chrome-beta and `dpkg -i` them all on cache
+  hit, dropping install-deps from 3min+ to ~10s.
+
+  Cache keying: `chrome-beta-deb-v3-<scope>-<YYYY-WW>` rotates weekly
+  (chrome-beta + apt deps drift slowly enough); callers provide a scope that
+  isolates runner image and ABI classes. Restore keys fall through to the prior
+  week only within that scope. v1/v2 keys are abandoned by the v3 prefix bump so
+  stale or empty caches don't shadow the complete bundle.
+
+  Cross-platform path (macOS / Windows, used by nightly.yml matrix): apt
+  / dpkg do not exist, so the deb cache is bypassed and `playwright install
+  chrome-beta` runs natively per-platform. The smoke check picks the
+  platform-appropriate binary location instead of /opt/google/chrome-beta/.
+  Bug fix: 2026-05-14 nightly run 25839757290 mac+win failure -- v2 cache
+  path's `sudo apt-get clean` killed nightly on macOS (exit 1) and Windows
+  (exit 127); now gated on RUNNER_OS == Linux.
+
+  K-7 byte-identical replacement on Linux; K-12 KB warnings honoured: shell
+  bash required, inputs unset to avoid INPUT_* env unwiring, outputs unset
+  to avoid lift.
+
+inputs:
+  cache-scope:
+    description: Cache namespace for the runner class and ABI.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Detect reusable Chrome Beta host install (Linux only)
+      id: chrome-beta-host
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -eu
+        binary=/opt/google/chrome-beta/chrome
+        if command -v google-chrome-beta >/dev/null 2>&1 \
+          && test -x "$binary" \
+          && ! ldd "$binary" 2>/dev/null | grep -q 'not found'; then
+          echo "[chrome-beta] reusing host install: $(google-chrome-beta --version)"
+          echo "installed=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "installed=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Compute chrome-beta cache key suffix (Linux only)
+      id: chrome-beta-key
+      if: runner.os == 'Linux'
+      shell: bash
+      run: echo "suffix=$(date -u +%Y-%U)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache chrome-beta deb bundle (chrome-beta + install-deps debs, Linux only)
+      id: chrome-beta-cache
+      if: runner.os == 'Linux' && steps.chrome-beta-host.outputs.installed != 'true'
+      uses: actions/cache/restore@v5
+      with:
+        path: ~/.cache/chrome-beta
+        key: chrome-beta-deb-v3-${{ inputs.cache-scope }}-${{ steps.chrome-beta-key.outputs.suffix }}
+        restore-keys: |
+          chrome-beta-deb-v3-${{ inputs.cache-scope }}-
+
+    - name: Install chrome-beta + system deps (Linux apt/dpkg path)
+      id: install-chrome-beta
+      if: runner.os == 'Linux' && steps.chrome-beta-host.outputs.installed != 'true'
+      shell: bash
+      working-directory: apps/hello/triangle
+      run: |
+        set -eu
+        DEB_DIR="$HOME/.cache/chrome-beta"
+        mkdir -p "$DEB_DIR"
+        if command -v sudo >/dev/null 2>&1; then
+          run_privileged() { sudo "$@"; }
+        elif [ "$(id -u)" -eq 0 ]; then
+          run_privileged() { "$@"; }
+        else
+          echo "[chrome-beta] error: install requires sudo or a root runner" >&2
+          exit 1
+        fi
+
+        # On cache hit we have *every* required deb (chrome-beta + the system
+        # deps that `playwright install-deps chromium` would otherwise pull
+        # via apt). dpkg -i them all in one shot -- if any inter-deb link
+        # is missing, apt-get install -f resolves it locally without going
+        # back to the noble mirrors.
+        if compgen -G "$DEB_DIR/google-chrome-beta_*.deb" > /dev/null \
+          && test -f "$DEB_DIR/.forgeax-complete"; then
+          echo "[chrome-beta] cache hit -- installing $(ls "$DEB_DIR"/*.deb | wc -l) deb(s) from $DEB_DIR"
+          run_privileged dpkg -i "$DEB_DIR"/*.deb || run_privileged apt-get install -f -y
+        else
+          echo "[chrome-beta] cache miss/incomplete -- running playwright install-deps + chrome-beta via apt"
+          # apt-get clean first so /var/cache/apt/archives is a clean slate
+          # for the post-install harvest below (otherwise unrelated stale
+          # debs from the runner image would bloat the cache by ~hundreds
+          # of MB).
+          run_privileged apt-get clean
+          apt_wrapper="${GITHUB_WORKSPACE:-$(git rev-parse --show-toplevel)}/scripts/ci/with-apt-ubuntu-sources.sh"
+          run_with_retries() {
+            label="$1"
+            shift
+            for attempt in 1 2 3; do
+              if [ "$attempt" -eq 1 ]; then
+                "$@" && return 0
+              elif FORGEAX_APT_ARCHIVE_MIRROR=ubuntu-mirrorlist "$@"; then
+                return 0
+              fi
+              if [ "$attempt" -lt 3 ]; then
+                delay=$((attempt * 5))
+                echo "[chrome-beta] $label failed; retrying in ${delay}s with Ubuntu mirror fallback" >&2
+                sleep "$delay"
+              fi
+            done
+            echo "[chrome-beta] $label failed after 3 attempts" >&2
+            return 1
+          }
+          run_with_retries install-deps "$apt_wrapper" pnpm exec playwright install-deps chromium
+          run_with_retries install-chrome-beta "$apt_wrapper" pnpm exec playwright install chrome-beta
+          # Harvest every deb apt downloaded for the two commands above
+          # into the cache dir. Copy (don't move) so any subsequent apt
+          # operation in this job still has its archive intact.
+          shopt -s nullglob
+          debs=( /var/cache/apt/archives/*.deb )
+          if [ ${#debs[@]} -eq 0 ]; then
+            echo "[chrome-beta] warn: no debs in /var/cache/apt/archives; cache will stay cold next run"
+          else
+            cp "${debs[@]}" "$DEB_DIR/"
+            echo "[chrome-beta] seeded cache with ${#debs[@]} deb(s) totalling $(du -sh "$DEB_DIR" | cut -f1)"
+          fi
+        fi
+
+        if compgen -G "$DEB_DIR/google-chrome-beta_*.deb" > /dev/null; then
+          touch "$DEB_DIR/.forgeax-complete"
+          echo "cache-ready=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "[chrome-beta] warn: browser installed but no chrome-beta deb was harvested; cache will stay cold next run"
+        fi
+
+    - name: Verify Chrome Beta binary (Linux only)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -eu
+        binary=/opt/google/chrome-beta/chrome
+        test -x "$binary" || {
+          echo "[chrome-beta] error: $binary missing after host reuse/install" >&2
+          exit 1
+        }
+        google-chrome-beta --version
+
+    - name: Save chrome-beta deb bundle (only after complete install, Linux only)
+      if: runner.os == 'Linux' && steps.install-chrome-beta.outputs.cache-ready == 'true' && steps.chrome-beta-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: ~/.cache/chrome-beta
+        key: chrome-beta-deb-v3-${{ inputs.cache-scope }}-${{ steps.chrome-beta-key.outputs.suffix }}
+
+    - name: Install chrome-beta (macOS / Windows native playwright path)
+      if: runner.os != 'Linux'
+      shell: bash
+      working-directory: apps/hello/triangle
+      run: |
+        set -eu
+        # No deb cache on macOS / Windows -- playwright's per-platform
+        # installer drops chrome-beta into a runner-image cache that
+        # GitHub-hosted runners wipe between runs. Run the cli
+        # unconditionally; the apt / dpkg fast-path above does not apply.
+        # `playwright install` exits non-zero on failure, which is the
+        # same fail-fast signal the Linux smoke `test -x` provides --
+        # we don't hardcode platform-specific binary paths here because
+        # they vary across runner-image revisions and a wrong guess would
+        # create false failures.
+        pnpm exec playwright install chrome-beta

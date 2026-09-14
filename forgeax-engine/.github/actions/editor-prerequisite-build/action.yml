@@ -1,0 +1,191 @@
+name: Engine source build for Editor prerequisite
+description: Build exact-pinned Engine prerequisite payloads from source without Engine CI artifacts or APIs.
+
+inputs:
+  engine-sha:
+    description: Exact packages/engine gitlink SHA asserted against the current checkout.
+    required: true
+  payload-classes:
+    description: Comma-separated Engine payload classes required by the Editor run.
+    required: true
+  output:
+    description: Fresh run-scoped output directory for payloads and provenance.
+    required: true
+
+outputs:
+  manifest:
+    description: Engine source-build provenance manifest.
+    value: ${{ inputs.output }}/engine-prerequisite-build-manifest.json
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve exact Engine source-build contract
+      id: contract
+      shell: bash
+      env:
+        REQUESTED_PAYLOAD_CLASSES: ${{ inputs.payload-classes }}
+      run: |
+        set -euo pipefail
+        engine_root="$(cd "$GITHUB_ACTION_PATH/../../.." && pwd)"
+        contract="$engine_root/scripts/ci/editor-prerequisite-build.contract.json"
+        node_version="$(tr -d '[:space:]' < "$engine_root/.nvmrc")"
+        pnpm_version="$(tr -d '[:space:]' < "$engine_root/.pnpm-version")"
+        rust_version="$(sed -n 's/^channel[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$engine_root/packages/wgpu-wasm/rust-toolchain.toml")"
+        wasm_pack_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["toolchainInputs"]["wasmPackVersion"])' "$contract")"
+        emscripten_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["emscriptenVersion"])' "$engine_root/scripts/ci/emscripten-no-xz.lock.json")"
+        classes=",${REQUESTED_PAYLOAD_CLASSES// /},"
+        needs_wgpu=false
+        needs_fbx=false
+        needs_codec=false
+        [[ "$classes" == *,wgpu-wasm,* ]] && needs_wgpu=true
+        [[ "$classes" == *,fbx-wasm,* ]] && needs_fbx=true
+        [[ "$classes" == *,wasm-codec,* ]] && needs_codec=true
+        needs_emscripten=false
+        [[ "$needs_fbx" == true || "$needs_codec" == true ]] && needs_emscripten=true
+        {
+          echo "engine_root=$engine_root"
+          echo "node=$node_version"
+          echo "pnpm=$pnpm_version"
+          echo "rust=$rust_version"
+          echo "wasm_pack=$wasm_pack_version"
+          echo "emscripten=$emscripten_version"
+          echo "needs_wgpu=$needs_wgpu"
+          echo "needs_fbx=$needs_fbx"
+          echo "needs_codec=$needs_codec"
+          echo "needs_emscripten=$needs_emscripten"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Setup exact Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: ${{ steps.contract.outputs.node }}
+        package-manager-cache: false
+
+    - name: Setup exact pnpm
+      uses: pnpm/action-setup@v5
+      with:
+        version: ${{ steps.contract.outputs.pnpm }}
+
+    - name: Setup exact Rust toolchain
+      if: steps.contract.outputs.needs_wgpu == 'true'
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ steps.contract.outputs.rust }}
+        targets: wasm32-unknown-unknown
+
+    - name: Setup exact wasm-pack
+      if: steps.contract.outputs.needs_wgpu == 'true'
+      uses: taiki-e/install-action@v2
+      with:
+        tool: wasm-pack@${{ steps.contract.outputs.wasm_pack }}
+
+    - name: Fingerprint Emscripten bootstrap inputs
+      if: steps.contract.outputs.needs_emscripten == 'true'
+      id: emscripten-key
+      shell: bash
+      run: |
+        set -euo pipefail
+        engine_root="${{ steps.contract.outputs.engine_root }}"
+        digest="$(sha256sum \
+          "$engine_root/scripts/ci/setup-emscripten-no-xz.py" \
+          "$engine_root/scripts/ci/prepare-emscripten-no-xz-archive.py" \
+          "$engine_root/scripts/ci/emscripten-no-xz.lock.json" | sha256sum | awk '{print $1}')"
+        echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+    - name: Restore exact Emscripten toolchain cache
+      if: steps.contract.outputs.needs_emscripten == 'true'
+      id: emscripten-cache
+      uses: actions/cache/restore@v5
+      with:
+        path: ${{ runner.temp }}/forgeax-engine-emsdk-${{ steps.contract.outputs.emscripten }}
+        key: forgeax-engine-emsdk-${{ runner.os }}-${{ runner.arch }}-${{ steps.contract.outputs.emscripten }}-${{ steps.emscripten-key.outputs.digest }}
+
+    - name: Prepare pinned Emscripten archive
+      if: steps.contract.outputs.needs_emscripten == 'true' && steps.emscripten-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        engine_root="${{ steps.contract.outputs.engine_root }}"
+        python3 "$engine_root/scripts/ci/prepare-emscripten-no-xz-archive.py" \
+          --lock "$engine_root/scripts/ci/emscripten-no-xz.lock.json" \
+          --archive "$RUNNER_TEMP/forgeax-engine-emscripten-archive/wasm-binaries.tar.xz" \
+          --github-env "$GITHUB_ENV"
+
+    - name: Setup exact Emscripten toolchain
+      if: steps.contract.outputs.needs_emscripten == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        engine_root="${{ steps.contract.outputs.engine_root }}"
+        cache_dir="$RUNNER_TEMP/forgeax-engine-emsdk-${{ steps.contract.outputs.emscripten }}"
+        common=(
+          --version "${{ steps.contract.outputs.emscripten }}"
+          --lock "$engine_root/scripts/ci/emscripten-no-xz.lock.json"
+          --cache-dir "$cache_dir"
+          --github-env "$GITHUB_ENV"
+          --github-path "$GITHUB_PATH"
+          --evidence-output "$RUNNER_TEMP/forgeax-engine-emscripten-bootstrap.json"
+        )
+        if [[ "${{ steps.emscripten-cache.outputs.cache-hit }}" == true ]]; then
+          python3 "$engine_root/scripts/ci/setup-emscripten-no-xz.py" "${common[@]}"
+        else
+          python3 "$engine_root/scripts/ci/setup-emscripten-no-xz.py" "${common[@]}" \
+            --archive "$RUNNER_TEMP/forgeax-engine-emscripten-archive/wasm-binaries.tar.xz" \
+            --release-metadata "$engine_root/scripts/ci/emscripten-no-xz.lock.json" \
+            --archive-sha256 "$EMSCRIPTEN_NO_XZ_ARCHIVE_SHA256"
+        fi
+
+    - name: Export exact Emscripten environment
+      if: steps.contract.outputs.needs_emscripten == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        cache_dir="$RUNNER_TEMP/forgeax-engine-emsdk-${{ steps.contract.outputs.emscripten }}"
+        emsdk_root="$cache_dir/install"
+        emscripten_root="$emsdk_root/emscripten"
+        node_path="$(command -v node)"
+        config_path="$RUNNER_TEMP/forgeax-editor-emscripten-config.py"
+        cat > "$config_path" <<EOF
+        LLVM_ROOT = "$emsdk_root/bin"
+        BINARYEN_ROOT = "$emsdk_root"
+        NODE_JS = "$node_path"
+        CACHE = "$emscripten_root/cache"
+        EOF
+        {
+          echo "EMSDK=$emsdk_root"
+          echo "EMSCRIPTEN=$emscripten_root"
+          echo "EMSCRIPTEN_ROOT=$emscripten_root"
+          echo "EMSDK_NODE=$node_path"
+          echo "EM_CONFIG=$config_path"
+          echo "EM_CACHE=$emscripten_root/cache"
+          echo "EM_LLVM_ROOT=$emsdk_root/bin"
+          echo "EM_BINARYEN_ROOT=$emsdk_root"
+        } >> "$GITHUB_ENV"
+        {
+          echo "$emscripten_root"
+          echo "$emsdk_root/bin"
+        } >> "$GITHUB_PATH"
+        EM_CONFIG="$config_path" "$emscripten_root/emcc" --version
+
+    - name: Save exact Emscripten toolchain cache
+      if: steps.contract.outputs.needs_emscripten == 'true' && steps.emscripten-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: ${{ runner.temp }}/forgeax-engine-emsdk-${{ steps.contract.outputs.emscripten }}
+        key: forgeax-engine-emsdk-${{ runner.os }}-${{ runner.arch }}-${{ steps.contract.outputs.emscripten }}-${{ steps.emscripten-key.outputs.digest }}
+
+    - name: Build exact Engine prerequisite from source
+      shell: bash
+      env:
+        ENGINE_SHA: ${{ inputs.engine-sha }}
+        PAYLOAD_CLASSES: ${{ inputs.payload-classes }}
+        OUTPUT: ${{ inputs.output }}
+      run: |
+        set -euo pipefail
+        engine_root="${{ steps.contract.outputs.engine_root }}"
+        node "$engine_root/scripts/ci/build-editor-prerequisite.mjs" \
+          --source-only \
+          --engine-sha "$ENGINE_SHA" \
+          --payload-classes "$PAYLOAD_CLASSES" \
+          --output "$OUTPUT"

@@ -1,0 +1,7 @@
+{
+  "id": "deep-agent-feedback",
+  "name": "深度 Agent 反馈",
+  "schemaVersion": "1.0.0",
+  "entry": "src/bootstrap.ts",
+  "physics": "3d"
+}

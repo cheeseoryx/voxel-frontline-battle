@@ -1,0 +1,180 @@
+import type { WorldExecutionHealth } from '@forgeax/engine-ecs/shared';
+import type { Result, RuntimeAssetBinding } from '@forgeax/engine-types';
+import type { AppError } from '../errors';
+
+export const EXECUTION_TIERS = ['main-serial', 'engine-worker', 'shared'] as const;
+export type ExecutionTier = (typeof EXECUTION_TIERS)[number];
+
+export const EXECUTION_REQUESTED_TIERS = ['auto', ...EXECUTION_TIERS] as const;
+export type ExecutionRequestedTier = (typeof EXECUTION_REQUESTED_TIERS)[number];
+
+export const EXECUTION_CAPABILITY_NAMES = [
+  'worker',
+  'offscreenCanvas',
+  'workerAnimationFrame',
+  'workerWebGpu',
+  'crossOriginIsolated',
+  'sharedArrayBuffer',
+  'atomicsWait',
+] as const;
+export type ExecutionCapabilityName = (typeof EXECUTION_CAPABILITY_NAMES)[number];
+
+export interface ExecutionCapabilityFact {
+  readonly available: boolean;
+  readonly reason: string;
+}
+
+export type ExecutionCapabilities = Readonly<
+  Record<ExecutionCapabilityName, ExecutionCapabilityFact>
+>;
+
+export type ExecutionSelectionReason =
+  | 'explicit-request'
+  | 'auto-shared'
+  | 'auto-engine-worker'
+  | 'auto-main-serial';
+
+export interface ExecutionSelection {
+  readonly requestedTier: ExecutionRequestedTier;
+  readonly actualTier: ExecutionTier;
+  readonly selectionReason: ExecutionSelectionReason;
+  readonly missingCapabilities: readonly ExecutionCapabilityName[];
+  readonly sharedEvidencePassed: boolean;
+}
+
+export type ExecutionEngineHealth = 'idle' | 'starting' | 'running' | 'stopped' | 'faulted';
+export type ExecutionWorldHealth = WorldExecutionHealth;
+
+export type KernelDispatchReason =
+  | 'no-eligible-kernel'
+  | 'zero-work'
+  | 'small-span'
+  | 'forced-inline'
+  | 'shared'
+  | 'poisoned';
+
+export interface ExecutionMeasurement {
+  readonly samples: number;
+  readonly p50: number;
+  readonly p95: number;
+  readonly p99: number;
+  readonly jitter: number;
+}
+
+export interface ExecutionFault {
+  readonly source: 'bootstrap' | 'handshake' | 'runtime' | 'kernel' | 'world' | 'rebuild';
+  readonly code: string;
+  readonly expected: string;
+  readonly hint: string;
+  readonly detail: unknown;
+  readonly partialWrite: boolean;
+  readonly retryable: boolean;
+}
+
+export interface ExecutionAudioReport {
+  readonly owner: 'host';
+  readonly contextState: 'running' | 'suspended' | 'closed';
+  readonly activeSourceCount: number;
+  readonly lastError: {
+    readonly code: string;
+    readonly expected: string;
+    readonly hint: string;
+    readonly detail: unknown;
+  } | null;
+}
+
+/**
+ * Renderer-independent frame pacing facts owned by the active host loop.
+ * `inFlight` is always `submitted - completed`; `highWater` records the
+ * greatest observed in-flight depth and `throttledTicks` counts frame-loop
+ * ticks that were intentionally skipped at the two-receipt credit limit.
+ */
+export interface ExecutionFrameInspection {
+  readonly submitted: number;
+  readonly completed: number;
+  readonly inFlight: number;
+  readonly highWater: number;
+  readonly throttledTicks: number;
+}
+
+/**
+ * Serializable asset-catalog configuration copied into the selected Engine
+ * realm. The URL is resolved by that realm, so a Worker never closes over a
+ * Host-side CatalogSource or Registry instance.
+ */
+export interface ExecutionAssetCatalog {
+  readonly url: string;
+  readonly expectedScope?: Pick<RuntimeAssetBinding, 'scopeId' | 'generation'>;
+  /** Optional dev binding used by the Worker to lazy-import a missing pack. */
+  readonly runtimeBinding?: RuntimeAssetBinding;
+}
+
+export interface ExecutionReport {
+  readonly schemaVersion: 1;
+  readonly requestedTier: ExecutionRequestedTier;
+  readonly actualTier: ExecutionTier | null;
+  readonly selectionReason: ExecutionSelectionReason | null;
+  readonly sharedEvidencePassed: boolean;
+  readonly capabilities: ExecutionCapabilities;
+  readonly engine: {
+    readonly realm: 'host' | 'worker';
+    readonly health: ExecutionEngineHealth;
+  };
+  readonly world: {
+    readonly identity: string | null;
+    readonly health: ExecutionWorldHealth;
+    readonly partialWrite: boolean;
+    readonly retryable: boolean;
+  };
+  readonly kernelDispatch: {
+    readonly eligible: boolean;
+    readonly usedShared: boolean;
+    readonly reason: KernelDispatchReason;
+    readonly dispatched: number;
+    readonly completed: number;
+  };
+  readonly frame: ExecutionFrameInspection;
+  readonly performance: {
+    readonly hostFrameMs: ExecutionMeasurement | null;
+    readonly engineUpdateMs: ExecutionMeasurement | null;
+    readonly kernelWaitMs: ExecutionMeasurement | null;
+    readonly hostAudioMs: ExecutionMeasurement | null;
+  };
+  readonly audio: ExecutionAudioReport;
+  readonly fault: ExecutionFault | null;
+}
+
+export interface ExecutionOptions {
+  readonly tier?: ExecutionRequestedTier;
+  /** Absolute or import.meta.url-relative URL of an ExecutionBootstrapEntry module. */
+  readonly bootstrap: string | URL;
+  /** Structured-cloneable input supplied identically to main and Worker realms. */
+  readonly bootstrapData?: ExecutionBootstrapValue;
+  /**
+   * Realm side of an optional typed host/game channel. The engine transfers it
+   * to a Worker when needed and otherwise preserves the same port contract.
+   */
+  readonly bootstrapPort?: MessagePort;
+  /**
+   * Serializable CatalogSource configuration constructed inside the selected
+   * execution realm. This is the asset delivery seam for Worker execution;
+   * `CreateAppOptions.assetCatalog` remains realm-bound and is rejected when
+   * execution is requested.
+   */
+  readonly assetCatalog?: ExecutionAssetCatalog;
+  readonly startupTimeoutMs?: number;
+  readonly frameTimeoutMs?: number;
+}
+
+export type ExecutionBootstrapValue =
+  | null
+  | boolean
+  | number
+  | string
+  | readonly ExecutionBootstrapValue[]
+  | { readonly [key: string]: ExecutionBootstrapValue };
+
+export interface ExecutionControl {
+  report(): ExecutionReport;
+  rebuild(): Promise<Result<ExecutionReport, AppError>>;
+}

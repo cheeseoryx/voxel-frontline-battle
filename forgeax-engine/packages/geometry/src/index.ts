@@ -1,0 +1,70 @@
+// @forgeax/engine-geometry - single-import barrel.
+//
+// AI users get the procedural geometry factories under one namespace import,
+// each returning `Result<MeshAsset, AssetError>` (charter F1 single-entry
+// indexability; P3 explicit failure). Alongside them: the vertex attribute
+// layout SSOT (deriveVertexBufferLayout / buildMeshAttributeMapForUvSets /
+// GpuVertexBufferLayoutEntry) and the tangent helper (computeTangentVec4)
+// consumed by the runtime pipeline + material layers.
+//
+// Attribute layout (all factories): position (3 floats) + normal (3 floats) +
+// uv (2 floats), expanded to the 12-float runtime layout (adds tangent vec4)
+// by meshFromInterleaved / PROCEDURAL_FLOATS_PER_VERTEX.
+
+export type { VertexAttributePackDetail } from '@forgeax/engine-types';
+export { decodeMeshBinary, normalizeMeshPayload } from './assets/mesh-binary';
+export { meshAssetContribution, meshAssetDecoder, meshAssetKind } from './assets/mesh-decoder';
+export {
+  createPrimitiveMesh,
+  createProceduralMesh,
+  type PrimitiveMeshKind,
+} from './assets/primitive-mesh';
+export {
+  createBoxGeometry,
+  meshFromInterleaved,
+  PROCEDURAL_FLOATS_PER_VERTEX,
+} from './box';
+export { createCapsuleGeometry } from './capsule';
+export { createConeGeometry } from './cone';
+export { createCylinderGeometry } from './cylinder';
+export {
+  compute2dBounds,
+  create2dGeometry,
+  create2dRingGeometry,
+  type Shape2d,
+  type Shape2dBounds,
+  type Shape2dMeshOptions,
+  type Shape2dPose,
+  type Vec2,
+} from './dim2';
+// Edge factories return Result<MeshAsset, AssetError>; threshold units are degrees.
+export { createEdgesGeometry, createWireframeGeometry } from './edges';
+export {
+  createMeshBuilder,
+  type MeshBuilder,
+  type MeshBuilderOptions,
+  type MeshBuilderSubmesh,
+} from './mesh-builder';
+export { createPlaneGeometry } from './plane';
+export { createSphereGeometry } from './sphere';
+export { computeTangentVec4 } from './tangent';
+export {
+  createTeapotGeometry,
+  type TeapotMeshAsset,
+  type TeapotProvenance,
+} from './teapot';
+export { createTorusGeometry } from './torus';
+export {
+  buildMeshAttributeMapForUvSets,
+  deriveVertexBufferLayout,
+  deriveVertexBufferLayoutFromProjection,
+  deriveVertexLayoutProjection,
+  deriveVertexLayoutProjectionFromMask,
+  type GpuVertexBufferLayoutEntry,
+  type PackedVertexAttributes,
+  packInterleavedVertexAttributes,
+  VertexAttributePackError,
+  type VertexLayoutProjection,
+  type VertexLayoutProjectionAttribute,
+  type VertexLayoutProjectionMaskError,
+} from './vertex-attribute-layout';

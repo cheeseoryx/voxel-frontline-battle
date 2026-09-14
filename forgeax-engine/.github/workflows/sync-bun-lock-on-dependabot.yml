@@ -1,0 +1,58 @@
+# sync-bun-lock-on-dependabot.yml (bug-20260514 M4 / T-012)
+# What: detect bun.lock drift on dependabot/npm_and_yarn/** PRs and either
+# auto-sync (commit + push --force-with-lease) or emit the
+# FORGEAX_BUN_LOCK_OUT_OF_SYNC structured fix-hint.
+# Auto path: scripts/dependabot/sync-and-push.mjs (G3 --ignore-scripts).
+# Fallback: scripts/dependabot/emit-fix-hint.mjs (AC-03 three elements).
+# Safety gates: G1 actor==dependabot[bot] / G2 paths whitelist /
+# G3 --ignore-scripts in sync-and-push / G4 permissions: contents:write.
+# Self-describing anchor: AGENTS.md > Conventions > Dual lockfile (search marker).
+
+name: sync-bun-lock-on-dependabot
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    branches:
+      - 'dependabot/npm_and_yarn/**'
+    paths:
+      - package.json
+      - pnpm-lock.yaml
+      - bun.lock
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: [self-hosted, Linux, X64, standard]
+    timeout-minutes: 10
+    steps:
+      - name: Scrub stale global/system git auth header (self-hosted)
+        if: runner.environment == 'self-hosted'
+        run: |
+          git config --global --unset-all http."https://github.com/".extraheader || true
+          sudo git config --system --unset-all http."https://github.com/".extraheader || true
+
+      - name: Checkout PR head
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          token: ${{ secrets.GHA }}
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Auto-sync bun.lock (sync-and-push fail-fast subgraph)
+        env:
+          GITHUB_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: node scripts/dependabot/sync-and-push.mjs

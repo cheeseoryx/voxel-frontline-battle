@@ -1,0 +1,66 @@
+name: actions-artifact-cleanup
+
+# The normal producer workflows delete their transient artifacts after their
+# jobs finish. This workflow is the cancellation/runner-loss backstop: a
+# workflow_run event still arrives for a cancelled or timed-out source run, so
+# its already-created artifacts do not survive only because the source cleanup
+# job could not start.
+on:
+  workflow_run:
+    workflows:
+      - CI
+      - emscripten-no-xz-evidence
+      - SDK Release Candidate
+    types: [completed]
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    name: cleanup-source-run-artifacts
+    runs-on: ${{ fromJSON('["self-hosted", "Linux", "X64", "standard"]') }}
+    timeout-minutes: 10
+    steps:
+      # Always read the cleanup implementation from the default branch. The
+      # workflow_run payload may refer to an untrusted PR head; no PR code is
+      # needed to delete artifacts from the completed source run.
+      - name: Checkout cleanup script
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          submodules: false
+          token: ${{ github.token }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Delete source-run artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_WORKFLOW: ${{ github.event.workflow_run.name }}
+          SOURCE_EVENT: ${{ github.event.workflow_run.event }}
+          SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          SOURCE_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set -euo pipefail
+          cleanup_args=(--run-id "$SOURCE_RUN_ID")
+          if [ "$SOURCE_WORKFLOW" = 'CI' ] && [ "$SOURCE_EVENT" = 'workflow_dispatch' ]; then
+            # The source CI cleanup intentionally preserves the exact core/shared
+            # transport for the follow-up physical-GPU workflow. Keep the same
+            # names in this workflow_run backstop; otherwise a successful
+            # workflow_dispatch run loses its preserved inputs immediately after
+            # the source cleanup job finishes.
+            source_attempt="${SOURCE_RUN_ATTEMPT:-1}"
+            cleanup_args+=(--preserve-name "core-build-a${source_attempt}")
+            cleanup_args+=(--preserve-name "shared-app-inputs-a${source_attempt}")
+          fi
+          if [ "$SOURCE_WORKFLOW" = 'SDK Release Candidate' ] && [ "$SOURCE_CONCLUSION" = 'success' ]; then
+            # Keep the one full payload plus tiny seal metadata for delayed
+            # manual promotion. The four gate envelopes are deleted immediately.
+            cleanup_args+=(--preserve-name "sdk-candidate-${SOURCE_RUN_ID}")
+            cleanup_args+=(--preserve-name "sdk-candidate-${SOURCE_RUN_ID}-seal")
+          fi
+          node scripts/ci/delete-workflow-artifacts.mjs "${cleanup_args[@]}"

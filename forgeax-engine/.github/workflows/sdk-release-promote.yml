@@ -1,0 +1,258 @@
+name: SDK Release Promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: Workflow run ID that produced the sealed sdk-candidate artifact
+        required: true
+        type: string
+      version:
+        description: Stable SDK version recorded by the candidate
+        required: true
+        type: string
+
+concurrency:
+  group: sdk-release-promotion-${{ inputs.version }}
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: write
+
+env:
+  CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+  SDK_VERSION: ${{ inputs.version }}
+
+jobs:
+  promote-npm:
+    name: sdk-promote-npm
+    runs-on: [self-hosted, Linux, X64, standard]
+    timeout-minutes: 35
+    outputs:
+      candidate-engine-commit: ${{ steps.candidate.outputs.engine_commit }}
+      candidate-id: ${{ steps.candidate.outputs.candidate_id }}
+    env:
+      GH_TOKEN: ${{ secrets.GHA }}
+    steps:
+      - name: Isolate persistent self-hosted workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --unset-all 'http.https://github.com/.extraheader' 2>/dev/null || true
+          git config --global --unset-all credential.helper 2>/dev/null || true
+          git config --global credential.helper '' || true
+      - name: Download sealed candidate artifact
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GHA }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.candidate_run_id }}
+          # Matches both the legacy single sealed candidate and the new full
+          # payload plus -seal metadata pair.
+          pattern: sdk-candidate-${{ inputs.candidate_run_id }}*
+          merge-multiple: true
+          path: ${{ runner.temp }}/sdk-candidate
+
+      # The promotion runner may not have Node on PATH until setup-node runs.
+      # Bootstrap the repository first so node-version-file is available before
+      # the identity-binding step parses the sealed manifest.
+      - name: Bootstrap repository for Node setup
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          submodules: false
+          token: ${{ secrets.GHA }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Read and bind candidate identity
+        id: candidate
+        run: |
+          set -eu
+          manifest="$RUNNER_TEMP/sdk-candidate/sdk-candidate.json"
+          test -s "$manifest"
+          candidate_version=$(node -p "JSON.parse(require('node:fs').readFileSync(process.argv[1])).sdkVersion" "$manifest")
+          source_run=$(node -p "JSON.parse(require('node:fs').readFileSync(process.argv[1])).sourceWorkflowRunId" "$manifest")
+          engine_commit=$(node -p "JSON.parse(require('node:fs').readFileSync(process.argv[1])).engineCommit" "$manifest")
+          candidate_id=$(node -p "JSON.parse(require('node:fs').readFileSync(process.argv[1])).candidateId" "$manifest")
+          test "$candidate_version" = "$SDK_VERSION"
+          test "$source_run" = "$CANDIDATE_RUN_ID"
+          printf 'engine_commit=%s\n' "$engine_commit" >> "$GITHUB_OUTPUT"
+          printf 'candidate_id=%s\n' "$candidate_id" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout the candidate source commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.candidate.outputs.engine_commit }}
+          fetch-depth: 1
+          submodules: false
+          token: ${{ secrets.GHA }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org
+
+      - name: Enable repository pnpm
+        run: corepack enable && corepack prepare "pnpm@$(cat .pnpm-version)" --activate
+
+      - name: Install dependencies without building
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Revalidate sealed candidate before registry mutation
+        run: node scripts/forgeax/sdk-candidate.mjs verify --candidate "$RUNNER_TEMP/sdk-candidate" --version "$SDK_VERSION" --engine-commit "${{ steps.candidate.outputs.engine_commit }}"
+
+      - name: Promote exact candidate npm bytes
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          mkdir -p artifacts
+          pnpm sdk:publish:npm -- \
+            --version "$SDK_VERSION" \
+            --candidate "$RUNNER_TEMP/sdk-candidate" \
+            > artifacts/sdk-promotion.json
+
+      - name: Upload npm promotion proof
+        uses: ./.github/actions/upload-artifact-with-retry
+        with:
+          name: sdk-promotion-proof-${{ github.run_id }}
+          path: artifacts/sdk-promotion.json
+          retention-days: 14
+
+  finalize-release:
+    needs: promote-npm
+    if: needs.promote-npm.result == 'success'
+    name: sdk-finalize-release
+    runs-on: [self-hosted, Linux, X64, standard]
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ secrets.GHA }}
+      GITHUB_TOKEN: ${{ secrets.GHA }}
+    steps:
+      - name: Isolate persistent self-hosted workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --unset-all 'http.https://github.com/.extraheader' 2>/dev/null || true
+          git config --global --unset-all credential.helper 2>/dev/null || true
+          git config --global credential.helper '' || true
+      - name: Download sealed candidate artifact
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GHA }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.candidate_run_id }}
+          # Keep the same legacy/new candidate assembly as promote-npm.
+          pattern: sdk-candidate-${{ inputs.candidate_run_id }}*
+          merge-multiple: true
+          path: ${{ runner.temp }}/sdk-candidate
+
+      - name: Download npm promotion proof
+        uses: actions/download-artifact@v4
+        with:
+          pattern: sdk-promotion-proof-${{ github.run_id }}*
+          merge-multiple: true
+          path: ${{ runner.temp }}/sdk-promotion-proof
+
+      # Finalizer runners may not have Node on PATH before setup-node runs.
+      # Bootstrap from the workflow commit so the sealed manifest can be
+      # parsed before checking out the candidate source commit.
+      - name: Bootstrap repository for Node setup
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          submodules: false
+          token: ${{ secrets.GHA }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Checkout the candidate source commit
+        id: candidate
+        run: |
+          set -eu
+          manifest="$RUNNER_TEMP/sdk-candidate/sdk-candidate.json"
+          test -s "$manifest"
+          engine_commit=$(node -p "JSON.parse(require('node:fs').readFileSync(process.argv[1])).engineCommit" "$manifest")
+          candidate_version=$(node -p "JSON.parse(require('node:fs').readFileSync(process.argv[1])).sdkVersion" "$manifest")
+          test "$candidate_version" = "$SDK_VERSION"
+          echo "engine_commit=$engine_commit" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.candidate.outputs.engine_commit }}
+          fetch-depth: 1
+          submodules: false
+          token: ${{ secrets.GHA }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Create idempotent release with verified assets
+        run: |
+          set -eu
+          mkdir -p artifacts
+          cat > "$RUNNER_TEMP/sdk-release-notes.md" <<EOF
+          Self-contained ForgeaX browser game SDK.
+
+          This release was promoted from sealed candidate ${{ needs.promote-npm.outputs.candidate-id }}. The candidate manifest, exact archive, npm tarballs, reproducibility, npm consumer, archive/browser, and collision evidence were verified before registry mutation.
+          EOF
+          node scripts/forgeax/finalize-sdk-release.mjs \
+            --tag "sdk-v${SDK_VERSION}" \
+            --title "ForgeaX SDK v${SDK_VERSION}" \
+            --notes-file "$RUNNER_TEMP/sdk-release-notes.md" \
+            --commit "${{ steps.candidate.outputs.engine_commit }}" \
+            --asset "$RUNNER_TEMP/sdk-candidate/forgeax-sdk-v${SDK_VERSION}.zip" \
+            --asset "$RUNNER_TEMP/sdk-candidate/SHA256SUMS" \
+            --asset "$RUNNER_TEMP/sdk-candidate/forgeax-sdk-v${SDK_VERSION}.spdx.json" \
+            --asset "$RUNNER_TEMP/sdk-candidate/forgeax-sdk-v${SDK_VERSION}.provenance.json" \
+            --asset "$RUNNER_TEMP/sdk-candidate/sdk-verify-result.json" \
+            --asset "$RUNNER_TEMP/sdk-candidate/sdk-candidate.json" \
+            > artifacts/sdk-release-finalize.json
+
+      - name: Upload release finalization proof
+        uses: ./.github/actions/upload-artifact-with-retry
+        with:
+          name: sdk-release-proof-${{ github.run_id }}
+          path: artifacts/sdk-release-finalize.json
+          retention-days: 14
+
+  # Once Release finalization succeeds, the GitHub Release owns the durable
+  # SDK ZIP, checksums, provenance, and candidate manifest. Remove the large
+  # candidate payload and its small seal metadata so a successful promotion
+  # does not retain an Actions copy for months. If promotion/finalization
+  # fails, leave both artifacts available for recovery until cleanup expires.
+  cleanup-promoted-candidate:
+    name: cleanup-promoted-candidate
+    if: always() && needs.finalize-release.result == 'success'
+    needs: [promote-npm, finalize-release]
+    runs-on: ${{ fromJSON('["self-hosted", "Linux", "X64", "standard"]') }}
+    timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Checkout cleanup script
+        uses: actions/checkout@v5
+        with:
+          submodules: false
+          token: ${{ github.token }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Delete promoted candidate run artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_RUN_ID: ${{ env.CANDIDATE_RUN_ID }}
+        run: node scripts/ci/delete-workflow-artifacts.mjs --run-id "$CANDIDATE_RUN_ID"

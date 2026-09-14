@@ -1,0 +1,18 @@
+name: Prepare XDG runtime directory
+description: Create a private job-scoped XDG runtime directory for Linux GUI and GPU tools.
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare private XDG runtime directory
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -euo pipefail
+        : "${RUNNER_TEMP:?RUNNER_TEMP is required for the XDG runtime directory}"
+        runtime_dir="$(mktemp -d "${RUNNER_TEMP%/}/forgeax-xdg-runtime.XXXXXX")"
+        chmod 700 "$runtime_dir"
+        test -d "$runtime_dir"
+        test -w "$runtime_dir"
+        printf 'XDG_RUNTIME_DIR=%s\n' "$runtime_dir" >> "$GITHUB_ENV"
+        echo "[xdg-runtime] using private runtime directory: $runtime_dir"

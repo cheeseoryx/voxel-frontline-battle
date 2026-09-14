@@ -1,0 +1,106 @@
+{
+  "schemaVersion": "2.0.0",
+  "kind": "internal-text-package",
+  "assets": [
+    {
+      "guid": "019fb7ce-1000-7000-8000-000000000001",
+      "kind": "scene",
+      "name": "Empty Scene",
+      "sourceKey": "world/empty",
+      "payload": {
+        "kind": "scene",
+        "sourceKey": "world/empty",
+        "entities": [
+          {
+            "localId": 0,
+            "bindingKey": "camera",
+            "components": {
+              "Transform": {
+                "pos": [0, 1.5, 5],
+                "quat": [0, 0, 0, 1],
+                "scale": [1, 1, 1]
+              },
+              "Camera": {
+                "fov": 0.7853981633974483,
+                "aspect": 1.7777777777777777,
+                "near": 0.1,
+                "far": 100
+              }
+            }
+          },
+          {
+            "localId": 1,
+            "components": {
+              "Transform": {
+                "pos": [0, 0, 0],
+                "quat": [0, 0, 0, 1],
+                "scale": [1.5, 1.5, 1.5]
+              },
+              "MeshFilter": { "assetHandle": 0 },
+              "MeshRenderer": { "materials": [1] }
+            }
+          },
+          {
+            "localId": 2,
+            "components": {
+              "DirectionalLight": {
+                "direction": [-0.5, -1, -0.3],
+                "intensity": 2
+              }
+            }
+          }
+        ]
+      },
+      "refs": [
+        "019fb7ce-1000-7000-8000-000000000002",
+        "019fb7ce-1000-7000-8000-000000000003"
+      ],
+      "artifacts": {}
+    },
+    {
+      "guid": "019fb7ce-1000-7000-8000-000000000002",
+      "kind": "mesh",
+      "name": "Empty Subject Cube",
+      "sourceKey": "world/empty-subject",
+      "payload": { "geometry": "procedural-cube" },
+      "refs": [],
+      "artifacts": {}
+    },
+    {
+      "guid": "019fb7ce-1000-7000-8000-000000000003",
+      "kind": "material",
+      "name": "Empty Subject Material",
+      "sourceKey": "world/empty-subject-material",
+      "payload": {
+        "passes": [
+          {
+            "name": "Forward",
+            "program": {
+              "module": "forgeax::default-standard-pbr"
+            },
+            "renderState": {
+              "tags": { "LightMode": "Forward" },
+              "queue": 2000
+            }
+          },
+          {
+            "name": "ShadowCaster",
+            "program": {
+              "module": "forgeax::default-shadow-caster"
+            },
+            "renderState": {
+              "tags": { "LightMode": "ShadowCaster" }
+            }
+          }
+        ],
+        "values": {
+          "baseColor": [0.08, 0.55, 0.9, 1],
+          "metallic": 0.15,
+          "roughness": 0.3
+        }
+      },
+      "refs": [],
+      "artifacts": {}
+    }
+  ]
+}

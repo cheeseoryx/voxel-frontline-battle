@@ -1,0 +1,19 @@
+{
+  "id": "template-game-3d",
+  "name": "Game 3D",
+  "schemaVersion": "2.0.0",
+  "defaultScene": "1a3a479d-7e8a-51b7-a98e-3260cfef01ab",
+  "plugins": [
+    {
+      "id": "rapier3d",
+      "name": "@forgeax/engine/physics/rapier3d",
+      "realm": "engine"
+    },
+    {
+      "id": "game",
+      "name": "./assets/plugin.ts",
+      "inject": ["physics"],
+      "realm": "engine"
+    }
+  ]
+}

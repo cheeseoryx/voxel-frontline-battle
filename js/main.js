@@ -227,6 +227,19 @@
       game.pipeline = VF.createRenderPipeline(renderer, window.innerWidth, window.innerHeight);
     }
 
+    // Authored vehicle art (assets/vehicles/*.glb). Deliberately not awaited:
+    // vehicles spawned before this resolves use the procedural fallback and
+    // get hot-swapped here, so a slow or missing download never blocks boot.
+    if (VF.VehicleModels && VF.VehicleModels.preload) {
+      VF.VehicleModels.preload()
+        .then(function (loaded) {
+          if (loaded && VF.Vehicles && VF.Vehicles.refreshModels) {
+            VF.Vehicles.refreshModels();
+          }
+        })
+        .catch(function () {});
+    }
+
     // Voxel world
     game.world = new VF.VoxelWorld(scene);
 

@@ -1,0 +1,6 @@
+{
+  "id": "empty",
+  "purpose": "最小游戏工程",
+  "defaultIdentity": { "name": "empty-game", "packageName": "@local/empty-game" },
+  "journeys": ["typecheck", "unit"]
+}

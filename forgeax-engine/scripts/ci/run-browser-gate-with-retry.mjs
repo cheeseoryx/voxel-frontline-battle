@@ -1,0 +1,245 @@
+#!/usr/bin/env node
+
+import { spawn } from 'node:child_process';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const retryPatterns = Object.freeze({
+  vitest: [
+    /Device was destroyed/,
+    /Browser connection was closed/,
+    /rpc is closed/,
+    /A valid external Instance reference no longer exists/,
+    /bootstrap inconclusive within \d+s[\s\S]*runner instability, rerun/,
+    /ForgeaX linear HDR observation failed: observation-unavailable/,
+    // Headed Chrome Beta + lavapipe can occasionally stall an isolated
+    // advanced-lighting WebGPU bootstrap until its bounded 60s test budget.
+    // Retry only this exact gate timeout; assertions and other test timeouts
+    // remain hard failures on the first attempt.
+    /apps\/learn-render\/5\.advanced-lighting\/6\.hdr\/src\/__tests__\/onerror-gate\.browser\.test\.ts[\s\S]*Test timed out in 60000ms\./,
+    // The gate's own bounded bootstrap timer fires at 55s (the remaining 5s
+    // are reserved for error observation), so Vitest reports the structured
+    // bootstrap timeout instead of its generic 60s timeout. Keep the retry
+    // scoped to the HDR catalog-resolution stall; a repeated failure remains
+    // a hard red result on the second attempt.
+    /apps\/learn-render\/5\.advanced-lighting\/6\.hdr\/src\/__tests__\/onerror-gate\.browser\.test\.ts[\s\S]*\[learn-render bootstrap\] timed out after \d+ms; stage=hdr\.assets\.catalog\.resolve\.start\b/,
+    // Bloom's headed first bootstrap can miss its own bounded readiness
+    // deadline on the same cold Chrome Beta + lavapipe runner. Retry only
+    // this exact gate/stage pair; assertion failures and other Bloom stages
+    // remain hard failures on the first attempt.
+    /apps\/learn-render\/5\.advanced-lighting\/7\.bloom\/src\/__tests__\/onerror-gate\.browser\.test\.ts[\s\S]*\[learn-render bootstrap\] timed out after \d+ms; stage=waitForLearnRenderTestBootstrap\b/,
+    // Render-target reflection can hit the same runner-level cold WebGPU
+    // startup stall after neighboring browser groups close. The failing
+    // signal is the gate's bounded wait stage with no SUT assertion; retry
+    // only this exact demo/stage pair and keep a repeated failure red.
+    /apps\/learn-render\/6\.pbr\/4\.render-target-reflection\/src\/__tests__\/onerror-gate\.browser\.test\.ts[\s\S]*\[learn-render bootstrap\] timed out after \d+ms; stage=waitForLearnRenderTestBootstrap\b/,
+    // SSAO's first lazy backpack request can observe a transient producer
+    // session failure (HTTP 503) while the isolated Pack session is still
+    // publishing its startup snapshot. Retry only that exact demo/request
+    // shape; a real 422 importer failure and every other asset error remain
+    // hard failures.
+    /apps\/learn-render\/5\.advanced-lighting\/9\.ssao\/src\/__tests__\/onerror-gate\.browser\.test\.ts[\s\S]*import failed for [^\n]+ \(HTTP 503\): import-failed[\s\S]*asset-not-imported/,
+    // SSAO has the same headed Chrome Beta + lavapipe cold-start shape as
+    // deferred shading, but its asset bootstrap can cross the bounded 60s
+    // budget on a contended container. Retry only this exact gate timeout;
+    // a second timeout remains a hard failure.
+    /apps\/learn-render\/5\.advanced-lighting\/9\.ssao\/src\/__tests__\/onerror-gate\.browser\.test\.ts[\s\S]*Test timed out in 60000ms\./,
+    // The PBR IBL irradiance demo has the same cold WebGPU startup shape as
+    // HDR on a contended headed lavapipe runner. Retry only this exact gate
+    // timeout; the second attempt remains a hard failure.
+    /apps\/learn-render\/6\.pbr\/2\.ibl-irradiance\/src\/__tests__\/onerror-gate\.browser\.test\.ts[\s\S]*Test timed out in 60000ms\./,
+    // The PBR IBL specular demo can stall while its split-sum resources are
+    // admitted after a neighboring browser process releases a device. Retry
+    // only this exact bootstrap wait; a repeated timeout remains hard red.
+    /apps\/learn-render\/6\.pbr\/3\.ibl-specular\/src\/__tests__\/onerror-gate\.browser\.test\.ts[\s\S]*\[learn-render bootstrap\] timed out after \d+ms; stage=waitForLearnRenderTestBootstrap\b/,
+    // Engine Worker startup has a bounded 10s handshake deadline.  On a
+    // loaded self-hosted browser runner the worker-resize probe can miss that
+    // deadline before any frame work starts; retry only that exact probe and
+    // handshake phase so real startup regressions remain red.
+    /packages\/app\/__tests__\/worker-resize\.browser\.test\.ts[\s\S]*app-execution-deadline-exceeded:[\s\S]*phase=handshake\b/,
+    // The browser-to-Node WebSocket contract crosses the Vitest command
+    // boundary. Retry only its one observed close-event timeout; a different
+    // WebSocket test, event, or assertion remains a hard failure.
+    /packages\/net-websocket\/__tests__\/endpoint-contract\.browser\.test\.ts[\s\S]*emits peer-disconnected event on close[\s\S]*Timed out waiting for 1 peer-disconnected event\(s\)/,
+  ],
+  'rhi-debug': [
+    // The CSM carrier can hit a runner-level adapter acquisition stall before
+    // the app registers its capture hooks. Retry only this exact signature in
+    // the dedicated CSM job; a second attempt remains a hard failure.
+    /\[learn-render 5\.3\.3 csm\][\s\S]*capture hook readiness timed out after 90000ms[\s\S]*rendererBootstrap[\s\S]*"name":"adapter-request-start"[\s\S]*"shaderManifest":null[\s\S]*captureHooks[\s\S]*"__prepareCsmCapture":false[\s\S]*"__captureCsm":false/,
+    /capture (?:off|on) failed before materializing v7 tape:[\s\S]*"code":"capture-timeout"/,
+    /capture\/live-readback threw:[\s\S]*"code":"capture-snapshot-failed"[\s\S]*"stage":"snapshot"[\s\S]*A valid external Instance reference no longer exists/,
+    /transient WebGPU external Instance loss/,
+  ],
+  benchmark: [
+    /\[multithreaded benchmark\] browser readiness timeout; runner instability:/,
+    /\[multithreaded benchmark\] runner pause detected; runner instability:/,
+    // A cold/shared browser can lose its first frame deadline without a page
+    // error. Retry only that structured frame fault; a repeated fault still
+    // fails the required benchmark on the second attempt.
+    /\[multithreaded benchmark\] browser readiness failed:[\s\S]*"phase":"frame"[\s\S]*"pageErrors":\[\]/,
+  ],
+  'multithread-smoke': [
+    // A shared-tier smoke can miss its first frame deadline on a cold or
+    // contended runner without producing a Playwright page error. Retry only
+    // this structured runtime fault; the second attempt remains required and
+    // all smoke assertions stay unchanged.
+    /apps\/hello\/multithreaded-execution\/scripts\/smoke-browser\.mjs:[\s\S]*"code":"app-execution-deadline-exceeded"[\s\S]*"phase":"frame"[\s\S]*"timeoutMs":5000[\s\S]*errors=;/,
+  ],
+});
+
+export function isRetryableOutput(mode, output) {
+  const patterns = retryPatterns[mode];
+  if (!patterns) throw new Error(`unknown browser gate retry mode: ${mode}`);
+  return patterns.some((pattern) => pattern.test(output));
+}
+
+function parseArgs(argv) {
+  const separator = argv.indexOf('--');
+  if (separator !== 1 || separator === argv.length - 1) {
+    throw new Error(
+      'usage: run-browser-gate-with-retry.mjs --mode=<vitest|benchmark|multithread-smoke|rhi-debug> -- <command>',
+    );
+  }
+  const modeArgument = argv[0];
+  if (!modeArgument.startsWith('--mode=')) {
+    throw new Error(
+      'the retry mode must use --mode=<vitest|benchmark|multithread-smoke|rhi-debug>',
+    );
+  }
+  const mode = modeArgument.slice('--mode='.length);
+  if (!retryPatterns[mode]) throw new Error(`unknown browser gate retry mode: ${mode}`);
+  return { mode, command: argv.slice(separator + 1) };
+}
+
+const DEFAULT_TIMEOUT_GRACE_MS = 2_000;
+
+/**
+ * Run one browser-gate child with an optional bounded lifetime.
+ *
+ * Browser/Vite children can create their own descendants (Chromium, a Vite
+ * optimizer, or a WebSocket fixture).  On Unix a detached child is therefore
+ * placed in a private process group so a timeout can reclaim the whole
+ * ownership tree without signalling the caller.  The Windows fallback keeps
+ * the existing direct-child semantics because negative process-group signals
+ * are not available there.
+ */
+export function runBrowserCommand(
+  command,
+  {
+    cwd = process.cwd(),
+    env = process.env,
+    timeoutMs,
+    timeoutGraceMs = DEFAULT_TIMEOUT_GRACE_MS,
+    label = command[0],
+  } = {},
+) {
+  if (timeoutMs !== undefined && (!Number.isFinite(timeoutMs) || timeoutMs <= 0)) {
+    throw new Error(`timeoutMs must be a positive finite number, got ${timeoutMs}`);
+  }
+  if (!Number.isFinite(timeoutGraceMs) || timeoutGraceMs <= 0) {
+    throw new Error(`timeoutGraceMs must be a positive finite number, got ${timeoutGraceMs}`);
+  }
+  const [program, ...args] = command;
+  return new Promise((finish) => {
+    let output = '';
+    let settled = false;
+    let timedOut = false;
+    let timeoutTimer;
+    let killTimer;
+    const startedAt = Date.now();
+    const child = spawn(program, args, {
+      cwd,
+      env,
+      stdio: ['inherit', 'pipe', 'pipe'],
+      detached: process.platform !== 'win32',
+    });
+    const signalChild = (signal) => {
+      if (process.platform !== 'win32' && child.pid !== undefined) {
+        try {
+          // detached=true makes the spawned PID the process-group leader.
+          process.kill(-child.pid, signal);
+          return;
+        } catch (error) {
+          if (error?.code !== 'ESRCH') process.stderr.write(`[browser-gate] ${error.message}\n`);
+        }
+      }
+      try {
+        child.kill(signal);
+      } catch (error) {
+        if (error?.code !== 'ESRCH') process.stderr.write(`[browser-gate] ${error.message}\n`);
+      }
+    };
+    const clearTimers = () => {
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      if (killTimer) clearTimeout(killTimer);
+    };
+    const forward = (chunk, destination) => {
+      const text = String(chunk);
+      output += text;
+      destination.write(text);
+    };
+    const settle = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimers();
+      finish({
+        ...result,
+        status: timedOut ? 124 : result.status,
+        output,
+        timedOut,
+        pid: child.pid,
+        elapsedMs: Date.now() - startedAt,
+      });
+    };
+    const timeout = () => {
+      if (settled) return;
+      timedOut = true;
+      const elapsedMs = Date.now() - startedAt;
+      const detail = `[browser-gate] timeout label=${label} pid=${child.pid ?? 'unknown'} elapsedMs=${elapsedMs} timeoutMs=${timeoutMs}; sending SIGTERM to private process group\n`;
+      output += detail;
+      process.stderr.write(detail);
+      signalChild('SIGTERM');
+      killTimer = setTimeout(() => {
+        if (settled) return;
+        const escalation = `[browser-gate] timeout label=${label} pid=${child.pid ?? 'unknown'} elapsedMs=${Date.now() - startedAt}; sending SIGKILL to private process group\n`;
+        output += escalation;
+        process.stderr.write(escalation);
+        signalChild('SIGKILL');
+      }, timeoutGraceMs);
+    };
+    child.stdout.on('data', (chunk) => forward(chunk, process.stdout));
+    child.stderr.on('data', (chunk) => forward(chunk, process.stderr));
+    child.once('error', (error) => {
+      const detail = `[browser-gate] failed to start ${program}: ${error.message}\n`;
+      process.stderr.write(detail);
+      output += detail;
+      settle({ status: 1 });
+    });
+    child.once('close', (status) => settle({ status: status ?? 1 }));
+    if (timeoutMs !== undefined) timeoutTimer = setTimeout(timeout, timeoutMs);
+  });
+}
+
+async function main(argv) {
+  const { mode, command } = parseArgs(argv);
+  const first = await runBrowserCommand(command);
+  if (first.status === 0) return;
+  if (!isRetryableOutput(mode, first.output)) {
+    process.exitCode = first.status;
+    return;
+  }
+
+  process.stderr.write(
+    `::warning::${mode} browser gate reported declared runner instability; retrying once with a fresh process\n`,
+  );
+  const second = await runBrowserCommand(command);
+  process.exitCode = second.status;
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main(process.argv.slice(2)).catch((error) => {
+    process.stderr.write(`[browser-gate] ${error.message}\n`);
+    process.exitCode = 1;
+  });
+}

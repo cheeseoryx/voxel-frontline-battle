@@ -1,0 +1,1238 @@
+#!/usr/bin/env node
+// The CI smoke owns the shortest real browser path for every engine template:
+// Preview host -> template bootstrap -> WebGPU frame loop. Runtime browser
+// errors are the oracle. game-default keeps its deeper gameplay projection
+// assertions; game-3d keeps a real pointer-lock / camera / movement / physics
+// journey; every other template must at least load, start, size its canvas, and
+// leave the renderer alive.
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { spawn } from 'node:child_process';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { chromium } from 'playwright';
+import { PNG } from 'pngjs';
+
+const ROOT = resolve(import.meta.dirname, '..', '..', '..');
+const PROJECTS = [
+  { root: resolve(ROOT, 'templates/empty'), slug: 'empty', descriptor: 'template.json' },
+  { root: resolve(ROOT, 'templates/game-3d'), slug: 'game-3d', descriptor: 'template.json' },
+  {
+    root: resolve(ROOT, 'apps/game-capability-lab'),
+    slug: 'game-capability-lab',
+    descriptor: 'forge.json',
+  },
+  { root: resolve(ROOT, 'apps/showcase/brotato-3d'), slug: 'brotato-3d', descriptor: 'forge.json' },
+];
+const ARTIFACT_DIR = resolve(
+  process.env.FORGEAX_TEMPLATE_SMOKE_DIR ?? resolve(ROOT, '.forgeax-debug/templates'),
+);
+const PORT = Number.parseInt(process.env.FORGEAX_TEMPLATE_SMOKE_PORT ?? '5201', 10);
+const ORIGIN = `http://127.0.0.1:${PORT}`;
+const DEFAULT_SERVER_STARTUP_TIMEOUT_MS = 90_000;
+const MAX_SERVER_STARTUP_TIMEOUT_MS = 180_000;
+const configuredServerStartupTimeoutMs = Number.parseInt(
+  process.env.FORGEAX_TEMPLATE_SMOKE_SERVER_STARTUP_TIMEOUT_MS ?? '',
+  10,
+);
+const SERVER_STARTUP_TIMEOUT_MS = Number.isFinite(configuredServerStartupTimeoutMs)
+  && configuredServerStartupTimeoutMs > 0
+  ? Math.min(configuredServerStartupTimeoutMs, MAX_SERVER_STARTUP_TIMEOUT_MS)
+  : DEFAULT_SERVER_STARTUP_TIMEOUT_MS;
+const CHROME_CHANNEL = process.env.FORGEAX_CHROME_CHANNEL ?? 'chrome';
+// The headed lavapipe path can advance a healthy fixed-step simulation at
+// roughly 6 ticks/s when the heavy runner is contended.  Keep this finite, but
+// give the 48-tick witness more than 2x the observed wall-clock budget.
+const GAME3D_FIXED_TICK_PROGRESS_TIMEOUT_MS = 20_000;
+const GAME3D_FIXED_TICK_STALL_TIMEOUT_MS = 5_000;
+const GAME3D_MIN_LUMA_RANGE = 8;
+const GAME3D_NON_BLACK_FLOOR = 8;
+const CHROME_ARGS = [
+  '--enable-unsafe-webgpu',
+  '--enable-pointer-lock',
+  '--enable-features=Vulkan,UseSkiaRenderer,SharedArrayBuffer',
+  '--use-vulkan=swiftshader',
+  '--disable-vulkan-surface',
+  '--ignore-gpu-blocklist',
+  '--disable-gpu-driver-bug-workarounds',
+  '--disable-dawn-features=disallow_unsafe_apis',
+  '--autoplay-policy=no-user-gesture-required',
+];
+const SELECTED_TEMPLATE_SLUGS = (process.env.FORGEAX_TEMPLATE_SMOKE_SLUGS ?? '')
+  .split(',')
+  .map((slug) => slug.trim())
+  .filter((slug) => slug.length > 0);
+const GAME3D_COLLISION_MODE =
+  process.env.FORGEAX_TEMPLATE_SMOKE_GAME3D_COLLISION_MODE ?? 'required';
+if (GAME3D_COLLISION_MODE !== 'required' && GAME3D_COLLISION_MODE !== 'omit-sdk-source') {
+  throw new Error(`unsupported game-3d collision mode: ${GAME3D_COLLISION_MODE}`);
+}
+const SDK_SOURCE_HOST_GPU_INSTANCE_LOSS_MESSAGE = 'A valid external Instance reference no longer exists.';
+const SDK_SOURCE_HOST_GPU_INSTANCE_LOSS_CONSOLE = `[preview] app error: ${JSON.stringify({
+  code: 'device-operation-failed',
+  expected: 'the active device generation completes the renderer-owned operation',
+  hint: 'inspect renderer state and the structured cause, then retry or recover',
+  detail: {
+    operation: 'renderer-event',
+    cause: {
+      code: 'device-lost',
+      expected: 'device must remain alive (driver / browser must not destroy the GPUDevice)',
+      hint: `device-lost reason: unknown; message: ${SDK_SOURCE_HOST_GPU_INSTANCE_LOSS_MESSAGE}`,
+    },
+  },
+  name: 'RendererOperationError',
+})} @ ${ORIGIN}/src/main.ts`;
+
+function discoverTemplates() {
+  let entries = PROJECTS.map(({ root, slug, descriptor }) => {
+    if (!existsSync(root)) throw new Error(`${slug}: missing project root`);
+    if (!existsSync(join(root, descriptor))) throw new Error(`${slug}: missing project descriptor`);
+    if (!existsSync(join(root, 'forge.json'))) throw new Error(`${slug}: missing forge.json`);
+    return { root, slug };
+  }).sort((a, b) => a.slug.localeCompare(b.slug));
+  if (entries.length === 0) throw new Error('no engine projects found under templates or apps');
+  if (SELECTED_TEMPLATE_SLUGS.length > 0) {
+    const selected = new Set(SELECTED_TEMPLATE_SLUGS);
+    const available = new Set(entries.map((entry) => entry.slug));
+    const missing = [...selected].filter((slug) => !available.has(slug));
+    if (missing.length > 0) throw new Error(`unknown engine templates: ${missing.join(', ')}`);
+    entries = entries.filter((entry) => selected.has(entry.slug));
+  }
+
+  return entries.map((entry) => {
+    const { root } = entry;
+    const manifestPath = join(root, 'forge.json');
+    if (!existsSync(manifestPath)) throw new Error(`${entry.slug}: missing forge.json`);
+    let manifest;
+    try {
+      manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    } catch (error) {
+      throw new Error(`${entry.slug}: invalid forge.json: ${String(error)}`);
+    }
+    if (
+      manifest === null
+      || typeof manifest !== 'object'
+      || typeof manifest.id !== 'string'
+      || typeof manifest.name !== 'string'
+      || !Array.isArray(manifest.plugins)
+    ) {
+      throw new Error(`${entry.slug}: forge.json must declare string id, name, and plugins`);
+    }
+    for (const plugin of manifest.plugins) {
+      if (plugin === null || typeof plugin !== 'object' || typeof plugin.name !== 'string') {
+        throw new Error(`${entry.slug}: forge.json plugins must declare module names`);
+      }
+      if (!plugin.name.startsWith('.')) continue;
+      const pluginPath = resolve(root, plugin.name);
+      const relativePlugin = relative(root, pluginPath);
+      if (
+        relativePlugin.length === 0
+        || relativePlugin === '..'
+        || relativePlugin.startsWith(`..${sep}`)
+        || isAbsolute(relativePlugin)
+      ) {
+        throw new Error(`${entry.slug}: forge.json plugin must stay inside the project`);
+      }
+      if (!existsSync(pluginPath)) {
+        throw new Error(`${entry.slug}: missing forge.json plugin ${plugin.name}`);
+      }
+    }
+    return {
+      slug: entry.slug,
+      id: manifest.id,
+      name: manifest.name,
+      manifest,
+    };
+  });
+}
+
+const templates = discoverTemplates();
+mkdirSync(ARTIFACT_DIR, { recursive: true });
+
+const server = spawn(
+  'pnpm',
+  [
+    '--filter',
+    '@forgeax/preview',
+    'exec',
+    'vite',
+    '--host',
+    '127.0.0.1',
+    '--port',
+    String(PORT),
+    '--strictPort',
+  ],
+  { cwd: ROOT, detached: true, stdio: ['ignore', 'pipe', 'pipe'] },
+);
+let serverOutput = '';
+let serverSpawnError;
+let serverExit;
+const appendServerOutput = (stream, chunk) => {
+  serverOutput += `[${stream}] ${chunk.toString()}`;
+};
+server.stdout.on('data', (chunk) => { appendServerOutput('stdout', chunk); });
+server.stderr.on('data', (chunk) => { appendServerOutput('stderr', chunk); });
+server.on('error', (error) => { serverSpawnError = error; });
+server.on('exit', (code, signal) => { serverExit = { code, signal }; });
+
+let browser;
+let context;
+let page;
+let activeEvidence;
+let pointerLockMode = 'native';
+let nativePointerLockProbe;
+const templateEvidence = [];
+
+function browserEvidence() {
+  return { templates: templateEvidence, serverOutput };
+}
+
+function writeReport(status, extra = {}) {
+  writeFileSync(
+    resolve(ARTIFACT_DIR, 'report.json'),
+    `${JSON.stringify({ status, ...extra, ...browserEvidence() }, null, 2)}\n`,
+  );
+}
+
+function stopServer() {
+  if (server.pid === undefined) return;
+  try {
+    process.kill(-server.pid, 'SIGTERM');
+  } catch {
+    server.kill('SIGTERM');
+  }
+}
+
+function unexpectedConsoleErrors(template, evidence) {
+  return evidence.consoleErrors.filter(
+    (message) =>
+      !evidence.expectedConsoleErrors.includes(message) &&
+      !(template.manifest.defaultScene === undefined && message.includes('render-system-no-camera')),
+  );
+}
+
+async function closeSmokeBrowser() {
+  activeEvidence = undefined;
+  const cleanupErrors = [];
+  const currentPage = page;
+  const currentContext = context;
+  const currentBrowser = browser;
+  const attemptClose = async (label, close) => {
+    try {
+      const closed = await Promise.race([
+        Promise.resolve().then(close).then(() => true),
+        sleep(10_000).then(() => false),
+      ]);
+      if (!closed) throw new Error(`${label} cleanup incomplete after 10s`);
+    } catch (cause) {
+      cleanupErrors.push(new Error(`${label} cleanup failed`, { cause }));
+    }
+  };
+  // Keep page, context, and browser teardown independent. A Playwright page
+  // rejection must not leave its WebGPU context alive for the next template.
+  await attemptClose('page', () => currentPage?.close());
+  await attemptClose('context', () => currentContext?.close());
+  await attemptClose('browser', () => currentBrowser?.close());
+  page = undefined;
+  context = undefined;
+  browser = undefined;
+  await sleep(250);
+  if (cleanupErrors.length > 0) {
+    currentBrowser?._connection?.close();
+    throw new AggregateError(cleanupErrors, 'template smoke browser cleanup failed');
+  }
+}
+
+async function waitForSubmittedRendererFrame(label) {
+  await page.waitForFunction(
+    () => {
+      const health = globalThis.__forgeaxPreviewInspection?.renderer.health();
+      return health?.reason === 'alive' && (health.frame?.frameId ?? -1) > 0;
+    },
+    undefined,
+    { timeout: 120_000, polling: 100 },
+  );
+  const rendererHealth = await page.evaluate(
+    () => globalThis.__forgeaxPreviewInspection?.renderer.health(),
+  );
+  if (rendererHealth?.reason !== 'alive' || (rendererHealth.frame?.frameId ?? -1) <= 0) {
+    throw new Error(`${label}: ${JSON.stringify(rendererHealth)}`);
+  }
+  return rendererHealth;
+}
+
+async function probeFreshGame3dRendererViability(evidence) {
+  evidence.phase = 'fresh-process-viability';
+  await restartSmokeBrowser(evidence);
+  await page.goto(`${ORIGIN}/?game=game-3d&journey=fresh-process-${Date.now()}`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 30_000,
+  });
+  await waitForTemplateReady();
+  const rendererHealth = await waitForSubmittedRendererFrame(
+    'fresh game-3d renderer did not submit a frame',
+  );
+  const canvas = await page.evaluate(() => ({
+    width: document.querySelector('canvas')?.width ?? 0,
+    height: document.querySelector('canvas')?.height ?? 0,
+  }));
+  if (canvas.width <= 0 || canvas.height <= 0) {
+    throw new Error(`fresh game-3d canvas has no drawable size: ${JSON.stringify(canvas)}`);
+  }
+  await page.waitForTimeout(250);
+  const stableHealth = await page.evaluate(
+    () => globalThis.__forgeaxPreviewInspection?.renderer.health(),
+  );
+  if (
+    stableHealth?.reason !== 'alive'
+    || (stableHealth.frame?.frameId ?? -1) < rendererHealth.frame.frameId
+  ) {
+    throw new Error(`fresh game-3d renderer did not remain viable: ${JSON.stringify(stableHealth)}`);
+  }
+  evidence.phase = 'journey-complete';
+  return stableHealth;
+}
+
+async function classifySdkSourceHostGpuInstanceLoss(evidence) {
+  if (GAME3D_COLLISION_MODE !== 'omit-sdk-source') return;
+  let matchingEvents = evidence.consoleErrorEvents.filter(
+    ({ message }) => message === SDK_SOURCE_HOST_GPU_INSTANCE_LOSS_CONSOLE,
+  );
+  const rendererHealth = evidence.game3d?.rendererHealth;
+  const fixedTick = evidence.game3d?.unlocked?.simulation?.fixedTick;
+  const lastHealthyFrameId = evidence.probe?.state?.frame?.frameId;
+  const auditBase = {
+    phase: 'journey-complete',
+    lastHealthyFrameId: lastHealthyFrameId ?? null,
+    fixedTick: fixedTick ?? null,
+  };
+  if (
+    evidence.phase !== 'journey-complete'
+    || evidence.probe?.state?.reason !== 'alive'
+    || typeof auditBase.lastHealthyFrameId !== 'number'
+    || auditBase.lastHealthyFrameId <= 0
+    || typeof fixedTick !== 'number'
+    || fixedTick <= 0
+    || typeof evidence.journeyCompleteSequence !== 'number'
+  ) {
+    throw new Error(
+      `sdk-source-host-gpu-instance-loss-prerequisite:${JSON.stringify({ rendererHealth, fixedTick, probe: evidence.probe, journeyCompleteSequence: evidence.journeyCompleteSequence })}`,
+    );
+  }
+  if (matchingEvents.length === 0) {
+    if (rendererHealth?.reason !== 'alive') {
+      throw new Error(
+        `sdk-source-host-gpu-instance-loss-contract:${JSON.stringify({ matchingEvents, rendererHealth, fixedTick })}`,
+      );
+    }
+    evidence.game3d.hostGpuInstanceLoss = { status: 'not-observed', ...auditBase };
+    await closeSmokeBrowser();
+    return;
+  }
+  if (
+    matchingEvents.length !== 1 ||
+    matchingEvents[0]?.phase !== 'interaction'
+    || typeof matchingEvents[0].sequence !== 'number'
+    || matchingEvents[0].sequence >= evidence.journeyCompleteSequence
+    || rendererHealth?.reason !== 'device-lost'
+  ) {
+    throw new Error(
+      `sdk-source-host-gpu-instance-loss-contract:${JSON.stringify({ matchingEvents, rendererHealth, fixedTick, journeyCompleteSequence: evidence.journeyCompleteSequence })}`,
+    );
+  }
+
+  const freshProcessRendererHealth = await probeFreshGame3dRendererViability(evidence);
+  evidence.game3d.freshProcessRendererHealth = freshProcessRendererHealth;
+  matchingEvents = evidence.consoleErrorEvents.filter(
+    ({ message }) => message === SDK_SOURCE_HOST_GPU_INSTANCE_LOSS_CONSOLE,
+  );
+  if (matchingEvents.length !== 1) {
+    throw new Error(
+      `sdk-source-host-gpu-instance-loss-fresh-process-contract:${JSON.stringify({ matchingEvents, freshProcessRendererHealth })}`,
+    );
+  }
+  evidence.expectedConsoleErrors.push(matchingEvents[0].message);
+  evidence.game3d.hostGpuInstanceLoss = {
+    status: 'omitted',
+    reason: 'sdk-source-host-gpu-instance-loss',
+    ...auditBase,
+    eventPhase: matchingEvents[0].phase,
+    eventSequence: matchingEvents[0].sequence,
+    journeyCompleteSequence: evidence.journeyCompleteSequence,
+    freshProcessFrameId: freshProcessRendererHealth.frame.frameId,
+    message: SDK_SOURCE_HOST_GPU_INSTANCE_LOSS_MESSAGE,
+  };
+  await closeSmokeBrowser();
+}
+
+async function launchSmokeBrowser() {
+  return chromium.launch({
+    headless: process.env.FORGEAX_BROWSER_HEADLESS !== '0',
+    channel: CHROME_CHANNEL,
+    args: CHROME_ARGS,
+  });
+}
+
+async function createSmokePage(targetBrowser, { probePointerLock = false } = {}) {
+  context = await targetBrowser.newContext({
+    viewport: { width: 960, height: 540 },
+    deviceScaleFactor: 1,
+  });
+  const nextPage = await context.newPage();
+  if (probePointerLock) {
+    nativePointerLockProbe = await probeNativePointerLock(nextPage);
+    pointerLockMode = nativePointerLockProbe.status === 'locked' ? 'native' : 'simulated';
+  }
+  if (pointerLockMode === 'simulated') {
+    await nextPage.addInitScript(() => {
+      let lockedElement = null;
+      const probe = { requests: 0, releases: 0 };
+      const pointerLockOwner = Document.prototype;
+      Object.defineProperty(pointerLockOwner, 'pointerLockElement', {
+        configurable: true,
+        get: () => lockedElement,
+      });
+      Object.defineProperty(pointerLockOwner, 'exitPointerLock', {
+        configurable: true,
+        value: () => {
+          if (lockedElement === null) return;
+          lockedElement = null;
+          probe.releases += 1;
+          document.dispatchEvent(new Event('pointerlockchange'));
+        },
+      });
+      Object.defineProperty(HTMLCanvasElement.prototype, 'requestPointerLock', {
+        configurable: true,
+        value: function () {
+          lockedElement = this;
+          probe.requests += 1;
+          document.dispatchEvent(new Event('pointerlockchange'));
+          return Promise.resolve();
+        },
+      });
+      const releaseOnEscape = (event) => {
+        if (event.key === 'Escape') document.exitPointerLock();
+      };
+      window.addEventListener('keydown', releaseOnEscape, true);
+      globalThis.__forgeaxPointerLockProbe = {
+        read: () => ({ mode: 'simulated', ...probe }),
+      };
+    });
+  }
+  await nextPage.addInitScript(() => {
+    const errors = [];
+    const existingProbe = globalThis.__forgeaxPointerLockProbe;
+    globalThis.__forgeaxPointerLockProbe = {
+      read: () => ({
+        ...(existingProbe?.read?.() ?? {}),
+        errors: [...errors],
+      }),
+    };
+    const original = HTMLCanvasElement.prototype.requestPointerLock;
+    if (typeof original !== 'function') return;
+    Object.defineProperty(HTMLCanvasElement.prototype, 'requestPointerLock', {
+      configurable: true,
+      value: function (...args) {
+        const result = original.apply(this, args);
+        result?.catch?.((cause) => {
+          errors.push({
+            name: cause?.name ?? null,
+            message: cause?.message ?? String(cause),
+            code: cause?.code ?? null,
+          });
+        });
+        return result;
+      },
+    });
+  });
+  nextPage.on('pageerror', (error) => { activeEvidence?.pageErrors.push(error.message); });
+  nextPage.on('console', (message) => {
+    if (message.type() !== 'error' || activeEvidence === undefined) return;
+    const text = `${message.text()} @ ${message.location().url}`;
+    activeEvidence.sequence += 1;
+    activeEvidence.consoleErrors.push(text);
+    activeEvidence.consoleErrorEvents.push({
+      sequence: activeEvidence.sequence,
+      phase: activeEvidence.phase,
+      message: text,
+    });
+  });
+  nextPage.on('response', (response) => {
+    if (response.status() >= 400) activeEvidence?.badResponses.push(`${response.status()} ${response.url()}`);
+  });
+  return nextPage;
+}
+
+async function restartSmokeBrowser(evidence) {
+  // Ignore teardown-only device-loss events from the completed journey. The
+  // next journey gets a fresh browser/GPU process and its own evidence hooks.
+  activeEvidence = undefined;
+  await closeSmokeBrowser();
+  browser = await launchSmokeBrowser();
+  page = await createSmokePage(browser, { probePointerLock: evidence?.slug === 'game-3d' });
+  activeEvidence = evidence;
+}
+
+async function waitForDefaultGame(page, evidence) {
+  await page.waitForFunction(
+    () => globalThis.__forgeaxPreviewInspection?.list().reads.some(({ id }) => id === 'game-default.snapshot') ?? false,
+    undefined,
+    { timeout: 30_000, polling: 100 },
+  );
+  const deadline = Date.now() + 30_000;
+  let snapshot;
+  while (Date.now() < deadline) {
+    snapshot = await page.evaluate(() => globalThis.__forgeaxPreviewInspection?.read('game-default.snapshot'));
+    if (snapshot?.ok && snapshot.value.state?.phase === 'Play' && snapshot.value.state.fixedTicks > 0) break;
+    await sleep(100);
+  }
+  if (!snapshot?.ok || snapshot.value.state?.phase !== 'Play' || snapshot.value.state.fixedTicks <= 0) {
+    throw new Error(`game-default did not reach Play: ${JSON.stringify(snapshot)}`);
+  }
+  evidence.snapshot = snapshot;
+  const renderer = await page.evaluate(() => globalThis.__forgeaxPreviewInspection?.read('game-default.renderer-contract'));
+  evidence.renderer = renderer;
+  if (!renderer?.ok) throw new Error(`game-default renderer projection failed: ${JSON.stringify(renderer)}`);
+  const listed = await page.evaluate(() => globalThis.__forgeaxPreviewInspection?.list());
+  if (listed.actions.length === 0 || listed.reads.length === 0) {
+    throw new Error(`game-default inspection is empty: ${JSON.stringify(listed)}`);
+  }
+}
+
+async function readGame3dPlayer() {
+  const result = await page.evaluate(async () => (
+    await globalThis.__forgeaxPreviewInspection?.read('game-3d.player')
+  ));
+  if (result?.ok !== true) {
+    throw new Error(`game-3d.player read failed: ${JSON.stringify(result)}`);
+  }
+  return result.value;
+}
+
+async function waitForGame3dPlayer(predicate, label, timeout = 10_000) {
+  const deadline = Date.now() + timeout;
+  let latest;
+  while (Date.now() < deadline) {
+    latest = await readGame3dPlayer();
+    if (predicate(latest)) return latest;
+    await sleep(100);
+  }
+  throw new Error(`${label} timed out: ${JSON.stringify(latest)}`);
+}
+
+async function waitForGame3dFixedTicks(
+  originTick,
+  tickDelta,
+  label,
+  timeout = GAME3D_FIXED_TICK_PROGRESS_TIMEOUT_MS,
+) {
+  const targetTick = originTick + tickDelta;
+  const startedAt = Date.now();
+  const deadline = startedAt + timeout;
+  let latest;
+  let lastProgressTick = originTick;
+  let lastProgressAt = startedAt;
+  while (Date.now() < deadline) {
+    latest = await readGame3dPlayer();
+    const now = Date.now();
+    const fixedTick = latest.simulation?.fixedTick ?? 0;
+    if (fixedTick >= targetTick) return latest;
+    if (fixedTick > lastProgressTick) {
+      lastProgressTick = fixedTick;
+      lastProgressAt = now;
+    } else if (now - lastProgressAt >= GAME3D_FIXED_TICK_STALL_TIMEOUT_MS) {
+      throw new Error(
+        `${label} stalled: ${JSON.stringify({
+          originTick,
+          targetTick,
+          latest,
+          elapsedMs: now - startedAt,
+          lastProgressTick,
+          stalledMs: now - lastProgressAt,
+        })}`,
+      );
+    }
+    await sleep(100);
+  }
+  throw new Error(
+    `${label} timed out: ${JSON.stringify({
+      originTick,
+      targetTick,
+      latest,
+      elapsedMs: Date.now() - startedAt,
+      lastProgressTick,
+      stalledMs: Date.now() - lastProgressAt,
+    })}`,
+  );
+}
+
+function game3dCanvasPixelStats(bytes) {
+  const image = PNG.sync.read(bytes);
+  let lumaMin = 255;
+  let lumaMax = 0;
+  let nonBlackPixels = 0;
+  for (let offset = 0; offset < image.data.length; offset += 4) {
+    const red = image.data[offset] ?? 0;
+    const green = image.data[offset + 1] ?? 0;
+    const blue = image.data[offset + 2] ?? 0;
+    const luma = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+    lumaMin = Math.min(lumaMin, luma);
+    lumaMax = Math.max(lumaMax, luma);
+    if (red > GAME3D_NON_BLACK_FLOOR || green > GAME3D_NON_BLACK_FLOOR || blue > GAME3D_NON_BLACK_FLOOR) {
+      nonBlackPixels += 1;
+    }
+  }
+  return {
+    width: image.width,
+    height: image.height,
+    sampledPixels: image.width * image.height,
+    nonBlackPixels,
+    lumaMin: Math.round(lumaMin),
+    lumaMax: Math.round(lumaMax),
+    lumaRange: Math.round(lumaMax - lumaMin),
+  };
+}
+
+async function readGame3dCanvasRender() {
+  const canvas = page.locator('canvas#app');
+  const bytes = await canvas.screenshot({ type: 'png' });
+  const stats = game3dCanvasPixelStats(bytes);
+  if (stats.nonBlackPixels === 0 || stats.lumaRange <= GAME3D_MIN_LUMA_RANGE) {
+    const path = resolve(ARTIFACT_DIR, 'game-3d-render.png');
+    writeFileSync(path, bytes);
+    throw new Error(
+      `game-3d canvas was blank: ${JSON.stringify({ ...stats, screenshot: path })}`,
+    );
+  }
+  return stats;
+}
+
+function serverDiagnostics(lastStatus, elapsedMs) {
+  return {
+    origin: ORIGIN,
+    pid: server.pid ?? null,
+    elapsedMs,
+    lastStatus: lastStatus ?? null,
+    spawnError: serverSpawnError === undefined ? null : String(serverSpawnError),
+    exit: serverExit ?? null,
+    output: serverOutput.trim() || 'none',
+  };
+}
+
+async function waitForServerReady() {
+  const startedAt = Date.now();
+  let lastStatus;
+  while (Date.now() - startedAt < SERVER_STARTUP_TIMEOUT_MS) {
+    const elapsedMs = Date.now() - startedAt;
+    if (serverSpawnError !== undefined) {
+      throw new Error(`Preview server failed to start: ${JSON.stringify(serverDiagnostics(lastStatus, elapsedMs))}`);
+    }
+    if (serverExit !== undefined) {
+      throw new Error(`Preview server exited before becoming ready: ${JSON.stringify(serverDiagnostics(lastStatus, elapsedMs))}`);
+    }
+    try {
+      const response = await fetch(`${ORIGIN}/`);
+      lastStatus = response.status;
+      if (response.ok) return;
+    } catch {
+      // Vite is still starting.
+    }
+    await sleep(250);
+  }
+  throw new Error(
+    `Preview server did not become ready within ${SERVER_STARTUP_TIMEOUT_MS}ms: ${JSON.stringify(serverDiagnostics(lastStatus, Date.now() - startedAt))}`,
+  );
+}
+
+function movementProjection(origin, current, yaw) {
+  const dx = (current.position[0] ?? 0) - (origin.position[0] ?? 0);
+  const dz = (current.position[2] ?? 0) - (origin.position[2] ?? 0);
+  const forward = [Math.sin(yaw), -Math.cos(yaw)];
+  const right = [Math.cos(yaw), Math.sin(yaw)];
+  return {
+    forward: dx * forward[0] + dz * forward[1],
+    right: dx * right[0] + dz * right[1],
+    distance: Math.hypot(dx, dz),
+  };
+}
+
+function facingAlignment(state, direction) {
+  return (state.facing[0] ?? 0) * direction[0] + (state.facing[1] ?? 0) * direction[1];
+}
+
+async function probeNativePointerLock(probePage) {
+  const probeUrl = `${ORIGIN}/__forgeax-pointer-lock-probe__.html`;
+  const fulfillProbeDocument = (route) => route.fulfill({
+    status: 200,
+    contentType: 'text/html',
+    body: '<!doctype html><html><body></body></html>',
+  });
+  await probePage.route(probeUrl, fulfillProbeDocument);
+  try {
+    await probePage.goto(probeUrl, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30_000,
+    });
+    await probePage.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.id = 'forgeax-pointer-lock-probe';
+      canvas.width = 320;
+      canvas.height = 240;
+      canvas.style.cssText = 'position:fixed;inset:0;width:320px;height:240px;z-index:10000';
+      document.body.append(canvas);
+      const result = { errors: [], requests: 0 };
+      globalThis.__forgeaxNativePointerLockProbe = result;
+      canvas.addEventListener('click', () => {
+        result.requests += 1;
+        try {
+          const request = canvas.requestPointerLock();
+          request?.catch?.((cause) => result.errors.push({
+            name: cause?.name ?? null,
+            message: cause?.message ?? String(cause),
+            code: cause?.code ?? null,
+          }));
+        } catch (cause) {
+          result.errors.push({
+            name: cause?.name ?? null,
+            message: cause?.message ?? String(cause),
+            code: cause?.code ?? null,
+          });
+        }
+      });
+    });
+    await probePage.bringToFront();
+    const box = await probePage.locator('#forgeax-pointer-lock-probe').boundingBox();
+    if (box === null) return { status: 'probe-failed', error: 'probe canvas has no bounds' };
+    await probePage.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await probePage.waitForTimeout(250);
+    const acquired = await probePage.evaluate(() => {
+      const canvas = document.querySelector('#forgeax-pointer-lock-probe');
+      const probe = globalThis.__forgeaxNativePointerLockProbe;
+      return {
+        status: document.pointerLockElement === canvas ? 'locked' : 'unavailable',
+        errors: probe?.errors ?? [],
+        requests: probe?.requests ?? 0,
+      };
+    });
+    if (acquired.status !== 'locked') return acquired;
+    await probePage.keyboard.press('Escape');
+    await probePage.waitForTimeout(250);
+    const releasedByEscape = await probePage.evaluate(() => document.pointerLockElement === null);
+    if (!releasedByEscape) {
+      // A browser that can acquire a lock but cannot release it through the
+      // same trusted Escape path is not a complete native smoke carrier. Keep
+      // the real game assertions running with the explicit test-only shim
+      // below, while preserving the native probe evidence for diagnosis.
+      await probePage.evaluate(() => document.exitPointerLock());
+    }
+    return { ...acquired, status: releasedByEscape ? 'locked' : 'unavailable', releasedByEscape };
+  } catch (error) {
+    return { status: 'probe-failed', error: String(error) };
+  } finally {
+    await probePage.evaluate(() => {
+      if (document.pointerLockElement !== null) document.exitPointerLock();
+    }).catch(() => {});
+    await probePage.unroute(probeUrl, fulfillProbeDocument);
+  }
+}
+
+async function readGame3dUi() {
+  return page.evaluate(() => {
+    const root = document.querySelector('[data-forgeax-ui-root="true"]');
+    const host = root?.querySelector('[data-ui-asset]');
+    const shadow = host?.shadowRoot;
+    const lock = shadow?.querySelector('[data-ui-slot="lock"]');
+    const guide = shadow?.querySelector('.guide');
+    const crosshair = shadow?.querySelector('.crosshair');
+    return {
+      rootChildren: root?.children.length ?? 0,
+      assetGuid: host?.getAttribute('data-ui-asset') ?? null,
+      lockedClass: host?.classList.contains('locked') ?? false,
+      lockText: lock?.textContent?.trim() ?? null,
+      guideText: guide?.textContent?.replace(/\s+/g, ' ').trim() ?? null,
+      crosshairDisplay: crosshair === null || crosshair === undefined
+        ? null
+        : getComputedStyle(crosshair).display,
+    };
+  });
+}
+
+async function dispatchLockedPointerDelta(movementX, movementY) {
+  await page.evaluate(({ movementX: deltaX, movementY: deltaY }) => {
+    const canvas = document.querySelector('canvas#app');
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      throw new Error('game-3d canvas is unavailable for locked pointer input');
+    }
+    const bounds = canvas.getBoundingClientRect();
+    const event = new PointerEvent('pointermove', {
+      bubbles: true,
+      clientX: bounds.x + bounds.width / 2,
+      clientY: bounds.y + bounds.height / 2,
+      pointerId: 1,
+      pointerType: 'mouse',
+    });
+    Object.defineProperties(event, {
+      movementX: { configurable: true, value: deltaX },
+      movementY: { configurable: true, value: deltaY },
+    });
+    canvas.dispatchEvent(event);
+  }, { movementX, movementY });
+}
+
+async function waitForLockedPointerLook(origin, timeout = 30_000) {
+  const deadline = Date.now() + timeout;
+  const maxDispatches = 16;
+  let dispatches = 0;
+  let latest;
+  while (Date.now() < deadline) {
+    // A software-GPU frame can take seconds. Pulse a small relative delta
+    // through the real canvas listener until one InputSnapshot scan consumes
+    // it, instead of assuming a single synthetic event lands between scans.
+    if (dispatches < maxDispatches) {
+      await dispatchLockedPointerDelta(8, 2);
+      dispatches += 1;
+    }
+    latest = await readGame3dPlayer();
+    const yawDelta = latest.camera?.yaw - origin.camera.yaw;
+    const pitchDelta = latest.camera?.pitch - origin.camera.pitch;
+    if (
+      latest.camera?.pointerLocked === true
+      && latest.simulation?.fixedTick > origin.simulation.fixedTick
+      && yawDelta > 0.05
+      && yawDelta <= 0.4
+      && pitchDelta > 0.01
+      && pitchDelta <= 0.12
+    ) {
+      return { state: latest, dispatches };
+    }
+    await sleep(100);
+  }
+  throw new Error(
+    `game-3d mouse yaw/pitch timed out: ${JSON.stringify({ latest, dispatches })}`,
+  );
+}
+
+async function readPointerLockDiagnostic() {
+  return page.evaluate(() => {
+    const canvas = document.querySelector('canvas#app');
+    return {
+      origin: location.origin,
+      isSecureContext,
+      isTopLevel: window.top === window,
+      hasFocus: document.hasFocus(),
+      visibilityState: document.visibilityState,
+      userActivation: navigator.userActivation === undefined
+        ? null
+        : {
+          isActive: navigator.userActivation.isActive,
+          hasBeenActive: navigator.userActivation.hasBeenActive,
+        },
+      pointerLockElement: document.pointerLockElement?.tagName ?? null,
+      canvas: {
+        connected: canvas?.isConnected ?? false,
+        sameDocument: canvas?.ownerDocument === document,
+        rootIsDocument: canvas?.getRootNode() === document,
+        requestPointerLock: typeof canvas?.requestPointerLock,
+      },
+      probe: globalThis.__forgeaxPointerLockProbe?.read() ?? null,
+    };
+  });
+}
+
+async function waitForGame3dPointerLock(label) {
+  try {
+    await page.waitForFunction(
+      () => document.pointerLockElement === document.querySelector('canvas#app'),
+      undefined,
+      { timeout: 10_000, polling: 50 },
+    );
+  } catch (error) {
+    throw new Error(`${label} failed: ${String(error)} diagnostic=${JSON.stringify(await readPointerLockDiagnostic())}`);
+  }
+}
+
+async function waitForTemplateReady() {
+  await page.waitForFunction(
+    () => {
+      const inspection = globalThis.__forgeaxPreviewInspection;
+      const canvas = document.querySelector('canvas');
+      const state = inspection?.renderer.health()?.reason;
+      return inspection !== undefined
+        && state === 'alive'
+        && (canvas?.width ?? 0) > 0
+        && (canvas?.height ?? 0) > 0;
+    },
+    undefined,
+    { timeout: 30_000, polling: 100 },
+  );
+  await page.evaluate(() => new Promise((done) => {
+    let frames = 0;
+    const tick = () => {
+      frames += 1;
+      if (frames >= 10) {
+        done();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }));
+}
+
+async function smokeGame3dCollision(evidence) {
+  evidence.phase = 'collision';
+  // Restore the authored straight path in a fresh Chrome/GPU process. Hosted
+  // Lavapipe can invalidate its external Instance during same-page navigation;
+  // process isolation keeps that teardown artifact out of the collision gate.
+  await restartSmokeBrowser(evidence);
+  await page.goto(`${ORIGIN}/?game=game-3d&journey=collision-${Date.now()}`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 30_000,
+  });
+  await waitForTemplateReady();
+  const collisionPointerLock = { mode: pointerLockMode, nativeProbe: nativePointerLockProbe };
+  await page.waitForFunction(
+    () =>
+      globalThis.__forgeaxPreviewInspection?.list().reads.some(({ id }) => id === 'game-3d.player') ??
+      false,
+    undefined,
+    { timeout: 30_000, polling: 100 },
+  );
+  const collisionStart = await waitForGame3dPlayer(
+    (state) => state.grounded === true && state.camera?.yaw === 0,
+    'game-3d collision start',
+  );
+  const collisionCanvas = page.locator('canvas#app');
+  const collisionBox = await collisionCanvas.boundingBox();
+  if (collisionBox === null) throw new Error('game-3d collision canvas has no bounds');
+  await page.bringToFront();
+  const collisionCenter = {
+    x: collisionBox.x + collisionBox.width / 2,
+    y: collisionBox.y + collisionBox.height / 2,
+  };
+  await page.mouse.move(collisionCenter.x, collisionCenter.y);
+  await page.waitForTimeout(100);
+  await page.mouse.click(collisionCenter.x, collisionCenter.y);
+  await waitForGame3dPointerLock('game-3d collision pointer lock');
+  await page.keyboard.down('KeyW');
+  let collisionApproach;
+  let collisionLate;
+  let collisionSettled;
+  try {
+    // Wait on simulation evidence rather than wall-clock duration. This keeps
+    // the assertion meaningful on slow software-GPU runners: a stalled tab
+    // cannot look like a settled collision, while a healthy low-FPS tab gets
+    // enough time to advance the same fixed-step path.
+    collisionApproach = await waitForGame3dPlayer(
+      (state) => movementProjection(collisionStart, state, 0).forward > 3,
+      'game-3d collision approach',
+      15_000,
+    );
+    const approachTick = collisionApproach.simulation?.fixedTick ?? 0;
+    collisionLate = await waitForGame3dFixedTicks(
+      approachTick,
+      48,
+      'game-3d collision continued simulation',
+    );
+    const lateTick = collisionLate.simulation?.fixedTick ?? approachTick;
+    collisionSettled = await waitForGame3dFixedTicks(
+      lateTick,
+      24,
+      'game-3d collision settling simulation',
+    );
+  } finally {
+    await page.keyboard.up('KeyW');
+  }
+  const collisionTravel = movementProjection(collisionStart, collisionApproach, 0).forward;
+  const collisionLateStep = Math.hypot(
+    (collisionSettled.position[0] ?? 0) - (collisionLate.position[0] ?? 0),
+    (collisionSettled.position[2] ?? 0) - (collisionLate.position[2] ?? 0),
+  );
+  if (collisionTravel < 3 || collisionLateStep > 0.45 || collisionSettled.grounded !== true) {
+    throw new Error(
+      `game-3d collision did not settle: ${JSON.stringify({ collisionStart, collisionApproach, collisionLate, collisionSettled, collisionTravel, collisionLateStep })}`,
+    );
+  }
+  await page.keyboard.press('Escape');
+
+  return {
+    status: 'passed',
+    pointerLock: collisionPointerLock,
+    collisionStart,
+    collisionApproach,
+    collisionLate,
+    collisionSettled,
+    collisionTravel,
+    collisionLateStep,
+  };
+}
+
+async function smokeGame3d(evidence) {
+  await page.waitForFunction(
+    () => globalThis.__forgeaxPreviewInspection?.list().reads.some(({ id }) => id === 'game-3d.player') ?? false,
+    undefined,
+    { timeout: 30_000, polling: 100 },
+  );
+  const listed = await page.evaluate(() => globalThis.__forgeaxPreviewInspection?.list());
+  if (!listed?.reads.some(({ id }) => id === 'game-3d.player')) {
+    throw new Error(`game-3d player projection is missing: ${JSON.stringify(listed)}`);
+  }
+
+  const ui = await readGame3dUi();
+  if (
+    ui.rootChildren !== 1
+    || ui.assetGuid === null
+    || ui.lockText !== 'Click the game to lock the camera'
+    || !ui.guideText?.includes('WASD')
+    || !ui.guideText?.includes('Space')
+    || !ui.guideText?.includes('Esc')
+    || ui.crosshairDisplay !== 'none'
+  ) {
+    throw new Error(`game-3d UI asset is incomplete: ${JSON.stringify(ui)}`);
+  }
+
+  const initial = await waitForGame3dPlayer(
+    (state) => state.grounded === true && state.animation?.walkWeight === 0,
+    'game-3d initial grounded state',
+  );
+  const interactionPointerLock = { mode: pointerLockMode, nativeProbe: nativePointerLockProbe };
+  const canvas = page.locator('canvas#app');
+  const box = await canvas.boundingBox();
+  if (box === null || box.width <= 0 || box.height <= 0) {
+    throw new Error(`game-3d canvas has no browser bounds: ${JSON.stringify(box)}`);
+  }
+  // Renderer health and submitted frame ids can remain healthy while the
+  // compositor only shows the clear color. Read the actual canvas once after
+  // the game-owned scene witness is ready so a blank game cannot pass on
+  // lifecycle/inspection evidence alone.
+  const render = await readGame3dCanvasRender();
+  const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+
+  await page.bringToFront();
+  await page.mouse.move(center.x, center.y);
+  await page.waitForTimeout(100);
+  await page.mouse.click(center.x, center.y);
+  await waitForGame3dPointerLock('game-3d initial pointer lock');
+  const locked = await waitForGame3dPlayer(
+    (state) => state.camera?.pointerLocked === true,
+    'game-3d pointer lock',
+  );
+  const uiLocked = await readGame3dUi();
+  if (
+    !uiLocked.lockedClass
+    || uiLocked.lockText !== 'Camera locked · mouse look active'
+    || uiLocked.crosshairDisplay !== 'block'
+  ) {
+    throw new Error(`game-3d locked UI state is incomplete: ${JSON.stringify(uiLocked)}`);
+  }
+
+  const lookOrigin = locked;
+  // Chromium's native pointer lock works under Xvfb, but Playwright's absolute
+  // mouse move does not reliably produce relative movementX/movementY there.
+  // Keep the real lock probe above and drive the same canvas PointerEvent path
+  // that BrowserBackend consumes with an explicit deterministic delta.
+  const lookWitness = await waitForLockedPointerLook(lookOrigin);
+  const looked = lookWitness.state;
+  const lookDelta = {
+    yaw: looked.camera.yaw - lookOrigin.camera.yaw,
+    pitch: looked.camera.pitch - lookOrigin.camera.pitch,
+  };
+
+  const moveOrigin = looked;
+  const moveYaw = moveOrigin.camera.yaw;
+  const moveDirection = [Math.sin(moveYaw), -Math.cos(moveYaw)];
+  await page.keyboard.down('KeyW');
+  let walking;
+  try {
+    walking = await waitForGame3dPlayer(
+      (state) => {
+        const projection = movementProjection(moveOrigin, state, moveYaw);
+        return (
+          projection.forward > 0.25
+          && state.animation?.walkWeight > 0.9
+          && facingAlignment(state, moveDirection) > 0.99
+        );
+      },
+      'game-3d camera-relative W movement',
+    );
+  } finally {
+    await page.keyboard.up('KeyW');
+  }
+  const afterWalkRelease = await waitForGame3dPlayer(
+    (state) => state.animation?.walkWeight === 0,
+    'game-3d walk animation release',
+  );
+
+  const strafeOrigin = afterWalkRelease;
+  const strafeYaw = strafeOrigin.camera.yaw;
+  const strafeDirection = [Math.cos(strafeYaw), Math.sin(strafeYaw)];
+  await page.keyboard.down('KeyD');
+  let strafed;
+  try {
+    strafed = await waitForGame3dPlayer(
+      (state) => {
+        const projection = movementProjection(strafeOrigin, state, strafeYaw);
+        return projection.right > 0.25 && facingAlignment(state, strafeDirection) > 0.99;
+      },
+      'game-3d camera-relative D movement',
+    );
+  } finally {
+    await page.keyboard.up('KeyD');
+  }
+
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(
+    () => document.pointerLockElement === null,
+    undefined,
+    { timeout: 10_000, polling: 50 },
+  );
+  const unlocked = await waitForGame3dPlayer(
+    (state) => state.camera?.pointerLocked === false,
+    'game-3d pointer unlock',
+  );
+  evidence.sequence += 1;
+  evidence.journeyCompleteSequence = evidence.sequence;
+  evidence.phase = 'journey-complete';
+
+  const collision =
+    GAME3D_COLLISION_MODE === 'required'
+      ? await smokeGame3dCollision(evidence)
+      : { status: 'omitted', reason: 'sdk-source-distribution' };
+  evidence.phase = 'journey-complete';
+  const rendererHealth = await page.evaluate(
+    () => globalThis.__forgeaxPreviewInspection?.renderer.health(),
+  );
+  if (GAME3D_COLLISION_MODE === 'required' && rendererHealth?.reason !== 'alive') {
+    throw new Error(`game-3d renderer did not survive the journey: ${JSON.stringify(rendererHealth)}`);
+  }
+
+  evidence.game3d = {
+    render,
+    pointerLock: interactionPointerLock,
+    ui,
+    uiLocked,
+    initial,
+    locked,
+    look: {
+      origin: lookOrigin,
+      result: looked,
+      delta: lookDelta,
+      inputDispatches: lookWitness.dispatches,
+    },
+    movement: {
+      origin: moveOrigin,
+      walking,
+      afterRelease: afterWalkRelease,
+      projection: movementProjection(moveOrigin, walking, moveYaw),
+    },
+    strafe: {
+      origin: strafeOrigin,
+      result: strafed,
+      projection: movementProjection(strafeOrigin, strafed, strafeYaw),
+    },
+    unlocked,
+    rendererHealth,
+    collision,
+  };
+}
+
+async function smokeTemplate(template, evidence) {
+  await page.goto(`${ORIGIN}/?game=${encodeURIComponent(template.slug)}`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 30_000,
+  });
+  await waitForTemplateReady();
+  if (template.slug === 'game-3d') {
+    await waitForSubmittedRendererFrame('game-3d renderer did not submit an initial frame');
+  }
+
+  const probe = await page.evaluate(() => {
+    const inspection = globalThis.__forgeaxPreviewInspection;
+    if (inspection === undefined) throw new Error('Preview inspection global is unavailable');
+    return {
+      listed: inspection.list(),
+      state: inspection.renderer.health(),
+      canvas: {
+        width: document.querySelector('canvas')?.width ?? 0,
+        height: document.querySelector('canvas')?.height ?? 0,
+      },
+    };
+  });
+  evidence.probe = probe;
+  evidence.expectedConsoleErrors = evidence.consoleErrors.filter((message) => (
+    template.manifest.defaultScene === undefined
+    && message.includes('render-system-no-camera')
+  ));
+  if (probe.state.reason !== 'alive') throw new Error(`${template.slug} renderer is not alive: ${JSON.stringify(probe.state)}`);
+  if (probe.canvas.width <= 0 || probe.canvas.height <= 0) {
+    throw new Error(`${template.slug} canvas has no drawable size: ${JSON.stringify(probe.canvas)}`);
+  }
+  if (template.slug === 'game-default') await waitForDefaultGame(page, evidence);
+  if (template.slug === 'game-3d') {
+    evidence.phase = 'interaction';
+    await smokeGame3d(evidence);
+    await classifySdkSourceHostGpuInstanceLoss(evidence);
+  }
+
+  const unexpected = unexpectedConsoleErrors(template, evidence);
+  if (evidence.pageErrors.length > 0) throw new Error(`${template.slug} page errors: ${evidence.pageErrors.join(' | ')}`);
+  if (unexpected.length > 0) throw new Error(`${template.slug} console errors: ${unexpected.join(' | ')}`);
+  if (evidence.badResponses.length > 0) throw new Error(`${template.slug} bad responses: ${evidence.badResponses.join(' | ')}`);
+}
+
+let smokeFailure;
+try {
+  await waitForServerReady();
+
+  for (const template of templates) {
+    const evidence = {
+      slug: template.slug,
+      id: template.id,
+      name: template.name,
+      pageErrors: [],
+      consoleErrors: [],
+      consoleErrorEvents: [],
+      expectedConsoleErrors: [],
+      badResponses: [],
+      phase: 'template-load',
+      sequence: 0,
+    };
+    templateEvidence.push(evidence);
+    await restartSmokeBrowser(evidence);
+    await smokeTemplate(template, evidence);
+    evidence.status =
+      evidence.game3d?.collision?.status === 'omitted' ? 'passed-with-omissions' : 'passed';
+    console.log(
+      `[${template.slug}] ${evidence.status === 'passed' ? 'PASS' : 'PASS-WITH-OMISSIONS'} id=${template.id} name=${template.name}`,
+    );
+  }
+
+  const reportStatus = templateEvidence.some(({ status }) => status === 'passed-with-omissions')
+    ? 'passed-with-omissions'
+    : 'passed';
+  writeReport(reportStatus);
+  console.log(`[templates] PASS count=${templates.length} artifacts=${ARTIFACT_DIR}`);
+} catch (error) {
+  writeReport('failed', { error: String(error) });
+  smokeFailure = new Error(`${String(error)}\nBrowser evidence: ${JSON.stringify(browserEvidence())}`, {
+    cause: error,
+  });
+} finally {
+  let cleanupError;
+  try {
+    await closeSmokeBrowser();
+  } catch (error) {
+    cleanupError = error;
+  }
+  stopServer();
+  await sleep(300);
+  if (cleanupError !== undefined) {
+    if (smokeFailure === undefined) {
+      smokeFailure = cleanupError;
+    } else {
+      smokeFailure = new AggregateError([smokeFailure, cleanupError], String(smokeFailure), {
+        cause: smokeFailure,
+      });
+    }
+  }
+}
+if (smokeFailure !== undefined) throw smokeFailure;
