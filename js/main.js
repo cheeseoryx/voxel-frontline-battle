@@ -1714,6 +1714,9 @@
         'ar',
       spawnId: spawn && spawn.id,
       team: game.world._playerTeam,
+      skinId:
+        (VF.Soldier && VF.Soldier.getPlayerSkinId && VF.Soldier.getPlayerSkinId()) ||
+        'box',
     };
 
     VF.Pvp.openSpawnGate(

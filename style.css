@@ -11399,3 +11399,24 @@ canvas.downed-world {
     min-height: 160px;
   }
 }
+
+/* ---------- 角色形象选择器（体素皮肤） ---------- */
+.class-skin-label {
+  margin-top: 10px;
+}
+.class-skin-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+.class-skin-list .class-skin-card {
+  width: 84px;
+}
+.class-skin-list .class-skin-card.is-loading .class-avatar {
+  opacity: 0.35;
+}
+.class-skin-list .class-skin-card.is-disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}

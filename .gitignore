@@ -13,7 +13,6 @@ node_modules
 assets/Anims/
 assets/ual-standard/
 assets/*.zip
-assets/Soldier.glb
 # 体素角色的原始导出（4096² 贴图，单个 13~15MB）。游戏加载的是
 # scripts/bake-roles.js 烘焙出的 assets/characters/*.glb，这里只是烘焙输入。
 assets/Roles/
@@ -29,3 +28,4 @@ diag-*.txt
 
 # Reproducible UI browser-test screenshots
 tmp/frontline-ui-check/
+tmp/roles-check/
