@@ -1,0 +1,66 @@
+[
+  {
+    "id": "assault",
+    "nameEn": "Assault",
+    "nameZh": "突击",
+    "label": "Assault｜突击",
+    "role": "进攻与突破",
+    "blurb": "进攻型步兵。主动 X：注射战斗兴奋剂，快速恢复生命；冷却 60 秒，重生后立即刷新。被动：切枪/换弹更快。",
+    "activeSkill": {
+      "name": "战斗兴奋剂",
+      "desc": "按 X 快速回血 · 冷却 60 秒 · 最多携带 1 个 · 重生刷新"
+    },
+    "passiveSkill": {
+      "name": "快速突入",
+      "desc": "切枪/换弹更快；执行进攻命令时获得机动加成"
+    }
+  },
+  {
+    "id": "engineer",
+    "nameEn": "Engineer",
+    "nameZh": "机枪兵",
+    "label": "Gunner｜机枪兵",
+    "role": "载具维修与火力",
+    "blurb": "载具保障与阵地构筑。主动 X：靠近载具维修生命值（10/秒）；被动：建筑耐久提升。",
+    "activeSkill": {
+      "name": "修复装置",
+      "desc": "靠近载具按住 X 维修，准星旁显示载具血量，无过热"
+    },
+    "passiveSkill": {
+      "name": "战地工程",
+      "desc": "建筑耐久提升；开局携带额外物料"
+    }
+  },
+  {
+    "id": "support",
+    "nameEn": "Support",
+    "nameZh": "支援",
+    "label": "Support｜支援",
+    "role": "救援与补给",
+    "blurb": "医疗与弹药保障。主动 X：对倒地队友读条拉起（3 秒，恢复 50% 生命）；被动：可复活任意友军。",
+    "activeSkill": {
+      "name": "急救装置",
+      "desc": "对倒地队友按住 X 拉起 3 秒，松开需重新读条，无冷却"
+    },
+    "passiveSkill": {
+      "name": "全队救援",
+      "desc": "可复活全队友军；复活和拖拽更快"
+    }
+  },
+  {
+    "id": "recon",
+    "nameEn": "Recon",
+    "nameZh": "侦察",
+    "label": "Recon｜侦察",
+    "role": "标记与渗透",
+    "blurb": "远距观察与敌情标记。全兵种可按 Q 标记准星上的敌人（地图揭露 1 秒）；侦察兵标记持续 5 秒。",
+    "activeSkill": {
+      "name": "强化标记",
+      "desc": "对准敌人按 Q 标记，地图揭露 5 秒（其他兵种 1 秒）"
+    },
+    "passiveSkill": {
+      "name": "观察手",
+      "desc": "标记持续更久；背后攻击伤害提升"
+    }
+  }
+]

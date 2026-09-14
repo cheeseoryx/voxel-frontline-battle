@@ -1,0 +1,340 @@
+name: GPU pass timing (real GPU)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful CI run ID for the exact source SHA to measure
+        required: true
+        type: string
+      ci_run_attempt:
+        description: Attempt number of the selected CI run
+        required: true
+        type: string
+        default: '1'
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.ci_run_id }}-${{ inputs.ci_run_attempt }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  FORGEAX_GPU_PASS_TIMING_SOURCE_HEAD: ${{ github.sha }}
+  FORGEAX_GPU_PASS_TIMING_HOST_MODULE: ${{ github.workspace }}/packages/render/bench/gpu-pass-timing/dawn-host.ts
+
+jobs:
+  # This lane is opt-in because it needs a runner with the explicit `gpu`
+  # label and a physical device. It deliberately uses the standard capacity
+  # contract: a 4c8g or 8c16g GPU runner is sufficient; no heavy pool is
+  # required for the timing producer.
+  gpu-pass-timing-benchmark:
+    name: gpu-pass-timing-benchmark
+    runs-on: ${{ fromJSON('["self-hosted", "Linux", "X64", "gpu", "standard"]') }}
+    outputs:
+      report_artifact_name: ${{ steps.upload-gpu-timing-report.outputs.artifact-name }}
+      admission_artifact_name: ${{ steps.upload-gpu-timing-admission.outputs.artifact-name }}
+    permissions:
+      actions: read
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - name: Validate dispatch identity inputs
+        env:
+          SELECTED_CI_RUN_ID: ${{ inputs.ci_run_id }}
+          SELECTED_CI_RUN_ATTEMPT: ${{ inputs.ci_run_attempt }}
+        run: |
+          set -euo pipefail
+          case "$SELECTED_CI_RUN_ID" in ''|*[!0-9]*) echo 'ci_run_id must be a positive integer' >&2; exit 1;; esac
+          case "$SELECTED_CI_RUN_ATTEMPT" in ''|*[!0-9]*) echo 'ci_run_attempt must be a positive integer' >&2; exit 1;; esac
+          test "$SELECTED_CI_RUN_ID" -gt 0
+          test "$SELECTED_CI_RUN_ATTEMPT" -gt 0
+
+      - name: Scrub stale global/system git auth header (self-hosted)
+        if: runner.environment == 'self-hosted'
+        run: |
+          git config --global --unset-all http."https://github.com/".extraheader || true
+          sudo git config --system --unset-all http."https://github.com/".extraheader || true
+
+      - name: Checkout benchmark source
+        uses: actions/checkout@v5
+        with:
+          submodules: false
+          fetch-depth: 0
+          token: ${{ secrets.GHA }}
+
+      - name: Prepare XDG runtime directory
+        uses: ./.github/actions/prepare-xdg-runtime
+
+      - name: Verify benchmark source SHA
+        run: |
+          set -euo pipefail
+          source_sha="$(git rev-parse HEAD)"
+          test "$source_sha" = "$GITHUB_SHA"
+          echo "benchmark source SHA: $source_sha"
+
+      - name: Verify selected CI run identity
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SELECTED_CI_RUN_ID: ${{ inputs.ci_run_id }}
+          SELECTED_CI_RUN_ATTEMPT: ${{ inputs.ci_run_attempt }}
+          EXPECTED_SOURCE_HEAD: ${{ github.sha }}
+        run: |
+          node --input-type=module <<'NODE'
+          const runId = Number(process.env.SELECTED_CI_RUN_ID);
+          const attempt = Number(process.env.SELECTED_CI_RUN_ATTEMPT);
+          const url = `${process.env.GITHUB_API_URL}/repos/${process.env.GITHUB_REPOSITORY}/actions/runs/${runId}`;
+          const response = await fetch(url, {
+            headers: {
+              accept: 'application/vnd.github+json',
+              authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+            },
+          });
+          if (!response.ok) throw new Error(`selected CI run lookup failed: HTTP ${response.status}`);
+          const run = await response.json();
+          const failures = [];
+          if (run.id !== runId) failures.push('run.id');
+          if (run.name !== 'CI') failures.push('run.name');
+          if (run.head_sha !== process.env.EXPECTED_SOURCE_HEAD) failures.push('run.head_sha');
+          if (run.run_attempt !== attempt) failures.push('run.run_attempt');
+          if (run.status !== 'completed' || run.conclusion !== 'success') failures.push('run.terminal-success');
+          if (failures.length > 0) {
+            throw new Error(`selected CI run is not an exact successful source run: ${failures.join(', ')}`);
+          }
+          console.log(`selected CI run accepted: id=${run.id}, attempt=${run.run_attempt}, sha=${run.head_sha}`);
+          NODE
+      - name: Read pnpm version
+        id: pnpm-version
+        run: echo "value=$(cat .pnpm-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: ${{ steps.pnpm-version.outputs.value }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Verify standard runner capacity
+        run: node scripts/ci/verify-runner-pool-capacity.mjs --pool standard
+
+      - name: Require a physical GPU device
+        run: |
+          set -euo pipefail
+          found=false
+          for device in /dev/dri/renderD* /dev/nvidia0; do
+            if [ -e "$device" ]; then
+              echo "physical GPU device: $device"
+              found=true
+            fi
+          done
+          if [ "$found" != true ]; then
+            echo '::error::real-GPU timing requires a physical GPU device; software Vulkan is not accepted'
+            exit 1
+          fi
+
+      - name: Clear stale root dependency links (self-hosted)
+        run: rm -rf node_modules
+
+      - name: Install (frozen)
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Download exact core artifact from selected CI run
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.ci_run_id }}
+          pattern: core-build-a${{ inputs.ci_run_attempt }}*
+          merge-multiple: true
+          path: ${{ runner.temp }}/gpu-pass-timing-core
+
+      - name: Download exact shared-input artifact from selected CI run
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.ci_run_id }}
+          pattern: shared-app-inputs-a${{ inputs.ci_run_attempt }}*
+          merge-multiple: true
+          path: ${{ runner.temp }}/gpu-pass-timing-shared
+
+      - name: Restore selected CI artifacts at repository root
+        run: |
+          set -euo pipefail
+          cp -a "${RUNNER_TEMP}/gpu-pass-timing-core/." .
+          cp -a "${RUNNER_TEMP}/gpu-pass-timing-shared/." .
+
+      - name: Unpack selected shared app inputs
+        run: >-
+          node scripts/ci/unpack-shared-app-inputs.mjs
+          --root . --archive shared-app-inputs.tar.gz
+
+      - name: Materialize shared app shader manifests
+        run: >-
+          node scripts/ci/materialize-app-shader-manifests.mjs
+          --root . --shared-input-manifest shared-app-inputs/manifest.json
+
+      - name: Verify selected build artifact source identity
+        env:
+          EXPECTED_SOURCE_HEAD: ${{ github.sha }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const manifest = JSON.parse(readFileSync('engine-prerequisite-build-manifest.json', 'utf8'));
+          if (manifest.schemaVersion !== 'forgeax-engine-editor-prerequisite-build/v1') {
+            throw new Error(`unexpected prerequisite manifest schema: ${manifest.schemaVersion}`);
+          }
+          if (manifest.status !== 'success' || manifest.sourceOnly !== true) {
+            throw new Error('selected prerequisite artifact is not a successful source build');
+          }
+          if (manifest.engineSha !== process.env.EXPECTED_SOURCE_HEAD) {
+            throw new Error(`selected artifact SHA mismatch: ${manifest.engineSha} !== ${process.env.EXPECTED_SOURCE_HEAD}`);
+          }
+          console.log(`selected build artifact accepted: sha=${manifest.engineSha}`);
+          NODE
+
+      - name: Verify artifact inputs
+        run: node scripts/ci/verify-build-artifact-input.mjs --consumer primary-pnpm --root .
+
+      - name: Run M7 GPU timing benchmark producer
+        run: node scripts/ci/run-gpu-pass-timing-with-runner-admission.mjs
+
+      - name: Upload M7 GPU timing producer report
+        id: upload-gpu-timing-report
+        if: always() && hashFiles('gpu-pass-timing-report.json') != ''
+        uses: ./.github/actions/upload-artifact-with-retry
+        with:
+          name: gpu-pass-timing-report-producer-a${{ github.run_attempt }}
+          path: gpu-pass-timing-report.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload M7 GPU timing runner admission
+        id: upload-gpu-timing-admission
+        if: always()
+        uses: ./.github/actions/upload-artifact-with-retry
+        with:
+          name: gpu-pass-timing-runner-admission-producer-a${{ github.run_attempt }}
+          path: gpu-pass-timing-runner-admission.json
+          if-no-files-found: error
+          retention-days: 1
+
+  gpu-pass-timing-final:
+    name: gpu-pass-timing-final
+    runs-on: ${{ fromJSON('["self-hosted", "Linux", "X64", "gpu", "standard"]') }}
+    needs: [gpu-pass-timing-benchmark]
+    if: always()
+    permissions:
+      actions: read
+      contents: read
+    timeout-minutes: 15
+    steps:
+      - name: Scrub stale global/system git auth header (self-hosted)
+        if: runner.environment == 'self-hosted'
+        run: |
+          git config --global --unset-all http."https://github.com/".extraheader || true
+          sudo git config --system --unset-all http."https://github.com/".extraheader || true
+
+      - name: Checkout validation source
+        uses: actions/checkout@v5
+        with:
+          submodules: false
+          fetch-depth: 1
+          token: ${{ secrets.GHA }}
+
+      - name: Download M7 GPU timing producer report
+        if: always() && needs.gpu-pass-timing-benchmark.outputs.report_artifact_name != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.gpu-pass-timing-benchmark.outputs.report_artifact_name }}
+          path: gpu-pass-timing-report
+
+      - name: Download M7 GPU timing runner admission
+        if: always() && needs.gpu-pass-timing-benchmark.outputs.admission_artifact_name != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.gpu-pass-timing-benchmark.outputs.admission_artifact_name }}
+          path: gpu-pass-timing-admission
+
+      - name: Verify accepted real-GPU timing evidence
+        if: always()
+        env:
+          PRODUCER_RESULT: ${{ needs.gpu-pass-timing-benchmark.result }}
+          EXPECTED_SOURCE_HEAD: ${{ github.sha }}
+          REPORT_PATH: gpu-pass-timing-report/gpu-pass-timing-report.json
+          ADMISSION_PATH: gpu-pass-timing-admission/gpu-pass-timing-runner-admission.json
+        run: |
+          node --input-type=module <<'NODE'
+          import { existsSync, readFileSync } from 'node:fs';
+
+          const failures = [];
+          const readJson = (path, label) => {
+            if (!existsSync(path)) {
+              failures.push(`${label}.missing`);
+              return null;
+            }
+            try {
+              return JSON.parse(readFileSync(path, 'utf8'));
+            } catch {
+              failures.push(`${label}.invalid-json`);
+              return null;
+            }
+          };
+          if (process.env.PRODUCER_RESULT !== 'success') failures.push('producer.result');
+          const admission = readJson(process.env.ADMISSION_PATH, 'admission');
+          const report = readJson(process.env.REPORT_PATH, 'report');
+
+          if (admission !== null) {
+            if (admission.schemaVersion !== 1) failures.push('admission.schemaVersion');
+            if (admission.benchmark !== 'render-gpu-pass-timing') failures.push('admission.benchmark');
+            if (admission.benchmarkStarted !== true) failures.push('admission.benchmarkStarted');
+            if (admission.verdict !== 'accepted' || admission.admission?.verdict !== 'accepted') failures.push('admission.verdict');
+            const checks = admission.admission?.checks;
+            for (const [name, value] of [
+              ['exactCpuset', checks?.exactCpuset],
+              ['telemetryComplete', checks?.telemetryComplete],
+              ['zeroSelectedCpuStealDelta', checks?.zeroSelectedCpuStealDelta],
+              ['zeroCgroupThrottledUsecDelta', checks?.zeroCgroupThrottledUsecDelta],
+              ['zeroCgroupThrottledTimeDelta', checks?.zeroCgroupThrottledTimeDelta],
+              ['pressureEvidenceAccepted', checks?.pressureEvidenceAccepted],
+              ['noUnrelatedProcess', checks?.noUnrelatedProcess],
+              ['naturalChildExit', checks?.naturalChildExit],
+            ]) {
+              if (value !== true) failures.push(`admission.${name}`);
+            }
+          }
+
+          if (report !== null) {
+            if (report.schemaVersion !== '1.0') failures.push('report.schemaVersion');
+            if (report.benchmark !== 'render-gpu-pass-timing') failures.push('report.benchmark');
+            if (report.verdict !== 'accepted') failures.push('report.verdict');
+            if (report.source?.sourceHead !== process.env.EXPECTED_SOURCE_HEAD) failures.push('report.sourceHead');
+            if (report.backend?.kind !== 'webgpu') failures.push('report.backend.kind');
+            if (report.backend?.realGpu !== true) failures.push('report.backend.realGpu');
+            if (report.sampling?.warmupFrames !== 120 || report.sampling?.groups !== 5 || report.sampling?.framesPerGroup !== 300) failures.push('report.sampling');
+            if (report.timingCompleteness?.status !== 'complete') failures.push('report.timingCompleteness.status');
+            for (const side of ['off', 'on']) {
+              const counts = report.timingCompleteness?.[side];
+              if (counts?.completeFrames !== 1500 || counts?.partialFrames !== 0 || counts?.failedFrames !== 0) failures.push(`report.timingCompleteness.${side}`);
+            }
+            if (report.windows?.groups?.length !== 5) failures.push('report.windows.groups');
+            if (report.overhead?.thresholdPercent !== 10 || !Number.isFinite(report.overhead?.reportedOverheadPercent) || report.overhead.reportedOverheadPercent > 10 || report.overhead.verdict !== 'accepted') failures.push('report.overhead');
+            if (report.cpu?.thresholdPercent !== 20 || !Number.isFinite(report.cpu?.overheadPercent) || report.cpu.overheadPercent > 20 || report.cpu.verdict !== 'accepted') failures.push('report.cpu');
+            if (report.offPath === undefined || Object.values(report.offPath).some((value) => value !== 0)) failures.push('report.offPath');
+          }
+
+          if (failures.length > 0) throw new Error(`real-GPU timing evidence failed: ${failures.join(', ')}`);
+          console.log(`real-GPU timing accepted: source=${report.source.sourceHead}, gpu=${report.overhead.reportedOverheadPercent.toFixed(3)}%, cpu=${report.cpu.overheadPercent.toFixed(3)}%`);
+          NODE

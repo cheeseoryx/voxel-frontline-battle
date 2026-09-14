@@ -1,0 +1,13 @@
+self-hosted-runner:
+  labels:
+    - Linux
+    - X64
+    - standard
+    - heavy
+
+# Disabled native probes keep their platform contract visible without running
+# direct hosted macOS/Windows jobs outside the low-frequency nightly lane.
+paths:
+  .github/workflows/**/*.{yml,yaml}:
+    ignore:
+      - 'constant expression "false" in condition'

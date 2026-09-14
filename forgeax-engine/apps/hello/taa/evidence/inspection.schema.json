@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "forgeax://hello-taa/inspection/1",
+  "title": "hello-taa detached inspection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "state", "motionBlur"],
+  "properties": {
+    "schemaVersion": { "const": "hello-taa-inspection/1" },
+    "state": { "enum": ["alive", "device-lost", "recovering", "faulted", "disposed"] },
+    "motionBlur": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "status",
+        "shutterAngle",
+        "maxRadiusPixels",
+        "sampleCount",
+        "temporalDemand",
+        "passName",
+        "historyWrites"
+      ],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "status": { "enum": ["off", "active", "reset", "invalid"] },
+        "shutterAngle": { "type": "number", "minimum": 0, "maximum": 360 },
+        "maxRadiusPixels": { "type": "number", "minimum": 0, "maximum": 64 },
+        "sampleCount": { "type": "integer", "minimum": 4, "maximum": 16 },
+        "temporalDemand": { "enum": ["none", "scene-data-temporal-v1"] },
+        "passName": { "const": "motion-blur" },
+        "historyWrites": { "const": 0 },
+        "lastFailure": { "enum": ["invalid-params", "scene-data-unavailable"] }
+      }
+    }
+  }
+}

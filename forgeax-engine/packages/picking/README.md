@@ -1,0 +1,168 @@
+# @forgeax/engine-picking
+
+Screen-to-entity, vertex-level, and tile-cell picking as free functions. Tier 2.2
+package extracted from `@forgeax/engine-runtime`
+(feat-20260705-runtime-tier2-decomposition M2) so an AI user loads only the
+picking concept surface — not the whole renderer — when the task is "turn a
+screen coordinate into an entity / vertex / tile". First runtime-downstream
+engine package: `@forgeax/engine-picking` depends on `@forgeax/engine-runtime`,
+never the reverse.
+
+## 30-second self-introduction
+
+- **`pick(world, cameraEntity, screenX, screenY, viewportWidth, viewportHeight)`**
+  — unprojects a viewport-relative screen coordinate into a world-space ray
+  through the camera, walks every renderable archetype, ray-AABB tests each
+  pickable mesh's world-space bounding box, and returns the nearest
+  `PickHit { entity, point, distance }` (or `undefined` on a miss). AABB
+  granularity (Three.js `Raycaster`-aligned MVP; per-triangle precision is
+  `pickVertex`).
+- **`viewportToWorld(world, cameraEntity, screenX, screenY, viewportWidth, viewportHeight)`**
+  — exposes the same camera unprojection as a world-space `Ray` for cursor
+  placement, gizmos, and custom plane/triangle queries.
+- **`pickVertexOnEntity` / `pickVertex`** — per-triangle vertex-level queries
+  (editor vertex-snapping workflow). Three-state static-dispatch overload:
+  without options -> `VertexHit | undefined`; with `{ limit: N }` -> `VertexHit[]`
+  sorted by `screenDist`. `pickVertexOnEntity` queries one entity; `pickVertex`
+  walks the whole scene (AABB coarse cull, then per-entity vertex collect).
+- **`pickTile(world, tilemapEntity, worldX, worldY)`** — cell-level Tilemap query:
+  converts world coordinates through the full inverse of the propagated
+  `GlobalTransform.world` affine matrix, walks child `TileLayer`s in descending
+  `layerOrder`, and returns `Result.ok(PickTileHit { layerEntity, cellX, cellY,
+  tileId })` for the topmost non-zero cell, `Result.ok(null)` for empty /
+  out-of-bounds, or `Result.err(PickTileError)` for a structural break.
+- **`PickError` / `PickErrorCode`** — closed single-member error union
+  (`'camera-component-missing'`); the SSOT for the picking error surface. A
+  `cameraEntity` without a `Camera` component throws `PickError`; ordinary "ray
+  hit nothing" outcomes return `undefined` / `[]` (error channel physically
+  separated from the miss channel, charter P3).
+- **`pick-core`** (internal) — the shared skeleton (camera validation ->
+  `view = invert(GlobalTransform.world)` -> projection branch -> `screenToRay` ->
+  `readWorldMatrix`) that `pick` and `pickVertex*` both consume. Single source of
+  truth (architecture-principles §2); the AI user never imports it directly.
+
+### 30s hands-on example
+
+```ts
+import { pick, type PickHit } from '@forgeax/engine-picking';
+import { MeshRenderer } from '@forgeax/engine-render';
+import { propagateTransforms } from '@forgeax/engine-scene';
+
+// Caller resolves GlobalTransform.world for the current frame first (D-9 contract):
+propagateTransforms(world);
+
+const hit: PickHit | undefined = pick(
+  world,
+  cameraEntity,
+  pointerX, pointerY,        // viewport-relative, y-down, top-left origin
+  canvas.width, canvas.height,
+);
+if (hit) {
+  // hit.entity: the picked EntityHandle; hit.point: world-space AABB entry;
+  // hit.distance: entry distance along the ray (>= 0)
+  world.set(hit.entity, MeshRenderer, { materials: [highlight] });
+}
+```
+
+## API surface
+
+### Screen-to-entity (`pick`)
+
+| Function | Signature | Return |
+|:--|:--|:--|
+| `pick` | `(world, cameraEntity, screenX, screenY, viewportWidth, viewportHeight)` | `PickHit \| undefined` (nearest hit, or `undefined` on miss) |
+
+`PickHit = { entity: EntityHandle; point: Vec3Like; distance: number }`. No
+`face` / `uv` / `normal` — AABB picking has no triangle resolution, so those
+would be a lie (use `pickVertex` for per-triangle vertices). Both `perspective`
+and `orthographic` camera projections are supported. Reads the resolved
+`GlobalTransform.world` mat4 directly (feat-20260601 D-3), so the camera + candidates
+must have propagated transforms for the current frame.
+
+### Screen-to-world (`viewportToWorld`)
+
+| Function | Signature | Return |
+|:--|:--|:--|
+| `viewportToWorld` | `(world, cameraEntity, screenX, screenY, viewportWidth, viewportHeight)` | `Ray \| undefined` |
+
+The returned ray uses the same top-left/y-down viewport coordinates as `pick`.
+It is the low-level cursor-to-world front door: intersect it with the game
+surface you own, then place an entity or debug primitive at the result.
+
+> [!IMPORTANT]
+> **Viewport validity** — if either viewport dimension is zero, negative,
+> `NaN`, or `Infinity`, `pick`, `viewportToWorld`, `pickVertex`, and
+> `pickVertexOnEntity` return their ordinary no-ray/no-hit shape (`undefined`
+> or `[]`). They do not delegate an invalid viewport to a fabricated origin
+> ray. Restore positive, finite dimensions and retry on the same World; the
+> normal mesh, vertex, and ray results recover without rebuilding the scene.
+
+### Vertex-level (`pickVertex` / `pickVertexOnEntity`)
+
+| Function | Signature | Return |
+|:--|:--|:--|
+| `pickVertexOnEntity` | `(world, cameraEntity, screenX, screenY, vpW, vpH, entity, options?)` | Without `options`: `VertexHit \| undefined` |
+| `pickVertexOnEntity` | `(..., entity, { limit })` | `VertexHit[]` (sorted by `screenDist` asc, empty on miss) |
+| `pickVertex` | `(world, cameraEntity, screenX, screenY, vpW, vpH, options?)` | Without `options`: `VertexHit \| undefined` |
+| `pickVertex` | `(..., { limit })` | `VertexHit[]` (globally sorted by `screenDist` asc, empty on miss) |
+
+`VertexHit = { entity, vertexIndex, worldPos: Vec3Like, screenDist, worldDist, deformed }`.
+Only `triangle-list` submeshes participate; skinned meshes report
+`deformed=true` with rest-pose `worldPos`. Behind-camera vertices are excluded.
+
+> [!IMPORTANT]
+> **`propagateTransforms` precondition (D-9)** — call
+> `propagateTransforms(world)` (exported from `@forgeax/engine-runtime`) for the
+> current frame before `pick` / `pickVertex*`. These functions read
+> `GlobalTransform.world` column-major mat4 directly; they never re-propagate. The
+> contract is identical across `pick` and `pickVertex*`.
+
+### Tile-cell (`pickTile`)
+
+| Function | Signature | Return |
+|:--|:--|:--|
+| `pickTile` | `(world, tilemapEntity, worldX, worldY)` | `Result<PickTileHit \| null, PickTileError>` |
+
+`PickTileHit = { layerEntity, cellX, cellY, tileId }`. Callers propagate the
+World before picking so `GlobalTransform.world` is current; an entity without a
+Transform retains the origin-default path. `Result.ok(null)` = empty cell or
+out-of-bounds. A dead handle returns `tilemap-not-found`; a live entity without
+`Tilemap` returns `tilemap-component-missing`. `PickTileError` is a closed
+two-member discriminated union, runtime-local (not exported through
+`@forgeax/engine-types`). Singular transforms use the shared `mat4.invert`
+identity fallback deterministically, without widening the error union.
+
+## Error model
+
+`PickError` owns the package-local precondition code in `src/pick-errors.ts`, and
+`PickErrorCode` derives from `PickError['code']`. The declaration proof at
+`src/__tests__/pick-errors.test-d.ts` checks that owner relationship, the closed
+surface, invalid literals, and exhaustive switching.
+
+When the `cameraEntity` passed to `pick` or `pickVertex*` has no `Camera`
+component, the functions throw `PickError`: no view/projection matrix can be
+built, and the error carries `.expected`, `.hint`, and `.detail.cameraEntity`.
+Attach a `Camera` with `world.set` as directed by `.hint`, then retry. Ordinary
+ray misses still return `undefined` / `[]`; `PickTileError` remains a separate
+two-member union returned (not thrown) through `Result`.
+
+## Package boundary
+
+Depends on `@forgeax/engine-runtime` (components: `Camera` / `Transform` /
+`MeshFilter` / `MeshRenderer` / `ChildOf` / `TileLayer` / `Tilemap`;
+`propagateTransforms`), `@forgeax/engine-assets-runtime` (`resolveAssetHandle`
+for `MeshAsset.aabb`), `@forgeax/engine-ecs`, `@forgeax/engine-math`, and
+`@forgeax/engine-types`. `@forgeax/engine-runtime` does **not** import this
+package (no reverse edge — picking is a leaf consumer).
+
+Visible acceptance: `apps/hello/picking` (click a cube to highlight) +
+structural-only dawn-node smoke (asserts `pick` returns the expected entity + a
+miss returns `undefined`).
+
+## Source anchors
+
+- `src/pick.ts` — `pick` + `PickHit`
+- `src/pick-vertex.ts` — `pickVertex` / `pickVertexOnEntity` + `VertexHit`
+- `src/pick-tile.ts` — `pickTile` + `PickTileHit` / `PickTileError`
+- `src/pick-errors.ts` — `PickError` / `PickErrorCode` (error SSOT)
+- `src/pick-core.ts` — shared camera->ray skeleton (internal)

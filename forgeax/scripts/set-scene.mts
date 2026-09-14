@@ -1,0 +1,1 @@
+import {readFileSync,writeFileSync} from 'node:fs';import {sceneGuid,guidText} from '../assets/identity.ts';const c=JSON.parse(readFileSync('forge.json','utf8'));c.defaultScene=guidText(sceneGuid);writeFileSync('forge.json',JSON.stringify(c,null,2)+'\n');

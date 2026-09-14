@@ -1,0 +1,16 @@
+{
+  "id": "voxel-frontline",
+  "name": "Voxel Frontline",
+  "schemaVersion": "2.0.0",
+  "defaultScene": "909ca46c-d401-51c2-96db-ad734357bb95",
+  "plugins": [
+    {
+      "id": "voxel-frontline",
+      "name": "./assets/plugin.ts",
+      "realm": "engine",
+      "inject": [
+        "gameHost"
+      ]
+    }
+  ]
+}

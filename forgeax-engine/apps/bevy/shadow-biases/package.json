@@ -1,0 +1,63 @@
+{
+  "name": "@forgeax/bevy-shadow-biases",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "Retained diagnostic draft for Bevy's `shadow_biases`; cross-light bias and filtering control is routed.",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "vite build",
+    "preview": "vite preview",
+    "smoke": "node scripts/smoke-dawn.mjs"
+  },
+  "forgeax": {
+    "bevyExample": {
+      "name": "shadow_biases",
+      "category": "3D Rendering",
+      "status": "shelved",
+      "shelvedFeedback": "feedbacks/2026-07-28-bevy-shadow-biases-needs-live-cross-light-shadow-filtering.md"
+    },
+    "metrics": {
+      "bundle-size": {
+        "enabled": false,
+        "reason": "vite app bundle downstream of engine-runtime sizes already tracked at the package level"
+      },
+      "fps": {
+        "enabled": false,
+        "reason": "demo-specific fps evidence belongs to its completed reproduction"
+      },
+      "bench": {
+        "enabled": false,
+        "reason": "demo-specific benchmarks belong to its completed reproduction"
+      },
+      "gate": {
+        "enabled": false,
+        "reason": "shelved: cross-light shadow bias and filtering contract is not implemented"
+      },
+      "spike-report": {
+        "enabled": false,
+        "reason": "not a spike app; Bevy example reproduction"
+      }
+    }
+  },
+  "dependencies": {
+    "@forgeax/engine-app": "workspace:*",
+    "@forgeax/engine-assets-runtime": "workspace:*",
+    "@forgeax/engine-ecs": "workspace:*",
+    "@forgeax/engine-input": "workspace:*",
+    "@forgeax/engine-geometry": "workspace:*",
+    "@forgeax/engine-math": "workspace:*",
+    "@forgeax/engine-runtime": "workspace:*",
+    "@forgeax/engine-types": "workspace:*",
+    "@forgeax/engine-scene": "workspace:*",
+    "@forgeax/engine-render": "workspace:*"
+  },
+  "devDependencies": {
+    "@forgeax/engine-vite-plugin-shader": "workspace:*",
+    "@webgpu/types": "^0.1.71",
+    "vite": "8.0.10",
+    "webgpu": "^0.4.0"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "version": "V3 project-progress",
+  "date": "2026-09-11",
+  "featureGroups": 8,
+  "networkTopics": 5,
+  "currentProjectScreenshots": 2,
+  "video": {
+    "duration": 228.866667,
+    "width": 1920,
+    "height": 1080,
+    "sourceType": "blob"
+  },
+  "videoSeekAndPlayback": "passed",
+  "networkRequests": 0,
+  "responsiveWidths": [
+    1440,
+    720,
+    390
+  ],
+  "printSections": 4,
+  "pageErrors": [],
+  "projectChecks": {
+    "logic": "four existing checks passed",
+    "browserFlow": "partial: same-room and guest preparation passed; AI replacement assertion failed; later checks not executed"
+  }
+}

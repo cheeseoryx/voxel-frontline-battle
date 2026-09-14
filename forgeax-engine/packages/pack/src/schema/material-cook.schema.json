@@ -1,0 +1,326 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ForgeaX cooked material record",
+  "type": "object",
+  "required": ["schemaVersion", "guid", "resolved", "refs", "programs", "receipt"],
+  "properties": {
+    "schemaVersion": {
+      "const": "material-cook/4"
+    },
+    "guid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "materialGuid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "publicationGeneration": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "specializationKey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifactDigest": {
+      "type": "string",
+      "pattern": "^sha256:"
+    },
+    "sourceClosure": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "parameterContract": {
+      "type": "object",
+      "required": ["parameters", "values"],
+      "properties": {
+        "parameters": {
+          "type": "array"
+        },
+        "values": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "authored": {
+      "type": "object",
+      "required": ["kind"]
+    },
+    "resolved": {
+      "type": "object",
+      "required": ["passes", "parameters", "values"]
+    },
+    "refs": {
+      "type": "object",
+      "required": ["parent", "textures", "samplers", "modules"],
+      "properties": {
+        "parent": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "textures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "samplers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "receipt": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "sourceClosure",
+        "profile",
+        "compilerVersion",
+        "identity",
+        "derivedInterface"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "material-cook/4"
+        },
+        "sourceClosure": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "profile": {
+          "type": "string"
+        },
+        "compilerVersion": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "object",
+          "required": [
+            "materialContractDigest",
+            "sourceRevision",
+            "sourceClosureDigest",
+            "layoutIdentity",
+            "programIdentity",
+            "pipelineIdentity",
+            "materialPublicationIdentity",
+            "cookIdentity",
+            "compilerFingerprint",
+            "wasm",
+            "artifactDigest",
+            "valueGeneration",
+            "dependencyGeneration",
+            "cookGeneration"
+          ],
+          "properties": {
+            "materialContractDigest": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sourceRevision": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sourceClosureDigest": {
+              "type": "string",
+              "minLength": 1
+            },
+            "layoutIdentity": {
+              "type": "string",
+              "minLength": 1
+            },
+            "programIdentity": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pipelineIdentity": {
+              "type": "string",
+              "minLength": 1
+            },
+            "materialPublicationIdentity": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cookIdentity": {
+              "type": "string",
+              "minLength": 1
+            },
+            "compilerFingerprint": {
+              "type": "string",
+              "minLength": 1
+            },
+            "wasm": {
+              "type": "object",
+              "required": ["sourceContentKey", "artifactSha256", "glueSha256"],
+              "properties": {
+                "sourceContentKey": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "artifactSha256": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "glueSha256": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            },
+            "artifactDigest": {
+              "type": "string",
+              "minLength": 1
+            },
+            "valueGeneration": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "dependencyGeneration": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "cookGeneration": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "derivedInterface": {
+          "type": "object",
+          "required": ["layoutIdentity"],
+          "properties": {
+            "layoutIdentity": {
+              "type": "string",
+              "minLength": 1
+            },
+            "layerPlanIdentity": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "publicationGeneration": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "programs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["specializationKey", "artifact", "selections"],
+        "properties": {
+          "specializationKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "artifact": {
+            "type": "object",
+            "required": ["mediaType", "path", "digest", "bytes"],
+            "properties": {
+              "mediaType": {
+                "const": "text/wgsl"
+              },
+              "path": {
+                "type": "string"
+              },
+              "digest": {
+                "type": "string",
+                "pattern": "^sha256:"
+              },
+              "bytes": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "selections": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["pass", "context"],
+              "properties": {
+                "pass": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "context": {
+                  "type": "object",
+                  "required": [
+                    "backend",
+                    "capability",
+                    "pipeline",
+                    "geometry",
+                    "pass",
+                    "profile",
+                    "toolchain",
+                    "instrumentation"
+                  ],
+                  "properties": {
+                    "backend": {
+                      "enum": ["webgpu", "webgl2", "wgpu-native"]
+                    },
+                    "capability": {
+                      "enum": ["storage-buffer", "uniform-fallback"]
+                    },
+                    "pipeline": {
+                      "enum": ["forward", "deferred"]
+                    },
+                    "geometry": {
+                      "enum": ["mesh", "skinned", "sprite"]
+                    },
+                    "pass": {
+                      "enum": ["forward", "shadow", "depth"]
+                    },
+                    "profile": {
+                      "enum": ["forgeax-material-wgsl-v1"]
+                    },
+                    "toolchain": {
+                      "enum": ["naga-oil"]
+                    },
+                    "instrumentation": {
+                      "enum": ["none", "validation"]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

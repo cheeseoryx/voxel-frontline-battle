@@ -1,0 +1,6617 @@
+[
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 405,
+      "end": 414,
+      "line": 15,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--bg-deep",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 428,
+      "end": 433,
+      "line": 16,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--sky",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 447,
+      "end": 452,
+      "line": 17,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--fog",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 466,
+      "end": 471,
+      "line": 18,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--sun",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 485,
+      "end": 491,
+      "line": 19,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--warm",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 505,
+      "end": 513,
+      "line": 20,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--px-out",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 527,
+      "end": 536,
+      "line": 21,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--px-text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 550,
+      "end": 557,
+      "line": 22,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 584,
+      "end": 598,
+      "line": 23,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--panel-strong",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 625,
+      "end": 639,
+      "line": 24,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--panel-border",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 671,
+      "end": 688,
+      "line": 25,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--panel-border-hi",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 719,
+      "end": 725,
+      "line": 26,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 739,
+      "end": 749,
+      "line": 27,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 780,
+      "end": 788,
+      "line": 28,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 802,
+      "end": 814,
+      "line": 29,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent-hot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 828,
+      "end": 836,
+      "line": 30,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--health",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 850,
+      "end": 857,
+      "line": 31,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--armor",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 871,
+      "end": 877,
+      "line": 32,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--core",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 891,
+      "end": 899,
+      "line": 33,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--danger",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 913,
+      "end": 925,
+      "line": 34,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 967,
+      "end": 973,
+      "line": 35,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 1046,
+      "end": 1057,
+      "line": 38,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 1096,
+      "end": 1109,
+      "line": 40,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frame-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 1151,
+      "end": 1163,
+      "line": 41,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frame-pill",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 1205,
+      "end": 1217,
+      "line": 42,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frame-slot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 16132,
+      "end": 16144,
+      "line": 809,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 16158,
+      "end": 16174,
+      "line": 810,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-accent-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 16206,
+      "end": 16217,
+      "line": 811,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 16645,
+      "end": 16657,
+      "line": 828,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 16671,
+      "end": 16687,
+      "line": 829,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-accent-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 16832,
+      "end": 16844,
+      "line": 836,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 16858,
+      "end": 16874,
+      "line": 837,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-accent-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 19441,
+      "end": 19448,
+      "line": 949,
+      "column": 14
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ghost",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 33707,
+      "end": 33720,
+      "line": 1690,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--deploy-blue",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 33734,
+      "end": 33752,
+      "line": 1691,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--deploy-blue-deep",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 33766,
+      "end": 33778,
+      "line": 1692,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--deploy-red",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 33792,
+      "end": 33809,
+      "line": 1693,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--deploy-red-deep",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 33823,
+      "end": 33835,
+      "line": 1694,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--deploy-ink",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 33849,
+      "end": 33863,
+      "line": 1695,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--deploy-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 33892,
+      "end": 33905,
+      "line": 1696,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--deploy-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 84756,
+      "end": 84767,
+      "line": 4144,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ch-spread",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 84777,
+      "end": 84787,
+      "line": 4145,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ch-scale",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 90002,
+      "end": 90012,
+      "line": 4426,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 90026,
+      "end": 90040,
+      "line": 4427,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud-hot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 91093,
+      "end": 91101,
+      "line": 4460,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--he-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 91115,
+      "end": 91127,
+      "line": 4461,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--he-hud-hot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 91816,
+      "end": 91824,
+      "line": 4480,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--he-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 91838,
+      "end": 91850,
+      "line": 4481,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--he-hud-hot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 91864,
+      "end": 91874,
+      "line": 4482,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 91888,
+      "end": 91902,
+      "line": 4483,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud-hot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 93656,
+      "end": 93669,
+      "line": 4592,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--mg-arm-fill",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 93677,
+      "end": 93689,
+      "line": 4593,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--mg-arm-len",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 93777,
+      "end": 93785,
+      "line": 4597,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--he-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 113846,
+      "end": 113857,
+      "line": 5536,
+      "column": 5
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ch-spread",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 113913,
+      "end": 113924,
+      "line": 5540,
+      "column": 5
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ch-spread",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 113977,
+      "end": 113988,
+      "line": 5544,
+      "column": 5
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ch-spread",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 114074,
+      "end": 114085,
+      "line": 5551,
+      "column": 5
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ch-spread",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 114140,
+      "end": 114151,
+      "line": 5555,
+      "column": 5
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ch-spread",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 114207,
+      "end": 114218,
+      "line": 5559,
+      "column": 5
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ch-spread",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 114305,
+      "end": 114316,
+      "line": 5566,
+      "column": 5
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ch-spread",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 114372,
+      "end": 114383,
+      "line": 5570,
+      "column": 5
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ch-spread",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 114439,
+      "end": 114450,
+      "line": 5574,
+      "column": 5
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ch-spread",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 143496,
+      "end": 143508,
+      "line": 6933,
+      "column": 5
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--mg-arm-len",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 167512,
+      "end": 167523,
+      "line": 8040,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-ink",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 167537,
+      "end": 167550,
+      "line": 8041,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 167578,
+      "end": 167590,
+      "line": 8042,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 167621,
+      "end": 167634,
+      "line": 8043,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-amber",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 167648,
+      "end": 167660,
+      "line": 8044,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-mute",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 207537,
+      "end": 207550,
+      "line": 9954,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--vehicle-cut",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 207989,
+      "end": 208002,
+      "line": 9975,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--vehicle-cut",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 222758,
+      "end": 222773,
+      "line": 10752,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--arsenal-green",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 222787,
+      "end": 222800,
+      "line": 10753,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--arsenal-red",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 222814,
+      "end": 222828,
+      "line": 10754,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--arsenal-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 222860,
+      "end": 222873,
+      "line": 10755,
+      "column": 3
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--arsenal-ink",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 257150,
+      "end": 257165,
+      "line": 12477,
+      "column": 9
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-ink",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 257175,
+      "end": 257192,
+      "line": 12477,
+      "column": 34
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-muted",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 257202,
+      "end": 257218,
+      "line": 12477,
+      "column": 61
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-blue",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 257228,
+      "end": 257244,
+      "line": 12477,
+      "column": 87
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 257284,
+      "end": 257309,
+      "line": 12478,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-header-height",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 270113,
+      "end": 270138,
+      "line": 12610,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-header-height",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 276810,
+      "end": 276835,
+      "line": 12771,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-header-height",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 289561,
+      "end": 289586,
+      "line": 12903,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-header-height",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 293115,
+      "end": 293127,
+      "line": 12938,
+      "column": 2
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 293172,
+      "end": 293193,
+      "line": 12939,
+      "column": 2
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-footer-height",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 293201,
+      "end": 293213,
+      "line": 12940,
+      "column": 2
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-cyan",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 302658,
+      "end": 302679,
+      "line": 12996,
+      "column": 23
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-footer-height",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 305375,
+      "end": 305390,
+      "line": 13037,
+      "column": 34
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--operation-art",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 305548,
+      "end": 305563,
+      "line": 13039,
+      "column": 34
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--operation-art",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 305721,
+      "end": 305736,
+      "line": 13041,
+      "column": 34
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--operation-art",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 305894,
+      "end": 305909,
+      "line": 13043,
+      "column": 34
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--operation-art",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 306067,
+      "end": 306082,
+      "line": 13045,
+      "column": 34
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--operation-art",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 306241,
+      "end": 306256,
+      "line": 13047,
+      "column": 35
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--operation-art",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 1435,
+      "end": 1448,
+      "line": 57,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--bg-deep",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 1461,
+      "end": 1471,
+      "line": 58,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 1490,
+      "end": 1506,
+      "line": 59,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 2013,
+      "end": 2030,
+      "line": 86,
+      "column": 24
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frame-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 2468,
+      "end": 2485,
+      "line": 107,
+      "column": 24
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frame-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 2842,
+      "end": 2858,
+      "line": 124,
+      "column": 24
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frame-pill",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 3073,
+      "end": 3083,
+      "line": 132,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 3102,
+      "end": 3112,
+      "line": 133,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 3240,
+      "end": 3256,
+      "line": 141,
+      "column": 24
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frame-slot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 3585,
+      "end": 3603,
+      "line": 153,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--panel-border",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 4490,
+      "end": 4506,
+      "line": 193,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 4610,
+      "end": 4620,
+      "line": 197,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 4639,
+      "end": 4649,
+      "line": 198,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 4767,
+      "end": 4783,
+      "line": 204,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 4862,
+      "end": 4876,
+      "line": 207,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 4895,
+      "end": 4905,
+      "line": 208,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 5341,
+      "end": 5357,
+      "line": 231,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 5987,
+      "end": 5999,
+      "line": 266,
+      "column": 53
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 6046,
+      "end": 6058,
+      "line": 270,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 6165,
+      "end": 6177,
+      "line": 277,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 6237,
+      "end": 6249,
+      "line": 279,
+      "column": 29
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 6358,
+      "end": 6370,
+      "line": 286,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 6528,
+      "end": 6540,
+      "line": 294,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 7275,
+      "end": 7289,
+      "line": 332,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 7392,
+      "end": 7408,
+      "line": 339,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 7521,
+      "end": 7531,
+      "line": 344,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 7652,
+      "end": 7664,
+      "line": 348,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 7953,
+      "end": 7965,
+      "line": 365,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--danger",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 8446,
+      "end": 8460,
+      "line": 395,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 8564,
+      "end": 8576,
+      "line": 401,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 8595,
+      "end": 8605,
+      "line": 402,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 8839,
+      "end": 8853,
+      "line": 417,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 9264,
+      "end": 9278,
+      "line": 440,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 9363,
+      "end": 9373,
+      "line": 446,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 9420,
+      "end": 9432,
+      "line": 450,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--health",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 9686,
+      "end": 9698,
+      "line": 465,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 10697,
+      "end": 10711,
+      "line": 512,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 10802,
+      "end": 10812,
+      "line": 518,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 11229,
+      "end": 11245,
+      "line": 541,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 11349,
+      "end": 11359,
+      "line": 545,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 11378,
+      "end": 11388,
+      "line": 546,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 12687,
+      "end": 12703,
+      "line": 613,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 12780,
+      "end": 12790,
+      "line": 616,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 12809,
+      "end": 12819,
+      "line": 617,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 12924,
+      "end": 12938,
+      "line": 625,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 12957,
+      "end": 12972,
+      "line": 626,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 13318,
+      "end": 13334,
+      "line": 649,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 13391,
+      "end": 13403,
+      "line": 652,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 13422,
+      "end": 13432,
+      "line": 653,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 13591,
+      "end": 13601,
+      "line": 662,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 13620,
+      "end": 13635,
+      "line": 663,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 13891,
+      "end": 13905,
+      "line": 680,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 14007,
+      "end": 14019,
+      "line": 687,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 14065,
+      "end": 14075,
+      "line": 691,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 14229,
+      "end": 14241,
+      "line": 699,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 14260,
+      "end": 14276,
+      "line": 700,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 14982,
+      "end": 14998,
+      "line": 744,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 15082,
+      "end": 15092,
+      "line": 748,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 15111,
+      "end": 15121,
+      "line": 749,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 15199,
+      "end": 15213,
+      "line": 756,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 15279,
+      "end": 15294,
+      "line": 759,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 16361,
+      "end": 16377,
+      "line": 816,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 16414,
+      "end": 16429,
+      "line": 818,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 16453,
+      "end": 16469,
+      "line": 819,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 17192,
+      "end": 17207,
+      "line": 852,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 17220,
+      "end": 17236,
+      "line": 853,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 17331,
+      "end": 17351,
+      "line": 859,
+      "column": 31
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-accent-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 17767,
+      "end": 17783,
+      "line": 873,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 17816,
+      "end": 17836,
+      "line": 875,
+      "column": 14
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-accent-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 18251,
+      "end": 18271,
+      "line": 895,
+      "column": 5
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-accent-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 18283,
+      "end": 18303,
+      "line": 896,
+      "column": 5
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-accent-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 18763,
+      "end": 18779,
+      "line": 918,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 19581,
+      "end": 19597,
+      "line": 955,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--end-accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 20257,
+      "end": 20273,
+      "line": 995,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 20330,
+      "end": 20340,
+      "line": 998,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 20359,
+      "end": 20369,
+      "line": 999,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 20447,
+      "end": 20461,
+      "line": 1005,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 20480,
+      "end": 20495,
+      "line": 1006,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 20599,
+      "end": 20611,
+      "line": 1012,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 20630,
+      "end": 20646,
+      "line": 1013,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 20891,
+      "end": 20908,
+      "line": 1026,
+      "column": 24
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frame-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 21138,
+      "end": 21152,
+      "line": 1039,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 21171,
+      "end": 21186,
+      "line": 1040,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 22393,
+      "end": 22409,
+      "line": 1092,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 22466,
+      "end": 22476,
+      "line": 1095,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 22495,
+      "end": 22505,
+      "line": 1096,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 22592,
+      "end": 22606,
+      "line": 1103,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 22625,
+      "end": 22640,
+      "line": 1104,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 23083,
+      "end": 23100,
+      "line": 1128,
+      "column": 24
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frame-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 23713,
+      "end": 23729,
+      "line": 1162,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 23830,
+      "end": 23845,
+      "line": 1166,
+      "column": 32
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 23895,
+      "end": 23911,
+      "line": 1170,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 24006,
+      "end": 24016,
+      "line": 1174,
+      "column": 32
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 25370,
+      "end": 25386,
+      "line": 1241,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 25530,
+      "end": 25546,
+      "line": 1249,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 25830,
+      "end": 25846,
+      "line": 1264,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 25879,
+      "end": 25893,
+      "line": 1266,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 25935,
+      "end": 25950,
+      "line": 1268,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 26173,
+      "end": 26189,
+      "line": 1283,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 26222,
+      "end": 26232,
+      "line": 1285,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 26251,
+      "end": 26261,
+      "line": 1286,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 26847,
+      "end": 26864,
+      "line": 1316,
+      "column": 24
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frame-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 27337,
+      "end": 27353,
+      "line": 1340,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 27431,
+      "end": 27441,
+      "line": 1344,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 27460,
+      "end": 27475,
+      "line": 1345,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 29048,
+      "end": 29064,
+      "line": 1435,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 31041,
+      "end": 31057,
+      "line": 1548,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 31117,
+      "end": 31131,
+      "line": 1551,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 31150,
+      "end": 31165,
+      "line": 1552,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 31829,
+      "end": 31843,
+      "line": 1588,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 32199,
+      "end": 32216,
+      "line": 1606,
+      "column": 24
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frame-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 32623,
+      "end": 32639,
+      "line": 1630,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 32672,
+      "end": 32682,
+      "line": 1632,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 32701,
+      "end": 32716,
+      "line": 1633,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 32854,
+      "end": 32868,
+      "line": 1642,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 32955,
+      "end": 32971,
+      "line": 1648,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 33031,
+      "end": 33045,
+      "line": 1651,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 33064,
+      "end": 33079,
+      "line": 1652,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 33115,
+      "end": 33125,
+      "line": 1656,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 33409,
+      "end": 33425,
+      "line": 1676,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 33458,
+      "end": 33472,
+      "line": 1678,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 33513,
+      "end": 33528,
+      "line": 1680,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 38133,
+      "end": 38150,
+      "line": 1895,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--deploy-blue",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 38221,
+      "end": 38237,
+      "line": 1900,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--deploy-red",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 38586,
+      "end": 38603,
+      "line": 1917,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--deploy-blue",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 38793,
+      "end": 38809,
+      "line": 1924,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--deploy-red",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 39432,
+      "end": 39449,
+      "line": 1958,
+      "column": 17
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--deploy-blue",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 39586,
+      "end": 39602,
+      "line": 1965,
+      "column": 17
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--deploy-red",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 47188,
+      "end": 47205,
+      "line": 2327,
+      "column": 28
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--deploy-blue",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 49951,
+      "end": 49968,
+      "line": 2455,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--deploy-blue",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 51841,
+      "end": 51857,
+      "line": 2588,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 52436,
+      "end": 52452,
+      "line": 2621,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 52538,
+      "end": 52548,
+      "line": 2625,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 52843,
+      "end": 52859,
+      "line": 2640,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 58552,
+      "end": 58568,
+      "line": 2924,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 62565,
+      "end": 62581,
+      "line": 3119,
+      "column": 24
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frame-slot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 62866,
+      "end": 62882,
+      "line": 3132,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 62991,
+      "end": 63001,
+      "line": 3137,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 63273,
+      "end": 63283,
+      "line": 3150,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 75357,
+      "end": 75373,
+      "line": 3665,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--cq-cap-col",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 76216,
+      "end": 76232,
+      "line": 3709,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--cq-cap-col",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 78473,
+      "end": 78489,
+      "line": 3810,
+      "column": 24
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frame-slot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 79966,
+      "end": 79976,
+      "line": 3873,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 81003,
+      "end": 81013,
+      "line": 3933,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 81059,
+      "end": 81069,
+      "line": 3935,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 82027,
+      "end": 82039,
+      "line": 3990,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--health",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 82058,
+      "end": 82068,
+      "line": 3991,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 82167,
+      "end": 82179,
+      "line": 3996,
+      "column": 28
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--danger",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 82227,
+      "end": 82237,
+      "line": 4000,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 82275,
+      "end": 82285,
+      "line": 4002,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 82506,
+      "end": 82516,
+      "line": 4017,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 82592,
+      "end": 82606,
+      "line": 4023,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 82653,
+      "end": 82663,
+      "line": 4025,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 83166,
+      "end": 83180,
+      "line": 4055,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 83229,
+      "end": 83239,
+      "line": 4057,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 83438,
+      "end": 83450,
+      "line": 4073,
+      "column": 23
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--health",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 83481,
+      "end": 83492,
+      "line": 4074,
+      "column": 26
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--armor",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 83810,
+      "end": 83822,
+      "line": 4091,
+      "column": 32
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--health",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 83858,
+      "end": 83869,
+      "line": 4092,
+      "column": 31
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--armor",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 83957,
+      "end": 83971,
+      "line": 4098,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 83990,
+      "end": 84005,
+      "line": 4099,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 84132,
+      "end": 84144,
+      "line": 4109,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 84163,
+      "end": 84173,
+      "line": 4110,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 84225,
+      "end": 84239,
+      "line": 4115,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 84258,
+      "end": 84273,
+      "line": 4116,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 84346,
+      "end": 84356,
+      "line": 4122,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--core",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 84402,
+      "end": 84412,
+      "line": 4124,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 84511,
+      "end": 84521,
+      "line": 4131,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 90061,
+      "end": 90075,
+      "line": 4428,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 91148,
+      "end": 91160,
+      "line": 4462,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--he-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 92410,
+      "end": 92426,
+      "line": 4510,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--he-hud-hot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 92533,
+      "end": 92545,
+      "line": 4516,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--he-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 92656,
+      "end": 92668,
+      "line": 4522,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--he-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 93787,
+      "end": 93803,
+      "line": 4597,
+      "column": 13
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--he-hud-hot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 94220,
+      "end": 94232,
+      "line": 4619,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--he-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 94686,
+      "end": 94702,
+      "line": 4639,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--mg-arm-len",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 95152,
+      "end": 95168,
+      "line": 4658,
+      "column": 11
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--mg-arm-len",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 95596,
+      "end": 95613,
+      "line": 4674,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--mg-arm-fill",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 95782,
+      "end": 95799,
+      "line": 4679,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--mg-arm-fill",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 96332,
+      "end": 96350,
+      "line": 4707,
+      "column": 25
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud-hot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 96513,
+      "end": 96531,
+      "line": 4717,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud-hot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 97072,
+      "end": 97086,
+      "line": 4749,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 97368,
+      "end": 97386,
+      "line": 4763,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud-hot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 97687,
+      "end": 97701,
+      "line": 4776,
+      "column": 28
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 97840,
+      "end": 97854,
+      "line": 4784,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 98389,
+      "end": 98407,
+      "line": 4817,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud-hot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 98740,
+      "end": 98758,
+      "line": 4835,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud-hot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 98930,
+      "end": 98944,
+      "line": 4844,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 99203,
+      "end": 99217,
+      "line": 4857,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 99842,
+      "end": 99856,
+      "line": 4886,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 100057,
+      "end": 100075,
+      "line": 4896,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud-hot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 100289,
+      "end": 100307,
+      "line": 4906,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud-hot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 100954,
+      "end": 100972,
+      "line": 4939,
+      "column": 11
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud-hot",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 101104,
+      "end": 101118,
+      "line": 4946,
+      "column": 11
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--tank-hud",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 101591,
+      "end": 101601,
+      "line": 4970,
+      "column": 20
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--heat",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 101725,
+      "end": 101735,
+      "line": 4973,
+      "column": 24
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--heat",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 110302,
+      "end": 110314,
+      "line": 5381,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 111613,
+      "end": 111628,
+      "line": 5443,
+      "column": 54
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ch-spread",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 111725,
+      "end": 111740,
+      "line": 5446,
+      "column": 55
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ch-spread",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 111837,
+      "end": 111852,
+      "line": 5449,
+      "column": 55
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ch-spread",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 111949,
+      "end": 111964,
+      "line": 5452,
+      "column": 55
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--ch-spread",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 115313,
+      "end": 115327,
+      "line": 5632,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 115346,
+      "end": 115361,
+      "line": 5633,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 115420,
+      "end": 115430,
+      "line": 5638,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 115473,
+      "end": 115483,
+      "line": 5640,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 115643,
+      "end": 115653,
+      "line": 5651,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--core",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 116121,
+      "end": 116131,
+      "line": 5676,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 116150,
+      "end": 116166,
+      "line": 5677,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 116205,
+      "end": 116215,
+      "line": 5679,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 124226,
+      "end": 124238,
+      "line": 6040,
+      "column": 22
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 124474,
+      "end": 124484,
+      "line": 6056,
+      "column": 18
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--core",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 124585,
+      "end": 124599,
+      "line": 6064,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 124618,
+      "end": 124628,
+      "line": 6065,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 124746,
+      "end": 124760,
+      "line": 6073,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 124779,
+      "end": 124794,
+      "line": 6074,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 136620,
+      "end": 136631,
+      "line": 6623,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--regen",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 164945,
+      "end": 164955,
+      "line": 7914,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 165032,
+      "end": 165042,
+      "line": 7919,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 165110,
+      "end": 165124,
+      "line": 7924,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 165374,
+      "end": 165384,
+      "line": 7935,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 165450,
+      "end": 165460,
+      "line": 7938,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 165713,
+      "end": 165727,
+      "line": 7952,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 165746,
+      "end": 165761,
+      "line": 7953,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 166683,
+      "end": 166693,
+      "line": 7996,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 166900,
+      "end": 166912,
+      "line": 8008,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 167005,
+      "end": 167019,
+      "line": 8014,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text-dim",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 167263,
+      "end": 167273,
+      "line": 8026,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--core",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 167781,
+      "end": 167797,
+      "line": 8049,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 169175,
+      "end": 169191,
+      "line": 8105,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 169742,
+      "end": 169758,
+      "line": 8136,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 169776,
+      "end": 169793,
+      "line": 8137,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 170213,
+      "end": 170229,
+      "line": 8158,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 170247,
+      "end": 170264,
+      "line": 8159,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 170956,
+      "end": 170973,
+      "line": 8194,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-amber",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 171168,
+      "end": 171184,
+      "line": 8205,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 171202,
+      "end": 171219,
+      "line": 8206,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 171403,
+      "end": 171420,
+      "line": 8216,
+      "column": 17
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-amber",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 172583,
+      "end": 172599,
+      "line": 8273,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 172617,
+      "end": 172634,
+      "line": 8274,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 172773,
+      "end": 172790,
+      "line": 8282,
+      "column": 17
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-amber",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 172902,
+      "end": 172912,
+      "line": 8288,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 173353,
+      "end": 173369,
+      "line": 8308,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 173387,
+      "end": 173404,
+      "line": 8309,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 173686,
+      "end": 173701,
+      "line": 8323,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--read-soft",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 173892,
+      "end": 173909,
+      "line": 8333,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-amber",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 174452,
+      "end": 174468,
+      "line": 8360,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 174662,
+      "end": 174678,
+      "line": 8368,
+      "column": 28
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 174878,
+      "end": 174894,
+      "line": 8380,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 175069,
+      "end": 175086,
+      "line": 8388,
+      "column": 42
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-amber",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 175185,
+      "end": 175201,
+      "line": 8393,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-mute",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 175427,
+      "end": 175444,
+      "line": 8405,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-amber",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 176277,
+      "end": 176294,
+      "line": 8443,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-amber",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 176427,
+      "end": 176443,
+      "line": 8450,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-mute",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 176515,
+      "end": 176532,
+      "line": 8453,
+      "column": 17
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-amber",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 177144,
+      "end": 177161,
+      "line": 8482,
+      "column": 17
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-amber",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 177432,
+      "end": 177442,
+      "line": 8495,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--text",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 177635,
+      "end": 177647,
+      "line": 8503,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--accent",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 177820,
+      "end": 177836,
+      "line": 8513,
+      "column": 25
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 177967,
+      "end": 177984,
+      "line": 8520,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--lobby-amber",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 178943,
+      "end": 178960,
+      "line": 8564,
+      "column": 24
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frame-panel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 179240,
+      "end": 179256,
+      "line": 8575,
+      "column": 16
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--font-pixel",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 199499,
+      "end": 199521,
+      "line": 9546,
+      "column": 13
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--soldier-progress",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 218761,
+      "end": 218779,
+      "line": 10542,
+      "column": 31
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--downed-bleed",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 219176,
+      "end": 219194,
+      "line": 10556,
+      "column": 31
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--downed-bleed",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 229245,
+      "end": 229263,
+      "line": 11065,
+      "column": 21
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--arsenal-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 230733,
+      "end": 230752,
+      "line": 11140,
+      "column": 17
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--arsenal-green",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 230869,
+      "end": 230888,
+      "line": 11145,
+      "column": 17
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--arsenal-green",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 232891,
+      "end": 232910,
+      "line": 11257,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--arsenal-green",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 232993,
+      "end": 233010,
+      "line": 11263,
+      "column": 10
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--arsenal-red",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 233810,
+      "end": 233829,
+      "line": 11310,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--arsenal-green",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 233898,
+      "end": 233915,
+      "line": 11315,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--arsenal-red",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 257369,
+      "end": 257388,
+      "line": 12478,
+      "column": 101
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-ink",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 257680,
+      "end": 257709,
+      "line": 12480,
+      "column": 66
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-header-height",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 257751,
+      "end": 257771,
+      "line": 12480,
+      "column": 137
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 258604,
+      "end": 258624,
+      "line": 12489,
+      "column": 73
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-blue",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 259082,
+      "end": 259111,
+      "line": 12494,
+      "column": 44
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-header-height",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 264521,
+      "end": 264541,
+      "line": 12544,
+      "column": 228
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 267979,
+      "end": 267999,
+      "line": 12575,
+      "column": 95
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-line",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 273992,
+      "end": 274021,
+      "line": 12674,
+      "column": 15
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-header-height",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 277861,
+      "end": 277890,
+      "line": 12783,
+      "column": 25
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-header-height",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 280341,
+      "end": 280370,
+      "line": 12811,
+      "column": 40
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--frontline-header-height",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 293465,
+      "end": 293481,
+      "line": 12943,
+      "column": 98
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 293548,
+      "end": 293564,
+      "line": 12944,
+      "column": 63
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 293584,
+      "end": 293600,
+      "line": 12944,
+      "column": 99
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 293708,
+      "end": 293724,
+      "line": 12945,
+      "column": 66
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 293828,
+      "end": 293844,
+      "line": 12946,
+      "column": 65
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 293867,
+      "end": 293883,
+      "line": 12946,
+      "column": 104
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 294089,
+      "end": 294105,
+      "line": 12948,
+      "column": 68
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 294228,
+      "end": 294244,
+      "line": 12949,
+      "column": 67
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 294281,
+      "end": 294297,
+      "line": 12949,
+      "column": 120
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 294422,
+      "end": 294438,
+      "line": 12950,
+      "column": 101
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 294512,
+      "end": 294528,
+      "line": 12951,
+      "column": 70
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 294617,
+      "end": 294633,
+      "line": 12952,
+      "column": 69
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 294670,
+      "end": 294686,
+      "line": 12952,
+      "column": 122
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 294765,
+      "end": 294781,
+      "line": 12953,
+      "column": 75
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 294801,
+      "end": 294817,
+      "line": 12953,
+      "column": 111
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 295247,
+      "end": 295263,
+      "line": 12955,
+      "column": 120
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 295332,
+      "end": 295348,
+      "line": 12955,
+      "column": 205
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 295469,
+      "end": 295485,
+      "line": 12956,
+      "column": 68
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 295584,
+      "end": 295600,
+      "line": 12957,
+      "column": 79
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 295684,
+      "end": 295700,
+      "line": 12957,
+      "column": 179
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 296051,
+      "end": 296067,
+      "line": 12959,
+      "column": 169
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 296275,
+      "end": 296291,
+      "line": 12960,
+      "column": 67
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-cyan",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 296537,
+      "end": 296553,
+      "line": 12962,
+      "column": 75
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 296592,
+      "end": 296608,
+      "line": 12962,
+      "column": 130
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 296777,
+      "end": 296793,
+      "line": 12963,
+      "column": 115
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 296832,
+      "end": 296848,
+      "line": 12963,
+      "column": 170
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 297030,
+      "end": 297046,
+      "line": 12964,
+      "column": 88
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 297067,
+      "end": 297083,
+      "line": 12964,
+      "column": 125
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 297096,
+      "end": 297112,
+      "line": 12964,
+      "column": 154
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 297189,
+      "end": 297205,
+      "line": 12965,
+      "column": 60
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 297307,
+      "end": 297323,
+      "line": 12966,
+      "column": 74
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 297487,
+      "end": 297503,
+      "line": 12968,
+      "column": 83
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 297693,
+      "end": 297709,
+      "line": 12969,
+      "column": 82
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 297979,
+      "end": 297995,
+      "line": 12970,
+      "column": 162
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 298139,
+      "end": 298155,
+      "line": 12971,
+      "column": 126
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 298318,
+      "end": 298334,
+      "line": 12973,
+      "column": 73
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 298354,
+      "end": 298370,
+      "line": 12973,
+      "column": 109
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 298474,
+      "end": 298499,
+      "line": 12974,
+      "column": 82
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-footer-height",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 298536,
+      "end": 298552,
+      "line": 12974,
+      "column": 144
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 298570,
+      "end": 298586,
+      "line": 12974,
+      "column": 178
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 298635,
+      "end": 298651,
+      "line": 12974,
+      "column": 243
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 298679,
+      "end": 298695,
+      "line": 12974,
+      "column": 287
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 298730,
+      "end": 298746,
+      "line": 12974,
+      "column": 338
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 298940,
+      "end": 298956,
+      "line": 12975,
+      "column": 119
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 299055,
+      "end": 299071,
+      "line": 12976,
+      "column": 82
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 299600,
+      "end": 299616,
+      "line": 12979,
+      "column": 161
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 299659,
+      "end": 299675,
+      "line": 12979,
+      "column": 220
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 299697,
+      "end": 299713,
+      "line": 12979,
+      "column": 258
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 300113,
+      "end": 300129,
+      "line": 12981,
+      "column": 178
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 300151,
+      "end": 300167,
+      "line": 12981,
+      "column": 216
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 300277,
+      "end": 300293,
+      "line": 12982,
+      "column": 93
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 300463,
+      "end": 300479,
+      "line": 12983,
+      "column": 120
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 300936,
+      "end": 300952,
+      "line": 12986,
+      "column": 131
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 300965,
+      "end": 300981,
+      "line": 12986,
+      "column": 160
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 301028,
+      "end": 301044,
+      "line": 12986,
+      "column": 223
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 301280,
+      "end": 301296,
+      "line": 12987,
+      "column": 200
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 301351,
+      "end": 301367,
+      "line": 12987,
+      "column": 271
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 301467,
+      "end": 301483,
+      "line": 12988,
+      "column": 59
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 301506,
+      "end": 301522,
+      "line": 12988,
+      "column": 98
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 301687,
+      "end": 301703,
+      "line": 12989,
+      "column": 97
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 301723,
+      "end": 301739,
+      "line": 12989,
+      "column": 133
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 301797,
+      "end": 301813,
+      "line": 12989,
+      "column": 207
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 301891,
+      "end": 301907,
+      "line": 12990,
+      "column": 60
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 302103,
+      "end": 302119,
+      "line": 12991,
+      "column": 69
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 302227,
+      "end": 302243,
+      "line": 12992,
+      "column": 104
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 302382,
+      "end": 302398,
+      "line": 12993,
+      "column": 86
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 302421,
+      "end": 302437,
+      "line": 12993,
+      "column": 125
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  },
+  {
+    "code": "unscoped-custom-property",
+    "severity": "warning",
+    "sourcePath": "assets/ui/frontline.ui.css",
+    "sourceRange": {
+      "start": 302575,
+      "end": 302591,
+      "line": 12994,
+      "column": 84
+    },
+    "rule": "css-custom-property-namespace",
+    "expected": "--fx-{package}-* or --forgeax-*",
+    "actual": "--squad-unit",
+    "hint": "Namespace public custom properties with the package prefix."
+  }
+]

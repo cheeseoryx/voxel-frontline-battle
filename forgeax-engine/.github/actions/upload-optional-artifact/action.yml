@@ -1,0 +1,34 @@
+name: Upload optional artifact
+description: Preserve failure diagnostics without masking the originating gate
+
+inputs:
+  name:
+    description: Artifact name
+    required: true
+  path:
+    description: Files or directories to upload
+    required: true
+  if-no-files-found:
+    description: Behavior when the path matches no files
+    required: false
+    default: warn
+  retention-days:
+    description: Number of days to retain the uploaded artifact
+    required: false
+    default: 1
+
+runs:
+  using: composite
+  steps:
+    - name: Upload optional diagnostics
+      continue-on-error: true
+      uses: actions/upload-artifact@v6
+      env:
+        # Optional evidence must not hold a self-hosted job behind the default
+        # five-minute blob timeout when GitHub artifact transport is degraded.
+        ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS: '60000'
+      with:
+        name: ${{ inputs.name }}
+        path: ${{ inputs.path }}
+        if-no-files-found: ${{ inputs.if-no-files-found }}
+        retention-days: ${{ inputs.retention-days }}

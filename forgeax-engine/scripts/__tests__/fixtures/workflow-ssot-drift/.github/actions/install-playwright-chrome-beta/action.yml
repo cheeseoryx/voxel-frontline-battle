@@ -1,0 +1,8 @@
+name: install-playwright-chrome-beta (fixture stub)
+description: stub composite action for SSOT lint fixture
+runs:
+  using: composite
+  steps:
+    - name: stub
+      shell: bash
+      run: echo "stub"

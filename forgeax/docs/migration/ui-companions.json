@@ -1,0 +1,77 @@
+[
+  {
+    "source": "assets/mode-quickmatch32-bg.png",
+    "name": "4a1d47975e3390ba.png",
+    "bytes": 1915222
+  },
+  {
+    "source": "modes/small-battle/assets/mode-tdm.png",
+    "name": "88a8f4de238b9cb4.png",
+    "bytes": 8587550
+  },
+  {
+    "source": "modes/small-battle/assets/mode-demo.png",
+    "name": "4bb4d4f5678f0af0.png",
+    "bytes": 7645673
+  },
+  {
+    "source": "modes/small-battle/assets/mode-ffa.png",
+    "name": "0fd9b924ed3dccd2.png",
+    "bytes": 7840230
+  },
+  {
+    "source": "modes/small-battle/assets/mode-gun.png",
+    "name": "548c5ae8c0620f75.png",
+    "bytes": 8067099
+  },
+  {
+    "source": "modes/small-battle/assets/mode-core.png",
+    "name": "e63ef21ce3b8f7e5.png",
+    "bytes": 7703798
+  },
+  {
+    "source": "assets/fonts/zpix.ttf",
+    "name": "ed39f02845e8c0b8.ttf",
+    "bytes": 7179288
+  },
+  {
+    "source": "assets/ui/frame-panel.png",
+    "name": "77a922a97e5508ce.png",
+    "bytes": 206
+  },
+  {
+    "source": "assets/ui/frame-pill.png",
+    "name": "3d127bb074a2136b.png",
+    "bytes": 278
+  },
+  {
+    "source": "assets/ui/frame-slot.png",
+    "name": "f8259be12f526c56.png",
+    "bytes": 149
+  },
+  {
+    "source": "assets/cover.png",
+    "name": "e78e1a6b13ec5b86.png",
+    "bytes": 2568298
+  },
+  {
+    "source": "assets/mode-servers-bg.png",
+    "name": "08706441ec24bac9.png",
+    "bytes": 1774346
+  },
+  {
+    "source": "assets/mode-solo-bg.png",
+    "name": "6695ebdfe0f8517a.png",
+    "bytes": 1927983
+  },
+  {
+    "source": "assets/mode-range-bg.png",
+    "name": "23239c95e494432b.png",
+    "bytes": 1929826
+  },
+  {
+    "source": "assets/lobby-bg.png",
+    "name": "aa162d8b55522693.png",
+    "bytes": 2664763
+  }
+]

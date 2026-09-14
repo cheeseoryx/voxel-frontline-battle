@@ -1,0 +1,10 @@
+# Code owners for forgeax-engine.
+#
+# Reviews from members of the team below are required to merge into protected
+# branches (enforced by the repo Protect ruleset, rule `pull_request` with
+# `require_code_owner_review: true`).
+#
+# Maintain this file as the SSOT for who is on the hook for review; manage
+# membership at https://github.com/orgs/ForgeaXGame/teams/engine-team.
+
+* @ForgeaXGame/engine-team

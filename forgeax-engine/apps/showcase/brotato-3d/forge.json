@@ -1,0 +1,12 @@
+{
+  "id": "brotato-3d",
+  "name": "Brotato 3D",
+  "schemaVersion": "2.0.0",
+  "plugins": [
+    {
+      "id": "gameplay",
+      "name": "./assets/gameplay.plugin.ts",
+      "realm": "engine"
+    }
+  ]
+}

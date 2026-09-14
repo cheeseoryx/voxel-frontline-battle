@@ -1,0 +1,259 @@
+import type { RenderFeatureMaterialShaderBindingContract } from '@forgeax/engine-render';
+import {
+  err,
+  type MaterialAsset,
+  type MaterialRenderState,
+  type MeshAsset,
+  ok,
+  type Result,
+} from '@forgeax/engine-types';
+import type { ParticleRendererSource } from '@forgeax/engine-vfx';
+
+type ParticleRendererKind = ParticleRendererSource['kind'];
+type ParticleTopologyRenderer = Extract<ParticleRendererSource, { readonly capacity: number }>;
+type ParticleTopologyKind = ParticleTopologyRenderer['kind'];
+
+export const PARTICLE_SHADER_IDENTIFIERS = Object.freeze({
+  billboard: 'forgeax::vfx-render.particles.billboard',
+  mesh: 'forgeax::vfx-render.particles.mesh',
+  ribbon: 'forgeax::vfx-render.particles.ribbon',
+  trail: 'forgeax::vfx-render.particles.trail',
+  beam: 'forgeax::vfx-render.particles.beam',
+});
+
+export interface TopologyResourcePlan {
+  readonly topology: ParticleTopologyKind;
+  readonly capacity: number;
+  readonly vertexBytes: number;
+  readonly indexBytes: number;
+  readonly indirectBytes: number;
+  readonly resourceKey: string;
+  readonly historyLength?: number;
+  readonly stripKey?: 'alive-index';
+  readonly endpointField?: 'velocity';
+}
+
+export interface TopologyResourceError {
+  readonly code: 'vfx-topology-resource-invalid';
+  readonly expected: string;
+  readonly hint: string;
+  readonly detail: { readonly path: string };
+}
+
+export function createTopologyResourcePlan(
+  renderer: unknown,
+): Result<TopologyResourcePlan, TopologyResourceError> {
+  if (renderer === null || typeof renderer !== 'object' || Array.isArray(renderer))
+    return err({
+      code: 'vfx-topology-resource-invalid',
+      expected: 'a topology renderer object',
+      hint: 'declare a ribbon, trail, or beam renderer',
+      detail: { path: 'renderer' },
+    });
+  const value = renderer as Partial<ParticleRendererSource> & Record<string, unknown>;
+  if (value.kind !== 'ribbon' && value.kind !== 'trail' && value.kind !== 'beam')
+    return err({
+      code: 'vfx-topology-resource-invalid',
+      expected: 'ribbon, trail, or beam',
+      hint: 'do not alias topology output to billboard or mesh',
+      detail: { path: 'renderer.kind' },
+    });
+  if (
+    typeof value.capacity !== 'number' ||
+    !Number.isInteger(value.capacity) ||
+    value.capacity <= 0 ||
+    value.capacity > 65536
+  )
+    return err({
+      code: 'vfx-topology-resource-invalid',
+      expected: 'capacity in the range 1..65536',
+      hint: 'bound topology resources before allocating them',
+      detail: { path: 'renderer.capacity' },
+    });
+  const capacity = value.capacity;
+  if (value.kind === 'ribbon' && value.stripKey !== 'alive-index')
+    return err({
+      code: 'vfx-topology-resource-invalid',
+      expected: "stripKey 'alive-index'",
+      hint: 'use the managed alive-list order until a custom WGSL topology stage owns grouping',
+      detail: { path: 'renderer.stripKey' },
+    });
+  if (
+    value.kind === 'trail' &&
+    (typeof value.historyLength !== 'number' ||
+      !Number.isInteger(value.historyLength) ||
+      value.historyLength <= 0 ||
+      value.historyLength > 256)
+  )
+    return err({
+      code: 'vfx-topology-resource-invalid',
+      expected: 'historyLength in the range 1..256',
+      hint: 'bound trail history storage',
+      detail: { path: 'renderer.historyLength' },
+    });
+  if (value.kind === 'beam' && value.endpointField !== 'velocity')
+    return err({
+      code: 'vfx-topology-resource-invalid',
+      expected: "endpointField 'velocity'",
+      hint: 'use the managed velocity endpoint until a custom WGSL topology stage owns endpoints',
+      detail: { path: 'renderer.endpointField' },
+    });
+  const vertexStride = 12 * 4;
+  const segments =
+    value.kind === 'trail' ? capacity * Math.max(1, (value.historyLength as number) - 1) : capacity;
+  return ok({
+    topology: value.kind,
+    capacity,
+    vertexBytes: Math.max(vertexStride, segments * vertexStride),
+    indexBytes: 0,
+    indirectBytes: 20,
+    resourceKey: `vfx-topology-${value.kind}`,
+    ...(value.kind === 'ribbon' ? { stripKey: 'alive-index' as const } : {}),
+    ...(value.kind === 'trail' ? { historyLength: value.historyLength as number } : {}),
+    ...(value.kind === 'beam' ? { endpointField: 'velocity' as const } : {}),
+  });
+}
+
+export interface TopologyCapacityInput {
+  readonly requested: number;
+  readonly produced: number;
+  readonly degenerate?: number;
+}
+
+export function topologyCapacitySnapshot(plan: TopologyResourcePlan, input: TopologyCapacityInput) {
+  const produced = Math.max(0, Math.min(plan.capacity, input.produced));
+  const requested = Math.max(0, input.requested);
+  return {
+    topology: plan.topology,
+    capacity: plan.capacity,
+    produced,
+    dropped: Math.max(0, requested - produced),
+    overflow: Math.max(0, requested - plan.capacity),
+    degenerate: Math.max(0, input.degenerate ?? 0),
+  } as const;
+}
+
+export interface ParticleMaterialPass {
+  readonly shader: string;
+  readonly renderState?: MaterialRenderState;
+}
+
+type ParticleBlendMode = Extract<ParticleRendererSource, { readonly kind: 'billboard' }>['blend'];
+
+const PARTICLE_PREMULTIPLIED_ALPHA_BLEND: NonNullable<MaterialRenderState['blend']> = {
+  color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+  alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+};
+
+const PARTICLE_ADDITIVE_BLEND: NonNullable<MaterialRenderState['blend']> = {
+  color: { srcFactor: 'one', dstFactor: 'one', operation: 'add' },
+  alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+};
+
+/**
+ * Resolve the one material pass that is meaningful for a particle projection.
+ * A regular Forward pass is intentionally ignored: VFX vertex layouts are a
+ * different contract, so silently accepting it would compile the wrong input
+ * shape and make authored particle shaders appear to work while never running.
+ */
+export function particleMaterialPass(
+  kind: ParticleRendererKind,
+  material: MaterialAsset | undefined,
+): ParticleMaterialPass {
+  const pass = material?.passes?.find((candidate) => candidate.name === `particle-${kind}`);
+  return {
+    shader: pass?.program.module ?? PARTICLE_SHADER_IDENTIFIERS[kind],
+    ...(pass?.renderState === undefined
+      ? {}
+      : { renderState: pass.renderState as MaterialRenderState }),
+  };
+}
+
+/**
+ * Resolve the default pipeline state for a particle renderer.
+ *
+ * The built-in particle shaders emit premultiplied RGB (`rgb * alpha`). The
+ * renderer's explicit blend mode therefore has to become a matching fixed
+ * function state; leaving the state undefined makes transparent billboard
+ * corners overwrite the scene with their zero RGB (the visible black-box
+ * failure). An authored particle pass remains authoritative and bypasses
+ * these defaults.
+ */
+export function particleRendererRenderState(
+  kind: ParticleRendererKind,
+  blend: ParticleBlendMode,
+  authored: MaterialRenderState | undefined,
+): MaterialRenderState | undefined {
+  if (authored !== undefined) return authored;
+  const isTopology = kind === 'ribbon' || kind === 'trail' || kind === 'beam';
+  if (kind !== 'billboard' && !isTopology) return undefined;
+  const mode = kind === 'billboard' ? (blend ?? 'alpha') : 'alpha';
+  if (mode === 'opaque-cutout') {
+    return {
+      cullMode: 'none',
+      depthCompare: 'less-equal',
+      depthWriteEnabled: true,
+    };
+  }
+  return {
+    cullMode: 'none',
+    depthCompare: 'less-equal',
+    depthWriteEnabled: false,
+    blend: mode === 'additive' ? PARTICLE_ADDITIVE_BLEND : PARTICLE_PREMULTIPLIED_ALPHA_BLEND,
+  };
+}
+
+/** True when the authored particle shader consumes the standard material bind group. */
+export function particleMaterialUsesBindings(material: MaterialAsset | undefined): boolean {
+  return (material?.parameters?.length ?? 0) > 0;
+}
+
+/**
+ * Return the scene-depth binding slot required by a particle material shader.
+ *
+ * Custom particle shaders historically bind only the sampled depth resource at
+ * group(0)/binding(0), while the renderer-owned billboard shader also consumes
+ * the view UBO at binding(0) and therefore uses depth at binding(1). Keep this
+ * choice derived from the renderer contract instead of assuming every
+ * billboard has the built-in layout.
+ */
+export function particleMaterialSceneDepthBinding(
+  contract: RenderFeatureMaterialShaderBindingContract | undefined,
+): 0 | 1 | undefined {
+  if (contract === 'group-0-resource') return 0;
+  if (contract === 'view-and-scene-depth') return 1;
+  return undefined;
+}
+
+function floatAttribute(value: ArrayBuffer | Float32Array | Uint16Array | undefined): Float32Array {
+  if (value instanceof Float32Array) return value;
+  if (value instanceof Uint16Array) return Float32Array.from(value);
+  return value === undefined ? new Float32Array() : new Float32Array(value);
+}
+
+export function canonicalMeshVertices(mesh: MeshAsset): Float32Array {
+  if (mesh.vertices.length > 0 && mesh.vertices.length % 12 === 0) return mesh.vertices;
+  const positions = floatAttribute(mesh.attributes.position);
+  const vertexCount = Math.floor(positions.length / 3);
+  const normals = floatAttribute(mesh.attributes.normal);
+  const uvs = floatAttribute(mesh.attributes.uv);
+  const tangents = floatAttribute(mesh.attributes.tangent);
+  const result = new Float32Array(vertexCount * 12);
+  for (let index = 0; index < vertexCount; index += 1) {
+    const target = index * 12;
+    result.set(positions.subarray(index * 3, index * 3 + 3), target);
+    result.set(
+      normals.length >= index * 3 + 3 ? normals.subarray(index * 3, index * 3 + 3) : [0, 0, 1],
+      target + 3,
+    );
+    result.set(
+      uvs.length >= index * 2 + 2 ? uvs.subarray(index * 2, index * 2 + 2) : [0, 0],
+      target + 6,
+    );
+    result.set(
+      tangents.length >= index * 4 + 4 ? tangents.subarray(index * 4, index * 4 + 4) : [1, 0, 0, 1],
+      target + 8,
+    );
+  }
+  return result;
+}

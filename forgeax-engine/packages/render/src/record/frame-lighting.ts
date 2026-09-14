@@ -1,0 +1,1227 @@
+// @forgeax/engine-runtime - RenderSystem record stage: per-frame lighting.
+// feat-20260704 M5/w31: further-split from frame.ts (AC-05 <=1500 lines/file).
+// Pure leaf helpers invoked once each from recordFrame; behavior verbatim.
+
+import { mat4, vec3 } from '@forgeax/engine-math';
+import {
+  type BindGroup,
+  type BindGroupEntry,
+  type BindGroupLayout,
+  type RhiDevice,
+  RhiError,
+  type TextureView,
+} from '@forgeax/engine-rhi';
+import { err, ok, type Result, toShared } from '@forgeax/engine-types';
+import {
+  PointShadowAtlasBoundsViolationError,
+  PointShadowAtlasUninitializedError,
+  type RenderError,
+  RendererOperationError,
+  StandardClusterTransportUnavailableError,
+} from '../errors/render';
+import {
+  createHdrpClusterMembershipBindGroup,
+  createHdrpUnifiedBindGroup,
+  getOrCreateHdrpBuffers,
+  packClusterUniform,
+} from '../hdrp-buffers';
+import { DIRECT_LIGHT_SLOT_FLOAT_COUNT, packDirectLightSlot } from '../light-buffer-layout';
+import {
+  type PreparedStandardLighting,
+  prepareStandardLighting,
+} from '../pipeline/standard-lighting/prepare';
+import type { StandardTopologyInputValue } from '../pipeline/standard-lighting/topology';
+import {
+  type StandardClusterTransport,
+  selectStandardClusterTransport,
+} from '../pipeline/standard-lighting/transport';
+import { DEFAULT_CLUSTER_GRID, DEFAULT_STANDARD_PROFILE } from '../pipeline/standard-profile';
+import {
+  COOKIE_MATRIX_BYTES,
+  COOKIE_SLICE_SIZE,
+  IES_SLICE_HEIGHT,
+  IES_SLICE_WIDTH,
+} from '../prepare/extended-lighting/resources';
+import type { ReflectionProbeTable } from '../reflection/gpu-table';
+import type { ReflectionProbeSelectionResult } from '../reflection/projection';
+import type { CameraSnapshot, RenderHdrpClusterPhase } from '../render-contract';
+import type {
+  DirectionalLightSnapshot,
+  ExtractedLights,
+  RenderableSnapshot,
+  SkyboxSnapshot,
+  SkylightSnapshot,
+} from '../render-system-extract';
+import {
+  SHADOW_ATLAS_DEFAULT_FACE_SIZE,
+  SHADOW_ATLAS_DEFAULT_LAYERS,
+  ShadowAtlas,
+} from '../shadow-atlas';
+import { getOrCreateSsaoBuffers } from '../ssao-buffers';
+import { getSsaoParameters } from '../ssao-config';
+// extendedLighting keeps Spot modifier factors on the existing light record
+// path; no additional render pass or submit owner is introduced.
+import type { BindGroupCounts, RenderFrameState } from './frame-snapshot';
+import {
+  computeProjectionMatrix,
+  computeViewMatrix,
+  isLitMaterialSnapshot,
+  warnMultiLightDirectional,
+} from './helpers';
+import { getOrCreateFromChain, MESH_SSBO_BYTES, MESH_UBO_FULL_ARRAY_BYTES } from './mesh-ssbo';
+import type { PipelineState, RecordProfileRunner, RenderSystemInternals } from './render-context';
+import { POINTS_LINES_VIEW_BYTES, VIEW_UNIFORM_BYTES } from './view-ubo';
+
+export interface StandardReflectionProbeBinding {
+  readonly probeIndex: number | undefined;
+  readonly useSkylight: boolean;
+}
+
+export function resolveReflectionProbeBinding(
+  selection: ReflectionProbeSelectionResult,
+  table?: ReflectionProbeTable,
+): StandardReflectionProbeBinding {
+  if (selection.kind !== 'probe') return { probeIndex: undefined, useSkylight: true };
+  const primitiveKey = `${selection.worldId}:${selection.entityKey}`;
+  const tableIndex = table?.cpuIndexByPrimitive(primitiveKey);
+  return { probeIndex: tableIndex ?? selection.entityKey, useSkylight: false };
+}
+
+export function projectDeviceOwnedBindGroup<T>(
+  state:
+    | {
+        readonly device: RhiDevice;
+        readonly layout: BindGroupLayout;
+        readonly bindGroup: T;
+      }
+    | null
+    | undefined,
+  device: RhiDevice,
+  layout: BindGroupLayout | null,
+): T | null {
+  return state !== null && state !== undefined && state.device === device && state.layout === layout
+    ? state.bindGroup
+    : null;
+}
+
+function runHdrpClusterProfilePhase<T>(
+  runner: RecordProfileRunner | undefined,
+  phase: RenderHdrpClusterPhase,
+  action: () => T,
+): T {
+  return runner === undefined ? action() : runner(phase, action);
+}
+
+function mapClusterUploadFailure(
+  resource: string,
+  error: {
+    readonly code: string;
+    readonly expected: string;
+    readonly hint: string;
+    readonly detail?: unknown;
+  },
+): RendererOperationError<'device-operation-failed'> {
+  return new RendererOperationError('device-operation-failed', {
+    operation: 'draw',
+    cause: {
+      code: error.code,
+      expected: `queue.writeBuffer succeeds for Standard Cluster ${resource}`,
+      hint: `repair the device write for Standard Cluster ${resource} and retry the frame`,
+      detail: error,
+    },
+  });
+}
+
+/**
+ * feat-20260704 M3/w18: per-frame bind-group cache resolution, extracted
+ * verbatim from `recordFrame`. Walks the handle-identity WeakMap caches
+ * (feat-20260531 M2 + feat-20260622 M3) to resolve or lazily create the view
+ * (@group 0), mesh (@group 2), and — when HDRP is active — HDRP-unified cluster
+ * bind groups. Returns all three (null when `hasValidated` is false, the Case E
+ * clear-pass-only path). No new mutable state: `bindGroupCounts` accounting +
+ * cache maps are threaded through explicitly.
+ *
+ * @internal
+ */
+export function buildPerFrameBindGroups(
+  internals: RenderSystemInternals,
+  frameState: RenderFrameState,
+  pipelineState: PipelineState,
+  hasValidated: boolean,
+  bindGroupCounts: BindGroupCounts,
+  graphTargets?: {
+    readonly directionalShadow?: TextureView | undefined;
+    readonly spotShadow?: TextureView | undefined;
+    readonly projector?: TextureView | undefined;
+    readonly projectorSampler?: import('@forgeax/engine-rhi').Sampler | undefined;
+  },
+  includeView = true,
+  standardLighting?: StandardTopologyInputValue,
+): {
+  viewBindGroup: BindGroup | null;
+  meshBindGroup: BindGroup | null;
+  hdrpClusterBindGroup: BindGroup | null;
+  hdrpClusterMembershipBindGroup: BindGroup | null;
+} {
+  // View main (#1) chain = b0(viewUniformBuffer), b3(graph shadowDepth view or
+  // shadowFallbackTextureView), b4(shadowSampler), b5(atlas view), b6
+  // (shadowParams); variant 'view-main'. Local lights are never mirrored in
+  // the view group: Standard consumes the one Cluster group(2) payload.
+  // Mesh (#2) chain = inner b0 buffer (meshStorageBuffer.buffer); variant 'mesh'.
+  let viewBindGroup: BindGroup | null = null;
+  let meshBindGroup: BindGroup | null = null;
+  // Standard clustered group(2) bind group. Non-null when the prepared
+  // topology selects the cluster transport and its persistent allocation
+  // succeeds; consumed by recordMainPass at `setBindGroup(2, ...)`.
+  let hdrpClusterBindGroup: BindGroup | null = null;
+  // The prepared Standard topology is the per-frame authority for whether
+  // group(2) carries Cluster storage. A missing declaration is the prewarm /
+  // non-Standard path and must not allocate or bind the Cluster bundle based
+  // on the install-time pipeline identity alone.
+  const clusteredLighting = standardLighting?.kind === 'clustered';
+  const membershipLayout = pipelineState.hdrpClusterMembershipBindGroupLayout;
+  const membership = frameState.hdrpClusterMembership;
+  const expectedHdrpBuffers =
+    hasValidated && clusteredLighting
+      ? getOrCreateHdrpBuffers(internals, frameState.installedPipelineConfig?.clusterGrid)
+      : null;
+  const currentMembership =
+    expectedHdrpBuffers !== null &&
+    membership?.clusterGridBuffer === expectedHdrpBuffers.clusterGridBuffer
+      ? projectDeviceOwnedBindGroup(membership, internals.device, membershipLayout)
+      : null;
+  if (membership !== null && currentMembership === null) {
+    frameState.hdrpClusterMembership = null;
+  }
+  const hdrpClusterMembershipBindGroup: BindGroup | null = clusteredLighting
+    ? currentMembership
+    : null;
+  if (hasValidated) {
+    // Shadow atlas view comes from the typed graph target.
+    // Graph owns the texture lifecycle; record-stage reads the resolved
+    // view each frame (D-2 SSOT). When the graph has not allocated the
+    // target (castShadow:false or shadowMapSize=0),
+    // `getColorTargetView` returns undefined and we fall through to the
+    // 1x1 fallback view that keeps the BGL satisfied.
+    if (includeView) {
+      const shadowSampler = pipelineState.perPassResources.shadowSampler;
+      if (shadowSampler === null) {
+        return {
+          viewBindGroup: null,
+          meshBindGroup: null,
+          hdrpClusterBindGroup: null,
+          hdrpClusterMembershipBindGroup,
+        };
+      }
+      const graphShadowView = graphTargets?.directionalShadow;
+      const b3View =
+        graphShadowView !== undefined ? graphShadowView : pipelineState.shadowFallbackTextureView;
+      // feat-20260612-point-light-shadows-urp-hdrp Round-2 F-1: bind the real
+      // ShadowAtlas cube_array view when point shadows are active in this
+      // frame; otherwise the 1x1x6 fallback (cleared to 1.0 = fully lit).
+      const pointShadowAtlas = frameState.pointShadowAtlas;
+      const atlasViewMaybe = pointShadowAtlas?.isAllocated()
+        ? pointShadowAtlas.getAtlasView()
+        : null;
+      const b5View =
+        atlasViewMaybe !== null ? atlasViewMaybe : pipelineState.shadowAtlasFallbackTextureView;
+      // feat-20260625-spot-light-shadow-mapping M2 / w21 (D-1 fragment side +
+      // D-5): bind the real `spotShadowDepth` 2D atlas view (graph-owned) when
+      // spot shadows run this frame; otherwise the 1x1 depth fallback cleared to
+      // 1.0 (fully lit) — same `texture_depth_2d` shape as binding 3, so it
+      // satisfies the BGL without a dedicated spot fallback allocation. binding
+      // 9 always binds the real spotLightViewProj UBO (zeroed lanes are safe via
+      // the shadowAtlasTile >= 0 shader gate).
+      const graphSpotShadowView = graphTargets?.spotShadow;
+      const b8View =
+        graphSpotShadowView !== undefined
+          ? graphSpotShadowView
+          : pipelineState.shadowFallbackTextureView;
+      const extendedLighting = pipelineState.extendedLightingAvailable ?? true;
+      const iesProfileTextureView = pipelineState.iesProfileTextureView;
+      const cookieTextureView = pipelineState.cookieTextureView;
+      const cookieMatrixBuffer = pipelineState.cookieMatrixBuffer;
+      const ltcLambertTextureView = pipelineState.ltcLambertTextureView;
+      const ltcGgxTextureView = pipelineState.ltcGgxTextureView;
+      const extendedLightingResources =
+        extendedLighting &&
+        iesProfileTextureView !== undefined &&
+        cookieTextureView !== undefined &&
+        cookieMatrixBuffer !== undefined &&
+        ltcLambertTextureView !== undefined &&
+        ltcGgxTextureView !== undefined
+          ? {
+              sampler: pipelineState.defaultSampler,
+              iesProfileTextureView,
+              cookieTextureView,
+              ltcLambertTextureView,
+              ltcGgxTextureView,
+              cookieMatrixBuffer,
+            }
+          : undefined;
+      if (extendedLighting && extendedLightingResources === undefined) {
+        return {
+          viewBindGroup: null,
+          meshBindGroup: null,
+          hdrpClusterBindGroup: null,
+          hdrpClusterMembershipBindGroup,
+        };
+      }
+      const extendedLightingViews =
+        extendedLightingResources !== undefined
+          ? [
+              extendedLightingResources.sampler,
+              extendedLightingResources.iesProfileTextureView,
+              extendedLightingResources.cookieTextureView,
+              extendedLightingResources.ltcLambertTextureView,
+              extendedLightingResources.ltcGgxTextureView,
+              extendedLightingResources.cookieMatrixBuffer,
+            ]
+          : [];
+      const projectorAvailable = pipelineState.projectorAvailable !== false;
+      const b11View = graphTargets?.projector ?? pipelineState.defaultWhiteTextureView;
+      const b12Sampler = graphTargets?.projectorSampler ?? pipelineState.defaultSampler;
+      viewBindGroup = getOrCreateFromChain(
+        frameState.viewBindGroupCache,
+        [
+          pipelineState.viewUniformBuffer,
+          b3View,
+          shadowSampler,
+          b5View,
+          pipelineState.shadowParamsBuffer,
+          b8View,
+          ...extendedLightingViews,
+          ...(extendedLightingResources === undefined && projectorAvailable
+            ? [b11View, b12Sampler]
+            : []),
+          pipelineState.pointsLinesViewBuffer ?? pipelineState.viewUniformBuffer,
+        ],
+        'view-main',
+        () => {
+          const entries: BindGroupEntry[] = [
+            {
+              binding: 0,
+              resource: {
+                kind: 'buffer',
+                value: { buffer: pipelineState.viewUniformBuffer, size: VIEW_UNIFORM_BYTES },
+              },
+            },
+            {
+              binding: 3,
+              resource: {
+                kind: 'textureView',
+                value: b3View,
+              },
+            },
+            {
+              binding: 4,
+              resource: {
+                kind: 'sampler',
+                value: shadowSampler,
+              },
+            },
+            // feat-20260612-point-light-shadows-urp-hdrp Round-2 F-1:
+            // cube_array shadow atlas view (real ShadowAtlas when point
+            // shadows are active; else 1x1x6 fallback).
+            {
+              binding: 5,
+              resource: {
+                kind: 'textureView',
+                value: b5View,
+              },
+            },
+            // feat-20260612-point-light-shadows-urp-hdrp Round-2 F-1:
+            // shadowParams UBO (`array<vec4<f32>, 4>` = 64 B). Lane N
+            // stores `(near, far, 1/(far-near), 0)` for the point light
+            // with shadowAtlasLayer === N. Updated per frame from
+            // `pointShadowSnapshots` below.
+            {
+              binding: 6,
+              resource: {
+                kind: 'buffer',
+                value: { buffer: pipelineState.shadowParamsBuffer },
+              },
+            },
+            // feat-20260613-csm-cascaded-shadow-maps M5 / w28 (rebased to
+            // binding 7 on 2026-06-13 to make room for point-shadow 5/6):
+            // forward shaders declare binding 7 in common.wgsl (shared
+            // view BGL) but never reference it; only shadow_caster.wgsl
+            // reads it. Host writes a stable singleton buffer so every
+            // forward bind group entry stays populated.
+            {
+              binding: 7,
+              resource: {
+                kind: 'buffer',
+                value: { buffer: pipelineState.shadowCasterCascadeBuffer },
+              },
+            },
+            // feat-20260625-spot-light-shadow-mapping M3 / w21 (D-5):
+            // spot shadow 2D atlas (real spotShadowDepth view when spot
+            // shadows run this frame, else the 1x1 depth fallback). Always-on.
+            {
+              binding: 8,
+              resource: {
+                kind: 'textureView',
+                value: b8View,
+              },
+            },
+            {
+              binding: 10,
+              resource: {
+                kind: 'buffer',
+                value: {
+                  buffer: pipelineState.pointsLinesViewBuffer ?? pipelineState.viewUniformBuffer,
+                  size: POINTS_LINES_VIEW_BYTES,
+                },
+              },
+            },
+            ...(extendedLightingResources === undefined && projectorAvailable
+              ? [
+                  { binding: 11, resource: { kind: 'textureView' as const, value: b11View } },
+                  { binding: 12, resource: { kind: 'sampler' as const, value: b12Sampler } },
+                ]
+              : []),
+            ...(extendedLightingResources !== undefined
+              ? [
+                  {
+                    binding: 9,
+                    resource: {
+                      kind: 'sampler' as const,
+                      value: extendedLightingResources.sampler,
+                    },
+                  },
+                  {
+                    binding: 11,
+                    resource: {
+                      kind: 'textureView' as const,
+                      value: extendedLightingResources.iesProfileTextureView,
+                    },
+                  },
+                  {
+                    binding: 12,
+                    resource: {
+                      kind: 'textureView' as const,
+                      value: extendedLightingResources.cookieTextureView,
+                    },
+                  },
+                  {
+                    binding: 13,
+                    resource: {
+                      kind: 'textureView' as const,
+                      value: extendedLightingResources.ltcLambertTextureView,
+                    },
+                  },
+                  {
+                    binding: 14,
+                    resource: {
+                      kind: 'textureView' as const,
+                      value: extendedLightingResources.ltcGgxTextureView,
+                    },
+                  },
+                  {
+                    binding: 15,
+                    resource: {
+                      kind: 'buffer' as const,
+                      value: {
+                        buffer: extendedLightingResources.cookieMatrixBuffer,
+                        size: COOKIE_MATRIX_BYTES,
+                      },
+                    },
+                  },
+                ]
+              : []),
+            // feat-20260625-spot-light-shadow-mapping w25: the per-spot
+            // fragment-read lightViewProj matrices fold into the View UBO
+            // (binding 0, `view.spotLightViewProj`) — no standalone binding 9
+            // (WebGL2 fragment uniform-buffer budget). binding 10 is the
+            // dedicated vertex-only Points/Lines viewport UBO.
+          ];
+          const viewBindGroupResult = internals.device.createBindGroup({
+            label: 'pbr-view-bg',
+            layout: pipelineState.viewBindGroupLayout,
+            entries,
+          });
+          if (!viewBindGroupResult.ok) throw viewBindGroupResult.error;
+          return viewBindGroupResult.value;
+        },
+        bindGroupCounts,
+      );
+    }
+
+    // M3 / w10 (D-3 hard constraint): use the inner `.buffer` as the
+    // WeakMap chain key so the cache tracks the underlying GPU buffer
+    // identity. The wrapper object's identity is stable across grow
+    // events; using the wrapper would defeat AC-07 cache invalidation.
+    meshBindGroup = getOrCreateFromChain(
+      frameState.meshBindGroupCache,
+      [pipelineState.meshStorageBuffer.buffer],
+      'mesh',
+      () => {
+        // bug-20260610: WebGL2 fallback path needs the binding to cover the
+        // whole `array<Mesh, 128>` uniform buffer (14336 B) instead of a
+        // single dynamic-offset slot (112 B). `caps.storageBuffer === false`
+        // is the same proxy createRenderer uses to pick the uniform variant.
+        const meshBindSize = internals.device.caps.storageBuffer
+          ? MESH_SSBO_BYTES
+          : MESH_UBO_FULL_ARRAY_BYTES;
+        const meshBindGroupResult = internals.device.createBindGroup({
+          label: 'pbr-mesh-bg',
+          layout: pipelineState.meshBindGroupLayout,
+          entries: [
+            {
+              binding: 0,
+              resource: {
+                kind: 'buffer',
+                value: {
+                  buffer: pipelineState.meshStorageBuffer.buffer,
+                  offset: 0,
+                  size: meshBindSize,
+                },
+              },
+            },
+          ],
+        });
+        if (!meshBindGroupResult.ok) throw meshBindGroupResult.error;
+        return meshBindGroupResult.value;
+      },
+      bindGroupCounts,
+    );
+
+    // feat-20260609-hdrp-cluster-fragment-ggx M4 / w19: when HDRP is active,
+    // build the unified group(2) BindGroup that carries the mesh SSBO at
+    // binding 0 + the 4 cluster buffers at bindings 3..6. The bindGroup
+    // shares the mesh SSBO with URP's `meshBindGroup` (same `meshStorageBuffer.buffer`
+    // + same per-entity stride), so the dynamic offset issued at
+    // `setBindGroup(2, ...)` covers binding 0 of either layout. Cached
+    // alongside `meshBindGroupCache` keyed on the mesh SSBO + cluster
+    // buffer identities; cache invalidates on a buffer-grow event the same
+    // way the mesh path does (handle id rotation).
+    if (clusteredLighting) {
+      const hdrpBuffers = expectedHdrpBuffers;
+      if (hdrpBuffers !== null) {
+        // D-3: buffer dimension uses the inner `.buffer` (same constraint
+        // as the mesh path) so a grow event rotates the chain key.
+        hdrpClusterBindGroup = getOrCreateFromChain(
+          frameState.meshBindGroupCache,
+          [
+            pipelineState.meshStorageBuffer.buffer,
+            hdrpBuffers.lightDataBuffer,
+            hdrpBuffers.clusterGridBuffer,
+            hdrpBuffers.lightIndexListBuffer,
+            hdrpBuffers.clusterUniformBuffer,
+          ],
+          'hdrp-unified',
+          () => {
+            const bg = createHdrpUnifiedBindGroup(
+              internals,
+              hdrpBuffers,
+              pipelineState.meshStorageBuffer.buffer,
+            );
+            if (bg === null) {
+              throw new RhiError({
+                code: 'webgpu-runtime-error',
+                expected: 'HDRP unified BindGroup creation succeeds when HDRP is active',
+                hint: 'inspect prior errorRegistry events for createBindGroup failure detail',
+              });
+            }
+            return bg;
+          },
+          bindGroupCounts,
+        );
+      }
+    }
+  }
+  return { viewBindGroup, meshBindGroup, hdrpClusterBindGroup, hdrpClusterMembershipBindGroup };
+}
+
+/**
+ * feat-20260704 M3/w18: per-frame lighting preparation, extracted verbatim from
+ * `recordFrame`. (1) pin the point + spot shadow snapshot lists onto frameState
+ * for the shadow caster
+ * pass closures + lazy-allocate the point-shadow cube_array atlas on first
+ * non-empty frame (AC-09 zero-shadow zero-alloc). (3) derive the directional
+ * fallback and the unified local-light corpus used by Standard Cluster.
+ *
+ * @internal
+ */
+export function prepareFrameLighting(
+  internals: RenderSystemInternals,
+  frameState: RenderFrameState,
+  lights: ExtractedLights,
+  camera: CameraSnapshot,
+  pipelineState?: Pick<
+    PipelineState,
+    'hdrpClusterMembershipPipeline' | 'hdrpClusterMembershipBindGroupLayout'
+  >,
+): Result<
+  {
+    light: DirectionalLightSnapshot;
+    pointLights: ExtractedLights['point'];
+    spotLights: ExtractedLights['spot'];
+    rectLights: ExtractedLights['rect'];
+    totalLightCount: number;
+    standard: StandardTopologyInputValue;
+  },
+  RenderError
+> {
+  if (lights.directionalCount > 1) {
+    warnMultiLightDirectional(frameState, lights.directionalCount);
+  }
+  // feat-20260621-merge-directionallightshadow-into-directionallight M3 / m3-t2:
+  // the AC-04/AC-22 "shadow disabled by missing component" once-warn is gone.
+  // After merging DirectionalLightShadow into DirectionalLight there is no
+  // orphan-shadow / missing-companion configuration to warn about -- castShadow
+  // defaults true on the single component, so the warn condition can never
+  // arise. The error class + RuntimeErrorCode member have been removed in M4 (m4-t2).
+
+  // feat-20260612-point-light-shadows-urp-hdrp M3 / T-M3-2 (plan-strategy §D-1):
+  // project lights.pointShadow onto frameState so the URP point shadow caster
+  // pass can read the snapshot list during graph execute. Lazy-allocate the
+  // cube_array atlas on first non-empty frame; zero-shadow scenes never
+  // touch the GPU here (AC-09). The snapshot list is stable for the
+  // duration of recordFrame; its count is part of the typed topology key.
+  frameState.pointShadowSnapshots = lights.pointShadow;
+  // feat-20260625-spot-light-shadow-mapping M2 / w9 (D-2): pin the spot
+  // snapshots for the spotShadowDepth caster pass closure. The spot atlas is
+  // a graph-owned typed target, not a runtime ShadowAtlas, so graph compilation
+  // owns the depth texture lifetime.
+  frameState.spotShadowSnapshots = lights.spot;
+  if (lights.pointShadow.length > 0) {
+    if (frameState.pointShadowAtlas === null) {
+      const firstSnap = lights.pointShadow[0];
+      const faceSize = firstSnap?.mapSize ?? SHADOW_ATLAS_DEFAULT_FACE_SIZE;
+      frameState.pointShadowAtlas = new ShadowAtlas(internals.device, {
+        faceSize,
+        layers: SHADOW_ATLAS_DEFAULT_LAYERS,
+      });
+    }
+    try {
+      frameState.pointShadowAtlas.ensure();
+    } catch (e) {
+      if (
+        e instanceof PointShadowAtlasUninitializedError ||
+        e instanceof PointShadowAtlasBoundsViolationError
+      ) {
+        internals.errorRegistry.fire(e);
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  // ExtractedLights three-arm consumption (R-10 preparation; M2 / w16):
+  //
+  //   - lights.directional : feeds the View UBO at slot [16..23]
+  //                          (lightDir + lightColor; existing path).
+  //   - lights.point/spot/rect[] : packed into the one unified Standard
+  //                                Cluster payload below. No per-kind light
+  //                                transport exists at the renderer boundary.
+  //
+  // Each variant carries the discriminant `kind` so the record-time packing
+  // call sites can run exhaustive switch (charter P2 + AC-03).
+  const directionalLight: DirectionalLightSnapshot | undefined = lights.directional;
+  const pointLights = lights.point;
+  const spotLights = lights.spot;
+  const rectLights = lights.rect;
+
+  // Case C: 0 DirectionalLight = legitimate scene; the View UBO falls
+  // back to a zero-intensity directional payload so the shader's
+  // `view.lightDir * view.lightColor` term contributes nothing
+  // (physically-correct black under standard, untouched under unlit).
+  const light: DirectionalLightSnapshot = directionalLight ?? {
+    kind: 'directional' as const,
+    direction: vec3.create(0, -1, 0),
+    color: vec3.create(0, 0, 0),
+    intensity: 0,
+  };
+
+  const totalLightCount =
+    (directionalLight !== undefined ? 1 : 0) +
+    pointLights.length +
+    spotLights.length +
+    rectLights.length;
+
+  const clusterGrid = frameState.installedPipelineConfig?.clusterGrid ?? DEFAULT_CLUSTER_GRID;
+  const local = [
+    ...pointLights.map((source) => ({
+      kind: 'point' as const,
+      shadowed: source.shadowAtlasLayer !== undefined && source.shadowAtlasLayer >= 0,
+      position: source.position,
+      range:
+        Number.isFinite(source.invRangeSquared) && source.invRangeSquared > 0
+          ? Math.sqrt(1 / source.invRangeSquared)
+          : 1000,
+      source,
+    })),
+    ...spotLights.map((source) => ({
+      kind: 'spot' as const,
+      shadowed:
+        source.castShadow && source.shadowAtlasTile >= 0 && source.lightViewProj !== undefined,
+      position: source.position,
+      range:
+        Number.isFinite(source.invRangeSquared) && source.invRangeSquared > 0
+          ? Math.sqrt(1 / source.invRangeSquared)
+          : 1000,
+      source,
+    })),
+    ...rectLights.map((source) => ({
+      kind: 'rect-area' as const,
+      shadowed: false,
+      position: source.position,
+      range:
+        (Number.isFinite(source.invRangeSquared) && source.invRangeSquared > 0
+          ? Math.sqrt(1 / source.invRangeSquared)
+          : 1000) + Math.hypot(source.halfWidth, source.halfHeight),
+      source,
+    })),
+  ];
+  const prepared = prepareStandardLighting({
+    directional: directionalLight,
+    local,
+    view: computeViewMatrix(camera),
+    projection: computeProjectionMatrix(camera),
+    near: camera.near,
+    far: camera.far,
+    grid: clusterGrid,
+    lightCount: internals.standardProfile?.lightCount ?? DEFAULT_STANDARD_PROFILE.lightCount,
+    renderPath: internals.standardProfile?.renderPath ?? DEFAULT_STANDARD_PROFILE.renderPath,
+  });
+  if (!prepared.ok) return prepared;
+  // Storage-capable Standard frames keep the same Cluster ABI even when the
+  // local-light corpus is empty.  Directional-only scenes still need the
+  // unified mesh group(2) contract so their PBR draws do not select a second
+  // local-light layout; the existing transport emits a zero-light payload and
+  // the graph remains structurally identical. The no-storage backend has no
+  // storage-backed local-light representation, so a directional-only frame
+  // remains the sole no-local transport case.
+  if (prepared.value.local.length === 0 && !internals.device.caps.storageBuffer) {
+    return ok({
+      light,
+      pointLights,
+      spotLights,
+      rectLights,
+      totalLightCount,
+      standard: { kind: 'no-local-lights', prepared: prepared.value },
+    });
+  }
+  const transport = selectStandardClusterTransport(
+    {
+      compute: internals.device.caps.compute,
+      storageBuffer: internals.device.caps.storageBuffer,
+      membershipPipelineReady:
+        pipelineState !== undefined &&
+        pipelineState.hdrpClusterMembershipPipeline !== null &&
+        pipelineState.hdrpClusterMembershipBindGroupLayout !== null,
+    },
+    prepared.value,
+  );
+  if (!transport.ok) return transport;
+
+  return ok({
+    light,
+    pointLights,
+    spotLights,
+    rectLights,
+    totalLightCount,
+    standard: { kind: 'clustered', prepared: prepared.value, transport: transport.value },
+  });
+}
+
+function modifierDigest(data: Uint8Array): number {
+  let hash = 2166136261;
+  for (let index = 0; index < data.length; index += 1) {
+    hash ^= data[index] ?? 0;
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+/** Upload authored Spot modifier payloads into the renderer-owned array lane. */
+export function writeSpotModifierTextures(
+  internals: RenderSystemInternals,
+  pipelineState: PipelineState,
+  spots: readonly ExtractedLights['spot'][number][],
+): void {
+  const iesTexture = pipelineState.iesProfileTexture;
+  const cookieTexture = pipelineState.cookieTexture;
+  const cookieMatrixBuffer = pipelineState.cookieMatrixBuffer;
+  if (iesTexture === undefined && cookieTexture === undefined && cookieMatrixBuffer === undefined)
+    return;
+  let state = pipelineState.spotModifierUploadState;
+  if (state === undefined) {
+    state = { ies: new Map(), cookie: new Map(), cookieMatrix: new Map() };
+    pipelineState.spotModifierUploadState = state;
+  } else if (state.cookieMatrix === undefined) {
+    state = { ...state, cookieMatrix: new Map() };
+    pipelineState.spotModifierUploadState = state;
+  }
+  for (const spot of spots) {
+    if (spot.iesProfileSlice !== undefined && spot.iesProfileData !== undefined && iesTexture) {
+      if (spot.iesProfileData.byteLength === IES_SLICE_WIDTH * IES_SLICE_HEIGHT * 2) {
+        const digest = modifierDigest(spot.iesProfileData);
+        if (state.ies.get(spot.iesProfileSlice) !== digest) {
+          const result = internals.device.queue.writeTexture(
+            { texture: iesTexture, mipLevel: 0, origin: { x: 0, y: 0, z: spot.iesProfileSlice } },
+            spot.iesProfileData,
+            { offset: 0, bytesPerRow: IES_SLICE_WIDTH * 2, rowsPerImage: IES_SLICE_HEIGHT },
+            { width: IES_SLICE_WIDTH, height: IES_SLICE_HEIGHT, depthOrArrayLayers: 1 },
+          );
+          if (!result.ok) throw result.error;
+          state.ies.set(spot.iesProfileSlice, digest);
+        }
+      }
+    }
+    // Authored Cookie and the SpotLight projector share the same
+    // fixed 256x256 array transport on the extended topology. Their shader
+    // projection remains distinct: Cookie uses cookieMatrices, projector
+    // uses View.spotLightViewProj. Upload both identities when a frame carries
+    // both fields, while the direct-light metadata selects the one in use.
+    for (const modifier of [
+      {
+        slice: spot.cookieSlice,
+        data: spot.cookieData,
+        matrix: spot.cookieMatrix,
+      },
+      {
+        slice: spot.projectorSlice,
+        data: spot.projectorData,
+        matrix: spot.projectorMatrix,
+      },
+    ]) {
+      if (modifier.slice !== undefined && modifier.data !== undefined && cookieTexture) {
+        if (modifier.data.byteLength === COOKIE_SLICE_SIZE * COOKIE_SLICE_SIZE * 4) {
+          const digest = modifierDigest(modifier.data);
+          if (state.cookie.get(modifier.slice) !== digest) {
+            const result = internals.device.queue.writeTexture(
+              { texture: cookieTexture, mipLevel: 0, origin: { x: 0, y: 0, z: modifier.slice } },
+              modifier.data,
+              { offset: 0, bytesPerRow: COOKIE_SLICE_SIZE * 4, rowsPerImage: COOKIE_SLICE_SIZE },
+              { width: COOKIE_SLICE_SIZE, height: COOKIE_SLICE_SIZE, depthOrArrayLayers: 1 },
+            );
+            if (!result.ok) throw result.error;
+            state.cookie.set(modifier.slice, digest);
+          }
+        }
+      }
+      if (modifier.slice !== undefined && modifier.matrix !== undefined && cookieMatrixBuffer) {
+        const matrixBytes = new Uint8Array(
+          modifier.matrix.buffer,
+          modifier.matrix.byteOffset,
+          modifier.matrix.byteLength,
+        );
+        const digest = modifierDigest(matrixBytes);
+        if (state.cookieMatrix.get(modifier.slice) !== digest) {
+          const result = internals.device.queue.writeBuffer(
+            cookieMatrixBuffer,
+            modifier.slice * 16 * Float32Array.BYTES_PER_ELEMENT,
+            modifier.matrix,
+          );
+          if (!result.ok) throw result.error;
+          state.cookieMatrix.set(modifier.slice, digest);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * feat-20260704 M3/w18: write the point-shadow params UBO (bound at viewBg
+ * binding 6), extracted verbatim from `recordFrame`.
+ *
+ * feat-20260612-point-light-shadows-urp-hdrp Round-2 F-1: 4 lanes x vec4<f32>;
+ * lane[shadowAtlasLayer] = (near, far, 1/(far-near), 0). Lanes for non-shadow
+ * slots stay zero (the WGSL sample path is gated by PointLight.shadowAtlasLayer
+ * >= 0). Always writes the full 64 B so stale non-zero lanes from a previous
+ * frame's allocation cannot poison the current frame.
+ *
+ * @internal
+ */
+export function writeShadowParamsBuffer(
+  internals: RenderSystemInternals,
+  frameState: RenderFrameState,
+  pipelineState: PipelineState,
+): void {
+  const SHADOW_PARAMS_LANE_COUNT = 4;
+  const SHADOW_PARAMS_FLOATS_PER_LANE = 4;
+  const shadowParamsArr = new Float32Array(
+    SHADOW_PARAMS_LANE_COUNT * SHADOW_PARAMS_FLOATS_PER_LANE,
+  );
+  for (let i = 0; i < frameState.pointShadowSnapshots.length; i++) {
+    const ps = frameState.pointShadowSnapshots[i];
+    if (ps === undefined) continue;
+    const layer = ps.shadowAtlasLayer;
+    if (layer < 0 || layer >= SHADOW_PARAMS_LANE_COUNT) continue;
+    const base = layer * SHADOW_PARAMS_FLOATS_PER_LANE;
+    const near = ps.nearPlane;
+    const far = ps.farPlane;
+    const invSpan = far > near ? 1 / (far - near) : 0;
+    shadowParamsArr[base] = near;
+    shadowParamsArr[base + 1] = far;
+    shadowParamsArr[base + 2] = invSpan;
+    shadowParamsArr[base + 3] = 0;
+  }
+  const shadowParamsWriteRes = internals.device.queue.writeBuffer(
+    pipelineState.shadowParamsBuffer,
+    0,
+    shadowParamsArr,
+  );
+  if (!shadowParamsWriteRes.ok) {
+    internals.errorRegistry.fire(shadowParamsWriteRes.error);
+  }
+}
+
+/**
+ * feat-20260704 M3/w18: zero-light standard-material once-warn, extracted
+ * verbatim from `recordFrame`.
+ *
+ * feat-20260520-skylight-ibl-cubemap M4 / t27 (AC-10): fires once per
+ * RenderSystem lifetime when the 0-light three-condition conjunction holds — no
+ * Skylight, 0 direct light (totalLightCount === 0), AND at least one builtin
+ * standard/PBR material (which renders black with no light). Custom shaders
+ * own their lighting contract and cannot be classified by this generic
+ * diagnostic. Suppressed under NODE_ENV=production.
+ *
+ * @internal
+ */
+export function warnZeroLightStandard(
+  frameState: RenderFrameState,
+  renderables: readonly RenderableSnapshot[],
+  skylight: SkylightSnapshot | undefined,
+  totalLightCount: number,
+): void {
+  const hasStandardMaterial = renderables.some((r) => isLitMaterialSnapshot(r.material));
+  if (
+    skylight === undefined &&
+    totalLightCount === 0 &&
+    hasStandardMaterial &&
+    !frameState.warnedZeroLightStandard
+  ) {
+    frameState.warnedZeroLightStandard = true;
+    const env = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process;
+    if (env?.env?.NODE_ENV !== 'production') {
+      console.warn(
+        '[forgeax] standard material renders black with 0 lights of every type (no Skylight, and directional + point + spot all empty); spawn at least one light (Skylight, DirectionalLight, PointLight, or SpotLight) or switch material to an unlit shader (Materials.unlit(...)). See AGENTS.md section Breaking changes 2026-05-19.',
+      );
+    }
+  }
+}
+
+/**
+ * Write the one prepared Standard Cluster payload into the persistent buffers.
+ * Membership has already been derived by `prepareFrameLighting`; this function
+ * only packs/uploads that immutable result and never re-runs the binner.
+ *
+ * @internal
+ */
+export function writeHdrpClusterAndSsaoBuffers(
+  internals: RenderSystemInternals,
+  frameState: RenderFrameState,
+  camera: CameraSnapshot,
+  prepared: PreparedStandardLighting,
+  transport: StandardClusterTransport,
+  profilePhase?: RecordProfileRunner,
+  gpuMembershipPipelineReady = false,
+  membershipBindGroupLayout: BindGroupLayout | null = null,
+  projectorLightSlotIndex?: number,
+  pipelineState?: PipelineState,
+): Result<void, RenderError> {
+  const configuredClusterGrid = prepared.layout.grid;
+  const gpuMembership = transport.producer === 'gpu';
+  if (gpuMembership && (!gpuMembershipPipelineReady || membershipBindGroupLayout === null)) {
+    return err(
+      new StandardClusterTransportUnavailableError(
+        prepared.local.length,
+        'the selected GPU Cluster producer requires a ready membership pipeline and bind-group layout',
+      ),
+    );
+  }
+  const hdrpBuffers = getOrCreateHdrpBuffers(internals, configuredClusterGrid);
+  if (hdrpBuffers === null) {
+    return err(
+      new StandardClusterTransportUnavailableError(
+        prepared.local.length,
+        'the selected Standard Cluster transport could not allocate its persistent buffers',
+      ),
+    );
+  }
+  const existingMembership = projectDeviceOwnedBindGroup(
+    frameState.hdrpClusterMembership,
+    internals.device,
+    membershipBindGroupLayout,
+  );
+  const membershipMatchesBuffers =
+    existingMembership !== null &&
+    frameState.hdrpClusterMembership?.clusterGridBuffer === hdrpBuffers.clusterGridBuffer;
+  if (!membershipMatchesBuffers) frameState.hdrpClusterMembership = null;
+  if (
+    gpuMembership &&
+    membershipBindGroupLayout !== null &&
+    frameState.hdrpClusterMembership === null
+  ) {
+    const bindGroup = createHdrpClusterMembershipBindGroup(
+      internals,
+      hdrpBuffers,
+      membershipBindGroupLayout,
+    );
+    if (bindGroup === null) {
+      return err(
+        new StandardClusterTransportUnavailableError(
+          prepared.local.length,
+          'the selected GPU Cluster producer could not create its membership bind group',
+        ),
+      );
+    }
+    frameState.hdrpClusterMembership = {
+      device: internals.device,
+      layout: membershipBindGroupLayout,
+      bindGroup,
+      clusterGridBuffer: hdrpBuffers.clusterGridBuffer,
+    };
+  }
+
+  if (pipelineState !== undefined) {
+    const preparedSpots: ExtractedLights['spot'][number][] = [];
+    for (const local of prepared.local) {
+      if (local.source?.kind === 'spot') preparedSpots.push(local.source);
+    }
+    writeSpotModifierTextures(internals, pipelineState, preparedSpots);
+  }
+
+  const gridX = prepared.layout.grid.x;
+  const gridY = prepared.layout.grid.y;
+  const gridZ = prepared.layout.grid.z;
+  const clusterGridBuf = prepared.clusterGrid;
+  const lightIndexListBuf = prepared.lightIndexList;
+  const lightIndexCount = prepared.membershipEntryCount;
+
+  // Falsify injection point retained for the real prepared payload. It edits
+  // only this frame's projection and never creates a second membership owner.
+  const envFalsify = (globalThis as { process?: { env?: Record<string, string | undefined> } })
+    .process?.env;
+  if (envFalsify?.FORGEAX_HDRP_FALSIFY_CLUSTER_GRID_ZERO) clusterGridBuf.fill(0);
+
+  const hdrpPayload = runHdrpClusterProfilePhase(
+    profilePhase,
+    'record/scene-state/hdrp-cluster/payload-packing',
+    () => {
+      const lightDataPayload = new Float32Array(
+        prepared.layout.lightDataSlotCount * DIRECT_LIGHT_SLOT_FLOAT_COUNT,
+      );
+      let slotIdx = 0;
+      for (const local of prepared.local) {
+        const source = local.source;
+        if (source === undefined) return null;
+        const projectorSelected =
+          projectorLightSlotIndex === undefined ? undefined : projectorLightSlotIndex === slotIdx;
+        const packed = packDirectLightSlot(source, projectorSelected);
+        lightDataPayload.set(packed, slotIdx * DIRECT_LIGHT_SLOT_FLOAT_COUNT);
+        slotIdx += 1;
+      }
+
+      // scope-amend-webgl2-ubo: SSAO intensity is folded into the
+      // cluster_uniform .w lane (formerly pad), removing the dedicated
+      // @binding(9) UBO that pushed fragment-stage UBO count past
+      // WebGL2's max_uniform_buffers_per_shader_stage=11. Disabled-SSAO
+      // path writes 0 so `mix(1.0, ssao*ao, 0.0) = 1.0` in the lighting
+      // shader (no PSO recompile across enable/disable).
+      const clusterSsaoConfig = frameState.installedPipelineConfig?.ssao;
+      const clusterSsaoIntensity =
+        clusterSsaoConfig !== undefined && clusterSsaoConfig.enabled === true
+          ? (clusterSsaoConfig.intensity ?? 1.0)
+          : 0;
+      const clusterUniformPayload = packClusterUniform(
+        { x: gridX, y: gridY, z: gridZ },
+        camera.near,
+        camera.far,
+        clusterSsaoIntensity,
+        transport.admittedLightCount,
+      );
+
+      return {
+        hdrpBuffers,
+        lightDataUploadPayload: lightDataPayload.subarray(
+          0,
+          slotIdx * DIRECT_LIGHT_SLOT_FLOAT_COUNT,
+        ),
+        clusterUniformPayload: new Uint8Array(clusterUniformPayload),
+      };
+    },
+  );
+
+  if (hdrpPayload === null) {
+    return err(
+      new StandardClusterTransportUnavailableError(
+        prepared.local.length,
+        'the prepared Standard Cluster payload could not be materialized',
+      ),
+    );
+  }
+
+  const bufferUpload = runHdrpClusterProfilePhase(
+    profilePhase,
+    'record/scene-state/hdrp-cluster/buffer-upload',
+    (): Result<void, RenderError> => {
+      const { hdrpBuffers, lightDataUploadPayload, clusterUniformPayload } = hdrpPayload;
+      const lightDataUpload = internals.device.queue.writeBuffer(
+        hdrpBuffers.lightDataBuffer,
+        0,
+        lightDataUploadPayload,
+      );
+      if (!lightDataUpload.ok)
+        return err(mapClusterUploadFailure('light-data', lightDataUpload.error));
+
+      if (gpuMembership) {
+        const lightBoundsUpload = internals.device.queue.writeBuffer(
+          hdrpBuffers.lightBoundsBuffer,
+          0,
+          prepared.lightBounds,
+        );
+        if (!lightBoundsUpload.ok)
+          return err(mapClusterUploadFailure('light-bounds', lightBoundsUpload.error));
+      }
+      const clusterGridUpload = internals.device.queue.writeBuffer(
+        hdrpBuffers.clusterGridBuffer,
+        0,
+        clusterGridBuf.subarray(0, gridX * gridY * gridZ * 2),
+      );
+      if (!clusterGridUpload.ok)
+        return err(mapClusterUploadFailure('cluster-grid', clusterGridUpload.error));
+
+      if (!gpuMembership && lightIndexCount > 0) {
+        const lightIndexListUpload = internals.device.queue.writeBuffer(
+          hdrpBuffers.lightIndexListBuffer,
+          0,
+          lightIndexListBuf.subarray(0, lightIndexCount),
+        );
+        if (!lightIndexListUpload.ok) {
+          return err(mapClusterUploadFailure('light-index-list', lightIndexListUpload.error));
+        }
+      }
+
+      const clusterUniformUpload = internals.device.queue.writeBuffer(
+        hdrpBuffers.clusterUniformBuffer,
+        0,
+        clusterUniformPayload,
+      );
+      if (!clusterUniformUpload.ok) {
+        return err(mapClusterUploadFailure('cluster-uniform', clusterUniformUpload.error));
+      }
+      return ok(undefined);
+    },
+  );
+  if (!bufferUpload.ok) return bufferUpload;
+
+  // ── feat-20260612-hdrp-ssao M1 / w6 + M7 / w33 ───────────────
+  // Per-frame SSAO uniform write (plan-strategy D-1 + D-C):
+  //   view + projection + inverseProjection at offsets 0/64/128 +
+  //   intensityPad (vec4 — x=intensity, y=radius, z=bias) at offset 192;
+  //   total 256 B (matches host SSAO_UNIFORM_BYTES + WGSL struct).
+  // Single writeBuffer covers all four fields so one queue entry
+  // updates the entire UBO.
+  // Separate from View UBO (592 B invariant); does not affect
+  // material PSO bytecode.
+  //
+  // Writes when HDRP is active; config.ssao?.enabled guard comes in
+  // M4 / w19 after the config.ssao type narrowing is added.
+  const ssaoUpload = runHdrpClusterProfilePhase(
+    profilePhase,
+    'record/scene-state/hdrp-cluster/buffer-upload',
+    (): Result<void, RenderError> => {
+      const ssaoBufs = getOrCreateSsaoBuffers(internals);
+      if (ssaoBufs === null) return ok(undefined);
+      const sProj = computeProjectionMatrix(camera);
+      const sView = computeViewMatrix(camera);
+      // inverseProjection = inverse(projection): NDC -> view-space.
+      const invProjOnly = mat4.create();
+      mat4.invert(invProjOnly, sProj);
+
+      // Float32Array of 64 (256 B): 3 mat4 (48) + intensityPad vec4 (4)
+      // + 12 trailing padding floats. We only fill the declared region.
+      const ssaoUniformPayload = new Float32Array(64);
+      ssaoUniformPayload.set(sView, 0);
+      ssaoUniformPayload.set(sProj, 16);
+      ssaoUniformPayload.set(invProjOnly, 32);
+      // intensityPad carries the same resolved values as the graph SSAO
+      // calc pass; this early write keeps the shared UBO valid before the
+      // typed fullscreen pass executes.
+      const ssaoConfig = frameState.installedPipelineConfig?.ssao;
+      const parameters = getSsaoParameters(
+        ssaoConfig !== undefined && ssaoConfig.enabled === true ? ssaoConfig : undefined,
+      );
+      ssaoUniformPayload[48] = parameters.intensity;
+      ssaoUniformPayload[49] = parameters.radius;
+      ssaoUniformPayload[50] = parameters.bias;
+
+      const ssaoUniformRes = internals.device.queue.writeBuffer(
+        ssaoBufs.uniformBuffer,
+        0,
+        ssaoUniformPayload,
+      );
+      if (!ssaoUniformRes.ok)
+        return err(mapClusterUploadFailure('ssao-uniform', ssaoUniformRes.error));
+      return ok(undefined);
+    },
+  );
+  if (!ssaoUpload.ok) return ssaoUpload;
+  return ok(undefined);
+}
+
+/**
+ * feat-20260704 M3/w18: resolve `tonemapActive` + `skyboxActive` for this
+ * frame, extracted verbatim from `recordFrame`.
+ *
+ * feat-20260519-tonemap-reinhard-mvp: tonemap is active when the camera carries
+ * `tonemap !== 'none'` (routes geometry into the HDR offscreen target + a
+ * fullscreen tonemap pass). feat-20260531-skybox-env-background M2 / w9: skybox
+ * is active only when a SkyboxBackground entity is present AND tonemap is active
+ * (hdrColor is only allocated on the tonemap path). M3 / w20: once-warn when
+ * tonemap is 'none' but a skybox exists (config issue, not resource-timing —
+ * no structured error). M3 / w18: skybox degrades to clear-colour for a frame
+ * while its cubemap view is not yet resident (lazy equirect projection pending
+ * / failed; the lazy trigger owns the fire-once-on-failed error).
+ *
+ * @internal
+ */
+export function resolveSkyboxActive(
+  internals: RenderSystemInternals,
+  frameState: RenderFrameState,
+  camera: CameraSnapshot,
+  skybox: SkyboxSnapshot | undefined,
+): { tonemapActive: boolean; skyboxActive: boolean } {
+  const tonemapActive = camera.tonemap !== 'none';
+  let skyboxActive = skybox !== undefined && tonemapActive;
+  // feat-20260531-skybox-env-background M3 / w20: once-warn when camera
+  // tonemap is 'none' but a SkyboxBackground entity exists. The skybox
+  // pass requires the HDR render target allocated by the tonemap path;
+  // without it the skybox is skipped for this frame. This is a config
+  // issue, not a resource-timing issue -- don't fire a structured error
+  // (plan-strategy D-2 NOTE, charter P3 non-silent).
+  if (skybox !== undefined && !tonemapActive && !frameState.warnedSkyboxTonemapNone) {
+    frameState.warnedSkyboxTonemapNone = true;
+    console.warn(
+      '[forgeax] SkyboxBackground: skybox requires tonemap active (camera.tonemap !== "none") to write HDR target. The skybox pass will be skipped for this frame.',
+    );
+  }
+  // feat-20260531-skybox-env-background M3 / w18: degradation when cubemap
+  // GPU view is not ready. getCubemapGpuView returns undefined if the
+  // equirect-to-cube upload has not completed yet.
+  if (skybox !== undefined && tonemapActive) {
+    const cubemapView = internals.gpuStore.getCubemapGpuView(
+      toShared<'EquirectAsset'>(skybox.equirectHandle),
+    );
+    if (cubemapView === undefined) {
+      // The skybox reuses the Skylight's equirect handle; the cubemap
+      // projection is driven lazily by the single trigger in `driveLazy
+      // EquirectProjection` above (it owns the fire-and-forget launch AND the
+      // fire-once-on-failed structured error). While the projection is
+      // pending or has failed the cube view is not resident, so the skybox
+      // pass degrades to the clear-colour background for this frame
+      // (charter P3: it activates once the shared projection flips to
+      // 'ready'). No error is fired here -- 'pending' is a normal transition
+      // (firing per frame would flood the channel), and 'failed' is reported
+      // once by the lazy trigger. (feat-20260630 M3 / w18.)
+      skyboxActive = false;
+    }
+  }
+  return { tonemapActive, skyboxActive };
+}

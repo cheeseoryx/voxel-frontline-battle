@@ -1,0 +1,10 @@
+name: bench (fixture)
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - name: noop
+        run: echo "no chrome-beta install in this job"

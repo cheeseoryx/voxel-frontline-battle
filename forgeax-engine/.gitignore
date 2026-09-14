@@ -1,0 +1,7 @@
+node_modules/
+**/dist/
+shared-build-inputs/
+.forgeax/
+.forgeax-harness/
+*.tsbuildinfo
+*.log

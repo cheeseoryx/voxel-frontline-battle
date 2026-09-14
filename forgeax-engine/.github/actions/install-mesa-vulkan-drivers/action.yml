@@ -1,0 +1,146 @@
+name: Install Mesa Vulkan drivers
+description: >
+  Install mesa-vulkan-drivers (lavapipe software ICD) for dawn-node's
+  Vulkan backend. libvulkan1 is preinstalled on ubuntu-latest runner
+  images so we only need to fetch mesa-vulkan-drivers itself; the cache
+  short-circuits the apt network layer.
+
+  Why a composite action: the same install pattern previously appeared
+  inline in primary-pnpm and metrics-validate jobs. Without caching, both
+  jobs spent ~90s -- 21s on `apt-get update` (full index refresh) plus
+  ~60s of azure mirror retries trying to fetch the 17.5 MB
+  mesa-vulkan-drivers deb (observed on PR-103 run 25812517411 step
+  "Install Mesa Vulkan": 16:36:03 -> 16:37:34, 4x `Ign:` retries before
+  fallback to archive.ubuntu.com). With this action the deb is persisted
+  under ~/.cache/mesa-vulkan-drivers via actions/cache@v5 and `dpkg -i`
+  on cache hit reinstates it in ~2s with no network, no apt-get update.
+
+  Cache keying: schema v2 plus weekly rotation and a caller-provided runner-image/ABI scope
+  (mesa-vulkan-drivers point releases drift slowly); restore keys fall through
+  only within that scope so a fresh week benefits from the prior week's deb.
+  Hosts that already provide lavapipe do not restore or save the package cache;
+  otherwise their empty cache directory would poison package-less hosts.
+
+  Nightly's matrix-os mesa install (ubuntu only, additionally pulls xvfb
+  + vulkan-tools and exports VK_ICD_FILENAMES) is intentionally NOT
+  unified through this action -- different package set + side-effects
+  on the workflow env make a single composite a poor fit. Revisit if a
+  third call site appears.
+
+inputs:
+  cache-scope:
+    description: Cache namespace for the runner class and ABI.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Compute mesa-vulkan-drivers cache key suffix
+      id: mesa-key
+      shell: bash
+      run: echo "suffix=$(date -u +%Y-%U)" >> "$GITHUB_OUTPUT"
+
+    - name: Detect host lavapipe ICD
+      id: mesa-host
+      shell: bash
+      run: |
+        if compgen -G "/usr/share/vulkan/icd.d/lvp_icd*.json" > /dev/null; then
+          echo "available=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "available=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Cache mesa-vulkan-drivers deb
+      id: mesa-cache
+      if: ${{ steps.mesa-host.outputs.available != 'true' }}
+      uses: actions/cache@v5
+      with:
+        path: ~/.cache/mesa-vulkan-drivers
+        key: mesa-vulkan-drivers-deb-v2-${{ inputs.cache-scope }}-${{ steps.mesa-key.outputs.suffix }}
+        restore-keys: |
+          mesa-vulkan-drivers-deb-v2-${{ inputs.cache-scope }}-
+
+    - name: Install mesa-vulkan-drivers (from cache if available, else via apt)
+      shell: bash
+      run: |
+        set -eu
+        DEB_DIR="$HOME/.cache/mesa-vulkan-drivers"
+        mkdir -p "$DEB_DIR"
+        if command -v sudo >/dev/null 2>&1; then
+          run_privileged() { sudo "$@"; }
+        elif [ "$(id -u)" -eq 0 ]; then
+          run_privileged() { "$@"; }
+        else
+          echo "[mesa-vulkan] error: install requires sudo or a root runner" >&2
+          exit 1
+        fi
+
+        if compgen -G "/usr/share/vulkan/icd.d/lvp_icd*.json" > /dev/null; then
+          echo "[mesa-vulkan] host already has a lavapipe ICD -- no package work"
+        elif compgen -G "$DEB_DIR/mesa-vulkan-drivers_*.deb" > /dev/null; then
+          echo "[mesa-vulkan] cache hit -- installing from $DEB_DIR (no apt-get update)"
+          # No apt-get update on cache-hit path; mesa-vulkan-drivers has no
+          # transitive deps not already in the runner image (libvulkan1
+          # comes preinstalled on ubuntu-latest). dpkg -i is the happy
+          # path; apt-get install -f is the local-only fallback if the
+          # deb's Depends: drift past what the runner image carries.
+          run_privileged dpkg -i "$DEB_DIR"/mesa-vulkan-drivers_*.deb || run_privileged apt-get install -f -y
+        else
+          echo "[mesa-vulkan] cache miss -- fetching via apt"
+          apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+          apt_source_options=()
+          if [ -f /etc/apt/sources.list ] && grep -Eq '^[[:space:]]*deb .*ubuntu' /etc/apt/sources.list; then
+            apt_source_options=(-o Dir::Etc::sourcelist=sources.list -o Dir::Etc::sourceparts=-)
+          elif [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+            apt_source_options=(-o Dir::Etc::sourcelist=sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=-)
+          fi
+          update_attempts=3
+          run_privileged apt-get clean
+          for attempt in $(seq 1 "$update_attempts"); do
+            if run_privileged apt-get "${apt_options[@]}" "${apt_source_options[@]}" update; then
+              break
+            fi
+            if [ "$attempt" -eq "$update_attempts" ]; then
+              echo "[mesa-vulkan] apt index refresh failed after ${update_attempts} attempts" >&2
+              exit 1
+            fi
+            delay=$((attempt * 5))
+            echo "[mesa-vulkan] apt index refresh failed; retrying in ${delay}s" >&2
+            sleep "$delay"
+          done
+          download_attempts=3
+          for attempt in $(seq 1 "$download_attempts"); do
+            run_privileged apt-get clean
+            if run_privileged apt-get "${apt_options[@]}" install -y --download-only mesa-vulkan-drivers libvulkan1; then
+              break
+            fi
+            if [ "$attempt" -eq "$download_attempts" ]; then
+              echo "[mesa-vulkan] package download failed after ${download_attempts} attempts" >&2
+              exit 1
+            fi
+            delay=$((attempt * 5))
+            echo "[mesa-vulkan] package download failed; retrying in ${delay}s" >&2
+            sleep "$delay"
+          done
+          run_privileged apt-get "${apt_options[@]}" install -y mesa-vulkan-drivers libvulkan1
+          # Harvest only the mesa-vulkan-drivers deb (libvulkan1 is preinstalled
+          # so apt won't actually download it; even if it did, we don't need
+          # to cache it). Smaller cache = faster restore next run.
+          shopt -s nullglob
+          debs=( /var/cache/apt/archives/mesa-vulkan-drivers_*.deb )
+          if [ ${#debs[@]} -eq 0 ]; then
+            echo "[mesa-vulkan] warn: deb not found in /var/cache/apt/archives; cache will stay cold next run"
+          else
+            cp "${debs[@]}" "$DEB_DIR/"
+            echo "[mesa-vulkan] seeded cache with ${#debs[@]} deb(s) totalling $(du -sh "$DEB_DIR" | cut -f1)"
+          fi
+        fi
+
+        # Smoke: confirm the lavapipe ICD descriptor file landed where dawn-node
+        # / chromium look for it. dpkg -i can succeed (exit 0) but leave the
+        # ICD path empty if the deb structure changes -- explicit check here
+        # is much friendlier than a downstream `Found no drivers!` failure.
+        ls /usr/share/vulkan/icd.d/lvp_icd*.json >/dev/null 2>&1 || {
+          echo "[mesa-vulkan] error: lavapipe ICD descriptor missing under /usr/share/vulkan/icd.d/" >&2
+          exit 1
+        }

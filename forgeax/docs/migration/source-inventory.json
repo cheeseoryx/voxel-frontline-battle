@@ -1,0 +1,1458 @@
+{
+  "createdAt": "2026-09-11T08:12:31.133Z",
+  "sourceRoot": "F:\\voxel-frontline-battle",
+  "engine": "@forgeax/engine@0.1.28",
+  "status": "migration-in-progress",
+  "files": [
+    {
+      "path": "js/ai.js",
+      "bytes": 128109,
+      "sha256": "6203b698bcabf77fb452f72b4c4bbfbd07b9540767981df542e93592c938ce16"
+    },
+    {
+      "path": "js/arsenal.js",
+      "bytes": 39596,
+      "sha256": "399304d093fdbb588c192889ab4473bec139549d9acf8f19c59892df876946a4"
+    },
+    {
+      "path": "js/atmosphere.js",
+      "bytes": 2171,
+      "sha256": "66c71fe8ab9856fe02b4ed6c0bc5f872eddc35628dc75623a8c1ada478a0d194"
+    },
+    {
+      "path": "js/audio.js",
+      "bytes": 42787,
+      "sha256": "91cf30044f4c41f1d311ce4d5f5087a7ad56c3cadba81071a5bc2990260a1c89"
+    },
+    {
+      "path": "js/bases.js",
+      "bytes": 57209,
+      "sha256": "bd6ff4104e48215db222b1da6d86f4551b07c7d67f7116c2a4e166c38426a6f4"
+    },
+    {
+      "path": "js/building.js",
+      "bytes": 32723,
+      "sha256": "1b9d1b664e79fe231e817bc7cfcfc750b85a9a04490ed83a9653788e846aa730"
+    },
+    {
+      "path": "js/comms.js",
+      "bytes": 9789,
+      "sha256": "11027358b6791b0e322c89fb6061ce2fdf008fd5b6ba7f27398d8e12c477d33a"
+    },
+    {
+      "path": "js/config.js",
+      "bytes": 320,
+      "sha256": "d9f655dcd3b3ae9052c52699cda703219e6c627e503b3a3c98fa4d6f0d896755"
+    },
+    {
+      "path": "js/conquest.js",
+      "bytes": 50918,
+      "sha256": "72f546b2680828e85c3526e7df2d960d43186505e20ed48bd2a785e43da0f4f3"
+    },
+    {
+      "path": "js/deployment-presentation.js",
+      "bytes": 17209,
+      "sha256": "1c5d4a38527f51222d611f9a64877bf50ff9471776f32d1c7d827e2ecb4fe0af"
+    },
+    {
+      "path": "js/economy.js",
+      "bytes": 28314,
+      "sha256": "48679a040ec6b0c44b6176164fe5be9277781d30f8944b45f62af4da023e873a"
+    },
+    {
+      "path": "js/feel-config.js",
+      "bytes": 4065,
+      "sha256": "3d0e1abde81bc8aa53083a4447c8c9a0dcef26a555fb37a22ee4ad47003c923b"
+    },
+    {
+      "path": "js/feel-tuner.js",
+      "bytes": 24850,
+      "sha256": "c4fd7b2944fd9c5349ccbf0c4210a9c01dad0961125cf72cfa7555d500a270f4"
+    },
+    {
+      "path": "js/frontline-ui.js",
+      "bytes": 8394,
+      "sha256": "bc09bdb7239937faa9739b1414870e380ea503e44000787c7ae1c53917567b8d"
+    },
+    {
+      "path": "js/gadgets.js",
+      "bytes": 74926,
+      "sha256": "67364e2c9533e2c823a4b31f721e4a3c5a4c3c89d07ddcc59b4b878dbb37d36f"
+    },
+    {
+      "path": "js/game-entry.js",
+      "bytes": 5789,
+      "sha256": "05793a1bf9f06b2135c87cb22689cefe9b8fe718d288a0f7510a2120e82e35ee"
+    },
+    {
+      "path": "js/hitboxes.js",
+      "bytes": 4755,
+      "sha256": "65da493be5c39e89d84b0eb0852a7dfc2419f7068a38ba74d7306de93499f9db"
+    },
+    {
+      "path": "js/hub.js",
+      "bytes": 42927,
+      "sha256": "aa4fa774125e40f38b086012a612c2762ece44022c7c1811a58ad91d4c6c8169"
+    },
+    {
+      "path": "js/kubee-bridge.js",
+      "bytes": 1932,
+      "sha256": "e4faebbd6af9361a1fb032ab33be470bfe04ca8b10ca26f2a8d64db8c282dfa4"
+    },
+    {
+      "path": "js/level-editor.js",
+      "bytes": 106254,
+      "sha256": "88068970c9f69eb1e9e5cfcc326fc466f564bac7eda526422c65cbfb3e911576"
+    },
+    {
+      "path": "js/lobby.js",
+      "bytes": 27435,
+      "sha256": "22436772f44c966d85bfba6c15ed1f05147a84ee9f9f674878c30c08e5eecf93"
+    },
+    {
+      "path": "js/main.js",
+      "bytes": 93808,
+      "sha256": "bfd8bf906a49686c753c38ef3f5747083abb5c084dbb8d1292da88f51357611d"
+    },
+    {
+      "path": "js/map-editor.js",
+      "bytes": 140826,
+      "sha256": "0a14461ae10b262c946d6c301d1a1a5d9353a4234651041fab812e2c420a92cb"
+    },
+    {
+      "path": "js/maps/dust2-default.js",
+      "bytes": 6278,
+      "sha256": "df56cdfc31e2abe4d745f89c0fd08a2a495e5d5e24f99db0718fc84eab9564c2"
+    },
+    {
+      "path": "js/maps/island-conquest-props.js",
+      "bytes": 873,
+      "sha256": "f2354a932f324d2ef3d1a28c6489c07e17f9cbb9e15fb0c6cdcc6497ca32e19c"
+    },
+    {
+      "path": "js/maps/island-conquest-terrain.js",
+      "bytes": 1192,
+      "sha256": "d4f86b9304152cf895a625118748ffaad22382119610852291d25ee28cb7cb77"
+    },
+    {
+      "path": "js/maps/island-conquest.js",
+      "bytes": 27844,
+      "sha256": "1fcb5b1c7bb4aa5a47585fa477d75094a7bf740d29e117cb045697adad8dd7d4"
+    },
+    {
+      "path": "js/maps/map-terrain.js",
+      "bytes": 13566,
+      "sha256": "e64458f08e91d4c480fed94d1eddff4309c82c8c3f434fba25c54ba554913c38"
+    },
+    {
+      "path": "js/match-flow.js",
+      "bytes": 7547,
+      "sha256": "7498fc9e24674a7709de9329bdddbe6bdc09ebf82783c63707478166fd102b03"
+    },
+    {
+      "path": "js/melee.js",
+      "bytes": 16189,
+      "sha256": "51107066860e9f7351ce4a3c98fef13ab076312e43b909b3588e6efb8335ae48"
+    },
+    {
+      "path": "js/menu-soldier.js",
+      "bytes": 7059,
+      "sha256": "f6de1ad108ccf0c33e96f019a94930d198ff4528bfbf984ae6e9082100658d7b"
+    },
+    {
+      "path": "js/net-protocol.js",
+      "bytes": 7864,
+      "sha256": "4e678a4121a51189d5141b1ac5a5d6469d2db3b1970cb4f186219c84e88ffcf5"
+    },
+    {
+      "path": "js/net-simulation.js",
+      "bytes": 26443,
+      "sha256": "76c9e7ef0ae614714c8a3f8de51cd0895e0cbcfc3234bc3fb6c9d79327c0d6c6"
+    },
+    {
+      "path": "js/player.js",
+      "bytes": 103849,
+      "sha256": "57758bfcb11e6b0be27fe2eccbb5c237b145098b4c2c0e74124d7816d69bc7b1"
+    },
+    {
+      "path": "js/props/prop-palette.js",
+      "bytes": 7284,
+      "sha256": "6000d18e12bd272f5f63baaecc8a91afbd4e8dda88bc2c1ffffcfd58391f0f8f"
+    },
+    {
+      "path": "js/props/prop-stamp.js",
+      "bytes": 8249,
+      "sha256": "1b1c0de07f6d0f18aced5070ea0a91c07b2d2afb16bd416d7d0a37f1b1a5db2e"
+    },
+    {
+      "path": "js/props/props-bundle.js",
+      "bytes": 89970,
+      "sha256": "3a03de9760fdd8b746bcac1df03d2073f5b276d48a9be4d6b246747193044cb2"
+    },
+    {
+      "path": "js/pvp.js",
+      "bytes": 114638,
+      "sha256": "79b42224e9faf416bb79d7e4b5ef918a2671bb3da53c87065ceed907acd8dfa2"
+    },
+    {
+      "path": "js/range.js",
+      "bytes": 31141,
+      "sha256": "5cda5b8ad2a6409f003543aa43842370b49dfd57b7aa802eec6edcd45461fc1f"
+    },
+    {
+      "path": "js/render-config.js",
+      "bytes": 3253,
+      "sha256": "957f315b5df99206bb68de60ba3ae333da93992c6fbc5dd009ae96983d54d85c"
+    },
+    {
+      "path": "js/render-pipeline.js",
+      "bytes": 29113,
+      "sha256": "c7ea47d87b7eb5c43976037ae51688e508fd0daad2718828153299b031342887"
+    },
+    {
+      "path": "js/render-scene.js",
+      "bytes": 14231,
+      "sha256": "bc919d013d9aae9d53da45dba2b570466428623f0d4ca686d895bc7f1e1adfc1"
+    },
+    {
+      "path": "js/render-tuner.js",
+      "bytes": 30498,
+      "sha256": "ae37c24cf8cbce7e5a759acdb0609b56d2876dac6fb3f252082cd57f079c0928"
+    },
+    {
+      "path": "js/revive.js",
+      "bytes": 23930,
+      "sha256": "4d0b677f1276e478fe86784927fcb77f2fe8cecfe3de0afbc8001f56e7673a3b"
+    },
+    {
+      "path": "js/scoring.js",
+      "bytes": 12080,
+      "sha256": "f7007b1aa899de072c2ec286833b8a0ad8ed61f7c9037593e80589bf224c9c77"
+    },
+    {
+      "path": "js/skills.js",
+      "bytes": 112494,
+      "sha256": "82e243df8c0f1e4e0838083da6426eee4dc670182bdab8cc9c5ed2073e7df805"
+    },
+    {
+      "path": "js/small-quickmatch.js",
+      "bytes": 6701,
+      "sha256": "ae169b0d64bd420f2945e4ef66b9b8f9185f7b69c0dc4a6372781aad032ce144"
+    },
+    {
+      "path": "js/soldier-menu.js",
+      "bytes": 53686,
+      "sha256": "2ae40902a2ed3a1c95a8e3275e623188a87f980b061544c546dc07ea7d4974f4"
+    },
+    {
+      "path": "js/soldier.js",
+      "bytes": 67077,
+      "sha256": "a0cbd2faf8ee26355b2a45ba3a3bb9b9d0057047ecfbc0925742c4b14fe3091b"
+    },
+    {
+      "path": "js/squads.js",
+      "bytes": 11570,
+      "sha256": "5d4974056a8097544d3d5b9cbcfe73c85d3d087cef7efcc5c7f0d8f3d9da0c11"
+    },
+    {
+      "path": "js/terrain-fine.js",
+      "bytes": 26345,
+      "sha256": "ed6fc0558d3b975a6b5a81d901ae6fc518144142653583fa291e49e5c35da49e"
+    },
+    {
+      "path": "js/throwables.js",
+      "bytes": 82935,
+      "sha256": "a9d329303ad1e91f8a49b573874bbe75089c65770147ab7bc3bb22a9a377f037"
+    },
+    {
+      "path": "js/tower-designer.js",
+      "bytes": 41107,
+      "sha256": "8d27256ba0699102820962250a8200f9f854af714ee566ad174367c15dc529fe"
+    },
+    {
+      "path": "js/ui.js",
+      "bytes": 251565,
+      "sha256": "5018d825cbd6af3803b72f93f0ffacae2e5b614268442b7a7d64e65f91fc1eb2"
+    },
+    {
+      "path": "js/vehicle-effects.js",
+      "bytes": 31175,
+      "sha256": "0c4370dc120b8f5b9edb735d11da6a524d64224ba4a5dd62af3496235d5bd7b3"
+    },
+    {
+      "path": "js/vehicles.js",
+      "bytes": 148815,
+      "sha256": "e34c5bdfaf992e7223e97796688b1e2418181aff8aa1ef1a4b003a3a56971b84"
+    },
+    {
+      "path": "js/vendor/peerjs-1.5.4.min.js",
+      "bytes": 92865,
+      "sha256": "ad5d8870d1e389914f9cba8d35be313c4327c69ee0a221e482e9bf7621136fe5"
+    },
+    {
+      "path": "js/vendor/peerjs-LICENSE.txt",
+      "bytes": 1108,
+      "sha256": "9407807dba7f47a79bfb3ac55759d63d77c9371ebd0616d5a093e97d3e810397"
+    },
+    {
+      "path": "js/vendor/three.gltf.global.js",
+      "bytes": 786778,
+      "sha256": "6eee8615d5a1fb34ff5e8143dfa05ab9019a8068101957dd52bee2235b226788"
+    },
+    {
+      "path": "js/voxel-world.js",
+      "bytes": 156566,
+      "sha256": "5e32749ac5e3500c91424811d40d3c27de2449ea119e548b5c8a5ae96a828b25"
+    },
+    {
+      "path": "js/weapon-catalog.js",
+      "bytes": 14325,
+      "sha256": "a43a64811a9c2a31cad386a543487de48495a2264610e3130d1454a6a433dfe7"
+    },
+    {
+      "path": "js/weapon-viewmodels.js",
+      "bytes": 15373,
+      "sha256": "904ceb9ba7016acb37d95586961d38daaae83d74d4f57641d1cf6bae032b9bb6"
+    },
+    {
+      "path": "js/weapons.js",
+      "bytes": 74861,
+      "sha256": "30f775d2536c9945951e87b1a5daddc2886c500819b0dfdcd4e8fe6c1dc8da57"
+    },
+    {
+      "path": "js/world-outskirts.js",
+      "bytes": 10662,
+      "sha256": "c7c7f82d8781d0560e5c171aac5c34293df0533389393fea7902d10946c6adbc"
+    },
+    {
+      "path": "assets/cover.png",
+      "bytes": 2568298,
+      "sha256": "e78e1a6b13ec5b8623d37904a5f557cf29758d658d9bfd823eb1bb78d4e319b2"
+    },
+    {
+      "path": "assets/fonts/zpix.ttf",
+      "bytes": 7179288,
+      "sha256": "ed39f02845e8c0b8cdba275432250fb03e8528826f058bc151753bd62b44b744"
+    },
+    {
+      "path": "assets/lobby-bg.png",
+      "bytes": 2664763,
+      "sha256": "aa162d8b555226933b21ddf18b2d02b58a46026643b5b321036898bef99f775e"
+    },
+    {
+      "path": "assets/maps/dust2-kit.json",
+      "bytes": 14020,
+      "sha256": "22394c4ac6142d57b47affd6d12c06ced7080fcf92a9ef505cb01c1aa733361a"
+    },
+    {
+      "path": "assets/mode-quickmatch32-bg.png",
+      "bytes": 1915222,
+      "sha256": "4a1d47975e3390baab8c6b1813517cdd6c3e920eb1820f06d9c2f2b3a50069ad"
+    },
+    {
+      "path": "assets/mode-range-bg.png",
+      "bytes": 1929826,
+      "sha256": "23239c95e494432ba98e9fa27232fa8428345dd170894c1af1584c83208db126"
+    },
+    {
+      "path": "assets/mode-servers-bg.png",
+      "bytes": 1774346,
+      "sha256": "08706441ec24bac932a12ca9ee64c87002312b54b18dc1cc2cb4f41a7fac39de"
+    },
+    {
+      "path": "assets/mode-solo-bg.png",
+      "bytes": 1927983,
+      "sha256": "6695ebdfe0f8517ad8b7b431303a6f067f513180ddc6f47ec80986f139587806"
+    },
+    {
+      "path": "assets/music/theme.wav",
+      "bytes": 1587644,
+      "sha256": "d14617a6273dd2c803c41d00a97bc199c68a79ad41b01e715a34235b55466d06"
+    },
+    {
+      "path": "assets/promo/promo-01-conquest-basin.png",
+      "bytes": 537335,
+      "sha256": "aae76c848b4d25c85b22f119055f8fe404d7f3e485c06dca0d0824b275f350b7"
+    },
+    {
+      "path": "assets/promo/promo-02-tank-duel.png",
+      "bytes": 370409,
+      "sha256": "359f0ccf66b926923110013243cfdda56a5b3ab38a3537f74f7bd5fed43dfe8b"
+    },
+    {
+      "path": "assets/promo/promo-03-flag-assault.png",
+      "bytes": 457556,
+      "sha256": "3e642d12b296c6584eca765bf6579efa21296539002c2979fdb27ef75d5e5905"
+    },
+    {
+      "path": "assets/promo/promo-04-combined-arms.png",
+      "bytes": 443178,
+      "sha256": "098af1f8b1a5bf759c12c04bd7f8bd6e0cbb3bd523841623e7b9094a3e64de9a"
+    },
+    {
+      "path": "assets/promo/promo-05-night-lighting.png",
+      "bytes": 291038,
+      "sha256": "f405a826cd115b37c8d0ea644662759bb36829d26f65eda9b4a37eb1bd6e537c"
+    },
+    {
+      "path": "assets/props/hotel.vox",
+      "bytes": 60827,
+      "sha256": "6e7ed9a5575ceed0c4b49d0dee277a64be7511686ffe56be5aa09a0e1429ce49"
+    },
+    {
+      "path": "assets/props/house.vox",
+      "bytes": 37670,
+      "sha256": "c293fa4d485e628ea5889bc0f179b83e9e1ff54258333296e676e7b4086330b1"
+    },
+    {
+      "path": "assets/props/烘焙资产.bat",
+      "bytes": 1063,
+      "sha256": "8a64135c84c179250c1ce9df9d200d0e64047641f7390cdb17033f025a7df75a"
+    },
+    {
+      "path": "assets/ref-combat.mp4",
+      "bytes": 2864952,
+      "sha256": "90de11229f1aa2755559a2e1724fe2c1c46850f9b034244193201d4496bfe02c"
+    },
+    {
+      "path": "assets/ref-fps/frame_0.png",
+      "bytes": 2442004,
+      "sha256": "b5009a5aaec7dde6962e38aef990df7c4caae34279f980dadf0d8e1a7c364100"
+    },
+    {
+      "path": "assets/ref-fps/frame_1.png",
+      "bytes": 2521907,
+      "sha256": "70e7b2998435e3f01c72f573e17862c56bdde8be0d11de4cbf8ac1c5ad0aea8f"
+    },
+    {
+      "path": "assets/ref-fps/frame_2.png",
+      "bytes": 2377237,
+      "sha256": "5cebae6a9ca568bf6968a2caeeb4e0f9c3bd8263b49e682ea96d83b5eac7ab50"
+    },
+    {
+      "path": "assets/ref-fps/frame_3.png",
+      "bytes": 2610159,
+      "sha256": "24f711d7f39d5729304b100a5f808b2921abce6f332f70174d755ac058a662f8"
+    },
+    {
+      "path": "assets/ref-fps/frame_4.png",
+      "bytes": 2215100,
+      "sha256": "37989df5a6b93012ced5b4b7306c28c0862e3cde14c9969166c6c73f1a885ea4"
+    },
+    {
+      "path": "assets/ref-fps/frame_5.png",
+      "bytes": 2582130,
+      "sha256": "aa8313acea779209507f590a7c4b54551315480766cb944b1ffaaef961f70a96"
+    },
+    {
+      "path": "assets/ref-target/frame_01.png",
+      "bytes": 291668,
+      "sha256": "186cffde6dc22e32aa4339d0c30efa6bfc22b83a0ac49ad0f24b860e9ebff01e"
+    },
+    {
+      "path": "assets/ref-target/frame_02.png",
+      "bytes": 305916,
+      "sha256": "dea2b045f464af1f6c9079e7801b65bbfc94aa503239d9395530a07b16524da0"
+    },
+    {
+      "path": "assets/ref-target/frame_03.png",
+      "bytes": 250442,
+      "sha256": "152e7ca328aa51865345801c467cb28befe554bb97752fbb4ea5c2adbfa7489d"
+    },
+    {
+      "path": "assets/ref-target/frame_04.png",
+      "bytes": 302906,
+      "sha256": "3762db6e6a8848dadc942a1cfdcee543b70f9c442ccfa6d4104c9e8033df1d56"
+    },
+    {
+      "path": "assets/ref-target/frame_05.png",
+      "bytes": 278051,
+      "sha256": "47616e419d94d6a7754da67cecb22b5a3916157da172b93aec4a5298c830c384"
+    },
+    {
+      "path": "assets/ref-target/frame_06.png",
+      "bytes": 309661,
+      "sha256": "0f7550c253d2eb81b0770eab7945fa0b61a77b673f2e0cba083c2af84a5219c5"
+    },
+    {
+      "path": "assets/ref-target/frame_07.png",
+      "bytes": 239508,
+      "sha256": "a4e7b85bc02e8cb84905092ab3c86e7095ce98a061fffeb6261e87ca6211a6ee"
+    },
+    {
+      "path": "assets/ref-target/target-ref.mp4",
+      "bytes": 3938731,
+      "sha256": "10db25d39bb37d8eaf9372917a3041352702100a2a6e19bb018e2ade04143a1c"
+    },
+    {
+      "path": "assets/sfx/characters/body/death_01.wav",
+      "bytes": 83834,
+      "sha256": "f7bdfca6b44f60c34f449b07e17b3a6f2640adcddbf2a79bd1ce1fb640013ddb"
+    },
+    {
+      "path": "assets/sfx/characters/body/hurt_01.wav",
+      "bytes": 37088,
+      "sha256": "3e35474cf18206c2e3a1b71c8ba149f9eda7d09b9a333d409d034f24580cf897"
+    },
+    {
+      "path": "assets/sfx/characters/body/hurt_02.wav",
+      "bytes": 37088,
+      "sha256": "9d41b14035e35172209a0ddd710670436a0ef9526bc29f380d31363626002ce1"
+    },
+    {
+      "path": "assets/sfx/characters/body/jump_01.wav",
+      "bytes": 28268,
+      "sha256": "6bd30f3d101e90132bcbf71eb84a11e6440bc04bb524ea379d6960d88b2789c5"
+    },
+    {
+      "path": "assets/sfx/characters/body/land_hard_01.wav",
+      "bytes": 48556,
+      "sha256": "39d46a685f4ac311b3e51a5328502887a1c15524c39597e1e7dc4df19aaa5a99"
+    },
+    {
+      "path": "assets/sfx/characters/body/land_soft_01.wav",
+      "bytes": 31796,
+      "sha256": "d4efbb142d356876b954b918d374c34421bd11355bc7b41d91191c5e87ccd58e"
+    },
+    {
+      "path": "assets/sfx/characters/boots/crouch_01.wav",
+      "bytes": 19448,
+      "sha256": "3ba3bb79d15d9f1bf8e67fad263c31555587ee9355127d24df01dd2bd11ccd6b"
+    },
+    {
+      "path": "assets/sfx/characters/boots/crouch_02.wav",
+      "bytes": 19448,
+      "sha256": "97da39a54edf52a846f3bfb7abd726ff668d737d1d35dcaa987a830135e0967f"
+    },
+    {
+      "path": "assets/sfx/characters/boots/crouch_03.wav",
+      "bytes": 19448,
+      "sha256": "6dfccd34256f8503b0b315f386d9a9c37f7c56990f494860b9c83b79ed82bd20"
+    },
+    {
+      "path": "assets/sfx/characters/boots/crouch_04.wav",
+      "bytes": 19448,
+      "sha256": "7465ca75fbe999e676a26e431540b9e5b10c8c84f5efd35039285b13c8544c57"
+    },
+    {
+      "path": "assets/sfx/characters/boots/run_01.wav",
+      "bytes": 17684,
+      "sha256": "1e04ed179a2a5ee853bdd0c567b5e50712b50eed672b61e01bd03c5c008a4eed"
+    },
+    {
+      "path": "assets/sfx/characters/boots/run_02.wav",
+      "bytes": 17684,
+      "sha256": "a22859dfc65b53cbb17fbb1f52db6e43bde44336d2a1793501c26fa4ec5ebf04"
+    },
+    {
+      "path": "assets/sfx/characters/boots/run_03.wav",
+      "bytes": 17684,
+      "sha256": "fdc944b7bfefbd5277b5ed8a9af11bc31c516fef8892709785fdeb32676e14d7"
+    },
+    {
+      "path": "assets/sfx/characters/boots/run_04.wav",
+      "bytes": 17684,
+      "sha256": "91ac74675f2532b6abe5f9fdcacf51d95e74ec4492841eb073f3868cfeed5dea"
+    },
+    {
+      "path": "assets/sfx/characters/boots/walk_01.wav",
+      "bytes": 21212,
+      "sha256": "45271e66718c9399045d1c1cef700681f45915dd3857161bf1d824dc3f520519"
+    },
+    {
+      "path": "assets/sfx/characters/boots/walk_02.wav",
+      "bytes": 21212,
+      "sha256": "a8521c8cac25d128b413eb2285bc635ab3a9a656501a7d56152d02d3c26c76fb"
+    },
+    {
+      "path": "assets/sfx/characters/boots/walk_03.wav",
+      "bytes": 21212,
+      "sha256": "3070ddf8a7bee1ce1795e55969e23d9ebba050d3f5975e355a1554e29629c25e"
+    },
+    {
+      "path": "assets/sfx/characters/boots/walk_04.wav",
+      "bytes": 21212,
+      "sha256": "f7fa5ff8a4cace4acd73ea087a30b21d6c037d64abcfccb42e5339defd220a0c"
+    },
+    {
+      "path": "assets/sfx/manifest.json",
+      "bytes": 24708,
+      "sha256": "5e0570a6e6f995b3e57ad3db7cfdceb0094278a2a7b7b91bbe06134404fba416"
+    },
+    {
+      "path": "assets/sfx/throwables/flash/bounce_01.wav",
+      "bytes": 19448,
+      "sha256": "e9f853d43acb3eaf324402397c521927f6b6abc79b090e8320747bca94b73f9a"
+    },
+    {
+      "path": "assets/sfx/throwables/flash/detonate_01.wav",
+      "bytes": 61784,
+      "sha256": "c39b31d654b3cfdc10ea7b5a0af88a16b897ac94e9356b015d550a228ca27db2"
+    },
+    {
+      "path": "assets/sfx/throwables/flash/pin_01.wav",
+      "bytes": 24742,
+      "sha256": "f22ab3def6e020feacc5253410f18812254befaf77c35281a2d999b311eecf48"
+    },
+    {
+      "path": "assets/sfx/throwables/flash/ring_01.wav",
+      "bytes": 119116,
+      "sha256": "78306cf9c5a142d5c3cff91f6720647586ca06bfbcd3af3d5896298ec2b54d74"
+    },
+    {
+      "path": "assets/sfx/throwables/flash/throw_01.wav",
+      "bytes": 22976,
+      "sha256": "c3983381a232dd6fbdce7001237bfdb04aa2a81271f615c0b698ab948571c485"
+    },
+    {
+      "path": "assets/sfx/throwables/frag/bounce_01.wav",
+      "bytes": 19448,
+      "sha256": "dda463114bee7ed617b30a4a45c0e1833d766aac4540dfc9d3aa4124d4c59dc9"
+    },
+    {
+      "path": "assets/sfx/throwables/frag/detonate_close_01.wav",
+      "bytes": 163214,
+      "sha256": "fb1e206f5b334baa793912f75b0c731c7b928c9c123aa3b8e36837819a8c1c30"
+    },
+    {
+      "path": "assets/sfx/throwables/frag/detonate_distant_01.wav",
+      "bytes": 198494,
+      "sha256": "e7697c6a1f9b99bc3aa34d324fb64d5c113a564d76cbceca72c7aa2afdd26910"
+    },
+    {
+      "path": "assets/sfx/throwables/frag/pin_01.wav",
+      "bytes": 24742,
+      "sha256": "0e30126ffbff045e80329955e0a3c6e3d8a3315777e61bffa3c41a342cfce555"
+    },
+    {
+      "path": "assets/sfx/throwables/frag/throw_01.wav",
+      "bytes": 22976,
+      "sha256": "80b5d9b7e1978300c02e89526e6fc60d079287a6fde61af8ba6d6abcdb79f338"
+    },
+    {
+      "path": "assets/sfx/throwables/smoke/bounce_01.wav",
+      "bytes": 19448,
+      "sha256": "1898c1f264cf3fa759642788e083a68eb03e86c205ae4e9fec450dc3037dafea"
+    },
+    {
+      "path": "assets/sfx/throwables/smoke/hiss_loop_01.wav",
+      "bytes": 176444,
+      "sha256": "4de7291ff27265b3ec6de6d4cc44dfe598aad85e20e3901156c2661760d1f544"
+    },
+    {
+      "path": "assets/sfx/throwables/smoke/ignite_01.wav",
+      "bytes": 54728,
+      "sha256": "d039965a8e2a1ce0ce50c87c75358a64875a3a1eae0a08c94eee9054fe740ad4"
+    },
+    {
+      "path": "assets/sfx/throwables/smoke/pin_01.wav",
+      "bytes": 24742,
+      "sha256": "48c154e6583d25f7466d2b46dde85ee49f8efaa78be7a8cba4c686738b37abea"
+    },
+    {
+      "path": "assets/sfx/throwables/smoke/throw_01.wav",
+      "bytes": 22976,
+      "sha256": "92ec02c6f5e211da1fb3a6834d876ebcc3207fb69efb71d35760a7ea91b54120"
+    },
+    {
+      "path": "assets/sfx/vehicles/ifv/brake_01.wav",
+      "bytes": 48556,
+      "sha256": "5bc8fd36c4fc4daaa993cd2e9072ea2e31b6d6cb275e1a0b9e8d365261892b44"
+    },
+    {
+      "path": "assets/sfx/vehicles/ifv/engine_loop_01.wav",
+      "bytes": 150064,
+      "sha256": "b97606dcfb888f1df1661003ada0393efd9ea169908815bca62f1e08146691a9"
+    },
+    {
+      "path": "assets/sfx/vehicles/ifv/idle_loop_01.wav",
+      "bytes": 149752,
+      "sha256": "6c7ef0e4ff384b101eac1a6cd9bdf50b0fbf1b01cd785b4a30ab65c842b8911d"
+    },
+    {
+      "path": "assets/sfx/vehicles/ifv/movement_loop_01.wav",
+      "bytes": 159334,
+      "sha256": "93490b8d20c9bdff9677cd784d7554d67e87c70cbdeee4380ac769a90e58edb5"
+    },
+    {
+      "path": "assets/sfx/vehicles/ifv/rev_loop_01.wav",
+      "bytes": 149634,
+      "sha256": "4f060fe8f2ae50f8cec8c5a55fd6c9ed05c5b6673f59a5e3d0ab676fe1b22464"
+    },
+    {
+      "path": "assets/sfx/vehicles/ifv/shift_01.wav",
+      "bytes": 30034,
+      "sha256": "0e8f465bb09669a3073d6f3c9eed48a25c2bd226f10f90e383968f8bbe37c92d"
+    },
+    {
+      "path": "assets/sfx/vehicles/impacts/armor_01.wav",
+      "bytes": 48556,
+      "sha256": "73ea85e225838ac5717fa8b6ca4fa4e1af250c4db06a8d412953ed2c39a099f4"
+    },
+    {
+      "path": "assets/sfx/vehicles/impacts/ground_01.wav",
+      "bytes": 52964,
+      "sha256": "e1c3e7b2f027770352f174a6857011bb752d93d05f33a4c985ab106dd1e0b94b"
+    },
+    {
+      "path": "assets/sfx/vehicles/impacts/structure_01.wav",
+      "bytes": 61784,
+      "sha256": "41b14fdfb1fa4281dac1a9ef92ae680e451fdfe4980602ff6bab25fbd7d6266a"
+    },
+    {
+      "path": "assets/sfx/vehicles/jeep/brake_01.wav",
+      "bytes": 35324,
+      "sha256": "62e5a1bd06c76006315790885dd27701f00c40ae6f8ed0609e519cf658e632a9"
+    },
+    {
+      "path": "assets/sfx/vehicles/jeep/engine_loop_01.wav",
+      "bytes": 149670,
+      "sha256": "5756a591688c4c61d429f0de85d377a6d7eb8df292f3995f8f11ae874d507f8b"
+    },
+    {
+      "path": "assets/sfx/vehicles/jeep/idle_loop_01.wav",
+      "bytes": 150386,
+      "sha256": "09d183a3272d4f4db819b4f49841e0cb34538b76aac2c9b9aa8434eaf21a28bd"
+    },
+    {
+      "path": "assets/sfx/vehicles/jeep/movement_loop_01.wav",
+      "bytes": 158804,
+      "sha256": "f7638ffc2bfb523222e2956d636b88ce067d8bb0a1e34b812d4ff0883233db1f"
+    },
+    {
+      "path": "assets/sfx/vehicles/jeep/rev_loop_01.wav",
+      "bytes": 150116,
+      "sha256": "691cef2ad95d7277ca0b4773b4bfb764f1d52425f879b5d5547130565d738ee9"
+    },
+    {
+      "path": "assets/sfx/vehicles/jeep/shift_01.wav",
+      "bytes": 30034,
+      "sha256": "3bd6d7339410377dc6ce41f55737a2558cb74e42d090a121476ed273259ac438"
+    },
+    {
+      "path": "assets/sfx/vehicles/tank/brake_01.wav",
+      "bytes": 48556,
+      "sha256": "f3ad33d1f0447fa7f275c1fb06f47b2294aaae7c728586b30b2c6ca2e9973e96"
+    },
+    {
+      "path": "assets/sfx/vehicles/tank/engine_loop_01.wav",
+      "bytes": 150344,
+      "sha256": "4bd1123552661d890fcbabddac277811f3ef0a0368034bde71bbe844f177e554"
+    },
+    {
+      "path": "assets/sfx/vehicles/tank/idle_loop_01.wav",
+      "bytes": 150504,
+      "sha256": "7bb0971f19a9a7a00e29b6d0947dc8bc1962ffbe6859e5785756c132fe29b8f8"
+    },
+    {
+      "path": "assets/sfx/vehicles/tank/movement_loop_01.wav",
+      "bytes": 158100,
+      "sha256": "39f0741cda0f2cc3fd96c6e944437023751f19e5d50e18c7146e9a61e739bf19"
+    },
+    {
+      "path": "assets/sfx/vehicles/tank/rev_loop_01.wav",
+      "bytes": 150240,
+      "sha256": "66f76d004d3f49c55fc09a29324cd87469103a638795ed22f5b1de0b6222de00"
+    },
+    {
+      "path": "assets/sfx/vehicles/tank/shift_01.wav",
+      "bytes": 30034,
+      "sha256": "4bd99a47a55b65222304e04e741a48a21b8ac144c068d82cec207a11aaeb3e03"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/ifv_autocannon_01.wav",
+      "bytes": 42380,
+      "sha256": "9abd33c585351e7bf3e1ea7a686cb1e16bcae6066c4b9e1db69f2010fb3f01de"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/ifv_grenade_01.wav",
+      "bytes": 48556,
+      "sha256": "32670ff790e5cb50b4dd374ef9244ec5d2a1aaca33bbc4b10851ca337e975535"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/ifv_missile_01.wav",
+      "bytes": 83834,
+      "sha256": "e76c7eb070e564b9e6b5bd01c0fd4ead8790953a81a84c218e041eb0d5c6ec26"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/tank_breech_01.wav",
+      "bytes": 33560,
+      "sha256": "448e2ea50b93b624f44ea8a0a4cad2b05156b9b927bc96d971be5ca277ccb42c"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/tank_cannon_01.wav",
+      "bytes": 127934,
+      "sha256": "058d352f17770623a88aa18d946dd4d2d1727d3b6b14a4c2e5103f6041c3d05e"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/tank_cannon_far_01.wav",
+      "bytes": 185264,
+      "sha256": "a8a97f3c418b5b2abbecb9a0b88da0f3187204a517ffbbb7ee0ae50351ef7a61"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/tank_coax_01.wav",
+      "bytes": 21212,
+      "sha256": "5e9c1bc9d1404ea2b34e17e19acf5b6800f070974c9454109a783f87d735f3e6"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/tank_hmg_01.wav",
+      "bytes": 31796,
+      "sha256": "a1dfc2984421e782a2653bf5470756b7c0eb02338167bd1448ea85beea1ac40f"
+    },
+    {
+      "path": "assets/sfx/weapons/mechanics/empty_01.wav",
+      "bytes": 14156,
+      "sha256": "13768e1ea89ef65eebe0ed5bb0f3168ebf97173e509ed5d45dd4b7f2148f708e"
+    },
+    {
+      "path": "assets/sfx/weapons/mechanics/reload_mag_01.wav",
+      "bytes": 28268,
+      "sha256": "1978c20224009343070f2402484adaf638eba6a3ce197e1176eb11af16b7ae89"
+    },
+    {
+      "path": "assets/sfx/weapons/mechanics/reload_rack_01.wav",
+      "bytes": 26504,
+      "sha256": "2b29467765b71e352c0fb0139262350099df9554cbd90315a7ca21db9b651a55"
+    },
+    {
+      "path": "assets/sfx/weapons/mechanics/reload_start_01.wav",
+      "bytes": 21212,
+      "sha256": "da55eea391f9a785ce8c88e1e08ae6b8af25b72ac3a3973866d8644650fcbc37"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/dmr762/fire_close_01.wav",
+      "bytes": 39876,
+      "sha256": "39e8a9bbbc9404543f1544d9989a88342367144a2d900f8d1e15c3ecab148444"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/dmr762/fire_close_02.wav",
+      "bytes": 39404,
+      "sha256": "353eaae0c35ab8b47330c1cca824a903a4eee52fe705a986e0e68a3f3b2569d5"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/dmr762/fire_distant_01.wav",
+      "bytes": 84716,
+      "sha256": "90db2122c74298ec73f458cdc69f86f9cde6911ce5d0880eb7903ec5757501a3"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/lmg556/fire_close_01.wav",
+      "bytes": 33560,
+      "sha256": "f4d42a23371733903ab9bcb7401461bb0d6fbf6e5f4782066c666226bdd3cf9c"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/lmg556/fire_close_02.wav",
+      "bytes": 33162,
+      "sha256": "27070d41fb7b00ec807fc057bd779854a4e37ce9ac2cc46f5e253863a8fb564d"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/lmg556/fire_distant_01.wav",
+      "bytes": 74132,
+      "sha256": "0a29a76aa57fe0ef87feef8e9aed5c0dddff97ca4a3db049e8c2ce8b2893812e"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/pdw46/fire_close_01.wav",
+      "bytes": 24544,
+      "sha256": "d9e2b2ca754fc8330ef7b5749d991a37554a91abf4364cea59f0ccccedb1ef98"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/pdw46/fire_close_02.wav",
+      "bytes": 24254,
+      "sha256": "36b62add3e7a5c161be317554de706b78a05f67ce921a42aa7fce3e7c15be1ed"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/pdw46/fire_distant_01.wav",
+      "bytes": 56492,
+      "sha256": "cb292a7dc35cf936acbb78943339a82ce28e2c18b660cedbb65b7a2104ad770d"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/pistol45/fire_close_01.wav",
+      "bytes": 23126,
+      "sha256": "f1b861bc57b8ff38826149a222fd596aec955d64500d1820fc128566df459d35"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/pistol45/fire_close_02.wav",
+      "bytes": 22852,
+      "sha256": "06ccc1ce73b409de448190809e5bbc76e5d7fe5b137bf3e5903ab564289c74f6"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/pistol45/fire_distant_01.wav",
+      "bytes": 52964,
+      "sha256": "0a544ba3cc010eb452e7b159981f0e55fd7aa0b44f520c4a5039c568da5d0d6e"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle545/fire_close_01.wav",
+      "bytes": 34596,
+      "sha256": "960cea1a370948a28fda475da8ca793f9bb89db58ad5bcce2ad6635793aa55a8"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle545/fire_close_02.wav",
+      "bytes": 34186,
+      "sha256": "d9b69abe73bf7a18ba1999094f98a8912ba0cb7ad4182efaf720b251ec6ed9c6"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle545/fire_distant_01.wav",
+      "bytes": 72368,
+      "sha256": "58c43ecfb46b2e1d45120138b6bdd39c2bfa06f4d53fac50bcbe775a1d793508"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle556/fire_close_01.wav",
+      "bytes": 29020,
+      "sha256": "12eb2050cd879d68ee5ea09d948a567ba3e641e677034882184157c0f6b3d619"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle556/fire_close_02.wav",
+      "bytes": 28676,
+      "sha256": "b0c8c86a168e99b79ca8117ac401d873a10fa7dc105a9e0e926b0b3c1a09d6bd"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle556/fire_distant_01.wav",
+      "bytes": 65312,
+      "sha256": "5e129e1e296c61ae7982a9b8bf902e96ea8451a1ed4ee14e1bc2067c0b39f681"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle762/fire_close_01.wav",
+      "bytes": 37378,
+      "sha256": "f2d9ee73174c251d68753c8bb04b63a6a8518f3d91a4bc22bae4b0daa402722e"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle762/fire_close_02.wav",
+      "bytes": 36934,
+      "sha256": "6eeab46a738e5078c482c7ab44e85172f1724520bdb789072bc3f24ebbb045f2"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle762/fire_distant_01.wav",
+      "bytes": 79424,
+      "sha256": "1262995401b6f8341cccdf8c6d8a2143d34f8919b91659bb38c483ea074cc3be"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/smg9/fire_close_01.wav",
+      "bytes": 26924,
+      "sha256": "1912748864e371a05f9e6e8b093cf7a39c04ede21f4f232b4b5c07adfc182236"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/smg9/fire_close_02.wav",
+      "bytes": 26606,
+      "sha256": "94804b5ee7892240788e399f20184009ce18dfc796652b9fea140977e765f27a"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/smg9/fire_distant_01.wav",
+      "bytes": 60022,
+      "sha256": "50867190fa3149195104a46202d54850987fd7c84ac1e1d6d31d89baa80b6f39"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/sniperheavy/fire_close_01.wav",
+      "bytes": 47084,
+      "sha256": "da80011755c688b9fe85679a9e9e0d37c86a69472c7961a15141cd2c760042ba"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/sniperheavy/fire_close_02.wav",
+      "bytes": 46526,
+      "sha256": "c61febf7b5b0bcad4368407c960f528bbb80a608ebf6acce376256a1372a5aca"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/sniperheavy/fire_distant_01.wav",
+      "bytes": 98830,
+      "sha256": "0cd0625b8f56b40ea49339ab368967cd6e4cc18df396ce72038ec284d96d2601"
+    },
+    {
+      "path": "assets/sfx/_manifest/licenses.csv",
+      "bytes": 37211,
+      "sha256": "226c53a35dca931c97b3544b6413a14cd879bd4b960d9901db2b6539a3020096"
+    },
+    {
+      "path": "assets/sfx/_source/audacity_batch_source.wav",
+      "bytes": 141164,
+      "sha256": "55c12e0f8b6187a56d79cbbfe1ab2d43507a9c924d59b5e6771d4f2f654c031f"
+    },
+    {
+      "path": "assets/ui/deployment-yard.png",
+      "bytes": 2479776,
+      "sha256": "549c78868ceb5063c57ee42a82daeff7defb3d9c34934fb93b5ccf8444b9f0ea"
+    },
+    {
+      "path": "assets/ui/fill-noise.png",
+      "bytes": 191,
+      "sha256": "a364ab85f0034745207bd5d30bfa3db749c2edb23d0e33a977e1945ed69cf63b"
+    },
+    {
+      "path": "assets/ui/frame-panel.png",
+      "bytes": 206,
+      "sha256": "77a922a97e5508ce77ec951bd43ad4465d567d2a640c2b100495824798b16f22"
+    },
+    {
+      "path": "assets/ui/frame-pill.png",
+      "bytes": 278,
+      "sha256": "3d127bb074a2136be72bfb63aa79c478f2aa04bebe1ee47731552afc524b42af"
+    },
+    {
+      "path": "assets/ui/frame-slot.png",
+      "bytes": 149,
+      "sha256": "f8259be12f526c566befd939d2dc3990e3965c264802a5a2c1b65f72e757bc32"
+    },
+    {
+      "path": "assets/ui/operations-atlas.png",
+      "bytes": 2844420,
+      "sha256": "3ef228c94bf934efbc91540b5bf4d276dea75b31909c4e3225c85dc5faca8fd0"
+    },
+    {
+      "path": "assets/ui/solo-extraction.png",
+      "bytes": 2269462,
+      "sha256": "fb053e0e39df29d62f6fecba57570e4931b1380e0514b362741fba101170b78b"
+    },
+    {
+      "path": "assets/voice/index.json",
+      "bytes": 14,
+      "sha256": "a8bf9b3131e6a28a3250de1fdd00722589d09f3e7da7fc16ca322a90465880b1"
+    },
+    {
+      "path": "styles/deployment-base.css",
+      "bytes": 21478,
+      "sha256": "eb176bb1d25a2bebc84f67ef7ac291bf34a92cf6e51decffe7ec248f0fd86799"
+    },
+    {
+      "path": "styles/frontline-ui.css",
+      "bytes": 19494,
+      "sha256": "7abb87a7179dcd77a474fea5c494f185c00b165822e58a270b4f9035f6827870"
+    },
+    {
+      "path": "styles/preview-fidelity.css",
+      "bytes": 16201,
+      "sha256": "a2777edd57e43788e804cfe782d546d64ea5134ebdd0c8c4a32cb183a768bc67"
+    },
+    {
+      "path": "styles/squad-ui.css",
+      "bytes": 12147,
+      "sha256": "ca2f5bf17100cfabf677ab00ac53273c083a841b80ee3eb24ced7ff068b22d87"
+    },
+    {
+      "path": "modes/small-battle/assets/mode-core.png",
+      "bytes": 7703798,
+      "sha256": "e63ef21ce3b8f7e564b8e82375f6279034f6f538f9bd23a5b6806cce1d4d76e5"
+    },
+    {
+      "path": "modes/small-battle/assets/mode-demo.png",
+      "bytes": 7645673,
+      "sha256": "4bb4d4f5678f0af038d30dfd3f76084ddd626874fdff0020bf594e4112297bc3"
+    },
+    {
+      "path": "modes/small-battle/assets/mode-ffa.png",
+      "bytes": 7840230,
+      "sha256": "0fd9b924ed3dccd2bbd46b4db84b85dcb90ca03afde2f32d2ecd6960404fdc2c"
+    },
+    {
+      "path": "modes/small-battle/assets/mode-gun.png",
+      "bytes": 8067099,
+      "sha256": "548c5ae8c0620f751c4d3a29852decfc8ca259bccf22aaa2dbfe4c234d008a27"
+    },
+    {
+      "path": "modes/small-battle/assets/mode-tdm.png",
+      "bytes": 8587550,
+      "sha256": "88a8f4de238b9cb49ae072c555a306e2d1b75205fe07f7867de48b6f0497d84e"
+    },
+    {
+      "path": "modes/small-battle/assets/music/menu.ogg",
+      "bytes": 293213,
+      "sha256": "333fd6552a95b319a3527214b8ed5e10b7eda009d2882db3bea74351bfedc5e0"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/index.json",
+      "bytes": 1429,
+      "sha256": "23c1715309adfaccd51a13d853ef7d50d14a2f225143680fb3902c4f683b32ab"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/README.md",
+      "bytes": 7165,
+      "sha256": "3aca0d7d78f1a4d188bef695b4266f63e092f478be8bcc8c9aff84a2ec0d75ac"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/beep.ogg",
+      "bytes": 13460,
+      "sha256": "61f8eca45a0ea759a89798e8551b31cf33f101e84907095748ab42501295e94b"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/bounce_metal.ogg",
+      "bytes": 11820,
+      "sha256": "fcb2e28730c725b794af2e48c784ca933396cf5792f9e24869ed969ae4d888ed"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/debris.ogg",
+      "bytes": 40966,
+      "sha256": "16080f9bc90924b0e4ede52922529e30e34e72af32a505b39bdfc5ebcbb9248c"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/fire_whoosh.ogg",
+      "bytes": 35391,
+      "sha256": "bb292a9fc082557e65199d01abe124459d910519b39c913ecb6c6f2207576d6f"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/flash_crack.ogg",
+      "bytes": 19546,
+      "sha256": "aaaba1cdaeb9e5e61abf3ebdff09c967b5d451c42b45259e3b00f62575baafea"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/frag_boom.ogg",
+      "bytes": 54484,
+      "sha256": "e87ca0ee6b53da1f21cd9086cb75f456495871618fdfed63388bd2208a872596"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/glass_smash.ogg",
+      "bytes": 20727,
+      "sha256": "35dcb1dc69338bad745e1cd56c676d04e4afb6687b9aa6d05ba83a255252747b"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/pin_click.ogg",
+      "bytes": 7740,
+      "sha256": "fa2c8ebd6361394762e9964698a0be2e31ae62dc91510f81c716c0ef8cf5741d"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/pin_spring.ogg",
+      "bytes": 27119,
+      "sha256": "373fb40c3f895e04623633057160a217005b04816a957094ae3c3d66fe21dca0"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/semtex_boom.ogg",
+      "bytes": 36302,
+      "sha256": "0f0c960888e6ebcb1bc68fa77fa0e52a26b8693b7a420a95ed0d669c486bc4f5"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/smoke_hiss.ogg",
+      "bytes": 18127,
+      "sha256": "c2d5d5f73b70c155797c1655bdd1850145a47606803e1d9b6dd9c59d35a6909a"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/stick_thud.ogg",
+      "bytes": 8330,
+      "sha256": "c3e1a46dcf5dc0c15706f3333bfccd0b8d491aa197bc39274a6b5588b3da1ffd"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/stun_body.ogg",
+      "bytes": 69097,
+      "sha256": "716392af61b29dabe637c2616091207f390d25357aae3d4c625df5dfea7e961d"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/stun_sub.ogg",
+      "bytes": 9408,
+      "sha256": "cdda50600a4928f2f1b8371224d53c171ac799c1cf2c30b11999508985250b3b"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/throw_whoosh.ogg",
+      "bytes": 8034,
+      "sha256": "df32019155c3a8b5fc77244126261695f762ba7018a4fc4c6d9ad201cedeb985"
+    },
+    {
+      "path": "modes/small-battle/index.html",
+      "bytes": 55644,
+      "sha256": "6646b2c52a18c092745ef115ff7f52a8279c3191cc3c163dbec27d0b1d828122"
+    },
+    {
+      "path": "modes/small-battle/integration.json",
+      "bytes": 1544,
+      "sha256": "d84033df7d20e7c014ee8f1e5db59470e25d206db1187e6905c9fec50baf7459"
+    },
+    {
+      "path": "modes/small-battle/js/ai.js",
+      "bytes": 131460,
+      "sha256": "29721ffedbc509532189550abf164a69f6c9389df2b19b44823b02276940fa44"
+    },
+    {
+      "path": "modes/small-battle/js/arsenal.js",
+      "bytes": 39149,
+      "sha256": "36722ba41d4b30fbf3b11ff79c2f44060553bfa599fd9d8f7aa94a720dc12822"
+    },
+    {
+      "path": "modes/small-battle/js/atmosphere.js",
+      "bytes": 2106,
+      "sha256": "5075b730fc400e33ea6f417ce3788dc4cdad84b6611874d3cc02b1bde6424e36"
+    },
+    {
+      "path": "modes/small-battle/js/audio.js",
+      "bytes": 30279,
+      "sha256": "bd75939779e424021c32660377af972ccc000e49fbcc141b82b649dd581847a3"
+    },
+    {
+      "path": "modes/small-battle/js/bases.js",
+      "bytes": 51132,
+      "sha256": "4afb0d44bd2d96f41c26573066090bbe6f01daae6497fbf2e0cdd76e1c7e912b"
+    },
+    {
+      "path": "modes/small-battle/js/battlefield-events.js",
+      "bytes": 47416,
+      "sha256": "4d915f385dceb23883ab5db6b24f36df95b802ebe613f7d1615e6aa2ead521e4"
+    },
+    {
+      "path": "modes/small-battle/js/building.js",
+      "bytes": 31833,
+      "sha256": "22c93ac88d846e76d9717e38ac7284b3cd7ae64f00c244f20daf43c666c1c736"
+    },
+    {
+      "path": "modes/small-battle/js/career.js",
+      "bytes": 21020,
+      "sha256": "00cb6daa53c8a6015ebd09568f04657ad3993d04f438888226421b84383dd038"
+    },
+    {
+      "path": "modes/small-battle/js/config.js",
+      "bytes": 311,
+      "sha256": "e7422cedd081c1014420bb6abbc3880a3d433c879a3a0f193f06c143538b2495"
+    },
+    {
+      "path": "modes/small-battle/js/economy.js",
+      "bytes": 33375,
+      "sha256": "beec479293f97c6f8a0ec1ad3d98246f17c48906b80b27de19508cd1be941855"
+    },
+    {
+      "path": "modes/small-battle/js/feel-config.js",
+      "bytes": 2959,
+      "sha256": "30447774529fa28e60c70c90e5de483c58434db8c3a0a975e5a26712728b7cd2"
+    },
+    {
+      "path": "modes/small-battle/js/feel-tuner.js",
+      "bytes": 24584,
+      "sha256": "dd79caad18bf5011fef48309cf281cc2cc35317207293777a9b7475181f6f340"
+    },
+    {
+      "path": "modes/small-battle/js/ffa-marker.js",
+      "bytes": 3655,
+      "sha256": "de65a30df12c84eed4711d28cab26c1944ee7711e642efabce3a8afa3cd44606"
+    },
+    {
+      "path": "modes/small-battle/js/ffa-match.js",
+      "bytes": 14180,
+      "sha256": "4531a0a05148dd905bc0a2ba647feec0b5be59cff8613d1772d3101fb3cfc2e5"
+    },
+    {
+      "path": "modes/small-battle/js/ffa-spawn.js",
+      "bytes": 12665,
+      "sha256": "be8499cc32e02255aeab208fd149e429fb8f3d6a9bbdb5daa3ff10775bea63b2"
+    },
+    {
+      "path": "modes/small-battle/js/ffa-ui.js",
+      "bytes": 12085,
+      "sha256": "d2985d25785c0eb0826a4389bc865d95aec9ee5b9880557216ff4431ea2bbcc7"
+    },
+    {
+      "path": "modes/small-battle/js/gamemodes.js",
+      "bytes": 18546,
+      "sha256": "668c5ec811406dabc77693952ea6af585d1afc5ac6505035ee93bd979cf4452a"
+    },
+    {
+      "path": "modes/small-battle/js/gg-match.js",
+      "bytes": 21902,
+      "sha256": "8019991ca208074f3dc46f25773923d465ba60c6320fd130b5718148a500a763"
+    },
+    {
+      "path": "modes/small-battle/js/gg-ui.js",
+      "bytes": 15128,
+      "sha256": "05103e5a332662001eb7cb24309fd54a943379837b4129898b6050a1c87dd0f8"
+    },
+    {
+      "path": "modes/small-battle/js/hub.js",
+      "bytes": 41246,
+      "sha256": "17dbe10d9de3c7e750b644f7204bc0571ebf707e4be8fc937705aa9ec4a3558a"
+    },
+    {
+      "path": "modes/small-battle/js/kubee-bridge.js",
+      "bytes": 1859,
+      "sha256": "2bb87a131b160695426a446d53c3ad6f7298d0f5f36d5bd79c7f4a9ae547288a"
+    },
+    {
+      "path": "modes/small-battle/js/lobby.js",
+      "bytes": 26539,
+      "sha256": "8351693b49d73b31a6bf1c53f167b2db8c024530006ddc7d08b72da8e05da610"
+    },
+    {
+      "path": "modes/small-battle/js/main.js",
+      "bytes": 58995,
+      "sha256": "27891091e321987e719ac7809a7906110cc108c1847ecc80b2619d1b462723ca"
+    },
+    {
+      "path": "modes/small-battle/js/map-editor.js",
+      "bytes": 131499,
+      "sha256": "87bd8e7fda557664c62f9e875df8e336e3858beed9dfb4cd02708a0ca7c9ce12"
+    },
+    {
+      "path": "modes/small-battle/js/maps/dust2-default.js",
+      "bytes": 6278,
+      "sha256": "b9b976349fe9cd77a4802e7de2d69f2f5c0d4e4fcc9d1e37c77dca31bf05bb26"
+    },
+    {
+      "path": "modes/small-battle/js/melee.js",
+      "bytes": 16644,
+      "sha256": "b0f2d26ad191c270eb1524e7f9bd6696e6cfa65843aaacb10eeec3a01ba91a7c"
+    },
+    {
+      "path": "modes/small-battle/js/player.js",
+      "bytes": 86004,
+      "sha256": "4dc5e8cdc97f454e2501e4fee98e98b09381ac8b70c69d8e8e77b4922cecfa4d"
+    },
+    {
+      "path": "modes/small-battle/js/pve-district.js",
+      "bytes": 18417,
+      "sha256": "ffebfd2074805587b5c4e3f18eb5f8a899cc9f5d7737f603493ef884ccc23aa8"
+    },
+    {
+      "path": "modes/small-battle/js/pvp.js",
+      "bytes": 71721,
+      "sha256": "c81ba5d54428d313cc6b92acedba26ea1d5e4c2a3938663fafea848eb1416169"
+    },
+    {
+      "path": "modes/small-battle/js/range.js",
+      "bytes": 29832,
+      "sha256": "d0fe5e95c83cb976d526dd992d6ea0dc36b18913669124ab69510bfb6c8804fc"
+    },
+    {
+      "path": "modes/small-battle/js/render-config.js",
+      "bytes": 3137,
+      "sha256": "fb2c2bd31c86f028fed9e82302d5110c7299f4c93e09ea0431aba2b93dcf4542"
+    },
+    {
+      "path": "modes/small-battle/js/render-pipeline.js",
+      "bytes": 28283,
+      "sha256": "6b949b4749c44fdd0d891cf8153f14f8a8e087dab43e03bb769fccc32d96a1ab"
+    },
+    {
+      "path": "modes/small-battle/js/render-scene.js",
+      "bytes": 14332,
+      "sha256": "553304f6ed33ffc843ec708afcf3166f2fb3da9d298032977bd55bca35c5d3e2"
+    },
+    {
+      "path": "modes/small-battle/js/render-tuner.js",
+      "bytes": 29692,
+      "sha256": "fc297fcb8ca2882cd382826c13a60fd55c404a73b35ab8574c8b18dcecccbc01"
+    },
+    {
+      "path": "modes/small-battle/js/sd-bomb.js",
+      "bytes": 14645,
+      "sha256": "e97637f8655ab873719d6497ded2e53e7ad0f3cc828f3e27c3b3af1db4aa4829"
+    },
+    {
+      "path": "modes/small-battle/js/sd-field.js",
+      "bytes": 37257,
+      "sha256": "6e0bf6ed17cd3ade9bacb573046ee4dda0f0364963904b195f64b7bcaff7ce22"
+    },
+    {
+      "path": "modes/small-battle/js/sd-match.js",
+      "bytes": 15351,
+      "sha256": "10e93e747ed320d758173d9a741d671e9a8c4e14c6748d0b1dd8b5ddbad339f5"
+    },
+    {
+      "path": "modes/small-battle/js/sd-net.js",
+      "bytes": 5639,
+      "sha256": "b57f8653ba0c06901613943a9ac717e808a0f9c1fdc5de9ec0547fa166725393"
+    },
+    {
+      "path": "modes/small-battle/js/sd-result.js",
+      "bytes": 15450,
+      "sha256": "560ca188f4002e5a73b78fa65cd092e0ab9d646259bdb2dce0df0765d30a30ff"
+    },
+    {
+      "path": "modes/small-battle/js/sd-spawn.js",
+      "bytes": 7335,
+      "sha256": "c962b68d39876cc503c8b7465bce3c34e59b91e4a1f8237578726d89e3dbd501"
+    },
+    {
+      "path": "modes/small-battle/js/sd-stats.js",
+      "bytes": 15945,
+      "sha256": "4bb182e7f4a5f38484b4424b734bdcbc11889c8a3eaf2316105a6e06e7f851a4"
+    },
+    {
+      "path": "modes/small-battle/js/sd-ui.js",
+      "bytes": 11610,
+      "sha256": "996523309916ba1f30c7b9c5cfa2284d0408cc1934528adfc5f66749103afb96"
+    },
+    {
+      "path": "modes/small-battle/js/skills.js",
+      "bytes": 103209,
+      "sha256": "358906e5730de6d292c2113e496718d48a9a08f2fdb84842d0948fb21e4d5ae1"
+    },
+    {
+      "path": "modes/small-battle/js/soldier.js",
+      "bytes": 58186,
+      "sha256": "32ebfa910d63cddf3f8e1247b9c6928c33efb6a008a6e7c6f09c33d630bc70f6"
+    },
+    {
+      "path": "modes/small-battle/js/tdm-match.js",
+      "bytes": 16339,
+      "sha256": "23f759a41a0c478feb23c7317c37be1cfe40be7acc99ba88e4d0009365173f2a"
+    },
+    {
+      "path": "modes/small-battle/js/tdm-spawn.js",
+      "bytes": 12645,
+      "sha256": "bba8ff4903e8b76288ea9bfad0c088ead91b82fe00568f73419ecf4a6b24a559"
+    },
+    {
+      "path": "modes/small-battle/js/tdm-ui.js",
+      "bytes": 13460,
+      "sha256": "9a218c40269549b19b1dd6c44a858b8e7b988428f4f5708c320f515adde0687b"
+    },
+    {
+      "path": "modes/small-battle/js/terrain-fine.js",
+      "bytes": 25292,
+      "sha256": "21af4c7cf320c8614b7006b506436bc98e949391b502905047491aeed21a0bae"
+    },
+    {
+      "path": "modes/small-battle/js/throwables.js",
+      "bytes": 110161,
+      "sha256": "afb62dd8bd358037e19049f57ae796c144dc920f13145f021ef7e6cb2b7fd306"
+    },
+    {
+      "path": "modes/small-battle/js/tower-designer.js",
+      "bytes": 40010,
+      "sha256": "369c3dea71ebf2c15996e68710f7a9cb83782837ac0c5b7947ac6738331aecd6"
+    },
+    {
+      "path": "modes/small-battle/js/ui.js",
+      "bytes": 77800,
+      "sha256": "e9e4a24f6448cdacad407f9a6a44d09d396160f6b64aa8a440a10551ebf207f0"
+    },
+    {
+      "path": "modes/small-battle/js/voxel-world.js",
+      "bytes": 205073,
+      "sha256": "84fa5c47e150c213e4e2e009c735ed85255d331392193398f13165ebcb66db92"
+    },
+    {
+      "path": "modes/small-battle/js/weapon-catalog.js",
+      "bytes": 15450,
+      "sha256": "3b0ac15b048c37cdf8bbffcfad6068364b81f9a8061279d578c4cf8da20c9ccb"
+    },
+    {
+      "path": "modes/small-battle/js/weapon-inspect.js",
+      "bytes": 2721,
+      "sha256": "e06cc875c731ef5f6978641198bc47d4760f5e8dd296fd27d44f388fe8b2e53b"
+    },
+    {
+      "path": "modes/small-battle/js/weapon-viewmodels.js",
+      "bytes": 14051,
+      "sha256": "7b8f6906d339820d85315dc0ddc878abd6b78ded11f8e4ae66aa96c45f3db5d2"
+    },
+    {
+      "path": "modes/small-battle/js/weapons.js",
+      "bytes": 65506,
+      "sha256": "510400fc884ee008b29fda771465d24d4cfd0db472cc482a018725b3bf1ae06c"
+    },
+    {
+      "path": "modes/small-battle/js/world-outskirts.js",
+      "bytes": 10326,
+      "sha256": "87f62684bfdbd6762d32bdeb5490714dabd207ec283953a98a90c228863b2874"
+    },
+    {
+      "path": "modes/small-battle/style.css",
+      "bytes": 130093,
+      "sha256": "1ffdaaa481f6deee50ba77b4f7f34849652b2fdd2656bc0a2773b81b16ac5a9d"
+    },
+    {
+      "path": "index.html",
+      "bytes": 78735,
+      "sha256": "7dd6642c1291cc6821851eb4428f423c2047b6a21f316075450a9b18c6f44bf0"
+    },
+    {
+      "path": "style.css",
+      "bytes": 233632,
+      "sha256": "e5b974381b0e22ba720a638dafc4446d416f7b9f349f7648dc634632b41fe31e"
+    },
+    {
+      "path": "netlify.toml",
+      "bytes": 418,
+      "sha256": "1a93ee1a2055aa86a6bb2b8242d8a8b887a52110c46a4b900e995962f9b19b10"
+    }
+  ]
+}

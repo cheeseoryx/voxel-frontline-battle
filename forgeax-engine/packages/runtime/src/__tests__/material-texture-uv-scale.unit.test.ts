@@ -1,0 +1,121 @@
+import { World } from '@forgeax/engine-ecs';
+import { vec3 } from '@forgeax/engine-math';
+import { describe, expect, it } from 'vitest';
+import {
+  applyMaterialTextureUvScales,
+  buildPbrMaterialUboPayload,
+  materialTextureUvScale,
+  userRegionTextureFieldOrder,
+} from '../../../render/src/record/main-pass-material';
+
+describe('material texture UV scale [w37]', () => {
+  it('maps a non-aligned BC7 logical edge below padded physical storage', () => {
+    const scale = materialTextureUvScale({
+      shape: { viewDimension: '2d', extent: { width: 2085, height: 1573 } },
+      format: 'bc7-rgba-unorm',
+    });
+    expect(scale).toEqual([2085 / 2088, 1573 / 1576]);
+    expect(scale[0]).toBeLessThan(1);
+    expect(scale[1]).toBeLessThan(1);
+  });
+
+  it('uses identity scale for uncompressed and fallback texture bindings', () => {
+    expect(materialTextureUvScale(undefined)).toEqual([1, 1]);
+    expect(
+      materialTextureUvScale({
+        shape: { viewDimension: '2d', extent: { width: 17, height: 9 } },
+        format: 'rgba8unorm',
+      }),
+    ).toEqual([1, 1]);
+  });
+
+  it('keeps compatibility param schemas compact when they have no textures', () => {
+    expect(userRegionTextureFieldOrder([])).toEqual([]);
+    expect(userRegionTextureFieldOrder([{ name: 'baseColor', type: 'color' }])).toEqual([]);
+  });
+
+  it('writes each slot set and transform into the builtin PBR payload', () => {
+    const payload = buildPbrMaterialUboPayload({
+      baseColor: vec3.create(1, 1, 1),
+      metallic: 0,
+      roughness: 0.5,
+      materialShaderId: 'forgeax::default-standard-pbr',
+      textureCoordinates: new Map([
+        [
+          'baseColorTexture',
+          { set: 1, transform: { offset: [0.125, 0.25], scale: [2, 3], rotation: 0.5 } },
+        ],
+        ['normalTexture', { set: 0, transform: { offset: [0.75, 0.25], scale: [4, 5] } }],
+      ]),
+    });
+    applyMaterialTextureUvScales(
+      payload,
+      {
+        baseColor: vec3.create(1, 1, 1),
+        metallic: 0,
+        roughness: 0.5,
+        materialShaderId: 'forgeax::default-standard-pbr',
+        textureCoordinates: new Map([
+          [
+            'baseColorTexture',
+            { set: 1, transform: { offset: [0.125, 0.25], scale: [2, 3], rotation: 0.5 } },
+          ],
+          ['normalTexture', { set: 0, transform: { offset: [0.75, 0.25], scale: [4, 5] } }],
+        ]),
+      },
+      new World(),
+    );
+    const f32 = new Float32Array(payload.buffer, payload.byteOffset, payload.byteLength / 4);
+    expect(Array.from(f32.slice(32, 40))).toEqual([0.125, 0.25, 2, 3, 1, 0.5, 1, 1]);
+    expect(Array.from(f32.slice(48, 56))).toEqual([0.75, 0.25, 4, 5, 0, 0, 1, 1]);
+  });
+
+  it('keeps identity UV records for metadata-free standard and builtin schema materials', () => {
+    const standard = buildPbrMaterialUboPayload({
+      baseColor: vec3.create(1, 1, 1),
+      metallic: 0,
+      roughness: 0.5,
+      materialShaderId: 'forgeax::default-standard-pbr',
+    });
+    applyMaterialTextureUvScales(
+      standard,
+      {
+        baseColor: vec3.create(1, 1, 1),
+        metallic: 0,
+        roughness: 0.5,
+        materialShaderId: 'forgeax::default-standard-pbr',
+      },
+      new World(),
+    );
+    expect(
+      Array.from(
+        new Float32Array(standard.buffer, standard.byteOffset, standard.byteLength / 4).slice(
+          32,
+          88,
+        ),
+      ),
+    ).toEqual(Array.from({ length: 7 }, () => [0, 0, 1, 1, 0, 0, 1, 1]).flat());
+
+    const unlit = buildPbrMaterialUboPayload({
+      baseColor: vec3.create(1, 1, 1),
+      metallic: 0,
+      roughness: 0.5,
+      materialShaderId: 'forgeax::default-unlit',
+    });
+    applyMaterialTextureUvScales(
+      unlit,
+      {
+        baseColor: vec3.create(1, 1, 1),
+        metallic: 0,
+        roughness: 0.5,
+        materialShaderId: 'forgeax::default-unlit',
+      },
+      new World(),
+    );
+    expect(
+      Array.from(
+        new Float32Array(unlit.buffer, unlit.byteOffset, unlit.byteLength / 4).slice(8, 16),
+      ),
+    ).toEqual([0, 0, 1, 1, 0, 0, 1, 1]);
+  });
+});

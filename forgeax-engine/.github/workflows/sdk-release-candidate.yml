@@ -1,0 +1,674 @@
+name: SDK Release Candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable SDK version without the sdk-v prefix
+        required: true
+        type: string
+
+concurrency:
+  group: sdk-release-candidate-${{ github.sha }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: read
+
+env:
+  SDK_VERSION: ${{ inputs.version }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  build-sdk:
+    name: sdk-candidate-build
+    runs-on: [self-hosted, Linux, X64, heavy]
+    timeout-minutes: 45
+    outputs:
+      seed-artifact-name: ${{ steps.seed-upload.outputs.artifact-name }}
+    env:
+      GH_TOKEN: ${{ secrets.GHA }}
+    steps:
+      - name: Isolate persistent self-hosted checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --unset-all 'http.https://github.com/.extraheader' 2>/dev/null || true
+          git config --global --unset-all credential.helper 2>/dev/null || true
+          git config --global credential.helper '' || true
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.GHA }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Resolve current main identity and release collision
+        env:
+          DISPATCH_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ secrets.GHA }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$DISPATCH_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "SDK version must be stable semver without a prefix: $DISPATCH_VERSION" >&2
+            exit 2
+          fi
+          git fetch --no-tags origin main
+          main_sha=$(git rev-parse origin/main)
+          if [ "$GITHUB_SHA" != "$main_sha" ]; then
+            echo "SDK candidates must verify current origin/main ($main_sha), got $GITHUB_SHA" >&2
+            exit 2
+          fi
+          # Self-hosted release runners do not promise that the GitHub CLI is
+          # installed. Keep the CLI path for hosted runners, but use the
+          # authenticated REST API as the dependency-free fallback so the CI
+          # baseline remains authoritative on every pool.
+          find_successful_push_ci() {
+            local sha="$1"
+            if command -v gh >/dev/null 2>&1; then
+              # Older self-hosted images do not support every gh run-list
+              # filter. Keep the CLI fast path, but fall back to the same
+              # authenticated REST query when a flag is unavailable.
+              if gh run list \
+                  --repo "$GITHUB_REPOSITORY" \
+                  --workflow ci.yml \
+                  --commit "$sha" \
+                  --limit 100 \
+                  --json conclusion,event,status \
+                  --jq 'map(select(.event == "push" and .status == "completed" and .conclusion == "success")) | if length > 0 then "success" else "" end'; then
+                return
+              fi
+            fi
+            BASELINE_SHA="$sha" curl --fail --silent --show-error --retry 3 \
+              -H 'Accept: application/vnd.github+json' \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?event=push&head_sha=${sha}&per_page=100" |
+              BASELINE_SHA="$sha" node --input-type=module -e '
+                let input = "";
+                for await (const chunk of process.stdin) input += chunk;
+                const payload = JSON.parse(input);
+                const success = (payload.workflow_runs ?? []).some(
+                  (run) =>
+                    run.event === "push" &&
+                    run.head_sha === process.env.BASELINE_SHA &&
+                    run.status === "completed" &&
+                    run.conclusion === "success",
+                );
+                process.stdout.write(success ? "success" : "");
+              '
+          }
+
+          ci_conclusion="$(find_successful_push_ci "$GITHUB_SHA")"
+          ci_basis="exact:${GITHUB_SHA}"
+
+          # An admin merge can be intentionally empty when the PR's tree was
+          # already present on main (for example, a follow-up PR that only
+          # closes an obsolete branch). GitHub does not start the path-filtered
+          # push CI for that empty tree, so reuse only the successful push CI
+          # for the merge commit's first parent when the trees are byte-identical.
+          # This is deliberately narrower than accepting a PR check or an
+          # unrelated SHA: source changes still require exact-head CI.
+          if [ "$ci_conclusion" != success ]; then
+            parent_line="$(git rev-list --parents -n 1 "$GITHUB_SHA")"
+            read -r -a parent_words <<< "$parent_line"
+            if [ "${#parent_words[@]}" -eq 3 ] && \
+              [ "${parent_words[0]}" = "$GITHUB_SHA" ] && \
+              git diff --quiet "${parent_words[1]}" "$GITHUB_SHA"; then
+              parent_sha="${parent_words[1]}"
+              parent_ci_conclusion="$(find_successful_push_ci "$parent_sha")"
+              if [ "$parent_ci_conclusion" = success ]; then
+                ci_conclusion=success
+                ci_basis="tree-equivalent-first-parent:${parent_sha}"
+                echo "::notice::accepted CI baseline from tree-equivalent empty merge first parent ${parent_sha}"
+              fi
+            fi
+          fi
+
+          if [ "$ci_conclusion" != success ]; then
+            echo "SDK candidates require successful same-commit CI (exact-head) or a tree-equivalent empty-merge first-parent baseline, got: ${ci_conclusion:-missing}" >&2
+            exit 2
+          fi
+          {
+            echo "### SDK CI baseline"
+            echo
+            echo "Accepted \`${ci_basis}\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+          git fetch --tags origin
+          if git rev-parse --verify --quiet "refs/tags/sdk-v$DISPATCH_VERSION"; then
+            echo "SDK release tag already exists: sdk-v$DISPATCH_VERSION" >&2
+            exit 2
+          fi
+
+      - name: Cache wgpu-wasm pkg/ (content-keyed)
+        uses: actions/cache@v5
+        with:
+          path: packages/wgpu-wasm/pkg
+          key: sdk-candidate-${{ runner.os }}-${{ runner.arch }}-wgpu-wasm-pkg-v1-${{ hashFiles('packages/wgpu-wasm/src/**/*.rs', 'packages/wgpu-wasm/Cargo.toml', 'packages/wgpu-wasm/Cargo.lock', 'packages/wgpu-wasm/rust-toolchain.toml', 'packages/wgpu-wasm/build.sh') }}
+
+      - name: Ensure wgpu-wasm release artifact
+        id: wgpu-release
+        env:
+          GH_TOKEN: ${{ secrets.GHA }}
+        run: |
+          set -eu
+          node packages/wgpu-wasm/scripts/ensure-wasm.mjs
+          if [ -f packages/wgpu-wasm/pkg/wgpu_wasm.js ] && [ -f packages/wgpu-wasm/pkg/wgpu_wasm_bg.wasm ] && [ -f packages/wgpu-wasm/pkg/provenance.json ]; then
+            echo "needs_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Rust toolchain for wgpu-wasm source fallback
+        if: steps.wgpu-release.outputs.needs_build == 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.93'
+          targets: wasm32-unknown-unknown
+
+      - name: Setup wasm-pack for wgpu-wasm source fallback
+        if: steps.wgpu-release.outputs.needs_build == 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.14.0
+
+      - name: Enable repository pnpm
+        run: corepack enable && corepack prepare "pnpm@$(cat .pnpm-version)" --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Build wgpu-wasm from source when release artifact is unavailable
+        if: steps.wgpu-release.outputs.needs_build == 'true'
+        run: pnpm -F @forgeax/engine-wgpu-wasm build:wasm
+
+      - name: Verify wgpu-wasm artifact and provenance
+        run: |
+          set -eu
+          test -f packages/wgpu-wasm/pkg/wgpu_wasm.js
+          test -f packages/wgpu-wasm/pkg/wgpu_wasm_bg.wasm
+          test -f packages/wgpu-wasm/pkg/provenance.json
+          node --input-type=module -e "import { verifyProvenance } from './packages/wgpu-wasm/scripts/provenance.mjs'; await verifyProvenance();"
+
+      - name: Verify SDK asset inputs
+        run: |
+          test -f forgeax-engine-assets/demo-assets/template-game-default/sky.hdr
+          test -f forgeax-engine-assets/demo-assets/template-game-default/sky.hdr.meta.json
+
+      - name: Hydrate checked-release WASM toolchain
+        env:
+          GITHUB_TOKEN: ${{ secrets.GHA }}
+        run: |
+          pnpm -F @forgeax/engine-wgpu-wasm fetch-wasm
+          node packages/wgpu-wasm/scripts/verify-current.mjs
+          node packages/fbx/scripts/ensure-wasm.mjs
+          node packages/codec/scripts/ensure-wasm.mjs
+          test -f packages/fbx/pkg/fbx-wasm.wasm
+          test -f packages/codec/pkg/basis_transcoder.wasm
+          test -f packages/codec/pkg/encode/basis_encoder.wasm
+
+      - name: Build exact SDK candidate seed once
+        run: pnpm sdk:build -- --version "$SDK_VERSION"
+
+      - name: Upload exact candidate seed for parallel gates
+        id: seed-upload
+        uses: ./.github/actions/upload-artifact-with-retry
+        with:
+          # Keep the legacy candidate prefix so Promotion can assemble both
+          # old single-artifact candidates and new payload+seal candidates.
+          name: sdk-candidate-${{ github.run_id }}
+          # Upload only the produced release payload. The raw forgeax-sdk/
+          # staging tree, zip input list, and build-time caches are not needed
+          # by any gate or by Promotion and would duplicate the ZIP contents.
+          path: |
+            artifacts/sdk/forgeax-sdk-v${{ env.SDK_VERSION }}.zip
+            artifacts/sdk/SHA256SUMS
+            artifacts/sdk/forgeax-sdk-v${{ env.SDK_VERSION }}.spdx.json
+            artifacts/sdk/forgeax-sdk-v${{ env.SDK_VERSION }}.provenance.json
+            artifacts/sdk/sdk-build-result.json
+            artifacts/sdk/npm
+          if-no-files-found: error
+          # This is the one full SDK payload needed by the parallel gates and
+          # later Promotion. The seal job uploads only its small manifest/gate
+          # delta, so a successful candidate does not store the SDK twice.
+          # Failed/cancelled runs are removed by the cleanup paths.
+          # The payload is already ZIP/TGZ/WASM-heavy; avoid spending runner
+          # CPU trying to recompress those incompressible files.
+          compression-level: 0
+          retention-days: 14
+
+  npm-consumer:
+    needs: build-sdk
+    name: sdk-candidate-npm-consumer
+    runs-on: [self-hosted, Linux, X64, standard]
+    timeout-minutes: 30
+    outputs:
+      gate-artifact-name: ${{ steps.gate-upload.outputs.artifact-name }}
+    steps:
+      - name: Isolate persistent self-hosted checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --unset-all 'http.https://github.com/.extraheader' 2>/dev/null || true
+          git config --global --unset-all credential.helper 2>/dev/null || true
+          git config --global credential.helper '' || true
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          submodules: false
+          token: ${{ secrets.GHA }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Enable repository pnpm
+        run: corepack enable && corepack prepare "pnpm@$(cat .pnpm-version)" --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Download exact candidate seed
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-sdk.outputs.seed-artifact-name }}
+          path: artifacts/sdk
+
+      - name: Run npm consumer gate
+        run: |
+          mkdir -p artifacts/gates
+          pnpm sdk:check:npm -- --version "$SDK_VERSION" > artifacts/gates/npm-consumer.log
+          tail -n 1 artifacts/gates/npm-consumer.log > artifacts/gates/npm-consumer.json
+
+      - name: Upload npm consumer gate evidence
+        id: gate-upload
+        if: always()
+        uses: ./.github/actions/upload-artifact-with-retry
+        with:
+          name: sdk-candidate-gate-npm-consumer-${{ github.run_id }}
+          path: artifacts/gates/npm-consumer.json
+          if-no-files-found: warn
+          retention-days: 1
+
+  archive-browser:
+    needs: build-sdk
+    name: sdk-candidate-archive-browser
+    # This gate drives a headed WebGPU journey. Keep it on the capacity-checked
+    # Heavy pool so lavapipe queue completion cannot stall the App's bounded
+    # receipt credits on a hosted runner.
+    runs-on: ${{ fromJSON('["self-hosted", "Linux", "X64", "heavy"]') }}
+    timeout-minutes: 45
+    outputs:
+      gate-artifact-name: ${{ steps.gate-upload.outputs.artifact-name }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          submodules: false
+          token: ${{ secrets.GHA }}
+
+      - name: Prepare XDG runtime directory
+        uses: ./.github/actions/prepare-xdg-runtime
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Verify heavy runner capacity
+        run: node scripts/ci/verify-runner-pool-capacity.mjs --pool heavy
+
+      - name: Enable repository pnpm
+        run: corepack enable && corepack prepare "pnpm@$(cat .pnpm-version)" --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Download exact candidate seed
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-sdk.outputs.seed-artifact-name }}
+          path: artifacts/sdk
+
+      - name: Install Mesa Vulkan (lavapipe software path for SDK WebGPU)
+        uses: ./.github/actions/install-mesa-vulkan-drivers
+        with:
+          cache-scope: sdk-candidate-archive-browser
+
+      - name: Install Playwright Chrome Beta (for SDK verifier WebGPU)
+        uses: ./.github/actions/install-playwright-chrome-beta
+        with:
+          cache-scope: sdk-candidate-archive-browser
+
+      - name: Detect lavapipe ICD (for SDK verifier Chrome WebGPU)
+        run: |
+          set -eu
+          ICD_PATH=$(find /usr/share/vulkan/icd.d -maxdepth 1 -type f -name 'lvp_icd*.json' -print -quit)
+          test -n "$ICD_PATH"
+          echo "VK_ICD_FILENAMES=$ICD_PATH" >> "$GITHUB_ENV"
+          echo "VK_DRIVER_FILES=$ICD_PATH" >> "$GITHUB_ENV"
+
+      - name: Verify exact SDK archive through real browser
+        env:
+          FORGEAX_CHROME_CHANNEL: chrome-beta
+        run: |
+          mkdir -p artifacts/sdk
+          xvfb-run -a env FORGEAX_BROWSER_HEADLESS=0 pnpm sdk:verify -- --archive "artifacts/sdk/forgeax-sdk-v${SDK_VERSION}.zip"
+
+      - name: Upload archive browser gate evidence
+        id: gate-upload
+        if: always()
+        uses: ./.github/actions/upload-artifact-with-retry
+        with:
+          name: sdk-candidate-gate-archive-browser-${{ github.run_id }}
+          path: artifacts/sdk/sdk-verify-result.json
+          if-no-files-found: warn
+          retention-days: 1
+
+  reproducibility:
+    needs: build-sdk
+    name: sdk-candidate-reproducibility
+    runs-on: [self-hosted, Linux, X64, heavy]
+    timeout-minutes: 45
+    outputs:
+      gate-artifact-name: ${{ steps.gate-upload.outputs.artifact-name }}
+    env:
+      GH_TOKEN: ${{ secrets.GHA }}
+    steps:
+      - name: Isolate persistent self-hosted checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --unset-all 'http.https://github.com/.extraheader' 2>/dev/null || true
+          git config --global --unset-all credential.helper 2>/dev/null || true
+          git config --global credential.helper '' || true
+      - uses: actions/checkout@v5
+        with:
+          # sdk:build runs the skill/catalog ancestry gate. A shallow checkout
+          # makes a valid committed baseline look unrelated to HEAD.
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.GHA }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Enable repository pnpm
+        run: corepack enable && corepack prepare "pnpm@$(cat .pnpm-version)" --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Download exact candidate seed
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-sdk.outputs.seed-artifact-name }}
+          path: artifacts/sdk
+
+      - name: Hydrate checked-release WASM toolchain
+        env:
+          GITHUB_TOKEN: ${{ secrets.GHA }}
+        run: |
+          pnpm -F @forgeax/engine-wgpu-wasm fetch-wasm
+          node packages/wgpu-wasm/scripts/verify-current.mjs
+          node packages/fbx/scripts/ensure-wasm.mjs
+          node packages/codec/scripts/ensure-wasm.mjs
+          test -f packages/fbx/pkg/fbx-wasm.wasm
+          test -f packages/codec/pkg/basis_transcoder.wasm
+          test -f packages/codec/pkg/encode/basis_encoder.wasm
+          test -f forgeax-engine-assets/demo-assets/template-game-default/sky.hdr
+
+      - name: Rebuild SDK for reproducibility evidence
+        run: |
+          mkdir -p artifacts/gates
+          pnpm sdk:build -- --version "$SDK_VERSION" --output artifacts/sdk-repro
+          (cd artifacts/sdk && find npm -type f -print0 | sort -z | xargs -0 sha256sum) > artifacts/sdk-npm.sha256
+          (cd artifacts/sdk-repro && find npm -type f -print0 | sort -z | xargs -0 sha256sum) > artifacts/sdk-repro-npm.sha256
+          diff -u artifacts/sdk-npm.sha256 artifacts/sdk-repro-npm.sha256
+          node -e 'const fs=require("node:fs"); fs.writeFileSync("artifacts/gates/reproducibility.json", JSON.stringify({ok:true,status:"passed",version:process.env.SDK_VERSION,source:"npm-tarball-byte-comparison"})+"\n")'
+
+      - name: Upload reproducibility gate evidence
+        id: gate-upload
+        if: always()
+        uses: ./.github/actions/upload-artifact-with-retry
+        with:
+          name: sdk-candidate-gate-reproducibility-${{ github.run_id }}
+          path: artifacts/gates/reproducibility.json
+          if-no-files-found: warn
+          retention-days: 1
+
+  collision:
+    needs: build-sdk
+    name: sdk-candidate-collision
+    runs-on: ${{ fromJSON('["self-hosted", "Linux", "X64", "heavy"]') }}
+    timeout-minutes: 30
+    outputs:
+      gate-artifact-name: ${{ steps.gate-upload.outputs.artifact-name }}
+    env:
+      GH_TOKEN: ${{ secrets.GHA }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.GHA }}
+
+      - name: Prepare XDG runtime directory
+        uses: ./.github/actions/prepare-xdg-runtime
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Enable repository pnpm
+        run: corepack enable && corepack prepare "pnpm@$(cat .pnpm-version)" --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Download exact candidate seed
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-sdk.outputs.seed-artifact-name }}
+          path: artifacts/sdk
+
+      - name: Check npm and tag collision
+        run: |
+          mkdir -p artifacts/gates
+          node scripts/forgeax/check-sdk-version-collision.mjs --output artifacts/sdk --version "$SDK_VERSION" > artifacts/gates/collision.json
+
+      - name: Hydrate checked-release WASM toolchain
+        env:
+          GITHUB_TOKEN: ${{ secrets.GHA }}
+        run: |
+          pnpm -F @forgeax/engine-wgpu-wasm fetch-wasm
+          node packages/wgpu-wasm/scripts/verify-current.mjs
+          node packages/fbx/scripts/ensure-wasm.mjs
+          node packages/codec/scripts/ensure-wasm.mjs
+
+      - name: Build Engine and Preview for full game-3d collision acceptance
+        run: |
+          pnpm build:engine
+          pnpm build:app preview
+
+      - name: Install Mesa Vulkan (lavapipe software path for SDK WebGPU)
+        uses: ./.github/actions/install-mesa-vulkan-drivers
+        with:
+          cache-scope: sdk-candidate-collision
+
+      - name: Install Playwright Chrome Beta (for template acceptance)
+        uses: ./.github/actions/install-playwright-chrome-beta
+        with:
+          cache-scope: sdk-candidate-collision
+
+      - name: Detect lavapipe ICD (for template acceptance)
+        run: |
+          set -eu
+          ICD_PATH=$(find /usr/share/vulkan/icd.d -maxdepth 1 -type f -name 'lvp_icd*.json' -print -quit)
+          test -n "$ICD_PATH"
+          echo "VK_ICD_FILENAMES=$ICD_PATH" >> "$GITHUB_ENV"
+          echo "VK_DRIVER_FILES=$ICD_PATH" >> "$GITHUB_ENV"
+
+      - name: Run full game-3d collision journey
+        env:
+          FORGEAX_BROWSER_HEADLESS: '0'
+          FORGEAX_CHROME_CHANNEL: chrome-beta
+          FORGEAX_TEMPLATE_SMOKE_DIR: ${{ github.workspace }}/artifacts/sdk-release-template-smoke
+          FORGEAX_TEMPLATE_SMOKE_SLUGS: game-3d
+          FORGEAX_TEMPLATE_SMOKE_GAME3D_COLLISION_MODE: required
+        run: xvfb-run -a pnpm --filter @forgeax/preview smoke:templates
+
+      - name: Combine collision and template acceptance evidence
+        run: |
+          node --input-type=module -e '
+          import { readFile, writeFile } from "node:fs/promises";
+          const versionCollision = JSON.parse(await readFile("artifacts/gates/collision.json", "utf8"));
+          const template = JSON.parse(await readFile("artifacts/sdk-release-template-smoke/report.json", "utf8"));
+          if (template.status !== "passed") throw new Error("sdk-template-collision-status: " + template.status);
+          await writeFile("artifacts/gates/collision.json", JSON.stringify({ ok: true, status: "passed", versionCollision, template }) + "\n");
+          '
+
+      - name: Upload collision gate evidence
+        id: gate-upload
+        if: always()
+        uses: ./.github/actions/upload-artifact-with-retry
+        with:
+          name: sdk-candidate-gate-collision-${{ github.run_id }}
+          path: artifacts/gates/collision.json
+          if-no-files-found: warn
+          retention-days: 1
+
+  seal:
+    needs: [build-sdk, npm-consumer, archive-browser, reproducibility, collision]
+    if: >-
+      needs.build-sdk.result == 'success' &&
+      needs.npm-consumer.result == 'success' &&
+      needs.archive-browser.result == 'success' &&
+      needs.reproducibility.result == 'success' &&
+      needs.collision.result == 'success'
+    name: sdk-candidate-seal
+    runs-on: [self-hosted, Linux, X64, standard]
+    timeout-minutes: 15
+    steps:
+      - name: Isolate persistent self-hosted checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --unset-all 'http.https://github.com/.extraheader' 2>/dev/null || true
+          git config --global --unset-all credential.helper 2>/dev/null || true
+          git config --global credential.helper '' || true
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          submodules: false
+          token: ${{ secrets.GHA }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Enable repository pnpm
+        run: corepack enable && corepack prepare "pnpm@$(cat .pnpm-version)" --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Download exact candidate seed
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-sdk.outputs.seed-artifact-name }}
+          path: artifacts/sdk
+
+      - name: Download all gate evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.npm-consumer.outputs.gate-artifact-name }}
+          path: artifacts/gates/npm-consumer
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.archive-browser.outputs.gate-artifact-name }}
+          path: artifacts/gates/archive-browser
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.reproducibility.outputs.gate-artifact-name }}
+          path: artifacts/gates/reproducibility
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.collision.outputs.gate-artifact-name }}
+          path: artifacts/gates/collision
+
+      - name: Seal candidate manifest and verify every byte
+        run: |
+          node scripts/forgeax/sdk-candidate.mjs seal \
+            --output artifacts/sdk \
+            --version "$SDK_VERSION" \
+            --run-id "$GITHUB_RUN_ID" \
+            --gate "npm-consumer=$(find artifacts/gates/npm-consumer -name '*.json' -type f -print -quit)" \
+            --gate "archive-browser=$(find artifacts/gates/archive-browser -name '*.json' -type f -print -quit)" \
+            --gate "reproducibility=$(find artifacts/gates/reproducibility -name '*.json' -type f -print -quit)" \
+            --gate "collision=$(find artifacts/gates/collision -name '*.json' -type f -print -quit)" \
+            > artifacts/candidate-seal.json
+
+      - name: Upload sealed candidate metadata
+        id: candidate-upload
+        uses: ./.github/actions/upload-artifact-with-retry
+        with:
+          # The full payload remains in sdk-candidate-{run-id}; this artifact
+          # is only the seal manifest, copied gate reports, and archive-browser
+          # verification result. Promotion downloads both artifacts into one
+          # directory and validates the manifest against every payload byte.
+          name: sdk-candidate-${{ github.run_id }}-seal
+          path: |
+            artifacts/sdk/sdk-candidate.json
+            artifacts/sdk/sdk-verify-result.json
+            artifacts/sdk/gates
+          if-no-files-found: error
+          # Keep only an unpromoted, successful candidate for delayed manual
+          # promotion. Promotion deletes both candidate artifacts after
+          # Release finalization; failed/cancelled runs are deleted by cleanup.
+          retention-days: 14
+
+  # The four gate envelopes are transient fan-out data. A successful candidate
+  # keeps one full payload plus the tiny seal metadata for delayed promotion;
+  # a failed candidate keeps nothing. The separate workflow_run cleanup covers
+  # a cancelled run where this in-workflow job never gets scheduled.
+  cleanup-transient-artifacts:
+    name: cleanup-transient-artifacts
+    if: always()
+    needs: [build-sdk, npm-consumer, archive-browser, reproducibility, collision, seal]
+    runs-on: ${{ fromJSON('["self-hosted", "Linux", "X64", "standard"]') }}
+    timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Checkout cleanup script
+        uses: actions/checkout@v5
+        with:
+          submodules: false
+          token: ${{ github.token }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Delete candidate fan-out artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP_CANDIDATE_PAYLOAD: ${{ needs.seal.result == 'success' && format('sdk-candidate-{0}', github.run_id) || '' }}
+          KEEP_CANDIDATE_SEAL: ${{ needs.seal.result == 'success' && format('sdk-candidate-{0}-seal', github.run_id) || '' }}
+        run: |
+          set -euo pipefail
+          cleanup_args=(--run-id "$GITHUB_RUN_ID")
+          [ -z "$KEEP_CANDIDATE_PAYLOAD" ] || cleanup_args+=(--preserve-name "$KEEP_CANDIDATE_PAYLOAD")
+          [ -z "$KEEP_CANDIDATE_SEAL" ] || cleanup_args+=(--preserve-name "$KEEP_CANDIDATE_SEAL")
+          node scripts/ci/delete-workflow-artifacts.mjs "${cleanup_args[@]}"

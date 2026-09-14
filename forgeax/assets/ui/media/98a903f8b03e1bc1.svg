@@ -1,0 +1,16 @@
+<svg
+              id="vehicle-tank-schematic"
+              class="vr-tank-schematic"
+              viewBox="0 0 80 80"
+              aria-hidden="true"
+            >
+              <line class="vr-north-tick" x1="40" y1="0" x2="40" y2="5"></line>
+              <g id="vehicle-hull-marker" class="vr-hull-spin">
+                <polygon class="vr-hull" points="40,7 69,28 59,72 21,72 11,28"></polygon>
+              </g>
+              <g id="vehicle-turret-marker" class="vr-turret">
+                <rect class="vr-turret-body" x="29" y="33" width="22" height="17" rx="2"></rect>
+                <line class="vr-barrel" x1="40" y1="34" x2="40" y2="8"></line>
+                <line class="vr-barrel-tip" x1="35" y1="8" x2="45" y2="8"></line>
+              </g>
+            </svg>

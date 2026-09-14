@@ -1,0 +1,178 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
+import { parseAst, Visitor } from 'vite';
+import { describe, expect, it } from 'vitest';
+import type { DistManifest } from '../dist.js';
+import {
+  bundleSingleHtmlEntry,
+  type SingleHtmlBundleArtifact,
+  writeSingleHtml,
+} from '../single-html.js';
+
+async function fixture(): Promise<{
+  readonly root: string;
+  readonly dist: string;
+  readonly manifest: DistManifest;
+}> {
+  const root = await mkdtemp(resolve(tmpdir(), 'forgeax-single-html-fixture-'));
+  const dist = resolve(root, 'dist');
+  await mkdir(resolve(dist, 'assets'), { recursive: true });
+  await Promise.all([
+    writeFile(
+      resolve(root, 'forge.json'),
+      JSON.stringify({
+        id: 'single-html-fixture',
+        name: 'Single HTML Fixture',
+        schemaVersion: '1.0.0',
+        entry: 'main.ts',
+        plugins: [],
+      }),
+    ),
+    writeFile(
+      resolve(dist, 'index.html'),
+      '<!doctype html><html><head><link rel="stylesheet" href="./style.css"><style>.inline{background:url(./font.woff2)}</style></head><body><img id="logo" src="./logo.svg"><script type="module" src="./assets/app.js"></script></body></html>',
+    ),
+    writeFile(resolve(dist, 'style.css'), '.fixture{background:url(./font.woff2)}'),
+    writeFile(resolve(dist, 'font.woff2'), Buffer.from([1, 2, 3, 4])),
+    writeFile(
+      resolve(dist, 'logo.svg'),
+      '<svg xmlns="http://www.w3.org/2000/svg"><script>safe</script></svg>',
+    ),
+    writeFile(
+      resolve(dist, 'assets/app.js'),
+      "const marker = '</script>'; const replacement = '$&'; document.body.dataset.marker = marker + replacement;",
+    ),
+  ]);
+  const artifacts: DistManifest['artifacts'] = [
+    { path: 'style.css', mediaType: 'text/css', bytes: 0, sha256: '' },
+    { path: 'font.woff2', mediaType: 'font/woff2', bytes: 0, sha256: '' },
+    { path: 'logo.svg', mediaType: 'image/svg+xml', bytes: 0, sha256: '' },
+    { path: 'assets/app.js', mediaType: 'text/javascript', bytes: 0, sha256: '' },
+  ];
+  const manifest: DistManifest = {
+    schemaVersion: '1.0.0',
+    project: { id: 'single-html-fixture', name: 'Single HTML Fixture' },
+    base: './',
+    runtime: { packIndexUrl: 'pack-index.json', shaderManifestUrl: 'shaders/manifest.json' },
+    artifacts,
+  };
+  await writeFile(resolve(dist, 'forgeax-dist.json'), JSON.stringify(manifest));
+  return { root, dist, manifest };
+}
+
+describe('single HTML delivery', () => {
+  it('bundles the module, embeds resources, escapes script sentinels, and writes a checksum', async () => {
+    const { root, dist, manifest } = await fixture();
+    const indexHtml = await readFile(resolve(dist, 'index.html'), 'utf8');
+    const bundle = await bundleSingleHtmlEntry(dist, indexHtml);
+    expect(bundle.ok).toBe(true);
+    if (!bundle.ok) return;
+    const output = resolve(root, 'release', 'fixture.html');
+    const result = await writeSingleHtml({
+      distRoot: dist,
+      output,
+      manifest,
+      bundle: bundle.value,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const html = await readFile(output, 'utf8');
+    expect(html).toContain('__forgeaxSingleHtml');
+    expect(html).toContain('<\\/script>');
+    expect(html).not.toContain('src="./assets/app.js"');
+    expect(html).toContain('data:font/woff2;base64');
+    expect(html).toContain('data:image/svg+xml;base64');
+    expect(await readFile(`${output}.sha256`, 'utf8')).toContain(result.value.html.sha256);
+  });
+
+  it('fails closed when a local stylesheet resource is outside the verified closure', async () => {
+    const { dist, manifest } = await fixture();
+    await writeFile(
+      resolve(dist, 'index.html'),
+      '<html><head><link rel="stylesheet" href="./missing.css"></head><body></body></html>',
+    );
+    const bundle: {
+      readonly entrySource: string;
+      readonly artifacts: readonly SingleHtmlBundleArtifact[];
+    } = { entrySource: '', artifacts: [] };
+    const result = await writeSingleHtml({
+      distRoot: dist,
+      output: resolve(dist, '../bad.html'),
+      manifest,
+      bundle,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('single-html-css-asset-missing');
+  });
+
+  it('bundles an inline module entry instead of treating its source as a path', async () => {
+    const { dist } = await fixture();
+    const bundle = await bundleSingleHtmlEntry(
+      dist,
+      '<html><body><script type="module">document.body.dataset.inline = "true";</script></body></html>',
+    );
+    expect(bundle.ok).toBe(true);
+    if (bundle.ok) expect(bundle.value.entrySource).toContain('dataset.inline');
+  });
+
+  it('converges production preload helpers and audits every emitted JavaScript artifact', async () => {
+    const root = await mkdtemp(resolve(tmpdir(), 'forgeax-single-html-production-shape-'));
+    const dist = resolve(root, 'dist');
+    await mkdir(resolve(dist, 'assets'), { recursive: true });
+    try {
+      await Promise.all([
+        writeFile(
+          resolve(dist, 'index.html'),
+          '<html><body><script type="module" src="./assets/app.js"></script></body></html>',
+        ),
+        writeFile(
+          resolve(dist, 'assets/preload-helper-production.js'),
+          'export function __vitePreload(loader, deps, base) { return loader(); }',
+        ),
+        writeFile(resolve(dist, 'assets/optional.js'), 'export const value = 42;'),
+        writeFile(
+          resolve(dist, 'assets/app.js'),
+          `import { __vitePreload } from './preload-helper-production.js';
+const __vite__mapDeps = (indexes) => indexes.map((index) => ['optional.js'][index]);
+const optional = './optional.js';
+const result = await __vitePreload(() => import(optional), __vite__mapDeps([0]), import.meta.url);
+new Worker(new URL('./worker.js', import.meta.url), { type: 'module' }).postMessage(result.value);
+`,
+        ),
+        writeFile(
+          resolve(dist, 'assets/worker.js'),
+          `const optional = './optional.js';
+self.onmessage = async () => self.postMessage((await import(optional)).value);
+`,
+        ),
+      ]);
+
+      const indexHtml = await readFile(resolve(dist, 'index.html'), 'utf8');
+      const bundle = await bundleSingleHtmlEntry(dist, indexHtml);
+      expect(bundle.ok).toBe(true);
+      if (!bundle.ok) return;
+
+      expect(bundle.value.entrySource).toContain('globalThis.__forgeaxImport');
+      expect(bundle.value.entrySource).toContain('void 0');
+      const javascript = [
+        bundle.value.entrySource,
+        ...bundle.value.artifacts
+          .filter((artifact) => /\.(?:c?js|mjs)$/i.test(artifact.path))
+          .map((artifact) => Buffer.from(artifact.bytes).toString('utf8')),
+      ];
+      expect(javascript.some((source) => source.includes('new Worker'))).toBe(true);
+      let nativeDynamicImports = 0;
+      for (const source of javascript) {
+        new Visitor({
+          ImportExpression() {
+            nativeDynamicImports += 1;
+          },
+        }).visit(parseAst(source));
+      }
+      expect(nativeDynamicImports).toBe(0);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});

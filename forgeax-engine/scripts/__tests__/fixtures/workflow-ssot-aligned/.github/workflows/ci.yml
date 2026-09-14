@@ -1,0 +1,12 @@
+name: CI (fixture)
+on:
+  push:
+    branches: [main]
+jobs:
+  pnpm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Playwright Chrome Beta
+        uses: ./.github/actions/install-playwright-chrome-beta
+      - name: Install Playwright Chromium (separate, not gated by SSOT lint)
+        run: pnpm exec playwright install --with-deps chromium

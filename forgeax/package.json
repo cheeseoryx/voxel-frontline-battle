@@ -1,0 +1,55 @@
+{
+  "name": "@local/voxel-frontline",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "dev": "node scripts/forgeax-tool.mjs dev start",
+    "build": "node scripts/forgeax-tool.mjs project build",
+    "package": "node scripts/forgeax-tool.mjs project package",
+    "serve": "node scripts/forgeax-tool.mjs project preview",
+    "preview": "node scripts/forgeax-tool.mjs project preview",
+    "doctor": "node scripts/forgeax-tool.mjs project check",
+    "test": "node scripts/forgeax-tool.mjs project test",
+    "typecheck": "pnpm exec tsc --noEmit",
+    "engine:check": "node scripts/forgeax-tool.mjs project engine check",
+    "engine:local": "node scripts/forgeax-tool.mjs project engine use-local --path ../forgeax-engine",
+    "engine:build": "pnpm --dir ../forgeax-engine build:engine",
+    "verify:original": "node scripts/verify-original.cjs"
+  },
+  "forgeax": {
+    "metrics": {
+      "bundle-size": {
+        "enabled": false,
+        "reason": "native gameplay migration is incomplete; full workload acceptance is pending"
+      },
+      "fps": {
+        "enabled": false,
+        "reason": "native gameplay migration is incomplete; full workload acceptance is pending"
+      },
+      "bench": {
+        "enabled": false,
+        "reason": "native gameplay migration is incomplete; full workload acceptance is pending"
+      },
+      "gate": {
+        "enabled": false,
+        "reason": "native gameplay migration is incomplete; full workload acceptance is pending"
+      },
+      "spike-report": {
+        "enabled": false,
+        "reason": "native game migration project"
+      }
+    }
+  },
+  "dependencies": {
+    "@forgeax/engine": "0.1.28"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.40",
+    "@webgpu/types": "0.1.71",
+    "tsx": "4.23.1",
+    "typescript": "6.0.3",
+    "vitest": "4.0.18"
+  }
+}

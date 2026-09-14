@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "forgeax-render-metrics/1",
+  "featureId": "feat-20260827-render-temporal-environment-bloom-syntax-corrected",
+  "source": { "path": "apps/hello/taa/src/main.ts", "sha256": "58c190d31ad6f633bc632039e0609d9a663d9df0c00603f84674f7e0e51bbd53" },
+  "build": { "command": "pnpm --filter @forgeax/hello-taa build", "status": "pass" },
+  "backend": "browser-webgpu",
+  "runner": "playwright",
+  "frames": 300,
+  "roster": { "taa": ["temporal-target", "taa-resolve"], "none": [] },
+  "counters": { "bloomOffResources": 0, "bloomOffPasses": 0, "bloomOffUploads": 0, "taaResolveCount": 1 },
+  "status": "fail",
+  "failure": "visual evidence read uniformly white after 300 frames"
+}

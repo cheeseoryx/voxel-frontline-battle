@@ -1,0 +1,19 @@
+{
+  "purpose": "project targets and platform requirements",
+  "embeddedImages": 4,
+  "uniqueOfficialReferences": 3,
+  "toolGroups": 5,
+  "engineCapabilities": 7,
+  "speechBlocks": 8,
+  "speechDownload": "matches delivered TXT",
+  "textEnlargement": "200% no overflow",
+  "viewportWidths": [
+    1440,
+    720,
+    390
+  ],
+  "offlineHttpRequests": 0,
+  "printSections": 6,
+  "progressPage": "unchanged during build and validation",
+  "pageErrors": []
+}

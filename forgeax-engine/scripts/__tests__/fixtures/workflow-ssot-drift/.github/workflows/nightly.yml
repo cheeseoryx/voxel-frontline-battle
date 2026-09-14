@@ -1,0 +1,10 @@
+name: nightly (fixture)
+on:
+  schedule:
+    - cron: '0 0 * * *'
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Playwright Chrome Beta (DRIFT - bypasses composite action)
+        run: pnpm exec playwright install --with-deps chrome-beta

@@ -1,0 +1,274 @@
+name: emscripten-no-xz-evidence
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - forgeax/feat-20260813-emscripten-linux-bootstrap-without-external-xz
+    paths:
+      - .github/workflows/emscripten-no-xz-evidence.yml
+      - scripts/ci/evidence/**
+      - scripts/ci/prepare-emscripten-no-xz-archive.py
+      - scripts/ci/setup-emscripten-no-xz.py
+      - scripts/ci/emscripten-no-xz.lock.json
+      - scripts/ci/__tests__/emscripten-no-xz-evidence.test.mjs
+      - packages/fbx/scripts/**
+      - packages/codec/scripts/**
+      - package.json
+      - pnpm-lock.yaml
+      - .pnpm-version
+      - .nvmrc
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/emscripten-no-xz-evidence.yml
+      - scripts/ci/evidence/**
+      - scripts/ci/prepare-emscripten-no-xz-archive.py
+      - scripts/ci/setup-emscripten-no-xz.py
+      - scripts/ci/emscripten-no-xz.lock.json
+      - scripts/ci/__tests__/emscripten-no-xz-evidence.test.mjs
+      - packages/fbx/scripts/**
+      - packages/codec/scripts/**
+      - package.json
+      - pnpm-lock.yaml
+      - .pnpm-version
+      - .nvmrc
+
+concurrency:
+  group: emscripten-no-xz-evidence-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  cold:
+    name: Linux cold bootstrap envelope
+    runs-on: [self-hosted, Linux, X64, standard]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: false
+          token: ${{ secrets.GHA }}
+
+      - name: Read pnpm version
+        id: pnpm-version
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+
+          package_manager = json.loads(Path("package.json").read_text(encoding="utf-8"))["packageManager"]
+          prefix, separator, version = package_manager.partition("@")
+          if prefix != "pnpm" or not separator or not version:
+              raise SystemExit(f"unsupported packageManager: {package_manager}")
+          if Path(".pnpm-version").read_text(encoding="utf-8").strip() != version:
+              raise SystemExit(".pnpm-version does not match package.json#packageManager")
+          print(f"value={version}")
+          PY
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: ${{ steps.pnpm-version.outputs.value }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Clear stale root dependency links
+        run: rm -rf node_modules
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Fetch pinned Linux Emscripten archive
+        env:
+          EMSCRIPTEN_NO_XZ_LOCK: scripts/ci/emscripten-no-xz.lock.json
+          EMSCRIPTEN_NO_XZ_ARCHIVE: ${{ runner.temp }}/emscripten-no-xz-cold-archive/wasm-binaries.tar.xz
+        run: |
+          python3 scripts/ci/prepare-emscripten-no-xz-archive.py \
+            --lock "$EMSCRIPTEN_NO_XZ_LOCK" \
+            --archive "$EMSCRIPTEN_NO_XZ_ARCHIVE" \
+            --github-env "$GITHUB_ENV"
+
+      - name: Run cold consumer evidence lane
+        run: >-
+          cd "$GITHUB_WORKSPACE" && rm -rf "$GITHUB_WORKSPACE/artifacts/emscripten/cold" "$GITHUB_WORKSPACE/emsdk-cache" "$RUNNER_TEMP/emscripten-no-xz-cold-consumer-cache" "$RUNNER_TEMP/emscripten-no-xz-cold-hydration" packages/fbx/pkg packages/codec/pkg && mkdir -p "$GITHUB_WORKSPACE/artifacts/emscripten/cold" && python3 scripts/ci/setup-emscripten-no-xz.py --version 6.0.2 --lock scripts/ci/emscripten-no-xz.lock.json --archive "$RUNNER_TEMP/emscripten-no-xz-cold-archive/wasm-binaries.tar.xz" --release-metadata scripts/ci/emscripten-no-xz.lock.json --archive-sha256 "$EMSCRIPTEN_NO_XZ_ARCHIVE_SHA256" --cache-dir "$GITHUB_WORKSPACE/emsdk-cache" --evidence-output "$GITHUB_WORKSPACE/artifacts/emscripten/cold/bootstrap.json" && node scripts/ci/evidence/emscripten-no-xz.mjs --mode cold --evidence-dir "$GITHUB_WORKSPACE/artifacts/emscripten/cold" && test -s "$GITHUB_WORKSPACE/artifacts/emscripten/cold/evidence.json" && node -e 'const fs=require("node:fs"); const e=JSON.parse(fs.readFileSync("artifacts/emscripten/cold/evidence.json","utf8")); const ok=[e.status==="ready",e.mode==="cold",e.cache?.status==="cold-created"].every(Boolean); if (!ok) process.exit(1)'
+
+      - name: Pack cold Emscripten cache
+        run: >-
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/emscripten" && tar -czf "$GITHUB_WORKSPACE/artifacts/emscripten/emsdk-cache.tar.gz" -C "$GITHUB_WORKSPACE/emsdk-cache" . && split --bytes=256m --numeric-suffixes=0 --suffix-length=4 "$GITHUB_WORKSPACE/artifacts/emscripten/emsdk-cache.tar.gz" "$GITHUB_WORKSPACE/artifacts/emscripten/emsdk-cache.tar.gz.part-" && test -s "$GITHUB_WORKSPACE/artifacts/emscripten/emsdk-cache.tar.gz.part-0000" && test -s "$GITHUB_WORKSPACE/artifacts/emscripten/emsdk-cache.tar.gz.part-0001" && test ! -e "$GITHUB_WORKSPACE/artifacts/emscripten/emsdk-cache.tar.gz.part-0002" && rm "$GITHUB_WORKSPACE/artifacts/emscripten/emsdk-cache.tar.gz"
+
+      - name: Upload cold Emscripten cache part 0000
+        uses: actions/upload-artifact@v6
+        with:
+          name: emscripten-no-xz-cache-0000
+          path: artifacts/emscripten/emsdk-cache.tar.gz.part-0000
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+      - name: Upload cold Emscripten cache part 0001
+        uses: actions/upload-artifact@v6
+        with:
+          name: emscripten-no-xz-cache-0001
+          path: artifacts/emscripten/emsdk-cache.tar.gz.part-0001
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+      - name: Upload cold evidence envelope
+        uses: actions/upload-artifact@v6
+        with:
+          name: emscripten-no-xz-cold
+          path: artifacts/emscripten/cold
+          if-no-files-found: error
+          retention-days: 1
+
+  warm:
+    name: Linux warm bootstrap envelope
+    needs: cold
+    runs-on: [self-hosted, Linux, X64, standard]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: false
+          token: ${{ secrets.GHA }}
+
+      - name: Read pnpm version
+        id: pnpm-version
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+
+          package_manager = json.loads(Path("package.json").read_text(encoding="utf-8"))["packageManager"]
+          prefix, separator, version = package_manager.partition("@")
+          if prefix != "pnpm" or not separator or not version:
+              raise SystemExit(f"unsupported packageManager: {package_manager}")
+          if Path(".pnpm-version").read_text(encoding="utf-8").strip() != version:
+              raise SystemExit(".pnpm-version does not match package.json#packageManager")
+          print(f"value={version}")
+          PY
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: ${{ steps.pnpm-version.outputs.value }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Clear stale root dependency links
+        run: rm -rf node_modules
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Download cold Emscripten cache part 0000
+        uses: actions/download-artifact@v8
+        with:
+          name: emscripten-no-xz-cache-0000
+          path: artifacts/emscripten/cache/part-0000
+
+      - name: Download cold Emscripten cache part 0001
+        uses: actions/download-artifact@v8
+        with:
+          name: emscripten-no-xz-cache-0001
+          path: artifacts/emscripten/cache/part-0001
+
+      - name: Verify exact Emscripten cache parts
+        id: verify-emscripten-cache-parts
+        run: |
+          set -uo pipefail
+          part0="$GITHUB_WORKSPACE/artifacts/emscripten/cache/part-0000/emsdk-cache.tar.gz.part-0000"
+          part1="$GITHUB_WORKSPACE/artifacts/emscripten/cache/part-0001/emsdk-cache.tar.gz.part-0001"
+          if test -s "$part0" && test -s "$part1" && cat "$part0" "$part1" | gzip -t; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+            echo "Downloaded Emscripten cache parts passed the gzip integrity check."
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "Initial Emscripten cache download failed integrity verification; retrying both parts."
+          fi
+
+      - name: Retry cold Emscripten cache part 0000
+        if: steps.verify-emscripten-cache-parts.outputs.valid != 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: emscripten-no-xz-cache-0000
+          path: artifacts/emscripten/cache/retry-0000
+
+      - name: Retry cold Emscripten cache part 0001
+        if: steps.verify-emscripten-cache-parts.outputs.valid != 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: emscripten-no-xz-cache-0001
+          path: artifacts/emscripten/cache/retry-0001
+
+      - name: Restore exact Emscripten cache
+        run: |
+          set -euo pipefail
+          cache_root="$GITHUB_WORKSPACE/artifacts/emscripten/cache"
+          if [ "${{ steps.verify-emscripten-cache-parts.outputs.valid }}" != "true" ]; then
+            rm -rf "$cache_root/part-0000" "$cache_root/part-0001"
+            mv "$cache_root/retry-0000" "$cache_root/part-0000"
+            mv "$cache_root/retry-0001" "$cache_root/part-0001"
+          fi
+          part0="$cache_root/part-0000/emsdk-cache.tar.gz.part-0000"
+          part1="$cache_root/part-0001/emsdk-cache.tar.gz.part-0001"
+          cat "$part0" "$part1" | gzip -t
+          rm -rf "$GITHUB_WORKSPACE/emsdk-cache"
+          mkdir -p "$GITHUB_WORKSPACE/emsdk-cache"
+          cat "$part0" "$part1" | tar -xzf - -C "$GITHUB_WORKSPACE/emsdk-cache"
+          test -s "$GITHUB_WORKSPACE/emsdk-cache/complete.json"
+          test -s "$GITHUB_WORKSPACE/emsdk-cache/install/emscripten/emcc"
+
+      - name: Download cold evidence envelope
+        uses: actions/download-artifact@v8
+        with:
+          name: emscripten-no-xz-cold
+          path: artifacts/emscripten/cold
+
+      - name: Run warm consumer evidence lane
+        run: >-
+          cd "$GITHUB_WORKSPACE" && rm -rf "$GITHUB_WORKSPACE/artifacts/emscripten/warm" "$RUNNER_TEMP/emscripten-no-xz-warm-consumer-cache" "$RUNNER_TEMP/emscripten-no-xz-warm-hydration" packages/fbx/pkg packages/codec/pkg && mkdir -p "$GITHUB_WORKSPACE/artifacts/emscripten/warm" && python3 scripts/ci/setup-emscripten-no-xz.py --version 6.0.2 --lock scripts/ci/emscripten-no-xz.lock.json --cache-dir "$GITHUB_WORKSPACE/emsdk-cache" --evidence-output "$GITHUB_WORKSPACE/artifacts/emscripten/warm/bootstrap.json" && node scripts/ci/evidence/emscripten-no-xz.mjs --mode warm --cold-evidence "$GITHUB_WORKSPACE/artifacts/emscripten/cold/evidence.json" --evidence-dir "$GITHUB_WORKSPACE/artifacts/emscripten/warm" && test -s "$GITHUB_WORKSPACE/artifacts/emscripten/warm/evidence.json" && node -e 'const fs=require("node:fs"); const e=JSON.parse(fs.readFileSync("artifacts/emscripten/warm/evidence.json","utf8")); const ok=[e.status==="ready",e.mode==="warm",e.cache?.status==="exact-valid",e.comparison?.equivalent===true].every(Boolean); if (!ok) process.exit(1)'
+
+      - name: Upload warm evidence envelope
+        uses: actions/upload-artifact@v6
+        with:
+          name: emscripten-no-xz-warm
+          path: artifacts/emscripten/warm
+          if-no-files-found: error
+          retention-days: 1
+
+  cleanup-transient-artifacts:
+    name: cleanup-transient-artifacts
+    if: always()
+    needs: [cold, warm]
+    runs-on: [self-hosted, Linux, X64, standard]
+    steps:
+      - name: Checkout cleanup script
+        uses: actions/checkout@v5
+        with:
+          submodules: false
+          token: ${{ github.token }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Delete artifacts produced by this run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci/delete-workflow-artifacts.mjs

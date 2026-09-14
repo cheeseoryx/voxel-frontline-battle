@@ -1,0 +1,792 @@
+# nightly.yml — full-platform + full-gate nightly fallback coverage
+# (feat-20260508-verify-gpu-smoke-gate K-1 / K-6 / R2)
+#
+# Purpose: trusted PR/main build gates run on the organization self-hosted Linux
+# X64 runner. Nightly keeps an Ubuntu lavapipe lane plus macOS and Windows fallback
+# coverage (macOS universal binary + windows-latest dawn.node prebuild first-
+# implementation window). Any gate fails → automatically opens an issue for
+# tracking, **does not block PR** (research §1 Finding 5.1 Bevy push-to-main
+# full-platform pattern + plan-strategy K-1 stance).
+#
+# Difference from ci.yml:
+#   - ci.yml: PR / push-to-main runs on the self-hosted Linux X64 runner;
+#     failure = job red = PR cannot merge (K-10 + K-11 stance)
+#   - nightly.yml: scheduled full-platform fallback; failure = open tracking
+#     issue; decoupled from PR gate
+#
+# Platform strategy (full Linux gate + 15 min hosted probes; issues #460/#2722):
+#   nightly runs the complete smoke + dawn roster on self-hosted Linux and a
+#   bounded native platform probe on macOS/Windows. The vitest BROWSER
+#   project is intentionally NOT here — ci.yml's standalone `vitest-browser` job
+#   already gates the identical `pnpm test:browser` on Ubuntu+lavapipe+chrome-beta
+#   on every PR/main, so a nightly browser leg adds zero coverage and only adds
+#   soft-GPU flake surface (terminal device-lost on Linux; ~20 min Chromium teardown
+#   hang on macos-arm64). Nightly's unique value is the cross-platform dawn fallback
+#   below.
+#   - self-hosted Linux: smoke + complete dawn roster + coverage (same as ci.yml).
+#   - macos-latest: smoke + a serial Dawn platform probe (universal binary).
+#   - windows-latest: smoke + a serial Dawn platform probe (win32-x64 prebuild).
+#   - All legs build packages only (not the ~70 demo apps); app *.dawn tests
+#     import app source through the vitest dev server, never dist/.
+
+name: nightly
+
+on:
+  schedule:
+    # Daily UTC 0; chosen because: (1) "next-day pre-dawn" engineering low-activity
+    # window for most timezones; (2) decoupled from dependabot weekly digest
+    # (@webgpu/types lock-version policy)
+    - cron: '0 0 * * *'
+  # Allow manual trigger for immediate verification (e.g. when adding a new platform or tuning the cron schedule)
+  workflow_dispatch:
+
+# Cancel stale runs on repeated schedule trigger to save runners (cron does not
+# trigger repeatedly, but useful when manually triggered via workflow_dispatch)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false  # nightly cross-platform runs are long; do not preempt in-progress runs
+
+env:
+  # Opt-in to Node.js 24 for JavaScript actions ahead of GitHub's June 2026
+  # forced cutover. See ci.yml for context.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  smoke-browser-dawn:
+    name: ${{ matrix.name }} smoke + dawn
+    strategy:
+      fail-fast: false  # one platform failing does not cancel the others — graceful degradation
+                        # (architecture principle #9); differs from PR-path fail-fast stance
+      matrix:
+        include:
+          - name: self-hosted-linux-standard
+            # Nightly keeps hosted macOS/Windows fallback coverage, but Linux
+            # is still required to use an explicit self-hosted capacity pool.
+            runner: '["self-hosted", "Linux", "X64", "standard"]'
+            cacheScope: github-hosted-linux-x64
+            ubuntu: true
+            hostedPlatform: false
+            timeout: 60
+          - name: macos-latest
+            runner: '"macos-latest"'
+            cacheScope: github-hosted-macos
+            linux: false
+            hostedPlatform: true
+            timeout: 15
+          - name: windows-latest
+            runner: '"windows-latest"'
+            cacheScope: github-hosted-windows
+            linux: false
+            hostedPlatform: true
+            timeout: 15
+    runs-on: ${{ fromJSON(matrix.runner) }}
+    env:
+      CACHE_RUNNER_SCOPE: ${{ matrix.cacheScope }}
+    # Hosted macOS/Windows are bounded platform probes; Linux owns the full
+    # roster and coverage. A hosted leg that misses 15 minutes fails outright.
+    timeout-minutes: ${{ matrix.timeout }}
+
+    steps:
+      - name: Isolate persistent self-hosted workspace
+        if: runner.environment == 'self-hosted'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --unset-all 'http.https://github.com/.extraheader' 2>/dev/null || true
+          git config --global --unset-all credential.helper 2>/dev/null || true
+          git config --global credential.helper '' || true
+          if [ -d "${GITHUB_WORKSPACE:-}" ]; then
+            echo "Wiping persistent workspace: ${GITHUB_WORKSPACE}"
+            find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+          fi
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          # The render sibling gate invoked by the coverage project compares
+          # against a pinned historical baseline. A depth-1 checkout omits that
+          # commit and turns the deterministic contract test into a false red.
+          fetch-depth: 0
+          token: ${{ secrets.GHA }}
+
+      - name: Prepare XDG runtime directory
+        uses: ./.github/actions/prepare-xdg-runtime
+
+      # Build scripts and release hydration invoke Node. Set it up once before
+      # the content-keyed WASM ladder on every matrix leg.
+      - name: Setup Node.js for WASM hydration
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      # Generated WASM is a build input, not a reason to burn a hosted runner.
+      # Reuse the same CACHE -> RELEASE -> BUILD ladder as ci.yml. Hosted
+      # macOS/Windows fail immediately when the immutable release/cache is
+      # unavailable; only Linux pays the cold-build cost.
+      - name: Cache wgpu-wasm pkg/ (content-keyed)
+        uses: actions/cache@v5
+        with:
+          path: packages/wgpu-wasm/pkg
+          key: ${{ env.CACHE_RUNNER_SCOPE }}-wgpu-wasm-pkg-v1-${{ hashFiles('packages/wgpu-wasm/src/**/*.rs', 'packages/wgpu-wasm/Cargo.toml', 'packages/wgpu-wasm/Cargo.lock', 'packages/wgpu-wasm/rust-toolchain.toml', 'packages/wgpu-wasm/build.sh') }}
+
+      - name: Hydrate wgpu-wasm package
+        id: hydrate-wgpu-wasm
+        env:
+          GH_TOKEN: ${{ secrets.GHA }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node packages/wgpu-wasm/scripts/ensure-wasm.mjs
+          if [ -f packages/wgpu-wasm/pkg/wgpu_wasm.js ] && [ -f packages/wgpu-wasm/pkg/provenance.json ]; then
+            echo "needs_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_build=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::wgpu-wasm release/cache unavailable"
+          fi
+
+      - name: Fail fast when hosted WASM release is unavailable
+        if: matrix.hostedPlatform && steps.hydrate-wgpu-wasm.outputs.needs_build == 'true'
+        run: |
+          echo "::error::hosted platform requires a content-keyed wgpu-wasm release/cache; source compilation is Linux-only"
+          exit 1
+
+      # Toolchain pin 1.93 = wgpu 29 MSRV. Only Linux compiles on a miss.
+      - name: Setup Rust toolchain
+        if: steps.hydrate-wgpu-wasm.outputs.needs_build == 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.93'
+          targets: wasm32-unknown-unknown
+
+      - name: Setup wasm-pack
+        if: steps.hydrate-wgpu-wasm.outputs.needs_build == 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.14.0
+
+      - name: Cache cargo registry + wgpu-wasm target
+        if: steps.hydrate-wgpu-wasm.outputs.needs_build == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/wgpu-wasm
+          shared-key: wgpu-wasm-${{ env.CACHE_RUNNER_SCOPE }}
+          cache-on-failure: 'false'
+
+      # System binaryen intentionally NOT installed; see bug-20260512-wasm-opt-table-grow.
+      - name: Build wgpu-wasm
+        if: steps.hydrate-wgpu-wasm.outputs.needs_build == 'true'
+        shell: bash
+        run: bash packages/wgpu-wasm/build.sh
+
+      - name: Cache fbx-wasm pkg/ (content-keyed)
+        uses: actions/cache@v5
+        with:
+          path: packages/fbx/pkg
+          key: ${{ env.CACHE_RUNNER_SCOPE }}-fbx-wasm-pkg-v1-${{ hashFiles('packages/fbx/src/native/bridge.c', 'packages/fbx/scripts/fetch-ufbx.mjs', 'packages/fbx/scripts/build-wasm.mjs') }}
+
+      - name: Cache basis-wasm pkg/ (content-keyed)
+        uses: actions/cache@v5
+        with:
+          path: packages/codec/pkg
+          key: ${{ env.CACHE_RUNNER_SCOPE }}-basis-wasm-pkg-v1-${{ hashFiles('packages/codec/scripts/fetch-basis.mjs', 'packages/codec/scripts/build-wasm.mjs') }}
+
+      - name: Hydrate fbx + codec pkg/
+        id: hydrate-emcc
+        env:
+          GH_TOKEN: ${{ secrets.GHA }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node packages/fbx/scripts/ensure-wasm.mjs
+          node packages/codec/scripts/ensure-wasm.mjs
+          need=false
+          [ -f packages/fbx/pkg/fbx-wasm.mjs ] && [ -f packages/fbx/pkg/fbx-wasm.wasm ] || need=true
+          [ -f packages/codec/pkg/basis_transcoder.mjs ] && [ -f packages/codec/pkg/basis_transcoder.wasm ] && [ -f packages/codec/pkg/encode/basis_encoder.mjs ] && [ -f packages/codec/pkg/encode/basis_encoder.wasm ] || need=true
+          echo "needs_build=$need" >> "$GITHUB_OUTPUT"
+
+      - name: Fail fast when hosted Emscripten release is unavailable
+        if: matrix.hostedPlatform && steps.hydrate-emcc.outputs.needs_build == 'true'
+        run: |
+          echo "::error::hosted platform requires content-keyed fbx/basis WASM releases/cache; source compilation is Linux-only"
+          exit 1
+
+      - name: Restore Emscripten no-xz cache (Linux)
+        id: emsdk-no-xz-cache
+        if: runner.os == 'Linux' && steps.hydrate-emcc.outputs.needs_build == 'true'
+        uses: actions/cache/restore@v5
+        with:
+          path: emsdk-cache
+          key: emsdk-no-xz-${{ runner.os }}-${{ runner.arch }}-6.0.2-${{ hashFiles('scripts/ci/setup-emscripten-no-xz.py', 'scripts/ci/emscripten-no-xz.lock.json', '.nvmrc') }}
+
+      - name: Prepare pinned Emscripten archive (Linux cache miss)
+        if: runner.os == 'Linux' && steps.hydrate-emcc.outputs.needs_build == 'true' && steps.emsdk-no-xz-cache.outputs.cache-hit != 'true'
+        run: >-
+          python3 scripts/ci/prepare-emscripten-no-xz-archive.py
+          --lock scripts/ci/emscripten-no-xz.lock.json
+          --archive "$RUNNER_TEMP/emscripten-no-xz/wasm-binaries.tar.xz"
+          --github-env "$GITHUB_ENV"
+
+      - name: Setup Emscripten without external xz (Linux)
+        if: runner.os == 'Linux' && steps.hydrate-emcc.outputs.needs_build == 'true'
+        run: |
+          if [ "${{ steps.emsdk-no-xz-cache.outputs.cache-hit }}" = "true" ]; then
+            python3 scripts/ci/setup-emscripten-no-xz.py \
+              --version 6.0.2 \
+              --lock scripts/ci/emscripten-no-xz.lock.json \
+              --cache-dir emsdk-cache \
+              --evidence-output artifacts/emscripten-bootstrap.json
+          else
+            python3 scripts/ci/setup-emscripten-no-xz.py \
+              --version 6.0.2 \
+              --lock scripts/ci/emscripten-no-xz.lock.json \
+              --archive "$RUNNER_TEMP/emscripten-no-xz/wasm-binaries.tar.xz" \
+              --release-metadata scripts/ci/emscripten-no-xz.lock.json \
+              --archive-sha256 "$EMSCRIPTEN_NO_XZ_ARCHIVE_SHA256" \
+              --cache-dir emsdk-cache \
+              --evidence-output artifacts/emscripten-bootstrap.json
+          fi
+
+      - name: Export Emscripten no-xz environment (Linux)
+        if: runner.os == 'Linux' && steps.hydrate-emcc.outputs.needs_build == 'true'
+        run: |
+          set -eu
+          emsdk_root="$GITHUB_WORKSPACE/emsdk-cache/install"
+          emscripten_root="$emsdk_root/emscripten"
+          node_path="$(command -v node)"
+          config_path="$RUNNER_TEMP/forgeax-emscripten-config.py"
+          cat > "$config_path" <<EOF
+          LLVM_ROOT = "$emsdk_root/bin"
+          BINARYEN_ROOT = "$emsdk_root"
+          NODE_JS = "$node_path"
+          CACHE = "$emscripten_root/cache"
+          EOF
+          {
+            echo "EMSDK=$emsdk_root"
+            echo "EMSCRIPTEN=$emscripten_root"
+            echo "EMSCRIPTEN_ROOT=$emscripten_root"
+            echo "EMSDK_NODE=$node_path"
+            echo "EM_CONFIG=$config_path"
+            echo "EM_CACHE=$emscripten_root/cache"
+            echo "EM_LLVM_ROOT=$emsdk_root/bin"
+            echo "EM_BINARYEN_ROOT=$emsdk_root"
+          } >> "$GITHUB_ENV"
+          {
+            echo "$emscripten_root"
+            echo "$emsdk_root/bin"
+          } >> "$GITHUB_PATH"
+          test -x "$emscripten_root/emcc"
+          EM_CONFIG="$config_path" "$emscripten_root/emcc" --version
+
+      - name: Save Emscripten no-xz cache (Linux)
+        if: runner.os == 'Linux' && steps.hydrate-emcc.outputs.needs_build == 'true' && steps.emsdk-no-xz-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: emsdk-cache
+          key: emsdk-no-xz-${{ runner.os }}-${{ runner.arch }}-6.0.2-${{ hashFiles('scripts/ci/setup-emscripten-no-xz.py', 'scripts/ci/emscripten-no-xz.lock.json', '.nvmrc') }}
+
+      # Linux may re-emit missing outputs from source after the ladder misses;
+      # hosted platforms have already failed fast instead of starting emcc.
+      - name: Setup Emscripten (non-Linux upstream)
+        if: steps.hydrate-emcc.outputs.needs_build == 'true' && runner.os != 'Linux'
+        uses: emscripten-core/setup-emsdk@v16
+        with:
+          version: '6.0.2'
+          actions-cache-folder: emsdk-cache
+
+      - name: Build fbx-wasm
+        if: steps.hydrate-emcc.outputs.needs_build == 'true'
+        run: |
+          if [ ! -f packages/fbx/pkg/fbx-wasm.mjs ] || [ ! -f packages/fbx/pkg/fbx-wasm.wasm ]; then
+            node packages/fbx/scripts/fetch-ufbx.mjs
+            node packages/fbx/scripts/build-wasm.mjs
+          else
+            echo "fbx-wasm pkg/ present — skipping emcc compile"
+          fi
+
+      - name: Build basis-wasm
+        if: steps.hydrate-emcc.outputs.needs_build == 'true'
+        run: |
+          if [ ! -f packages/codec/pkg/basis_transcoder.mjs ] || [ ! -f packages/codec/pkg/basis_transcoder.wasm ] || [ ! -f packages/codec/pkg/encode/basis_encoder.mjs ] || [ ! -f packages/codec/pkg/encode/basis_encoder.wasm ]; then
+            node packages/codec/scripts/fetch-basis.mjs
+            node packages/codec/scripts/build-wasm.mjs
+          else
+            echo "basis-wasm pkg/ present — skipping emcc compile"
+          fi
+
+      # Read pnpm version from .pnpm-version SSOT file — same alpha path as ci.yml.
+      # Matrix shares this step across Ubuntu, macOS, and Windows (cat is
+      # available on all three runners by default).
+      - name: Read pnpm version
+        id: pnpm-version
+        shell: bash
+        run: echo "value=$(cat .pnpm-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: ${{ steps.pnpm-version.outputs.value }}
+
+      - name: Install (frozen)
+        # The root postinstall sync is intentionally skipped here because the
+        # harness clone needs the workflow token. Keep dependency lifecycle
+        # scripts enabled for platform setup (notably macOS dawn.node), then
+        # materialize the harness explicitly below.
+        env:
+          FORGEAX_SKIP_HARNESS_SYNC: '1'
+        run: pnpm install --frozen-lockfile
+
+      # Keep Linux nightly's direct Dawn and Vitest processes on the same
+      # adapter-limit contract as the PR Dawn job. The composite action is a
+      # no-op on macOS/Windows, where their native bindings do not emit the
+      # lavapipe dynamic-limit clamp warning.
+      - name: Prepare Dawn device-limit normalization
+        uses: ./.github/actions/prepare-dawn-device-limits
+
+      # Documentation contracts live in the floating harness clone. The
+      # install above skips only the unauthenticated root sync, so every matrix
+      # platform must materialize that clone explicitly with the checkout
+      # credential before tests read the documents.
+      - name: Materialize harness documentation
+        shell: bash
+        env:
+          FORGEAX_HARNESS_TOKEN: ${{ secrets.GHA }}
+          FORGEAX_HARNESS_SPARSE_DOCS: '1'
+        run: node scripts/ci/materialize-harness-docs.mjs
+
+      # Bun is a Linux-owned dual-pipeline gate. Hosted macOS/Windows are
+      # bounded platform probes and do not pay for a second dependency graph.
+      - name: Setup Bun
+        if: matrix.ubuntu
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Bun install (frozen)
+        if: matrix.ubuntu
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      # English-only check (feat-20260510-smoke-onboarding-doc-polish w14 / D-4):
+      # mirror ci.yml byte-for-byte so the source-text ASCII guard runs on every
+      # nightly platform (Ubuntu / macos-latest / windows-latest) before the tsup
+      # build kicks off. Vendor drift check
+      # stays ci.yml-only (single-source guard, plan-strategy D-4).
+      #
+      # The .github + per-package config-file extension (bug-20260513) uses a
+      # Python glob (sys.argv expansion) so pwsh / cmd on the Windows nightly
+      # runner can also pass through it without bash subshell semantics --
+      # avoids `shell: bash` here so the cross-platform invariant holds.
+      - name: English-only check
+        run: |
+          python3 scripts/forgeax/check_english_only.py --code packages/*/src apps/*/src scripts tests
+          python3 scripts/forgeax/check_english_only.py AGENTS.md
+          python3 scripts/forgeax/check_english_only.py --extensions .yml --extensions .yaml .github
+          python3 -c "import glob,sys,subprocess; paths=glob.glob('packages/*/vitest.config.ts')+glob.glob('packages/*/tsup.config.ts')+glob.glob('apps/*/vitest.config.ts')+['vitest.config.ts','vitest.setup-webgpu.ts','tsup.base.ts']; sys.exit(subprocess.call(['python3','scripts/forgeax/check_english_only.py','--extensions','.ts',*paths]))"
+
+      # Packages-only build: tsup .mjs (per-package) + tsc .d.ts. Both are
+      # required: tsup ships runtime modules, tsc owns the .d.ts SSOT
+      # (tsup.base.ts dts:false). Without .d.ts the nightly "Vitest unit +
+      # coverage" step's project-scoped `typecheck.enabled: true` resolves
+      # cross-package imports like `@forgeax/engine-rhi` against `dist/index.mjs`
+      # as `any`, cascading into TypeCheckErrors across every *.test-d.ts (issue
+      # #335 ubuntu). ci.yml dodges this via the .tsbuildinfo+.d.ts cache + an
+      # explicit `pnpm run typecheck` step; nightly has neither, so it must
+      # produce both artifacts inline before vitest --typecheck.
+      #
+      # Use the repository package graph instead of pnpm's recursive workspace
+      # enumeration. The graph owns dependency ordering and cgroup-derived
+      # concurrency, while the declaration preflight repairs the intentional
+      # tsup.base.ts dts:false boundary before the final typecheck. This keeps
+      # the nightly package-only contract and avoids the stale declaration
+      # cascade that makes the downstream vitest gates unusable.
+      #
+      # NOT `pnpm build` (= `pnpm -r build && tsc -b`): `pnpm -r build` also runs
+      # the vite bundle for all ~70 demo apps under apps/, each emitting asset
+      # .bin payloads. On GitHub-hosted nightly runners that (a) exhausts disk
+      # (issue #460: "No space left on device") and (b) burns ~6-13 min that
+      # starves the 60 min budget so the dawn/browser gates get cancelled. The
+      # gates never need built apps: every *.browser.test.ts / *.dawn.test.ts under
+      # apps/ imports app source (`import('../index.ts')`) through the vitest dev
+      # server, not dist/. `tsc -b` builds only packages (root tsconfig.json
+      # references ./packages/* exclusively), so this never builds apps either.
+      - name: Build (.mjs + .d.ts, packages only — apps tested from source)
+        env:
+          FORGEAX_BUILD_NO_TASK_CACHE: '1'
+        run: |
+          node scripts/build-packages.mjs
+          node scripts/typecheck-output-preflight.mjs
+          pnpm exec tsc -b
+
+      # Keep the profiler public-consumer and deterministic overhead gates in
+      # the Linux nightly package lane as well as PR CI. Hosted platforms use
+      # their time budget for actual native GPU probes.
+      - name: Profiler consumer smoke
+        if: matrix.ubuntu
+        run: pnpm --filter @forgeax/engine-profiler smoke:consumer
+
+      - name: Profiler phase catalog relation
+        if: matrix.ubuntu
+        run: pnpm profiler:phase-catalog
+
+      - name: Profiler D-6 overhead and allocation gate
+        if: matrix.ubuntu
+        run: pnpm --filter @forgeax/engine-profiler test:perf
+
+      # ── Linux only: lavapipe Vulkan software path for dawn-node
+      # (dawn.node walks WebGPU through the Mesa lavapipe Vulkan driver; same
+      # backend ci.yml's dawn job installs). dawn-node auto-discovers the ICD
+      # via standard Vulkan loader paths, but the explicit VK_ICD_FILENAMES /
+      # VK_DRIVER_FILES exports keep discovery deterministic. ──
+      - name: Install Mesa Vulkan (Linux only)
+        if: matrix.ubuntu
+        run: |
+          apt_wrapper="$GITHUB_WORKSPACE/scripts/ci/with-apt-ubuntu-sources.sh"
+          "$apt_wrapper" sudo apt-get update
+          "$apt_wrapper" sudo apt-get install -y mesa-vulkan-drivers vulkan-tools
+          ICD_PATH=$(find /usr/share/vulkan/icd.d -maxdepth 1 -name 'lvp_icd*.json' -print -quit)
+          test -n "$ICD_PATH"
+          echo "VK_ICD_FILENAMES=$ICD_PATH" >> "$GITHUB_ENV"
+          echo "VK_DRIVER_FILES=$ICD_PATH" >> "$GITHUB_ENV"
+
+      # ── smoke e2e (platform-skip fallback; macOS-arm64 chromium softGPU
+      # unreachable; smoke.mjs decides skip or run via it.skipIf-like signals
+      # internally; nightly failure does not block PR) ──
+      - name: Hello-triangle headless smoke
+        # K-12 stance: smoke is the bottom line; nightly failures still trigger
+        # issue tracking, never silent
+        # Three SSOT sources aligned: with ci.yml + apps/hello/triangle/package.json#forgeax.smokeInvocation
+        run: |
+          pnpm --filter @forgeax/hello-triangle build
+          pnpm --filter @forgeax/hello-triangle smoke
+
+      # ── browser project: NOT run in nightly ──
+      # ci.yml's standalone `vitest-browser` job already runs the identical
+      # `pnpm test:browser` on Ubuntu + lavapipe + Chrome Beta on every PR and
+      # main push, so a nightly Linux browser leg adds zero coverage — it only
+      # adds soft-GPU flake surface (device-lost is terminal;
+      # vitest retry:2 cannot recover a destroyed GPUDevice). On macos-arm64 it
+      # also wedges the runner ~20 min in a chromium teardown hang. Nightly's
+      # unique value is the cross-platform dawn fallback + smoke below; browser
+      # stays in ci.yml (issue #460).
+
+      # ── dawn project (dawn.node native binding) ──
+      # Hosted macOS/Windows deliberately run a small, serial platform probe.
+      # The complete roster, isolated carriers, direct-light partitions, and
+      # coverage remain Linux-owned so the billed fallback legs stay bounded.
+      - name: Vitest Dawn platform probe (hosted macOS/Windows)
+        if: matrix.hostedPlatform
+        shell: bash
+        run: >-
+          pnpm exec vitest run --project=dawn --no-file-parallelism --maxWorkers=1
+          packages/render/src/__tests__/gpu-driven-view.dawn.test.ts
+          packages/render/src/__tests__/gpu-scene-render-graph.dawn.test.ts
+          packages/render/src/__tests__/render-graph-compute-raster.dawn.test.ts
+          packages/render/src/__tests__/lod-occlusion.dawn.test.ts
+
+      # Linux remains the full Dawn owner. Invoke vitest directly after the
+      # package-only build; `pnpm test:dawn` would rebuild the entire app fleet.
+      - name: Vitest dawn project (real GPU command capture)
+        if: matrix.ubuntu
+        shell: bash
+        run: |
+          pnpm exec vitest run --project=dawn --no-file-parallelism --exclude apps/parity/color-lighting/cases/direct-light/__tests__/direct-light.dawn.test.ts
+
+      # Keep the high-cost shadow-field file out of the shared Linux Dawn
+      # process. Hosted probes intentionally omit this expensive lane.
+      - name: Isolated Dawn shadow-field observability (fresh process)
+        if: matrix.ubuntu
+        env:
+          FORGEAX_DAWN_ISOLATED: '1'
+        run: >-
+          pnpm exec vitest run --project=dawn --maxWorkers=1
+          packages/runtime/src/__tests__/shadow-fields-observable.dawn.test.ts
+
+      # Keep the remaining renderer-heavy carriers out of the shared
+      # Linux Dawn process as well. Hosted probes intentionally omit them.
+      - name: Isolated Dawn renderer carriers (fresh process)
+        if: matrix.ubuntu
+        env:
+          FORGEAX_DAWN_ISOLATED: '1'
+        run: |
+          pnpm exec vitest run --project=dawn --maxWorkers=1 packages/render/bench/gpu-pass-timing/__tests__/gpu-pass-timing.dawn.test.ts
+          pnpm exec vitest run --project=dawn --maxWorkers=1 packages/render/src/transmission/__tests__/standard-transmission.dawn.test.ts
+          pnpm exec vitest run --project=dawn --maxWorkers=1 packages/runtime/src/__tests__/dawn/material-alpha.dawn.test.ts
+          pnpm exec vitest run --project=dawn --maxWorkers=1 apps/parity/color-lighting/cases/tone/__tests__/tone-ramp.dawn.test.ts
+          pnpm exec vitest run --project=dawn --maxWorkers=1 apps/parity/color-lighting/cases/extended-lighting/__tests__/rect-area.dawn.test.ts
+          pnpm exec vitest run --project=dawn --maxWorkers=1 apps/parity/color-lighting/cases/extended-lighting/__tests__/spot-modifiers.dawn.test.ts
+          pnpm exec vitest run --project=dawn --maxWorkers=1 apps/parity/color-lighting/cases/extended-lighting/__tests__/probe.dawn.test.ts
+          pnpm exec vitest run --project=dawn --maxWorkers=1 packages/runtime/src/__tests__/fullscreen-post-process-pass.dawn.test.ts
+          pnpm exec vitest run --project=dawn --maxWorkers=1 packages/runtime/src/__tests__/shadow-csm-runtime-vary.dawn.test.ts
+
+      - name: Direct-light Dawn partitions (real GPU — complete roster)
+        if: matrix.ubuntu
+        run: node scripts/ci/run-direct-light-dawn.mjs
+
+      # ── unit + coverage (nightly fallback for AC-33; Linux only) ──
+      # feat-20260608-ci-time-cut: AC-33 nightly fallback
+      # plan-strategy §7 incorrectly assumed nightly already carries coverage;
+      # it does not — without this step PR coverage gate on main has no cron
+      # fallback (plan-gap fix: scope-amendment w11-a)
+      # The unit project includes DevKit browser-owned E2E coverage. Keep its
+      # executable contract identical to ci.yml's coverage-pnpm job instead of
+      # relying on a Playwright-managed chromium cache that is absent on the
+      # persistent Linux runner.
+      - name: Install Playwright Chrome Beta (for nightly browser-owned unit coverage)
+        if: matrix.ubuntu
+        uses: ./.github/actions/install-playwright-chrome-beta
+        with:
+          cache-scope: ${{ env.CACHE_RUNNER_SCOPE }}
+
+      - name: Vitest unit + coverage (nightly fallback for AC-33)
+        if: matrix.ubuntu
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          # The rhi-debug tree-shake test inspects the real hello-cube
+          # production bundle. Nightly intentionally builds packages only in
+          # the shared step above, so materialize this small consumer bundle
+          # here instead of making the full app fleet a hidden dependency of
+          # the package build. hello-triangle was already built by the smoke
+          # step above.
+          pnpm --filter @forgeax/hello-cube build
+          pnpm test:unit -- --coverage
+
+  # Keep the macOS Metal Ray Query boundary out of PR/main CI; this lane is
+  # intentionally part of the scheduled/manual nightly surface.
+  native-ray-query-metal-build:
+    name: Native Ray Query Metal compile and packaged boundary
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/.cargo-target/native-ray-query
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: false
+          token: ${{ secrets.GHA }}
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.93'
+          components: rustfmt, clippy
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: '11.7.0'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Verify Metal native owner
+        run: |
+          cargo fmt --all --manifest-path packages/rhi-wgpu-native/Cargo.toml -- --check
+          cargo test --manifest-path packages/rhi-wgpu-native/Cargo.toml --all-targets --features conformance
+          cargo clippy --manifest-path packages/rhi-wgpu-native/Cargo.toml --all-targets --features conformance -- -D warnings
+          node --test packages/rhi-wgpu-native/scripts/__tests__/verify-conformance-report.test.mjs
+          pnpm --filter @forgeax/native-ray-query-triangle-tauri verify:native-owner
+          pnpm --filter @forgeax/native-ray-query-triangle-tauri test:report
+
+      - name: Build packaged Tauri app
+        run: pnpm --filter @forgeax/native-ray-query-triangle-tauri build:desktop
+
+      - name: Run Metal packaged smoke when the hosted adapter exposes Ray Query
+        run: pnpm --filter @forgeax/native-ray-query-triangle-tauri smoke:desktop:unsupported
+
+      - name: Upload Metal evidence
+        if: always()
+        uses: ./.github/actions/upload-artifact-with-retry
+        with:
+          name: native-ray-query-metal-${{ runner.name }}
+          path: apps/native-ray-query-triangle-tauri/report/native-ray-query-triangle
+          if-no-files-found: warn
+          retention-days: 1
+
+  # Nightly failures open one evidence-rich issue per workflow run (does not
+  # block PR; K-1 stance). A rerun of the same workflow run comments on the
+  # existing issue instead of creating another copy. The next fully green
+  # nightly closes machine-tracked issues and leaves the proving run in the
+  # issue timeline.
+  notify-failure:
+    name: open tracking issue on failure
+    needs: [smoke-browser-dawn, native-ray-query-metal-build]
+    if: failure()
+    runs-on: [self-hosted, Linux, X64, standard]
+    permissions:
+      issues: write
+      actions: read
+    steps:
+      - name: Open or update tracking issue
+        uses: actions/github-script@v7
+        with:
+          # GitHub API transport is external and transient; an API blip must
+          # not hide the actual nightly failure or create a second issue.
+          retries: 3
+          retry-exempt-status-codes: 400,401,403,404,422
+          script: |
+            const { owner, repo } = context.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const run = context.payload.workflow_run ?? {};
+            const headSha = run.head_sha ?? context.sha;
+            // `context` is the event payload context; it does not expose the
+            // Actions run attempt for schedule/workflow_dispatch events. Read
+            // the run-scoped value from the environment so issue evidence is
+            // never rendered as `undefined`.
+            const envRunAttempt = Number.parseInt(process.env.GITHUB_RUN_ATTEMPT ?? '', 10);
+            const runAttempt = run.run_attempt ?? (
+              Number.isInteger(envRunAttempt) ? envRunAttempt : null
+            );
+            const jobs = await github.paginate(
+              github.rest.actions.listJobsForWorkflowRun,
+              {
+                owner,
+                repo,
+                run_id: context.runId,
+                per_page: 100,
+              },
+            );
+            const failedJobs = jobs
+              .filter((job) => job.conclusion && !['success', 'skipped'].includes(job.conclusion))
+              .map((job) => ({
+                name: job.name,
+                conclusion: job.conclusion,
+                url: job.html_url,
+                steps: (job.steps ?? [])
+                  .filter((step) => step.conclusion && !['success', 'skipped'].includes(step.conclusion))
+                  .map((step) => `${step.name} (${step.conclusion})`),
+              }));
+            const failedJobLines = failedJobs.length > 0
+              ? failedJobs.flatMap((job) => [
+                  `- [${job.name}](${job.url}) — \`${job.conclusion}\``,
+                  ...job.steps.map((step) => `  - ${step}`),
+                ])
+              : ['- Job details were unavailable from the Actions API; inspect the run directly.'];
+            const sentinel = `**nightly run id**: \`${context.runId}\``;
+            const evidence = [
+              `**run url**: ${runUrl}`,
+              `**head sha**: \`${headSha}\``,
+              `**run attempt**: \`${runAttempt}\``,
+              '',
+              '**failed jobs / steps**:',
+              ...failedJobLines,
+            ].join('\n');
+            const openIssues = await github.paginate(
+              github.rest.issues.listForRepo,
+              {
+                owner,
+                repo,
+                labels: 'nightly,ci-failure',
+                state: 'open',
+                per_page: 100,
+              },
+            );
+            const matched = openIssues.filter(
+              (issue) => typeof issue.body === 'string' && issue.body.includes(sentinel),
+            );
+            if (matched.length > 0) {
+              const body = [
+                'duplicate nightly failure observed for the same workflow run',
+                '',
+                evidence,
+                `**timestamp**: ${new Date().toISOString()}`,
+              ].join('\n');
+              for (const issue of matched) {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                  body,
+                });
+                core.info(`updated existing nightly issue #${issue.number}`);
+              }
+              return;
+            }
+            const date = new Date().toISOString().slice(0, 10);
+            const title = `[nightly] ${date} smoke / dawn gate failure`;
+            const body = [
+              `nightly run failed — see ${runUrl}`,
+              '',
+              sentinel,
+              '',
+              `**Coverage**: ubuntu-latest / macos-latest / windows-latest plus the Native Ray Query Metal boundary on macos-15 — failure on any one triggers this issue.`,
+              '',
+              evidence,
+              '',
+              `**SLO**: nightly failure does not block PRs (feat-20260508-verify-gpu-smoke-gate K-1 + R2); but someone must pick it up and analyze within 24h (distinct from K-11 main-red 24h must-fix stance; nightly failure != main red = different SLO).`,
+              '',
+              '**Common root causes**:',
+              '- windows-latest dawn.node win32-x64 prebuild first implementation (R2)',
+              '- macos-latest dawn.node universal-binary GPU call cold-start stall (testTimeout / retry mitigation in vitest dawn project)',
+              '',
+              '**Rollback stance** (K-12):',
+              '- smoke is the bottom line, no rollback',
+              '- dawn single-platform failure → independently roll back the dawn gate on that platform (K-12 graceful degradation)',
+            ].join('\n');
+            await github.rest.issues.create({ owner, repo, title, body, labels: ['nightly', 'ci-failure'] });
+
+  notify-success:
+    name: close resolved nightly issues
+    needs: [smoke-browser-dawn, native-ray-query-metal-build]
+    if: ${{ needs.smoke-browser-dawn.result == 'success' && needs.native-ray-query-metal-build.result == 'success' }}
+    runs-on: [self-hosted, Linux, X64, standard]
+    permissions:
+      issues: write
+    steps:
+      - name: Close tracked nightly issues
+        uses: actions/github-script@v7
+        with:
+          retries: 3
+          retry-exempt-status-codes: 400,401,403,404,422
+          script: |
+            const { owner, repo } = context.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const openIssues = await github.paginate(
+              github.rest.issues.listForRepo,
+              {
+                owner,
+                repo,
+                labels: 'nightly,ci-failure',
+                state: 'open',
+                per_page: 100,
+              },
+            );
+            const tracked = openIssues.filter((issue) => {
+              if (typeof issue.body !== 'string') return false;
+              // #2752 predates the run-id sentinel; keep its legacy match
+              // exact so unrelated ci-failure issues remain untouched.
+              const legacyNightlyFailure =
+                /^nightly run failed — see https:\/\/github\.com\/[^\/\s]+\/[^\/\s]+\/actions\/runs\/\d+(?:\s|$)/u.test(
+                  issue.body,
+                );
+              return issue.body.includes('**nightly run id**:') || legacyNightlyFailure;
+            });
+            const timestamp = new Date().toISOString();
+            for (const issue of tracked) {
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: issue.number,
+                state: 'closed',
+              });
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issue.number,
+                body: [
+                  'Auto-closed by nightly: all platform and native boundary jobs passed.',
+                  '',
+                  `**run url**: ${runUrl}`,
+                  `**timestamp**: ${timestamp}`,
+                  '**scenario**: nightly-green',
+                ].join('\n'),
+              });
+              core.info(`auto-closed nightly issue #${issue.number}`);
+            }

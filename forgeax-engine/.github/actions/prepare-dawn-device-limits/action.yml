@@ -1,0 +1,72 @@
+name: Prepare Dawn device-limit normalization
+description: Load the shared Dawn adapter patch for every native WebGPU process after checkout.
+
+runs:
+  using: composite
+  steps:
+    - name: Install Dawn adapter preload wrapper
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -euo pipefail
+        preload="${GITHUB_WORKSPACE}/scripts/ci/patch-dawn-device-limits.mjs"
+        test -f "$preload"
+        real_node="$(command -v node)"
+        test -x "$real_node"
+        wrapper_dir="${RUNNER_TEMP}/forgeax-dawn-node-bin"
+        mkdir -p "$wrapper_dir"
+        wrapper="${wrapper_dir}/node"
+        {
+          printf '#!/usr/bin/env bash\n'
+          printf 'set -euo pipefail\n'
+          printf 'real_node=%q\n' "$real_node"
+          printf 'preload=%q\n' "$preload"
+          # Dawn 0.4's native wgpu layer emits these two lines while it
+          # enumerates the lavapipe adapter: its synthetic 1,000,000 defaults
+          # are clamped to the adapter's real 16-slot limit. The adapter patch
+          # above proves and normalizes the limit; filter only this exact,
+          # already-understood upstream warning from CI stderr. Set
+          # FORGEAX_DAWN_FILTER_LIMIT_WARNINGS=0 to inspect the raw output.
+          printf 'filter_dawn_limit_warnings() {\n'
+          printf '  sed -E \\\n'
+          printf '    -e '\''/^[[:space:]]*Warning: maxDynamicUniformBuffersPerPipelineLayout artificially reduced from [0-9]+ to [0-9]+ to fit dynamic offset allocation limit\\.$/d'\'' \\\n'
+          printf '    -e '\''/^[[:space:]]*Warning: maxDynamicStorageBuffersPerPipelineLayout artificially reduced from [0-9]+ to [0-9]+ to fit dynamic offset allocation limit\\.$/d'\''\n'
+          printf '}\n'
+          printf 'case " ${NODE_OPTIONS:-} " in\n'
+          printf '  *" --import=${preload} "*) ;;\n'
+          printf '  *) export NODE_OPTIONS="--import=${preload}${NODE_OPTIONS:+ ${NODE_OPTIONS}}" ;;\n'
+          printf 'esac\n'
+          printf 'if [[ "${FORGEAX_DAWN_FILTER_LIMIT_WARNINGS:-1}" == "0" ]]; then\n'
+          printf '  exec "$real_node" "$@"\n'
+          printf 'else\n'
+          printf '  exec "$real_node" "$@" 2> >(filter_dawn_limit_warnings >&2)\n'
+          printf 'fi\n'
+        } > "$wrapper"
+        chmod +x "$wrapper"
+        printf '%s\n' "$wrapper_dir" >> "$GITHUB_PATH"
+        # Keep the wrapper first even for package-manager shims that resolve
+        # `node` through PATH rather than through the runner's GITHUB_PATH
+        # post-processing. PATH is an allowed runner environment update;
+        # NODE_OPTIONS itself is intentionally set only inside the wrapper and
+        # BASH_ENV because GitHub rejects NODE_OPTIONS in GITHUB_ENV.
+        printf 'PATH=%s\n' "$wrapper_dir:$PATH" >> "$GITHUB_ENV"
+
+        env_file="${RUNNER_TEMP}/forgeax-dawn-device-limits.env"
+        {
+          printf 'preload=%q\n' "$preload"
+          printf 'export PATH=%q:$PATH\n' "$wrapper_dir"
+          printf 'case " ${NODE_OPTIONS:-} " in\n'
+          printf '  *" --import=${preload} "*) ;;\n'
+          printf '  *) export NODE_OPTIONS="--import=${preload}${NODE_OPTIONS:+ ${NODE_OPTIONS}}" ;;\n'
+          printf 'esac\n'
+        } > "$env_file"
+        printf 'BASH_ENV=%s\n' "$env_file" >> "$GITHUB_ENV"
+
+    - name: Verify Dawn adapter preload
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -euo pipefail
+        output="$(FORGEAX_DAWN_DEVICE_LIMITS_DEBUG=1 node --input-type=module -e 'await import("webgpu")' 2>&1)"
+        printf '%s\n' "$output"
+        grep -Fq '[dawn-device-limits] adapter requestDevice preload installed' <<< "$output"

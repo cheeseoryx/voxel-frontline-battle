@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0.0",
+  "kind": "external-asset-package",
+  "importer": "ui",
+  "source": "frontline.ui.html",
+  "importSettings": {},
+  "subAssets": [
+    {
+      "guid": "4360b2ef-2f15-4318-843f-c165ffe8d974",
+      "sourceIndex": 0,
+      "sourceKey": "ui/frontline",
+      "kind": "ui"
+    }
+  ]
+}

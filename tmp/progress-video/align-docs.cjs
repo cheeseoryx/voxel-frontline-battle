@@ -1,0 +1,21 @@
+const fs=require('fs'),p=require('path'),dir=p.resolve(__dirname,'../../docs/engine-alignment');
+const file=p.join(dir,'项目对齐文稿.md');let md=fs.readFileSync(file,'utf8');
+const intro=md.split(/^## /m)[0],sections=md.split(/^## /m).slice(1);
+sections[1]=sections[1].replace('**联机流程｜已有局部验证记录。**','**联机流程｜历史记录与本轮复核分开说明。**');
+sections[1]+='\n本轮项目复核补充（2026-09-11）：模式集成、征服与协议逻辑、载具逻辑、地形编辑基础链路四项现有检查通过。同机双页面浏览器检查中，同房进入和访客整备通过；访客部署后的 AI 替换断言未通过（预期红方 AI 为 11，实际为 12），原因尚未定位，后续离开补位及逐模式检查未继续执行。此次结果已写入当前项目进度 HTML，不能以此前通过记录覆盖本轮未通过结果。\n\n';
+sections[2]='03 当前进度 HTML 与参考录像\n\nHTML 专门用于和平台同步当前项目进度，主依据是当前代码、项目集成文档和本轮验证记录。页面包括功能进展、联机进展、验证记录和辅助录像；主图取自本轮运行项目的大厅与装备整备界面。\n\n附件 2026-09-11 15-43-38.mp4（约 3 分 49 秒）已内嵌，可离线播放。它仅用于辅助观看项目表现，不决定功能完成度，也不用于推断联机容量、跨公网状态或验证结论。视频没有覆盖的功能不据此判为未完成。\n\n会议顺序建议：先沿页面讲功能与联机当前状态，再按需要播放附件片段；最后使用本对齐文稿讨论参赛形态和平台支持。Teardown 标杆继续保留在目标文稿与参考资料中，不混入进度页的已完成内容。\n\n';
+sections[6]=sections[6].replace('本页附三张来自 Teardown 官方 Steam 商店的参考截图','配套 references 文件夹保留三张来自 Teardown 官方 Steam 商店的参考截图');
+sections[6]=sections[6].replace('本轮既有 UI 截图只展示流程，不与场景画面作质量对比。','进度页的当前项目 UI 截图只展示流程，不与目标场景画面作质量对比。');
+sections[6]=sections[6].replace('链接播放需要联网，网页内嵌截图支持离线。','链接播放需要联网；目标参考截图单独保存在 references 文件夹。');
+sections[6]+='\n配套参考图：[街区爆炸与结构破坏](references/teardown-store-0.jpg)、[建筑破损与室内外关系](references/teardown-store-1.jpg)、[体素细节与日间光照](references/teardown-store-2.jpg)。以上均为目标游戏参考。\n\n';
+sections[9]=sections[9].replace('我们先通过周会录像和网页看一下目前的基础。','我们先按项目代码、文档与本轮验证记录，通过进度网页看一下目前的基础，附件录像只作辅助参考。');
+sections[9]=sections[9].replace('联机有部分双页面加入、部署和退出的验证记录。','联机方面，同房加入和访客整备本轮通过；部署后的 AI 席位替换检查未通过，需要定位后复核。');
+sections[9]=sections[9].replace('页面里准备了官方商店参考图，接下来可以共同选镜头建立实时样板。','配套目标资料保留官方商店参考图，接下来可以共同选镜头建立实时样板。');
+sections[10]=sections[10].replace('本 HTML 三张 Teardown 参考截图的来源。','配套三张 Teardown 参考截图的来源。');
+sections[10]=sections[10].replace('此次修订未重新执行游戏功能验收，未把 Teardown 截图混作项目成果。','此前目标稿整理未重新运行游戏；本次进度页更新执行了四项现有逻辑／集成检查及一次同机双页面流程检查，结果与范围见进度页。Teardown 截图未作项目成果。');
+sections[10]=sections[10].replace('周会视频或当前实录、同机位的本项目战斗画面','联机与完整对局的补充验证录像、同机位的本项目战斗画面');
+sections[10]=sections[10].replace('HTML 内嵌本项目 UI 截图和 Teardown 参考截图，可独立离线打开；外部来源和预告片链接需要联网。会议口头文稿与完整稿同步更新，以本版为准。','当前进度 HTML 内嵌本轮项目 UI 截图与用户附件录屏，可独立离线打开；Teardown 参考截图保留在配套 references 文件夹。目标资料的外部来源和预告片链接需要联网。当前项目进度简报单独提供，会议完整文稿继续覆盖参赛目标与支持诉求。');
+fs.writeFileSync(file,intro+sections.map(s=>'## '+s.trim()).join('\n\n')+'\n');
+fs.writeFileSync(p.join(dir,'会议口头文稿.md'),'# 项目对齐会议口头文稿 · Teardown 目标与最新进度说明\n\n'+sections[9].slice(sections[9].indexOf('\n')+1).trim()+'\n');
+console.log('Aligned full meeting documents with the new project-progress page; future target retained.');
+

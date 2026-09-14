@@ -1,0 +1,199 @@
+name: Native Ray Query
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/rhi-wgpu-native/**'
+      - 'apps/native-ray-query-triangle-tauri/**'
+      - '.github/workflows/native-ray-query.yml'
+      - 'pnpm-lock.yaml'
+      - 'bun.lock'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/rhi-wgpu-native/**'
+      - 'apps/native-ray-query-triangle-tauri/**'
+      - '.github/workflows/native-ray-query.yml'
+      - 'pnpm-lock.yaml'
+      - 'bun.lock'
+  workflow_dispatch:
+    inputs:
+      require_hardware:
+        description: Fail unless the runner renders the Vulkan Ray Query triangle
+        required: false
+        type: boolean
+        default: false
+      run_upstream:
+        description: Run the pinned wgpu v30 upstream Ray Tracing suites
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: native-ray-query-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  CARGO_TARGET_DIR: ${{ github.workspace }}/.cargo-target/native-ray-query
+
+jobs:
+  native-ray-query-contract:
+    name: Native Ray Query contract and Linux packaged boundary
+    runs-on: ${{ fromJSON('["self-hosted", "Linux", "X64", "heavy"]') }}
+    timeout-minutes: 30
+    steps:
+      - name: Scrub stale global/system git auth header
+        run: |
+          git config --global --unset-all http."https://github.com/".extraheader || true
+          sudo git config --system --unset-all http."https://github.com/".extraheader || true
+
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: false
+          token: ${{ secrets.GHA }}
+
+      - name: Prepare XDG runtime directory
+        uses: ./.github/actions/prepare-xdg-runtime
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.93'
+          components: rustfmt, clippy
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: '11.7.0'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Verify heavy runner capacity
+        run: node scripts/ci/verify-runner-pool-capacity.mjs --pool heavy
+
+      - name: Install native desktop prerequisites
+        run: |
+          apt_wrapper="$GITHUB_WORKSPACE/scripts/ci/with-apt-ubuntu-sources.sh"
+          "$apt_wrapper" sudo apt-get update
+          "$apt_wrapper" sudo apt-get install --yes \
+            build-essential \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            vulkan-tools \
+            xvfb
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Verify Rust format and native ownership
+        run: |
+          cargo fmt --all --manifest-path packages/rhi-wgpu-native/Cargo.toml -- --check
+          cargo fmt --all --manifest-path apps/native-ray-query-triangle-tauri/src-tauri/Cargo.toml -- --check
+          pnpm --filter @forgeax/native-ray-query-triangle-tauri verify:native-owner
+
+      - name: Test native owner
+        run: |
+          cargo test --manifest-path packages/rhi-wgpu-native/Cargo.toml --all-targets --features conformance
+          cargo clippy --manifest-path packages/rhi-wgpu-native/Cargo.toml --all-targets --features conformance -- -D warnings
+          node --test packages/rhi-wgpu-native/scripts/__tests__/verify-conformance-report.test.mjs
+          pnpm --filter @forgeax/native-ray-query-triangle-tauri test:report
+
+      - name: Build packaged Tauri app
+        run: pnpm --filter @forgeax/native-ray-query-triangle-tauri build:desktop
+
+      - name: Check Tauri desktop integration
+        run: cargo clippy --manifest-path apps/native-ray-query-triangle-tauri/src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Record Vulkan adapter facts
+        run: |
+          nvidia-smi || true
+          vulkaninfo --summary || true
+
+      - name: Run packaged Tauri smoke
+        run: |
+          executable="$(find "$CARGO_TARGET_DIR/release/bundle/appimage" -maxdepth 1 -name '*.AppImage' -print -quit)"
+          test -n "$executable"
+          APPIMAGE_EXTRACT_AND_RUN=1 \
+            FORGEAX_NATIVE_RAY_QUERY_EXECUTABLE="$executable" \
+            xvfb-run -a pnpm --filter @forgeax/native-ray-query-triangle-tauri smoke:desktop:unsupported
+
+      - name: Require hardware Ray Query when requested
+        if: github.event_name == 'workflow_dispatch' && inputs.require_hardware
+        run: >-
+          pnpm --filter @forgeax/native-ray-query-triangle-tauri verify:report
+          report/native-ray-query-triangle/report.json
+
+      - name: Upload native evidence
+        if: always()
+        # The report is diagnostic-only; a full artifact quota must not turn a
+        # passing native contract/smoke gate into a false code failure.
+        uses: ./.github/actions/upload-optional-artifact
+        with:
+          name: native-ray-query-${{ runner.name }}
+          path: apps/native-ray-query-triangle-tauri/report/native-ray-query-triangle
+          if-no-files-found: warn
+          retention-days: 1
+
+  native-ray-query-upstream-metal:
+    name: Pinned wgpu v30 upstream Ray Tracing suites on Metal
+    # Temporarily disabled: direct hosted macOS is not allowed for daily or
+    # manual use. Re-enable only after a declared self-hosted native pool (or
+    # move this low-frequency probe into the approved nightly lane).
+    if: ${{ false }}
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: false
+          token: ${{ secrets.GHA }}
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.93'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: '11.7.0'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Install upstream test tools
+        run: |
+          cargo install cargo-nextest --locked
+          brew install spirv-tools spirv-cross
+
+      - name: Checkout pinned wgpu
+        run: git clone --depth 1 --branch v30.0.0 https://github.com/gfx-rs/wgpu.git "$RUNNER_TEMP/wgpu-v30"
+
+      - name: Run pinned upstream suites
+        env:
+          FORGEAX_WGPU_V30_CHECKOUT: ${{ runner.temp }}/wgpu-v30
+          FORGEAX_WGPU_UPSTREAM_REPORT: ${{ github.workspace }}/report/native-ray-query-upstream
+        run: node packages/rhi-wgpu-native/scripts/run-wgpu-v30-upstream.mjs
+
+      - name: Upload upstream evidence
+        if: always()
+        # The report is diagnostic-only and has no downstream consumer.
+        uses: ./.github/actions/upload-optional-artifact
+        with:
+          name: native-ray-query-upstream-metal-${{ runner.name }}
+          path: report/native-ray-query-upstream
+          if-no-files-found: warn
+          retention-days: 1

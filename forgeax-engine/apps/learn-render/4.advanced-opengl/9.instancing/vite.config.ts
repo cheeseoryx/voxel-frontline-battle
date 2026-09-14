@@ -1,0 +1,55 @@
+import { defineConfig } from 'vite';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import { gltfImporter } from '@forgeax/engine-gltf';
+import { imageImporter } from '@forgeax/engine-image/image-importer';
+import { pluginPack, reloadAssetHost } from '@forgeax/engine-vite-plugin-pack';
+import { forgeaxShader } from '@forgeax/engine-vite-plugin-shader';
+import { createStandaloneRuntimeAssetBinding } from '@forgeax/engine-types';
+import { optionalAssetPack } from '../../../shared/src/optional-asset-pack.js';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const monorepoRoot = resolve(here, '..', '..', '..', '..');
+const assetRoots = [
+  resolve(monorepoRoot, 'forgeax-engine-assets', 'learn-opengl', 'textures'),
+  resolve(monorepoRoot, 'forgeax-engine-assets', 'learn-opengl', 'objects'),
+];
+
+export default defineConfig({
+  plugins: [
+    forgeaxShader() as never,
+    ...optionalAssetPack(assetRoots, () =>
+      pluginPack({
+        runtimeBinding: createStandaloneRuntimeAssetBinding('learn-render-4-9-instancing'),
+        refresh: reloadAssetHost(),
+        importers: [imageImporter, gltfImporter],
+        roots: assetRoots,
+      }),
+    ),
+  ],
+  server: {
+    port: 5180,
+    strictPort: true,
+    fs: {
+      allow: [monorepoRoot],
+    },
+  },
+  build: {
+    target: 'esnext',
+    assetsInlineLimit: (filePath: string): boolean | undefined =>
+      filePath.endsWith('.bin') ? false : undefined,
+    rollupOptions: {
+      input: {
+        main: resolve(here, 'index.html'),
+      },
+    },
+  },
+  test: {
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/*.browser.test.ts',
+      '**/*.dawn.test.ts',
+    ],
+  },
+});

@@ -1,0 +1,119 @@
+name: Upload artifact with retry
+description: Retry one failed artifact transfer in place without creating duplicate artifacts
+
+inputs:
+  name:
+    description: Canonical artifact name
+    required: true
+  path:
+    description: Files or directories to upload
+    required: true
+  if-no-files-found:
+    description: Behavior when the path matches no files
+    required: false
+    default: error
+  retention-days:
+    description: Number of days to retain the uploaded artifact
+    required: false
+    default: 1
+  compression-level:
+    description: Zlib compression level used by upload-artifact (0-9)
+    required: false
+    default: '6'
+
+outputs:
+  artifact-id:
+    description: ID of the artifact that completed upload
+    value: ${{ steps.upload.outcome == 'success' && steps.upload.outputs.artifact-id || steps.retry_1.outputs.artifact-id }}
+  artifact-name:
+    description: Name of the artifact that completed upload
+    value: ${{ inputs.name }}
+  upload-started-at:
+    description: UTC timestamp observed immediately before the first upload attempt
+    value: ${{ steps.upload-observation.outputs.started_at }}
+  upload-completed-at:
+    description: UTC timestamp observed after the successful upload attempt
+    value: ${{ steps.upload-observation.outputs.completed_at }}
+  upload-elapsed-seconds:
+    description: Direct wrapper elapsed seconds including bounded retries and backoff
+    value: ${{ steps.upload-observation.outputs.elapsed_seconds }}
+  upload-transfer-attempt:
+    description: One-based transfer attempt that completed the upload
+    value: ${{ steps.upload-observation.outputs.transfer_attempt }}
+
+runs:
+  using: composite
+  steps:
+    - name: Start upload observation
+      id: upload-observation-start
+      shell: bash
+      run: |
+        echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+        echo "started_millis=$(date +%s%3N)" >> "$GITHUB_OUTPUT"
+
+    - name: Upload canonical artifact
+      id: upload
+      continue-on-error: true
+      uses: actions/upload-artifact@v6
+      env:
+        # @actions/artifact defaults each blob chunk to a 5-minute timeout; keep a
+        # transient self-hosted transport stall from consuming the whole retry envelope.
+        ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS: '60000'
+      with:
+        name: ${{ inputs.name }}
+        path: ${{ inputs.path }}
+        if-no-files-found: ${{ inputs.if-no-files-found }}
+        retention-days: ${{ inputs.retention-days }}
+        compression-level: ${{ inputs.compression-level }}
+
+    - name: Back off before retry 1
+      if: steps.upload.outcome == 'failure'
+      shell: bash
+      run: sleep $((2 + RANDOM % 3))
+
+    - name: Retry artifact transfer in place
+      id: retry_1
+      if: steps.upload.outcome == 'failure'
+      continue-on-error: true
+      uses: actions/upload-artifact@v6
+      env:
+        ACTIONS_ARTIFACT_UPLOAD_TIMEOUT_MS: '60000'
+      with:
+        # Reuse the canonical name. overwrite removes a partially committed
+        # artifact before retrying, so a transport failure cannot leave a
+        # second full-size copy under a retry-specific name.
+        name: ${{ inputs.name }}
+        path: ${{ inputs.path }}
+        if-no-files-found: ${{ inputs.if-no-files-found }}
+        retention-days: ${{ inputs.retention-days }}
+        compression-level: ${{ inputs.compression-level }}
+        overwrite: true
+
+    - name: Finish upload observation
+      id: upload-observation
+      if: always()
+      shell: bash
+      env:
+        STARTED_AT: ${{ steps.upload-observation-start.outputs.started_at }}
+        STARTED_MILLIS: ${{ steps.upload-observation-start.outputs.started_millis }}
+        UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
+        RETRY_1_OUTCOME: ${{ steps.retry_1.outcome }}
+      run: |
+        completed_millis=$(date +%s%3N)
+        elapsed_seconds=$(awk -v start="$STARTED_MILLIS" -v end="$completed_millis" 'BEGIN { printf "%.3f", (end - start) / 1000 }')
+        if [ "$UPLOAD_OUTCOME" = success ]; then
+          transfer_attempt=1
+        else
+          transfer_attempt=2
+        fi
+        echo "started_at=$STARTED_AT" >> "$GITHUB_OUTPUT"
+        echo "completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+        echo "elapsed_seconds=$elapsed_seconds" >> "$GITHUB_OUTPUT"
+        echo "transfer_attempt=$transfer_attempt" >> "$GITHUB_OUTPUT"
+
+    - name: Fail after exhausted artifact transfer
+      if: steps.upload.outcome != 'success' && steps.retry_1.outcome != 'success'
+      shell: bash
+      run: |
+        echo "::error::artifact upload failed after one in-place retry"
+        exit 1
