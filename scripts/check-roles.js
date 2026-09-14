@@ -98,6 +98,25 @@ function serve() {
         );
       }
     }
+
+    // PvP 形状的回归：create() 后不驱动，骨骼应已离开绑定姿势
+    // 这正是 PvP 远端化身的消费模式——mixer 从不被外部调用。
+    // 断言 armQuat 与 bindQuat 至少有一分量差 > 0.05，证明 create() 内
+    // mixer.update(0) 已将骨架推到 idle 站姿而非绑定姿势（A-pose）。
+    const bindQ = await page.evaluate(() => window.RolesCheck.bindQuat('soldier01.glb', 'Bip001-L-UpperArm'));
+    const noDriveInfo = await page.evaluate(() => window.RolesCheck.render('voxel01', null, { noDrive: true }));
+    assert.ok(noDriveInfo.ok, 'voxel01 不驱动时 create 失败: ' + (noDriveInfo.reason || ''));
+    assert.ok(noDriveInfo.armQuat !== null, 'voxel01 不驱动时找不到 Bip001-L-UpperArm 骨骼');
+    assert.ok(bindQ !== null, 'bindQuat 独立加载找不到 Bip001-L-UpperArm 骨骼');
+    const maxDiff = Math.max(
+      Math.abs(noDriveInfo.armQuat[0] - bindQ[0]),
+      Math.abs(noDriveInfo.armQuat[1] - bindQ[1]),
+      Math.abs(noDriveInfo.armQuat[2] - bindQ[2]),
+      Math.abs(noDriveInfo.armQuat[3] - bindQ[3])
+    );
+    assert.ok(maxDiff > 0.05,
+      'create() 未驱动的骨骼与绑定姿势相同（A-pose 回归）：maxDiff=' + maxDiff.toFixed(4));
+
     assert.deepEqual(errors, [], '页面不应有 pageerror');
     console.log('check-roles OK：' + skinIds.length + ' 个角色截图已写入 tmp/roles-check/');
   } finally {
