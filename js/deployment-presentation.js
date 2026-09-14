@@ -274,7 +274,13 @@
         const member = this._squadIntroRoster[i];
         const model = global.VF.Soldier.createPreviewSoldier(
           member.classId || 'assault',
-          { team: previewTeam }
+          {
+            team: previewTeam,
+            skinId:
+              member.isPlayer && global.VF.Soldier.getPlayerSkinId
+                ? global.VF.Soldier.getPlayerSkinId()
+                : 'box',
+          }
         );
         model.position.set(positions[i] || 0, 0, 0);
         model.rotation.y = Math.PI;

@@ -2153,6 +2153,8 @@
       if (Soldier.createClassSoldier) {
         m = Soldier.createClassSoldier(classId || 'assault', {
           team: team || 'ally',
+          skinId:
+            (Soldier.getPlayerSkinId && Soldier.getPlayerSkinId()) || 'box',
         });
       } else {
         m = Soldier.createPreviewSoldier(classId || 'assault');
