@@ -703,6 +703,7 @@
         slot.weaponId = this.localLoadout.weaponId;
         slot.spawnId = this.localLoadout.spawnId;
         slot.team = this.localLoadout.team;
+        slot.skinId = this.localLoadout.skinId;
       }
       if (this._playState) {
         slot.x = this._playState.x;
@@ -821,6 +822,12 @@
             weaponId: other.weaponId || 'ar',
             spawnId: other.spawnId || null,
             team: other.team || (this.mode === 'host' ? 'enemy' : 'ally'),
+            // bus 槽位没带 skinId 时沿用 spawnReady 送来的值，
+            // 否则会被 sanitize 归 'box' 覆盖掉
+            skinId:
+              other.skinId ||
+              (this.remoteLoadout && this.remoteLoadout.skinId) ||
+              'box',
           });
         }
         if (other.x != null) {
@@ -1944,6 +1951,15 @@
         global.VF.WEAPONS[loadout.weaponId]
           ? loadout.weaponId
           : 'ar';
+      const validSkins = ['box'].concat(
+        ((global.VF && global.VF.SoldierVoxel && global.VF.SoldierVoxel.SKINS) || []).map(
+          function (s) {
+            return s.id;
+          }
+        )
+      );
+      const skinId =
+        validSkins.indexOf(loadout.skinId) >= 0 ? loadout.skinId : 'box';
       let spawnId = loadout.spawnId || null;
       const world = global.VF && global.VF.game && global.VF.game.world;
       const spawnPoints =
@@ -1962,6 +1978,7 @@
         weaponId: weaponId,
         spawnId: spawnId,
         team: expectedTeam,
+        skinId: skinId,
       };
     },
 
@@ -2739,17 +2756,30 @@
         (this.remoteState && this.remoteState.team) ||
         (this.remoteLoadout && this.remoteLoadout.team) ||
         (this.mode === 'host' ? 'enemy' : 'ally');
+      const skinId = (this.remoteLoadout && this.remoteLoadout.skinId) || 'box';
+      const V = global.VF && global.VF.SoldierVoxel;
+      // 体素皮肤未就绪时先用盒子兵顶上，同时触发加载；
+      // 加载完成后 wantApplied 变化，下一次调用自然重建
+      const wantApplied =
+        skinId !== 'box' && V && V.isReady(skinId) ? skinId : 'box';
+      if (skinId !== 'box' && V && !V.isReady(skinId)) {
+        V.preload(skinId);
+      }
 
       if (
         this.remoteAvatar &&
         this.remoteAvatar.classId === classId &&
-        this.remoteAvatar.team === team
+        this.remoteAvatar.team === team &&
+        this.remoteAvatar.appliedSkinId === wantApplied
       ) {
         return this.remoteAvatar;
       }
 
       this.removeRemoteAvatar(scene);
-      const mesh = global.VF.Soldier.createClassSoldier(classId, { team: team });
+      const mesh = global.VF.Soldier.createClassSoldier(classId, {
+        team: team,
+        skinId: wantApplied,
+      });
       mesh.name = 'RemotePlayer';
       mesh.rotation.order = 'YXZ';
       scene.add(mesh);
@@ -2757,6 +2787,7 @@
         mesh: mesh,
         classId: classId,
         team: team,
+        appliedSkinId: wantApplied,
         _tx: 0,
         _ty: 8,
         _tz: 0,
