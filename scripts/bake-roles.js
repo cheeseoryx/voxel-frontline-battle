@@ -171,6 +171,9 @@ function bakeSkin(entry) {
   if (JSON.stringify(posA.min) !== JSON.stringify(posB.min)) {
     throw new Error(entry.out + ' 包围盒 min 不一致');
   }
+  if (JSON.stringify(posA.max) !== JSON.stringify(posB.max)) {
+    throw new Error(entry.out + ' 包围盒 max 不一致');
+  }
   if (JSON.stringify(boneNames(json)) !== JSON.stringify(boneNames(check.json))) {
     throw new Error(entry.out + ' 骨骼名不一致');
   }
@@ -282,6 +285,9 @@ function bakeAnims(skinBones) {
   );
   skinBones.forEach((b) => {
     if (!animBoneSet.has(b)) throw new Error('动作库缺少骨骼: ' + b);
+  });
+  animBoneSet.forEach((b) => {
+    if (skinBones.indexOf(b) < 0) throw new Error('动作库存在蒙皮没有的骨骼: ' + b);
   });
   const size = fs.statSync(tmpPath).size;
   fs.renameSync(tmpPath, path.join(OUT, 'soldier_anims.glb'));
