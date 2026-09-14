@@ -305,6 +305,6 @@
     drive: drive,
   };
 
-  // 动作库只有 ~80KB，启动即预载；皮肤按需（部署页打开时 preloadAll）
+  // 动作库约 217KB，启动即预载；皮肤按需（部署页打开时 preloadAll）
   preloadAnims();
 })(window);

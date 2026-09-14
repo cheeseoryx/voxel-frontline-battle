@@ -28,3 +28,4 @@ diag-*.txt
 
 # Reproducible UI browser-test screenshots
 tmp/frontline-ui-check/
+tmp/roles-check/
