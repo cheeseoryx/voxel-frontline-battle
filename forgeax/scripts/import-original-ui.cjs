@@ -14,6 +14,7 @@ html=html.replace(/<svg\b[\s\S]*?<\/svg>/g,svg=>{const name=crypto.createHash('s
 for(const tag of ['i','legend','kbd','time','br','canvas']){html=html.replace(new RegExp('<'+tag+'(\\s|>)','g'),'<span data-original-tag="'+tag+'"$1').replace(new RegExp('</'+tag+'>','g'),'</span>');css=css.replace(new RegExp('(^|[\\s>+~,])'+tag+'(?=[\\s.#:[>+~,]|$)','gm'),'$1[data-original-tag="'+tag+'"]');}
 html=html.replace(/<span data-original-tag="br"\s*\/?>(?!<\/span>)/g,'<span data-original-tag="br"></span>');
 css+='\n[data-original-tag="kbd"]{font-family:monospace;}[data-original-tag="br"]{display:block;}';
+const overrides=path.join(out,'native-overrides.css');if(fs.existsSync(overrides))css+='\n'+fs.readFileSync(overrides,'utf8');
 fs.writeFileSync(path.join(out,'frontline.ui.html'),html);fs.writeFileSync(path.join(out,'frontline.ui.css'),css);
 const identity=fs.readFileSync(path.resolve(__dirname,'../assets/identity.ts'),'utf8').match(/export const IDS=(.*);/)[1];const id=JSON.parse(identity).ui;
 fs.writeFileSync(path.join(out,'frontline.ui.html.meta.json'),JSON.stringify({schemaVersion:'1.0.0',kind:'external-asset-package',importer:'ui',source:'frontline.ui.html',importSettings:{},subAssets:[{guid:id,sourceIndex:0,sourceKey:'ui/frontline',kind:'ui'}]},null,2));

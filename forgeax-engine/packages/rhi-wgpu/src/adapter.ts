@@ -174,6 +174,9 @@ export function makeCanvasContext(
   let pendingPresentationError: unknown;
   let surfaceDescriptor: { format?: unknown; usage?: unknown } = {};
   let presentationProof: RhiCanvasSurfacePresentationProof | undefined;
+  let configured:
+    | { desc: CanvasConfiguration; width: number | undefined; height: number | undefined }
+    | undefined;
 
   function presentPendingSurfaceTexture(): void {
     const previousError = pendingPresentationError;
@@ -286,12 +289,14 @@ export function makeCanvasContext(
         } else {
           context.presentationProof = presentationProof;
         }
+        configured = { desc: { ...desc }, width: canvas?.width, height: canvas?.height };
         return ok(undefined);
       } catch (e) {
         return webgpuRuntimeError(e);
       }
     },
     unconfigure(): void {
+      configured = undefined;
       // The final frame has no subsequent getCurrentTexture() call to drive
       // the normal auto-present path. Release it before wgpu destroys the
       // surface, or wasm-bindgen can drop a SurfaceTexture against a dead
@@ -330,6 +335,17 @@ export function makeCanvasContext(
         // presents after that stack without depending on rAF callback ordering.
         // The next acquire still releases an unpresented wrapper if interrupted.
         presentPendingSurfaceTexture();
+        // Unlike GPUCanvasContext, the WASM surface keeps the configured size.
+        // Reparenting a canvas into a preview or resizing its window must update
+        // that surface before acquiring the next image, just as WebGPU does.
+        if (
+          canvas !== undefined &&
+          configured !== undefined &&
+          (canvas.width !== configured.width || canvas.height !== configured.height)
+        ) {
+          const resized = context.configure(configured.desc);
+          if (!resized.ok) return resized;
+        }
         const raw = rawContext.getCurrentTexture() as
           | { getTexture?: () => unknown; present?: () => void }
           | undefined;

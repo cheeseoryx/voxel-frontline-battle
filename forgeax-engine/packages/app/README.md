@@ -29,6 +29,8 @@ app.start().unwrap();
 
 The canvas form creates a World, renderer, default plugins, browser input backend, and rAF loop. Handle the `Result` before calling `start`.
 
+The main-thread canvas host fits CSS size × device pixel ratio to the active device's `maxTextureDimension2D`, using one scale for both axes. It applies that limit after renderer construction and before each frame, so high-DPI windows and preview reparenting cannot request an oversized surface. CSS layout stays at the requested size; explicit intrinsic canvas sizes remain caller-owned.
+
 ## Recovery frame contract
 
 Use `renderer.state() -> renderer.inspect() -> renderer.recover() ->

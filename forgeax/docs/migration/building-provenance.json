@@ -1,0 +1,18 @@
+{
+  "sources": [
+    {
+      "path": "js/vendor/three.gltf.global.js",
+      "sha256": "6eee8615d5a1fb34ff5e8143dfa05ab9019a8068101957dd52bee2235b226788"
+    },
+    {
+      "path": "modes/small-battle/js/voxel-world.js",
+      "sha256": "84fa5c47e150c213e4e2e009c735ed85255d331392193398f13165ebcb66db92"
+    },
+    {
+      "path": "modes/small-battle/js/building.js",
+      "sha256": "22c93ac88d846e76d9717e38ac7284b3cd7ae64f00c244f20daf43c666c1c736"
+    }
+  ],
+  "cells": 1450,
+  "note": "Original tower collision voxels and spiral stairs; separate animated door remains pending."
+}

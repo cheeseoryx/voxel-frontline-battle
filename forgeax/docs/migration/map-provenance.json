@@ -1,0 +1,50 @@
+{
+  "sources": [
+    {
+      "path": "js/vendor/three.gltf.global.js",
+      "sha256": "6eee8615d5a1fb34ff5e8143dfa05ab9019a8068101957dd52bee2235b226788"
+    },
+    {
+      "path": "js/feel-config.js",
+      "sha256": "3d0e1abde81bc8aa53083a4447c8c9a0dcef26a555fb37a22ee4ad47003c923b"
+    },
+    {
+      "path": "js/voxel-world.js",
+      "sha256": "5e32749ac5e3500c91424811d40d3c27de2449ea119e548b5c8a5ae96a828b25"
+    },
+    {
+      "path": "js/props/prop-palette.js",
+      "sha256": "6000d18e12bd272f5f63baaecc8a91afbd4e8dda88bc2c1ffffcfd58391f0f8f"
+    },
+    {
+      "path": "js/props/props-bundle.js",
+      "sha256": "3a03de9760fdd8b746bcac1df03d2073f5b276d48a9be4d6b246747193044cb2"
+    },
+    {
+      "path": "js/props/prop-stamp.js",
+      "sha256": "1b1c0de07f6d0f18aced5070ea0a91c07b2d2afb16bd416d7d0a37f1b1a5db2e"
+    },
+    {
+      "path": "js/maps/map-terrain.js",
+      "sha256": "e64458f08e91d4c480fed94d1eddff4309c82c8c3f434fba25c54ba554913c38"
+    },
+    {
+      "path": "js/maps/island-conquest-terrain.js",
+      "sha256": "d4f86b9304152cf895a625118748ffaad22382119610852291d25ee28cb7cb77"
+    },
+    {
+      "path": "js/maps/island-conquest-props.js",
+      "sha256": "f2354a932f324d2ef3d1a28c6489c07e17f9cbb9e15fb0c6cdcc6497ca32e19c"
+    },
+    {
+      "path": "js/maps/island-conquest.js",
+      "sha256": "1fcb5b1c7bb4aa5a47585fa477d75094a7bf740d29e117cb045697adad8dd7d4"
+    }
+  ],
+  "width": 1024,
+  "height": 101,
+  "sha256": "1014d5b6920f4f7a2c479ac6cfbd91a83c128b6007f66500c4eb4b7ff27bb1ea",
+  "bytes": 105906176,
+  "compressedBytes": 654720,
+  "seed": 0
+}

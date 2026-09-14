@@ -1,0 +1,213 @@
+diff --git a/forgeax-engine/packages/rhi-wgpu/src/__tests__/rhi-wgpu.unit.test.ts b/forgeax-engine/packages/rhi-wgpu/src/__tests__/rhi-wgpu.unit.test.ts
+index 7e036fa..b85f1cb 100644
+--- a/forgeax-engine/packages/rhi-wgpu/src/__tests__/rhi-wgpu.unit.test.ts
++++ b/forgeax-engine/packages/rhi-wgpu/src/__tests__/rhi-wgpu.unit.test.ts
+@@ -1591,3 +1591,61 @@ function setNavigatorGpu(gpu: unknown): void {
+     });
+   });
+ }
++
++describe('canvas drawing-buffer resize', () => {
++  it('reconfigures before acquire and presents the previous image first', () => {
++    const calls: string[] = [];
++    const raw = {
++      configure: vi.fn((desc: unknown) => {
++        const size = desc as { width: number; height: number };
++        calls.push(`configure:${size.width}x${size.height}`);
++      }),
++      unconfigure: vi.fn(),
++      getConfiguration: vi.fn(() => null),
++      getCurrentTexture: vi.fn(() => {
++        calls.push('acquire');
++        return { getTexture: () => ({}), present: () => calls.push('present') };
++      }),
++    };
++    const canvas = { width: 1600, height: 960 };
++    const context = makeCanvasContext(raw, canvas as HTMLCanvasElement);
++    context.configure({ device: {} as never, format: 'rgba8unorm', usage: 0x10 }).unwrap();
++    context.getCurrentTexture().unwrap();
++    canvas.width = 672;
++    canvas.height = 627;
++    context.getCurrentTexture().unwrap();
++    expect(calls).toEqual([
++      'configure:1600x960',
++      'acquire',
++      'present',
++      'configure:672x627',
++      'acquire',
++    ]);
++    context.getCurrentTexture().unwrap();
++    expect(raw.configure).toHaveBeenCalledTimes(2);
++    canvas.width = 1600;
++    canvas.height = 960;
++    context.getCurrentTexture().unwrap();
++    expect(raw.configure).toHaveBeenCalledTimes(3);
++    context.unconfigure();
++  });
++  it('reports a failed resize without acquiring a mismatched image', () => {
++    const raw = {
++      configure: vi.fn(),
++      unconfigure: vi.fn(),
++      getConfiguration: vi.fn(() => null),
++      getCurrentTexture: vi.fn(() => ({})),
++    };
++    const canvas = { width: 1600, height: 960 };
++    const context = makeCanvasContext(raw, canvas as HTMLCanvasElement);
++    context.configure({ device: {} as never, format: 'rgba8unorm', usage: 0x10 }).unwrap();
++    canvas.width = 672;
++    raw.configure.mockImplementationOnce(() => {
++      throw new Error('resize failed');
++    });
++    expect(context.getCurrentTexture().ok).toBe(false);
++    expect(raw.getCurrentTexture).not.toHaveBeenCalled();
++    expect(context.getCurrentTexture().ok).toBe(true);
++    context.unconfigure();
++  });
++});
+diff --git a/forgeax-engine/packages/rhi-wgpu/src/adapter.ts b/forgeax-engine/packages/rhi-wgpu/src/adapter.ts
+index 1758574..e971b90 100644
+--- a/forgeax-engine/packages/rhi-wgpu/src/adapter.ts
++++ b/forgeax-engine/packages/rhi-wgpu/src/adapter.ts
+@@ -174,6 +174,9 @@ export function makeCanvasContext(
+   let pendingPresentationError: unknown;
+   let surfaceDescriptor: { format?: unknown; usage?: unknown } = {};
+   let presentationProof: RhiCanvasSurfacePresentationProof | undefined;
++  let configured:
++    | { desc: CanvasConfiguration; width: number | undefined; height: number | undefined }
++    | undefined;
+ 
+   function presentPendingSurfaceTexture(): void {
+     const previousError = pendingPresentationError;
+@@ -286,12 +289,14 @@ export function makeCanvasContext(
+         } else {
+           context.presentationProof = presentationProof;
+         }
++        configured = { desc: { ...desc }, width: canvas?.width, height: canvas?.height };
+         return ok(undefined);
+       } catch (e) {
+         return webgpuRuntimeError(e);
+       }
+     },
+     unconfigure(): void {
++      configured = undefined;
+       // The final frame has no subsequent getCurrentTexture() call to drive
+       // the normal auto-present path. Release it before wgpu destroys the
+       // surface, or wasm-bindgen can drop a SurfaceTexture against a dead
+@@ -330,6 +335,17 @@ export function makeCanvasContext(
+         // presents after that stack without depending on rAF callback ordering.
+         // The next acquire still releases an unpresented wrapper if interrupted.
+         presentPendingSurfaceTexture();
++        // Unlike GPUCanvasContext, the WASM surface keeps the configured size.
++        // Reparenting a canvas into a preview or resizing its window must update
++        // that surface before acquiring the next image, just as WebGPU does.
++        if (
++          canvas !== undefined &&
++          configured !== undefined &&
++          (canvas.width !== configured.width || canvas.height !== configured.height)
++        ) {
++          const resized = context.configure(configured.desc);
++          if (!resized.ok) return resized;
++        }
+         const raw = rawContext.getCurrentTexture() as
+           | { getTexture?: () => unknown; present?: () => void }
+           | undefined;
+diff --git a/forgeax-engine/packages/shader/src/lighting-directional.wgsl b/forgeax-engine/packages/shader/src/lighting-directional.wgsl
+index 8c94b0a..e2cf42d 100644
+--- a/forgeax-engine/packages/shader/src/lighting-directional.wgsl
++++ b/forgeax-engine/packages/shader/src/lighting-directional.wgsl
+@@ -47,9 +47,9 @@
+ 
+ #import forgeax_view::common::{view, shadowMap, shadowSampler}
+ #import forgeax_pbr::brdf::{f_schlick, v_smith, d_ggx, threeR184DirectMultiScatter}
+-#import forgeax_pbr::shadow_pcf::{sample_shadow_2d}
++#import forgeax_pbr::shadow_pcf::{sample_shadow_2d, shadow_sample_compare}
+ #ifdef DIRECTIONAL_PCSS_AVAILABLE
+-#import forgeax_pbr::shadow_pcf::{shadow_biased_receiver_depth, shadow_clamp_texel_to_tile, shadow_load_raw_depth, shadow_sample_compare}
++#import forgeax_pbr::shadow_pcf::{shadow_biased_receiver_depth, shadow_clamp_texel_to_tile, shadow_load_raw_depth}
+ #endif
+ 
+ // feat-20260621-learn-render-5-3-production-shadow-demos M0 / AC-14:
+@@ -321,7 +321,7 @@ fn _sampleShadowForCascade(
+   #endif
+   let kernel = select(select(3u, 5u, filterProfile == 3u), 1u, filterProfile == 1u);
+   if (kernel == 1u) {
+-    let lit = textureSampleCompareLevel(shadowMap, shadowSampler, clamp(uv, tileLo, tileHi), adjustedDepth);
++    let lit = shadow_sample_compare(shadowMap, shadowSampler, clamp(uv, tileLo, tileHi), adjustedDepth);
+     return lit;
+   }
+ 
+@@ -340,16 +340,16 @@ fn _sampleShadowForCascade(
+       let hiWeight = vec2<f32>(1.0) + pcfFraction;
+       let loOffset = vec2<f32>(-1.0) - pcfFraction + vec2<f32>(1.0) / loWeight;
+       let hiOffset = vec2<f32>(1.0) - pcfFraction + pcfFraction / hiWeight;
+-      let litLoLo = textureSampleCompareLevel(
++      let litLoLo = shadow_sample_compare(
+         shadowMap, shadowSampler, uv + vec2<f32>(loOffset.x, loOffset.y) * texel, adjustedDepth,
+       );
+-      let litHiLo = textureSampleCompareLevel(
++      let litHiLo = shadow_sample_compare(
+         shadowMap, shadowSampler, uv + vec2<f32>(hiOffset.x, loOffset.y) * texel, adjustedDepth,
+       );
+-      let litLoHi = textureSampleCompareLevel(
++      let litLoHi = shadow_sample_compare(
+         shadowMap, shadowSampler, uv + vec2<f32>(loOffset.x, hiOffset.y) * texel, adjustedDepth,
+       );
+-      let litHiHi = textureSampleCompareLevel(
++      let litHiHi = shadow_sample_compare(
+         shadowMap, shadowSampler, uv + vec2<f32>(hiOffset.x, hiOffset.y) * texel, adjustedDepth,
+       );
+       return (
+@@ -362,7 +362,7 @@ fn _sampleShadowForCascade(
+     for (var x = -1; x <= 1; x++) {
+       for (var y = -1; y <= 1; y++) {
+         let offsetUv = clamp(uv + vec2<f32>(f32(x), f32(y)) * texel, tileLo, tileHi);
+-        let lit = textureSampleCompareLevel(shadowMap, shadowSampler, offsetUv, adjustedDepth);
++        let lit = shadow_sample_compare(shadowMap, shadowSampler, offsetUv, adjustedDepth);
+         blocked = blocked + (1.0 - lit);
+       }
+     }
+@@ -372,7 +372,7 @@ fn _sampleShadowForCascade(
+   for (var x = -i32(MAX_PCF_HALF); x <= i32(MAX_PCF_HALF); x++) {
+     for (var y = -i32(MAX_PCF_HALF); y <= i32(MAX_PCF_HALF); y++) {
+       let offsetUv = clamp(uv + vec2<f32>(f32(x), f32(y)) * texel, tileLo, tileHi);
+-      let lit = textureSampleCompareLevel(shadowMap, shadowSampler, offsetUv, adjustedDepth);
++      let lit = shadow_sample_compare(shadowMap, shadowSampler, offsetUv, adjustedDepth);
+       blocked = blocked + (1.0 - lit);
+     }
+   }
+diff --git a/forgeax-engine/packages/shader/src/shadow-pcf.wgsl b/forgeax-engine/packages/shader/src/shadow-pcf.wgsl
+index a783608..9df101a 100644
+--- a/forgeax-engine/packages/shader/src/shadow-pcf.wgsl
++++ b/forgeax-engine/packages/shader/src/shadow-pcf.wgsl
+@@ -45,13 +45,22 @@ fn shadow_load_raw_depth(
+   return textureLoad(shadowMap, texel, 0);
+ }
+ 
++@diagnostic(off, derivative_uniformity)
+ fn shadow_sample_compare(
+   shadowMap    : texture_depth_2d,
+   shadowSampler: sampler_comparison,
+   uv           : vec2<f32>,
+   depthRef     : f32,
+ ) -> f32 {
++  #ifdef STORAGE_BUFFER_AVAILABLE
+   return textureSampleCompareLevel(shadowMap, shadowSampler, uv, depthRef);
++  #else
++  // WebGL2's single-mip shadow atlas does not need explicit LOD. Using an
++  // implicit comparison sample avoids ANGLE's unsupported shadow textureLod
++  // executable on Chromium-derived browsers. Derivatives cannot select another
++  // mip (the atlas has only level 0); PCF and the comparison sampler stay intact.
++  return textureSampleCompare(shadowMap, shadowSampler, uv, depthRef);
++  #endif
+ }
+ 
+ fn shadow_biased_receiver_depth(
+@@ -128,7 +137,7 @@ fn sample_shadow_2d_kernel(
+     for (var x = -2; x <= 2; x = x + 1) {
+       if (abs(x) <= halfWidth && abs(y) <= halfWidth) {
+         let offsetUv = uv + vec2<f32>(f32(x), f32(y)) * texel;
+-        let lit = textureSampleCompareLevel(shadowMap, shadowSampler, offsetUv, adjustedDepth);
++        let lit = shadow_sample_compare(shadowMap, shadowSampler, offsetUv, adjustedDepth);
+         blocked = blocked + (1.0 - lit);
+         samples = samples + 1.0;
+       }

@@ -1,0 +1,492 @@
+{
+  "date": "2026-09-14",
+  "issue": "HUD remains visible while battlefield is blank or loses terrain after entering different modes",
+  "rootCause": "Mesh GPU cache reused World + slot residency across different shared-handle generations.",
+  "fix": "Validate complete mesh source handles; replace stale GPU residency and retire previous buffers after submissions and leases finish.",
+  "preview": "http://localhost:8766/",
+  "status": "verified-for-reproduced-render-failure",
+  "verification": {
+    "unit": {
+      "passed": 37,
+      "artifact": "artifacts/black-screen-regression-green.log"
+    },
+    "dawnGpuUpload": {
+      "passed": 3,
+      "artifact": "artifacts/black-screen-dawn.log"
+    },
+    "engineBuild": "passed",
+    "engineRenderTypecheck": "passed",
+    "gameBuild": "passed",
+    "gameTypecheck": "passed",
+    "browserRuns": [
+      {
+        "name": "chrome-entry-reentry",
+        "path": "artifacts/battle-visibility-chrome/report.json",
+        "browser": "chrome",
+        "passed": true,
+        "entries": 8,
+        "modes": [
+          "conquest",
+          "core",
+          "tdm",
+          "demo",
+          "ffa",
+          "gungame",
+          "conquest",
+          "gungame"
+        ],
+        "captures": [
+          {
+            "mode": "conquest",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "155",
+            "pixels": {
+              "bins": 60,
+              "dominant": 0.5438049510506953
+            }
+          },
+          {
+            "mode": "conquest",
+            "stage": "live",
+            "phase": "battle",
+            "frames": "202",
+            "pixels": {
+              "bins": 58,
+              "dominant": 0.5517241379310345
+            }
+          },
+          {
+            "mode": "core",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "278",
+            "pixels": {
+              "bins": 42,
+              "dominant": 0.5098210388476647
+            }
+          },
+          {
+            "mode": "core",
+            "stage": "live",
+            "phase": "battle",
+            "frames": "328",
+            "pixels": {
+              "bins": 33,
+              "dominant": 0.5656294818232837
+            }
+          },
+          {
+            "mode": "tdm",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "399",
+            "pixels": {
+              "bins": 57,
+              "dominant": 0.31190372264139177
+            }
+          },
+          {
+            "mode": "tdm",
+            "stage": "live",
+            "phase": "prep",
+            "frames": "509",
+            "pixels": {
+              "bins": 57,
+              "dominant": 0.31190372264139177
+            }
+          },
+          {
+            "mode": "demo",
+            "stage": "entry",
+            "phase": "buy",
+            "frames": "600",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.29768659973810563
+            }
+          },
+          {
+            "mode": "demo",
+            "stage": "live",
+            "phase": "buy",
+            "frames": "718",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.29768659973810563
+            }
+          },
+          {
+            "mode": "ffa",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "814",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.176155141235892
+            }
+          },
+          {
+            "mode": "ffa",
+            "stage": "live",
+            "phase": "prep",
+            "frames": "941",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.176155141235892
+            }
+          },
+          {
+            "mode": "gungame",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "1036",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.176155141235892
+            }
+          },
+          {
+            "mode": "gungame",
+            "stage": "live",
+            "phase": "prep",
+            "frames": "1164",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.176155141235892
+            }
+          },
+          {
+            "mode": "conquest",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "1223",
+            "pixels": {
+              "bins": 60,
+              "dominant": 0.5438049510506953
+            }
+          },
+          {
+            "mode": "conquest",
+            "stage": "live",
+            "phase": "battle",
+            "frames": "1275",
+            "pixels": {
+              "bins": 63,
+              "dominant": 0.5517241379310345
+            }
+          },
+          {
+            "mode": "gungame",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "1366",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.176155141235892
+            }
+          },
+          {
+            "mode": "gungame",
+            "stage": "live",
+            "phase": "prep",
+            "frames": "1492",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.176155141235892
+            }
+          }
+        ],
+        "consolePageAndRequestErrors": []
+      },
+      {
+        "name": "edge-live-reentry",
+        "path": "artifacts/battle-visibility-edge-final/report.json",
+        "browser": "edge",
+        "passed": true,
+        "entries": 9,
+        "modes": [
+          "conquest",
+          "core",
+          "tdm",
+          "demo",
+          "ffa",
+          "gungame",
+          "conquest",
+          "gungame",
+          "solo"
+        ],
+        "captures": [
+          {
+            "mode": "conquest",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "151",
+            "pixels": {
+              "bins": 60,
+              "dominant": 0.5438049510506953
+            }
+          },
+          {
+            "mode": "conquest",
+            "stage": "live",
+            "phase": "battle",
+            "frames": "184",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.4717839995011536
+            }
+          },
+          {
+            "mode": "core",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "260",
+            "pixels": {
+              "bins": 42,
+              "dominant": 0.5098210388476647
+            }
+          },
+          {
+            "mode": "core",
+            "stage": "live",
+            "phase": "battle",
+            "frames": "290",
+            "pixels": {
+              "bins": 34,
+              "dominant": 0.460497599301615
+            }
+          },
+          {
+            "mode": "tdm",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "368",
+            "pixels": {
+              "bins": 57,
+              "dominant": 0.31190372264139177
+            }
+          },
+          {
+            "mode": "tdm",
+            "stage": "live",
+            "phase": "battle",
+            "frames": "508",
+            "pixels": {
+              "bins": 60,
+              "dominant": 0.3079129513001185
+            }
+          },
+          {
+            "mode": "demo",
+            "stage": "entry",
+            "phase": "buy",
+            "frames": "595",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.29768659973810563
+            }
+          },
+          {
+            "mode": "demo",
+            "stage": "live",
+            "phase": "live",
+            "frames": "880",
+            "pixels": {
+              "bins": 54,
+              "dominant": 0.29737482072706867
+            }
+          },
+          {
+            "mode": "ffa",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "979",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.176155141235892
+            }
+          },
+          {
+            "mode": "ffa",
+            "stage": "live",
+            "phase": "battle",
+            "frames": "1162",
+            "pixels": {
+              "bins": 50,
+              "dominant": 0.17509509259836628
+            }
+          },
+          {
+            "mode": "gungame",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "1253",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.176155141235892
+            }
+          },
+          {
+            "mode": "gungame",
+            "stage": "live",
+            "phase": "battle",
+            "frames": "1454",
+            "pixels": {
+              "bins": 50,
+              "dominant": 0.17509509259836628
+            }
+          },
+          {
+            "mode": "conquest",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "1515",
+            "pixels": {
+              "bins": 60,
+              "dominant": 0.5438049510506953
+            }
+          },
+          {
+            "mode": "conquest",
+            "stage": "live",
+            "phase": "battle",
+            "frames": "1551",
+            "pixels": {
+              "bins": 57,
+              "dominant": 0.5251605661906841
+            }
+          },
+          {
+            "mode": "gungame",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "1646",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.176155141235892
+            }
+          },
+          {
+            "mode": "gungame",
+            "stage": "live",
+            "phase": "battle",
+            "frames": "1840",
+            "pixels": {
+              "bins": 50,
+              "dominant": 0.17509509259836628
+            }
+          },
+          {
+            "mode": "solo",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "1902",
+            "pixels": {
+              "bins": 60,
+              "dominant": 0.5438049510506953
+            }
+          },
+          {
+            "mode": "solo",
+            "stage": "live",
+            "phase": "battle",
+            "frames": "1934",
+            "pixels": {
+              "bins": 58,
+              "dominant": 0.5251605661906841
+            }
+          }
+        ],
+        "consolePageAndRequestErrors": []
+      },
+      {
+        "name": "chrome-live-solo",
+        "path": "artifacts/battle-visibility-chrome-live/report.json",
+        "browser": "chrome",
+        "passed": true,
+        "entries": 3,
+        "modes": [
+          "conquest",
+          "gungame",
+          "solo"
+        ],
+        "captures": [
+          {
+            "mode": "conquest",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "145",
+            "pixels": {
+              "bins": 60,
+              "dominant": 0.5438049510506953
+            }
+          },
+          {
+            "mode": "conquest",
+            "stage": "live",
+            "phase": "battle",
+            "frames": "180",
+            "pixels": {
+              "bins": 56,
+              "dominant": 0.5251605661906841
+            }
+          },
+          {
+            "mode": "gungame",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "285",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.176155141235892
+            }
+          },
+          {
+            "mode": "gungame",
+            "stage": "live",
+            "phase": "battle",
+            "frames": "468",
+            "pixels": {
+              "bins": 50,
+              "dominant": 0.17509509259836628
+            }
+          },
+          {
+            "mode": "solo",
+            "stage": "entry",
+            "phase": "prep",
+            "frames": "536",
+            "pixels": {
+              "bins": 60,
+              "dominant": 0.5438049510506953
+            }
+          },
+          {
+            "mode": "solo",
+            "stage": "live",
+            "phase": "battle",
+            "frames": "571",
+            "pixels": {
+              "bins": 56,
+              "dominant": 0.5251605661906841
+            }
+          }
+        ],
+        "consolePageAndRequestErrors": []
+      }
+    ]
+  },
+  "regressionBefore": {
+    "unitFailures": 2,
+    "unitArtifact": "artifacts/black-screen-regression-red.log",
+    "pixelArtifact": "artifacts/black-screen-pixel-red.log",
+    "blankGungameDominantColor": 0.9728
+  },
+  "limitations": [
+    "User existing browser profile was not directly inspected; browser tests use fresh standalone Chrome/Edge automation profiles with default GPU flags.",
+    "Pixel gate checks battlefield visibility at known open spawn views; it is not a visual-fidelity, complete gameplay, or long-session performance gate.",
+    "Contributor-only full hello/learn-render/browser/Dawn release matrix was not run in the public SDK source checkout."
+  ],
+  "rerun": "pnpm check:visibility; set BATTLE_BROWSER=edge to test Edge"
+}

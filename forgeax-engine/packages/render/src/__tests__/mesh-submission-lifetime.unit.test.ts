@@ -51,3 +51,55 @@ it('fences ordinary mesh submissions independently of candidates, including reve
   expect(replacement.vertexBuffer.isDestroyed).toBe(false);
   store.destroyAll();
 });
+
+it.each([
+  'draw',
+  'recovery',
+] as const)('reuploads a recycled mesh slot on %s without evicting its replacement', async (path) => {
+  const device = (await (await rhi.requestAdapter()).unwrap().requestDevice()).unwrap();
+  const store = new GpuResidencyCache();
+  store.configureGpuDevice(
+    device,
+    undefined,
+    () => {
+      throw new Error('no cubemap');
+    },
+    device.caps,
+  );
+  const world = new World();
+  const oldMesh = createBoxGeometry(1, 1, 1).unwrap();
+  const oldHandle = world.allocSharedRef('MeshAsset', oldMesh);
+  const oldEntry = store.ensureResident(oldHandle, oldMesh, world).unwrap();
+  let finish!: () => void;
+  const submitted = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  store.trackMeshSubmission(submitted);
+  const lease = store.retainMeshResidency(oldHandle, world);
+  if (lease === undefined) throw new Error('original residency lease missing');
+  world.sharedRefs.release(oldHandle).unwrap();
+  const nextMesh = createBoxGeometry(8, 2, 3).unwrap();
+  const nextHandle = world.allocSharedRef('MeshAsset', nextMesh);
+  expect(Number(nextHandle) & 0xffffff).toBe(Number(oldHandle) & 0xffffff);
+  expect(nextHandle).not.toBe(oldHandle);
+  expect(store.getMeshGpuHandles(nextHandle, world)).toBeUndefined();
+  if (path === 'draw') store.ensureResident(nextHandle, nextMesh, world).unwrap();
+  else store.prepareResidentForRecovery(nextHandle, nextMesh, world).unwrap();
+  const nextEntry = store.getMeshGpuHandles(nextHandle, world);
+  if (nextEntry === undefined) throw new Error('replacement residency missing');
+  expect(nextEntry).toBeDefined();
+  expect(nextEntry).not.toBe(oldEntry);
+  expect(store.ensureResident(nextHandle, nextMesh, world).unwrap()).toBe(nextEntry);
+  expect(store.getMeshGpuHandles(oldHandle, world)).toBeUndefined();
+  expect(store.retainMeshResidency(oldHandle, world)).toBeUndefined();
+  store.evictMesh(oldHandle, world);
+  store.invalidateMesh(oldHandle, world);
+  lease.release(true);
+  expect(oldEntry.vertexBuffer.isDestroyed).toBe(false);
+  finish();
+  await submitted;
+  expect(oldEntry.vertexBuffer.isDestroyed).toBe(true);
+  expect(store.getMeshGpuHandles(nextHandle, world)).toBe(nextEntry);
+  expect(nextEntry.vertexBuffer.isDestroyed).toBe(false);
+  store.destroyAll();
+});

@@ -8,6 +8,10 @@ export {
   createRapier3DPhysicsWorld,
   RapierPhysicsWorld3D,
   registerPhysicsSystems,
+  PhysicsSyncBackend,
+  PhysicsStepSimulation,
+  PhysicsWriteback,
+  PhysicsCollisionSync,
 } from './rapier-physics-world-3d';
 export type { Rapier3DModule } from './wasm-loader';
 export { loadRapier3D } from './wasm-loader';

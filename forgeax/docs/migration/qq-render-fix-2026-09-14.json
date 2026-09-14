@@ -1,0 +1,779 @@
+{
+  "date": "2026-09-14",
+  "scope": "QQ WebGL2 battlefield and soldier preview rendering; duplicate player badge",
+  "url": "http://localhost:8766/",
+  "causes": [
+    "ANGLE/D3D11 fails textureLod(sampler2DShadow) at draw time although program initially links",
+    "WASM canvas surface retains old configured size when canvas enters a smaller preview",
+    "Nested squad-member-name elements and explicit player tag duplicate badge"
+  ],
+  "fixes": [
+    "Uniform-fallback shadow sampling uses implicit comparison sampling for the existing single-mip atlas; WebGPU explicit level-zero sampling is preserved",
+    "WASM surface reconfigures before acquire when canvas drawing-buffer size changes, after presenting outstanding texture",
+    "One squad member name and one CSS player badge"
+  ],
+  "qqExecutable": "E:/Program Files/Tencent/QQBrowser/QQBrowser.exe",
+  "qqProductVersion": "21.8.7003.400",
+  "qqChromiumVersion": "138.0.7204.0",
+  "gpuFlags": [],
+  "qqBattle": {
+    "browser": "qq",
+    "version": "138.0.7204.0",
+    "passed": true,
+    "failure": null,
+    "rows": [
+      {
+        "mode": "conquest",
+        "captures": [
+          {
+            "stage": "entry",
+            "pixels": {
+              "bins": 60,
+              "dominant": 0.5438049510506953
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "222",
+              "ui": {
+                "gameRuntime": "large",
+                "matchPhase": "prep",
+                "renderChunks": "81",
+                "cameraPosition": "[404.5,26.84000015258789,81.5]",
+                "health": "100",
+                "combatants": "64",
+                "shots": "0"
+              }
+            }
+          },
+          {
+            "stage": "live",
+            "pixels": {
+              "bins": 56,
+              "dominant": 0.5251605661906841
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "251",
+              "ui": {
+                "gameRuntime": "large",
+                "matchPhase": "battle",
+                "renderChunks": "81",
+                "cameraPosition": "[404.5,26.80999755859375,81.5]",
+                "health": "100",
+                "combatants": "64",
+                "shots": "0"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "mode": "core",
+        "captures": [
+          {
+            "stage": "entry",
+            "pixels": {
+              "bins": 42,
+              "dominant": 0.5098210388476647
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "339",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "prep",
+                "renderChunks": "72",
+                "cameraPosition": "[52.5,11.84000015258789,80.5]",
+                "health": "100",
+                "combatants": "50",
+                "shots": "0"
+              }
+            }
+          },
+          {
+            "stage": "live",
+            "pixels": {
+              "bins": 33,
+              "dominant": 0.5656294818232837
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "364",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "battle",
+                "renderChunks": "72",
+                "cameraPosition": "[52.5,11.809998512268066,80.5]",
+                "health": "100",
+                "combatants": "50",
+                "shots": "0"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "mode": "tdm",
+        "captures": [
+          {
+            "stage": "entry",
+            "pixels": {
+              "bins": 57,
+              "dominant": 0.31190372264139177
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "448",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "prep",
+                "renderChunks": "81",
+                "cameraPosition": "[177.5,11.84000015258789,110.5]",
+                "health": "100",
+                "combatants": "24",
+                "shots": "0"
+              }
+            }
+          },
+          {
+            "stage": "live",
+            "pixels": {
+              "bins": 58,
+              "dominant": 0.31103074141048825
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "589",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "battle",
+                "renderChunks": "81",
+                "cameraPosition": "[177.5,11.809998512268066,110.5]",
+                "health": "100",
+                "combatants": "24",
+                "shots": "0"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "mode": "demo",
+        "captures": [
+          {
+            "stage": "entry",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.29768659973810563
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "675",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "buy",
+                "renderChunks": "81",
+                "cameraPosition": "[155.5,11.84000015258789,97.5]",
+                "health": "100",
+                "combatants": "10",
+                "shots": "0"
+              }
+            }
+          },
+          {
+            "stage": "live",
+            "pixels": {
+              "bins": 55,
+              "dominant": 0.29737482072706867
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "923",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "live",
+                "renderChunks": "81",
+                "cameraPosition": "[155.5,11.809998512268066,97.5]",
+                "health": "100",
+                "combatants": "10",
+                "shots": "0"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "mode": "ffa",
+        "captures": [
+          {
+            "stage": "entry",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.176155141235892
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "1029",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "prep",
+                "renderChunks": "81",
+                "cameraPosition": "[184.5,11.84000015258789,149.5]",
+                "health": "100",
+                "combatants": "8",
+                "shots": "0"
+              }
+            }
+          },
+          {
+            "stage": "live",
+            "pixels": {
+              "bins": 50,
+              "dominant": 0.17509509259836628
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "1189",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "battle",
+                "renderChunks": "81",
+                "cameraPosition": "[184.5,11.810098648071289,149.5]",
+                "health": "100",
+                "combatants": "8",
+                "shots": "0"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "mode": "gungame",
+        "captures": [
+          {
+            "stage": "entry",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.176155141235892
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "1281",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "prep",
+                "renderChunks": "81",
+                "cameraPosition": "[184.5,11.84000015258789,149.5]",
+                "health": "100",
+                "combatants": "8",
+                "shots": "0"
+              }
+            }
+          },
+          {
+            "stage": "live",
+            "pixels": {
+              "bins": 50,
+              "dominant": 0.17509509259836628
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "1444",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "battle",
+                "renderChunks": "81",
+                "cameraPosition": "[184.5,11.809998512268066,149.5]",
+                "health": "100",
+                "combatants": "8",
+                "shots": "0"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "mode": "conquest",
+        "captures": [
+          {
+            "stage": "entry",
+            "pixels": {
+              "bins": 60,
+              "dominant": 0.5438049510506953
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "1506",
+              "ui": {
+                "gameRuntime": "large",
+                "matchPhase": "prep",
+                "renderChunks": "81",
+                "cameraPosition": "[404.5,26.84000015258789,81.5]",
+                "health": "100",
+                "combatants": "64",
+                "shots": "0"
+              }
+            }
+          },
+          {
+            "stage": "live",
+            "pixels": {
+              "bins": 56,
+              "dominant": 0.5251605661906841
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "1535",
+              "ui": {
+                "gameRuntime": "large",
+                "matchPhase": "battle",
+                "renderChunks": "81",
+                "cameraPosition": "[404.5,26.80999755859375,81.5]",
+                "health": "100",
+                "combatants": "64",
+                "shots": "0"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "mode": "gungame",
+        "captures": [
+          {
+            "stage": "entry",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.176155141235892
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "1638",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "prep",
+                "renderChunks": "81",
+                "cameraPosition": "[184.5,11.84000015258789,149.5]",
+                "health": "100",
+                "combatants": "8",
+                "shots": "0"
+              }
+            }
+          },
+          {
+            "stage": "live",
+            "pixels": {
+              "bins": 50,
+              "dominant": 0.17509509259836628
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "1814",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "battle",
+                "renderChunks": "81",
+                "cameraPosition": "[184.5,11.810098648071289,149.5]",
+                "health": "100",
+                "combatants": "8",
+                "shots": "0"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "mode": "solo",
+        "captures": [
+          {
+            "stage": "entry",
+            "pixels": {
+              "bins": 60,
+              "dominant": 0.5438049510506953
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "1877",
+              "ui": {
+                "gameRuntime": "large",
+                "matchPhase": "prep",
+                "renderChunks": "81",
+                "cameraPosition": "[404.5,26.84000015258789,81.5]",
+                "health": "100",
+                "combatants": "64",
+                "shots": "0"
+              }
+            }
+          },
+          {
+            "stage": "live",
+            "pixels": {
+              "bins": 56,
+              "dominant": 0.5251605661906841
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "1905",
+              "ui": {
+                "gameRuntime": "large",
+                "matchPhase": "battle",
+                "renderChunks": "81",
+                "cameraPosition": "[404.5,26.80999755859375,81.5]",
+                "health": "100",
+                "combatants": "64",
+                "shots": "0"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "errors": []
+  },
+  "qqPreviews": {
+    "browser": "138.0.7204.0",
+    "passed": true,
+    "failure": null,
+    "rows": [
+      {
+        "name": "class-0",
+        "viewport": [
+          1600,
+          960
+        ],
+        "canvas": {
+          "css": [
+            672,
+            626.609375
+          ],
+          "buffer": [
+            672,
+            627
+          ],
+          "parent": "class-stage-canvas"
+        },
+        "badControls": [],
+        "playerLabels": 0
+      },
+      {
+        "name": "class-1",
+        "viewport": [
+          1600,
+          960
+        ],
+        "canvas": {
+          "css": [
+            672,
+            626.609375
+          ],
+          "buffer": [
+            672,
+            627
+          ],
+          "parent": "class-stage-canvas"
+        },
+        "badControls": [],
+        "playerLabels": 0
+      },
+      {
+        "name": "class-2",
+        "viewport": [
+          1600,
+          960
+        ],
+        "canvas": {
+          "css": [
+            672,
+            626.609375
+          ],
+          "buffer": [
+            672,
+            627
+          ],
+          "parent": "class-stage-canvas"
+        },
+        "badControls": [],
+        "playerLabels": 0
+      },
+      {
+        "name": "class-3",
+        "viewport": [
+          1600,
+          960
+        ],
+        "canvas": {
+          "css": [
+            672,
+            626.609375
+          ],
+          "buffer": [
+            672,
+            627
+          ],
+          "parent": "class-stage-canvas"
+        },
+        "badControls": [],
+        "playerLabels": 0
+      },
+      {
+        "name": "equipment-1280",
+        "viewport": [
+          1280,
+          720
+        ],
+        "canvas": {
+          "css": [
+            537.609375,
+            444
+          ],
+          "buffer": [
+            538,
+            444
+          ],
+          "parent": "class-stage-canvas"
+        },
+        "badControls": [],
+        "playerLabels": 0
+      },
+      {
+        "name": "equipment-2704",
+        "viewport": [
+          2704,
+          1626
+        ],
+        "canvas": {
+          "css": [
+            1135.6875,
+            1132.765625
+          ],
+          "buffer": [
+            1136,
+            1133
+          ],
+          "parent": "class-stage-canvas"
+        },
+        "badControls": [],
+        "playerLabels": 0
+      },
+      {
+        "name": "equipment-1600",
+        "viewport": [
+          1600,
+          960
+        ],
+        "canvas": {
+          "css": [
+            672,
+            626.609375
+          ],
+          "buffer": [
+            672,
+            627
+          ],
+          "parent": "class-stage-canvas"
+        },
+        "badControls": [],
+        "playerLabels": 0
+      },
+      {
+        "name": "deployment",
+        "viewport": [
+          1600,
+          960
+        ],
+        "canvas": {
+          "css": [
+            1516.8125,
+            667
+          ],
+          "buffer": [
+            1517,
+            667
+          ],
+          "parent": "squad-intro-canvas"
+        },
+        "badControls": [],
+        "playerLabels": 1
+      },
+      {
+        "name": "battle",
+        "viewport": [
+          1600,
+          960
+        ],
+        "canvas": {
+          "css": [
+            1600,
+            960
+          ],
+          "buffer": [
+            1600,
+            960
+          ],
+          "parent": "app-shell"
+        },
+        "badControls": [],
+        "playerLabels": 1
+      }
+    ],
+    "errors": []
+  },
+  "chromeRegression": {
+    "browser": "chrome",
+    "version": "152.0.7977.84",
+    "passed": true,
+    "failure": null,
+    "rows": [
+      {
+        "mode": "conquest",
+        "captures": [
+          {
+            "stage": "entry",
+            "pixels": {
+              "bins": 60,
+              "dominant": 0.5438049510506953
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "156",
+              "ui": {
+                "gameRuntime": "large",
+                "matchPhase": "prep",
+                "renderChunks": "81",
+                "cameraPosition": "[404.5,26.84000015258789,81.5]",
+                "health": "100",
+                "combatants": "64",
+                "shots": "0"
+              }
+            }
+          },
+          {
+            "stage": "live",
+            "pixels": {
+              "bins": 52,
+              "dominant": 0.4717839995011536
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "186",
+              "ui": {
+                "gameRuntime": "large",
+                "matchPhase": "battle",
+                "renderChunks": "81",
+                "cameraPosition": "[404.5,26.810096740722656,81.5]",
+                "health": "100",
+                "combatants": "64",
+                "shots": "0"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "mode": "tdm",
+        "captures": [
+          {
+            "stage": "entry",
+            "pixels": {
+              "bins": 57,
+              "dominant": 0.31190372264139177
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "284",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "prep",
+                "renderChunks": "81",
+                "cameraPosition": "[177.5,11.84000015258789,110.5]",
+                "health": "100",
+                "combatants": "24",
+                "shots": "0"
+              }
+            }
+          },
+          {
+            "stage": "live",
+            "pixels": {
+              "bins": 60,
+              "dominant": 0.3086612209266072
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "437",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "battle",
+                "renderChunks": "81",
+                "cameraPosition": "[177.5,11.809998512268066,110.5]",
+                "health": "100",
+                "combatants": "24",
+                "shots": "0"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "mode": "gungame",
+        "captures": [
+          {
+            "stage": "entry",
+            "pixels": {
+              "bins": 49,
+              "dominant": 0.176155141235892
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "529",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "prep",
+                "renderChunks": "81",
+                "cameraPosition": "[184.5,11.84000015258789,149.5]",
+                "health": "100",
+                "combatants": "8",
+                "shots": "0"
+              }
+            }
+          },
+          {
+            "stage": "live",
+            "pixels": {
+              "bins": 50,
+              "dominant": 0.17509509259836628
+            },
+            "state": {
+              "screen": "battle",
+              "frames": "745",
+              "ui": {
+                "gameRuntime": "small",
+                "matchPhase": "battle",
+                "renderChunks": "81",
+                "cameraPosition": "[184.5,11.809998512268066,149.5]",
+                "health": "100",
+                "combatants": "8",
+                "shots": "0"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "errors": []
+  },
+  "tests": {
+    "rhi": 62,
+    "shader": 14,
+    "gameTypecheck": "passed",
+    "engineAndGameBuild": "passed",
+    "rhiBiome": "passed",
+    "game": 35
+  },
+  "patchSha256": "f170d11c48e51f2f59c1cca81729231542984b3fe02abd01c8567965e8cbcdfc",
+  "limits": [
+    "Tested installed QQ with a fresh automated profile; user profile settings were not changed",
+    "This is a rendering/UI compatibility fix, not completion of all migration features",
+    "Full contributor hello/learn-render/Dawn release matrix is outside the available public SDK scope"
+  ]
+}

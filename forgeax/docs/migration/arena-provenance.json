@@ -1,0 +1,74 @@
+{
+  "sources": [
+    {
+      "path": "js/vendor/three.gltf.global.js",
+      "sha256": "6eee8615d5a1fb34ff5e8143dfa05ab9019a8068101957dd52bee2235b226788"
+    },
+    {
+      "path": "modes/small-battle/js/voxel-world.js",
+      "sha256": "84fa5c47e150c213e4e2e009c735ed85255d331392193398f13165ebcb66db92"
+    },
+    {
+      "path": "modes/small-battle/js/bases.js",
+      "sha256": "4afb0d44bd2d96f41c26573066090bbe6f01daae6497fbf2e0cdd76e1c7e912b"
+    },
+    {
+      "path": "modes/small-battle/js/maps/dust2-default.js",
+      "sha256": "b9b976349fe9cd77a4802e7de2d69f2f5c0d4e4fcc9d1e37c77dca31bf05bb26"
+    }
+  ],
+  "maps": [
+    {
+      "mode": "core",
+      "seed": 24301,
+      "width": 320,
+      "height": 85,
+      "sha256": "41d3e6210b99d1cd3546312a3d0f668da0584bd8f2a3fa0d12e0d4365644b4e1",
+      "zones": 0,
+      "propCount": 33,
+      "buildings": 45,
+      "mapKitEntries": 59,
+      "spawnPoints": 6
+    },
+    {
+      "mode": "tdm",
+      "seed": 24301,
+      "width": 320,
+      "height": 85,
+      "sha256": "6a3b861b85084a983f3f18237cdc1d970aa5a1014fedb77bf02ef4e602aac936",
+      "zones": 18,
+      "propCount": 6,
+      "buildings": 10,
+      "mapKitEntries": 0,
+      "spawnPoints": 6
+    },
+    {
+      "mode": "demo",
+      "seed": 24301,
+      "width": 320,
+      "height": 85,
+      "sha256": "c0daad325c24507f163e75a95605e753854524e54c8f999a7f28b673b249f04d",
+      "zones": 18,
+      "propCount": 17,
+      "buildings": 20,
+      "mapKitEntries": 0,
+      "spawnPoints": 6
+    },
+    {
+      "mode": "ffa",
+      "seed": 24301,
+      "width": 320,
+      "height": 85,
+      "sha256": "9fd8fecf675d7aa0d7efc9f128c04de19aa37b910fb9e07d7fc9dde83f4e8ecc",
+      "zones": 15,
+      "propCount": 38,
+      "buildings": 51,
+      "mapKitEntries": 0,
+      "spawnPoints": 8
+    }
+  ],
+  "limitations": [
+    "Fixed original seed 0x5eed; runtime regeneration remains pending",
+    "Separate door meshes and fine terrain not yet exported"
+  ]
+}

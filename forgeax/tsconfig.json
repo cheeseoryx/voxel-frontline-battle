@@ -11,7 +11,15 @@
       "node",
       "vitest/globals"
     ],
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "paths": {
+      "@forgeax/engine": [
+        "../forgeax-engine/packages/engine/dist/index.d.ts"
+      ],
+      "@forgeax/engine/*": [
+        "../forgeax-engine/packages/engine/dist/facades/*.d.ts"
+      ]
+    }
   },
   "include": [
     "assets/**/*.ts",

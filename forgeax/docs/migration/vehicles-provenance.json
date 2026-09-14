@@ -1,0 +1,21 @@
+{
+  "sources": [
+    {
+      "path": "js/vendor/three.gltf.global.js",
+      "sha256": "6eee8615d5a1fb34ff5e8143dfa05ab9019a8068101957dd52bee2235b226788"
+    },
+    {
+      "path": "js/vehicles.js",
+      "sha256": "e34c5bdfaf992e7223e97796688b1e2418181aff8aa1ef1a4b003a3a56971b84"
+    }
+  ],
+  "models": [
+    "ally/jeep",
+    "ally/ifv",
+    "ally/tank",
+    "enemy/jeep",
+    "enemy/ifv",
+    "enemy/tank"
+  ],
+  "note": "Original model geometry and vehicle specifications; Engine-native driving and collision."
+}

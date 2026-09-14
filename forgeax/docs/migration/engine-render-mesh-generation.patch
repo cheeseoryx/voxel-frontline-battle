@@ -1,0 +1,184 @@
+diff --git a/forgeax-engine/packages/render/src/__tests__/mesh-submission-lifetime.unit.test.ts b/forgeax-engine/packages/render/src/__tests__/mesh-submission-lifetime.unit.test.ts
+index c55bc7e..0d0dde7 100644
+--- a/forgeax-engine/packages/render/src/__tests__/mesh-submission-lifetime.unit.test.ts
++++ b/forgeax-engine/packages/render/src/__tests__/mesh-submission-lifetime.unit.test.ts
+@@ -51,3 +51,55 @@ it('fences ordinary mesh submissions independently of candidates, including reve
+   expect(replacement.vertexBuffer.isDestroyed).toBe(false);
+   store.destroyAll();
+ });
++
++it.each([
++  'draw',
++  'recovery',
++] as const)('reuploads a recycled mesh slot on %s without evicting its replacement', async (path) => {
++  const device = (await (await rhi.requestAdapter()).unwrap().requestDevice()).unwrap();
++  const store = new GpuResidencyCache();
++  store.configureGpuDevice(
++    device,
++    undefined,
++    () => {
++      throw new Error('no cubemap');
++    },
++    device.caps,
++  );
++  const world = new World();
++  const oldMesh = createBoxGeometry(1, 1, 1).unwrap();
++  const oldHandle = world.allocSharedRef('MeshAsset', oldMesh);
++  const oldEntry = store.ensureResident(oldHandle, oldMesh, world).unwrap();
++  let finish!: () => void;
++  const submitted = new Promise<void>((resolve) => {
++    finish = resolve;
++  });
++  store.trackMeshSubmission(submitted);
++  const lease = store.retainMeshResidency(oldHandle, world);
++  if (lease === undefined) throw new Error('original residency lease missing');
++  world.sharedRefs.release(oldHandle).unwrap();
++  const nextMesh = createBoxGeometry(8, 2, 3).unwrap();
++  const nextHandle = world.allocSharedRef('MeshAsset', nextMesh);
++  expect(Number(nextHandle) & 0xffffff).toBe(Number(oldHandle) & 0xffffff);
++  expect(nextHandle).not.toBe(oldHandle);
++  expect(store.getMeshGpuHandles(nextHandle, world)).toBeUndefined();
++  if (path === 'draw') store.ensureResident(nextHandle, nextMesh, world).unwrap();
++  else store.prepareResidentForRecovery(nextHandle, nextMesh, world).unwrap();
++  const nextEntry = store.getMeshGpuHandles(nextHandle, world);
++  if (nextEntry === undefined) throw new Error('replacement residency missing');
++  expect(nextEntry).toBeDefined();
++  expect(nextEntry).not.toBe(oldEntry);
++  expect(store.ensureResident(nextHandle, nextMesh, world).unwrap()).toBe(nextEntry);
++  expect(store.getMeshGpuHandles(oldHandle, world)).toBeUndefined();
++  expect(store.retainMeshResidency(oldHandle, world)).toBeUndefined();
++  store.evictMesh(oldHandle, world);
++  store.invalidateMesh(oldHandle, world);
++  lease.release(true);
++  expect(oldEntry.vertexBuffer.isDestroyed).toBe(false);
++  finish();
++  await submitted;
++  expect(oldEntry.vertexBuffer.isDestroyed).toBe(true);
++  expect(store.getMeshGpuHandles(nextHandle, world)).toBe(nextEntry);
++  expect(nextEntry.vertexBuffer.isDestroyed).toBe(false);
++  store.destroyAll();
++});
+diff --git a/forgeax-engine/packages/render/src/device/gpu-residency.ts b/forgeax-engine/packages/render/src/device/gpu-residency.ts
+index 31c45c3..772dc95 100644
+--- a/forgeax-engine/packages/render/src/device/gpu-residency.ts
++++ b/forgeax-engine/packages/render/src/device/gpu-residency.ts
+@@ -558,6 +558,8 @@ export class GpuResidencyCache {
+   // equirect source always resolves to the same cubemap (idempotent, A2).
+   private readonly cubemapIdempotentMap: Map<number, Handle<'EquirectAsset', 'shared'>> = new Map();
+   private readonly meshGpuHandles: Map<string | number, MeshGpuHandles> = new Map();
++  // A World can recycle a slot while its previous GPU submission is still alive.
++  private readonly meshSourceHandles = new Map<string | number, number>();
+   private readonly meshLifetimes = new WeakMap<MeshGpuHandles, MeshResidencyLifetime>();
+   private readonly retiredMeshes = new Set<MeshGpuHandles>();
+ 
+@@ -583,6 +585,7 @@ export class GpuResidencyCache {
+   private retireMeshEntry(key: string | number, entry: MeshGpuHandles): void {
+     if (this.meshGpuHandles.get(key) === entry) {
+       this.meshGpuHandles.delete(key);
++      this.meshSourceHandles.delete(key);
+       this.meshResidencyEpoch += 1;
+     }
+     this.retiredMeshes.add(entry);
+@@ -747,6 +750,7 @@ export class GpuResidencyCache {
+       if (entry.indexBuffer !== null) destroyBuf(entry.indexBuffer);
+     }
+     this.meshGpuHandles.clear();
++    this.meshSourceHandles.clear();
+     this.retiredMeshes.clear();
+   }
+ 
+@@ -832,7 +836,7 @@ export class GpuResidencyCache {
+     worldId: World | number = 0,
+   ): { freed: number; errors: RhiError[] } {
+     const id = this.worldKey(handleSlot(handle), worldId);
+-    const entry = this.meshGpuHandles.get(id);
++    const entry = this.getMeshGpuHandles(handle, worldId);
+     if (entry === undefined) return { freed: 0, errors: [] };
+ 
+     if (this.meshLifetime(entry).owners > 0) return { freed: 0, errors: [] };
+@@ -1090,7 +1094,10 @@ export class GpuResidencyCache {
+     handle: Handle<'MeshAsset', 'shared'>,
+     worldId: World | number = 0,
+   ): MeshGpuHandles | undefined {
+-    return this.meshGpuHandles.get(this.worldKey(handleSlot(handle), worldId));
++    const key = this.worldKey(handleSlot(handle), worldId);
++    return this.meshSourceHandles.get(key) === Number(handle)
++      ? this.meshGpuHandles.get(key)
++      : undefined;
+   }
+ 
+   /** Candidate leases retain the concrete allocation even after cache invalidation. */
+@@ -1099,7 +1106,7 @@ export class GpuResidencyCache {
+     worldId: World | number = 0,
+   ): MeshResidencyLease | undefined {
+     const key = this.worldKey(handleSlot(handle), worldId);
+-    const entry = this.meshGpuHandles.get(key);
++    const entry = this.getMeshGpuHandles(handle, worldId);
+     return entry === undefined
+       ? undefined
+       : this.meshLifetime(entry).retain(() => {
+@@ -1111,7 +1118,7 @@ export class GpuResidencyCache {
+   /** In-place author changes immediately miss the cache; old submissions keep their allocation. */
+   invalidateMesh(handle: number, worldId: World | number = 0): void {
+     const key = this.worldKey(handleSlot(toShared<'MeshAsset'>(handle)), worldId);
+-    const entry = this.meshGpuHandles.get(key);
++    const entry = this.getMeshGpuHandles(toShared<'MeshAsset'>(handle), worldId);
+     if (entry !== undefined) this.retireMeshEntry(key, entry);
+   }
+ 
+@@ -1157,12 +1164,12 @@ export class GpuResidencyCache {
+     switch (pod.kind) {
+       case 'mesh': {
+         const key = this.worldKey(id, worldId);
+-        const existing = this.meshGpuHandles.get(key);
++        const existing = this.getMeshGpuHandles(handle as Handle<'MeshAsset', 'shared'>, worldId);
+         if (existing !== undefined) return ok(existing);
+         this.recoveryColdWorkGuard?.noteUploadColdWork();
+         const projected = deriveRenderDataMesh(pod);
+         if (!projected.ok) return projected;
+-        return this.uploadMeshById(key, pod, projected.value, lodMeshes);
++        return this.uploadMeshById(key, Number(handle), pod, projected.value, lodMeshes);
+       }
+       case 'texture': {
+         const texKey = this.worldKey(id, worldId);
+@@ -1207,10 +1214,11 @@ export class GpuResidencyCache {
+     const id = handleSlot(handle);
+     if (pod.kind === 'mesh') {
+       const key = this.worldKey(id, worldId);
+-      if (this.meshGpuHandles.has(key)) return ok({});
++      if (this.getMeshGpuHandles(handle as Handle<'MeshAsset', 'shared'>, worldId) !== undefined)
++        return ok({});
+       const projected = deriveRenderDataMesh(pod);
+       if (!projected.ok) return projected;
+-      const uploaded = this.uploadMeshById(key, pod, projected.value);
++      const uploaded = this.uploadMeshById(key, Number(handle), pod, projected.value);
+       return uploaded.ok ? ok({}) : uploaded;
+     }
+ 
+@@ -1995,6 +2003,7 @@ export class GpuResidencyCache {
+    */
+   private uploadMeshById(
+     id: string | number,
++    sourceHandle: number,
+     mesh: TypesMeshAsset,
+     renderData: MeshRenderData,
+     lodMeshes: readonly TypesMeshAsset[] = [],
+@@ -2081,7 +2090,10 @@ export class GpuResidencyCache {
+       submeshes: renderData.submeshes,
+       ...(lodRanges === undefined ? {} : { lodRanges }),
+     };
++    const previous = this.meshGpuHandles.get(id);
++    if (previous !== undefined) this.retireMeshEntry(id, previous);
+     this.meshGpuHandles.set(id, entry);
++    this.meshSourceHandles.set(id, sourceHandle);
+     this.meshResidencyEpoch += 1;
+     return ok(entry);
+   }
+@@ -2208,6 +2220,7 @@ export class GpuResidencyCache {
+     worldId: World | number = 0,
+     submeshes?: readonly Submesh[],
+   ): void {
++    if (this.getMeshGpuHandles(handle, worldId) === undefined) return;
+     const id = this.worldKey(handleSlot(handle), worldId);
+     this.updateMeshById(id, newVertices, newIndices, submeshes);
+   }

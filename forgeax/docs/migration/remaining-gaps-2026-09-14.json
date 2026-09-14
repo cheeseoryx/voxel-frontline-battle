@@ -1,0 +1,928 @@
+{
+  "title": "原版 → 造化版：剩余功能审计",
+  "date": "2026-09-14",
+  "baseline": "F:/voxel-frontline-battle/index.html 与 modes/small-battle 的现存原版源码",
+  "target": "F:/voxel-frontline-battle/forgeax 的当前原生运行入口",
+  "method": "对照原版模块和原生实际接线；引用 2026-09-14 已有测试报告；本轮仅重新执行原版 290 文件完整性检查，未重新进行整套实机测试。",
+  "fullReplacement": false,
+  "statusDefinitions": {
+    "未接入": "原版有实现或有效路径，当前原生运行入口未接通。",
+    "部分实现": "已有可用子集，但行为、操作或界面链路尚不完整。",
+    "验收失败": "已有明确失败证据，需要修复并重测。",
+    "未验收": "代码或部分证据存在，未证明完整场景可用；不等同于没有功能。"
+  },
+  "priorityDefinitions": {
+    "P0": "影响替换成立、核心可玩性或后续主工程开发。",
+    "P1": "原版保留功能的必要迁移项。",
+    "P2": "在主玩法闭环后补齐的表现与体验项。"
+  },
+  "baselineNotes": [
+    "原 PVP 源码标明 8v8 真人房、总计 16 名真人上限；新版本 64 个战斗单位的测试不能换算为 64 人联机能力。",
+    "个人城区生成分支属于原自由混战地图内容；不能因为文件名 pve-district 就称原版已完成独立搜打撤。",
+    "大征服与小型战斗的 C4、投掷物池及职业规则不同，必须分别对照。"
+  ],
+  "excluded": [
+    "旧 Three.js 渲染和旧物理解算的逐项复刻：按用户要求，表现与物理以造化功能为准。",
+    "Teardown 等级的全部细体素、结构坍塌等远期愿望：未证明原版已实现的部分，不算原版功能倒退。",
+    "计划中的单人搜打撤完整系统：属于新玩法开发，不列为原版已实现功能；仍遵守单局体验、无长期养成、无武器配件、品质区分装备。",
+    "此前明确删除的准备房、模式页左下返回按钮等交互：不作为需要恢复的功能。"
+  ],
+  "verifiedSubset": [
+    "首页、模式选择、装备整备、部署、进入/退出六种基础模式。",
+    "原生渲染、Rapier 碰撞/角色移动、基础体素破坏、手雷和动态碎块。",
+    "新 AI 寻路与射击、基本占点/核心/爆破/死斗/混战/枪械规则；不代表全部整局验证通过。",
+    "三类载具及基础驾驶/座位/武器/装填/补给，六小型兵种技能激活，93 份音效资产。"
+  ],
+  "summary": {
+    "未接入": 8,
+    "部分实现": 23,
+    "验收失败": 1,
+    "未验收": 4
+  },
+  "rows": [
+    {
+      "id": "NET-01",
+      "category": "联机与房间",
+      "status": "未接入",
+      "priority": "P0",
+      "title": "服务器浏览、创建/加入房间与快速匹配",
+      "original": "原版有房间发现、创建、加入，以及房主直接开局、玩家中途加入的路径。原网络以本机通信与可选 PeerJS 为基础。",
+      "current": "新版服务器页能打开；模式按钮直接创建本地战场，没有连接房间。",
+      "remaining": "接通服务器列表刷新、选房加入、按模式查房/建房、房间参数和错误反馈。保持“选模式→装备整备→直接开局”，不增加准备房。",
+      "acceptance": "两个独立客户端能发现并进入同一房间，模式和地图一致；无人房按原规则由 AI 填充。",
+      "evidence": [
+        "js/pvp.js:1",
+        "js/pvp.js:545",
+        "forgeax/assets/ui/ui.plugin.ts:114",
+        "forgeax/assets/gameplay/native-arena.ts:36"
+      ]
+    },
+    {
+      "id": "NET-02",
+      "category": "联机与房间",
+      "status": "未接入",
+      "priority": "P0",
+      "title": "真人 PVP、AI 席位替换与房间生命周期",
+      "original": "原版存在真人房间、共享战场同步及进退房逻辑。",
+      "current": "当前六种模式中的其他角色均由本机 AI 驱动；64 人战场不代表支持 64 名联机玩家。",
+      "remaining": "同步玩家、射击伤害、破坏、建造、载具、目标和比分；接通真人替换 AI、退出补位、断线恢复与主客端状态处理。",
+      "acceptance": "双端完成交火、破坏、上下车、目标交互、退房重进；按原房间人数上限验收，另行定义是否扩容。",
+      "evidence": [
+        "js/pvp.js:1",
+        "js/net-protocol.js:1",
+        "js/net-simulation.js:1",
+        "modes/small-battle/js/sd-net.js:1",
+        "forgeax/assets/gameplay/native-arena.ts:36"
+      ]
+    },
+    {
+      "id": "EQ-01",
+      "category": "装备与射击",
+      "status": "部分实现",
+      "priority": "P0",
+      "title": "装备整备与战场道具槽实际对应",
+      "original": "原版支持主副武器、两格道具、投掷物、近战装备；急救箱、弹药箱、RPG、望远镜有实际用途。",
+      "current": "新版可选择装备，但战场 equipment 只保存主副武器；3 键固定回血，Q 固定手雷。",
+      "remaining": "将各槽位的已选道具传入战斗，接通部署、数量、补给、切换和交互，避免界面选择与实战不一致。",
+      "acceptance": "逐项更换整备装备后入场，验证使用的物品、数量、效果和冷却均对应选择。",
+      "evidence": [
+        "js/gadgets.js:34",
+        "forgeax/assets/gameplay/battle.plugin.ts:70",
+        "forgeax/assets/gameplay/battle.plugin.ts:84"
+      ]
+    },
+    {
+      "id": "EQ-02",
+      "category": "装备与射击",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "完整投掷物种类与作用",
+      "original": "大征服可选破片、闪光、烟雾；小型战斗还包括黏性炸弹、燃烧瓶、震撼弹。",
+      "current": "已接通原生物理手雷和爆炸碎块；通用投掷接口只有普通/大威力两种定时爆炸。",
+      "remaining": "补齐闪光致盲、烟雾遮挡、持续燃烧、震撼、黏附与对应 AI 感知影响；按各模式原可选列表开放。",
+      "acceptance": "每一种投掷物均从整备选择进入实战，效果、持续时间、数量消耗、友伤规则和音画反馈可验证。",
+      "evidence": [
+        "js/throwables.js:15",
+        "modes/small-battle/js/throwables.js:15",
+        "forgeax/assets/gameplay/native-ordnance.ts:11"
+      ]
+    },
+    {
+      "id": "EQ-03",
+      "category": "装备与射击",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "C4 的黏附与大征服遥控引爆",
+      "original": "大征服道具 C4 支持贴墙/地面、遥控引爆；小型战斗先锋 C4 有自己的定时规则。",
+      "current": "新版 C4 使用 throwGrenade(true)，固定 2.2 秒后爆炸，无黏附和大征服遥控操作。",
+      "remaining": "按两个原模式分别接回引爆规则；补齐黏附、存量、投掷提示和可销毁对象。",
+      "acceptance": "大征服 C4 可贴墙并由玩家主动引爆；小型战斗 C4 按原先锋规则触发，不能混用两套规则。",
+      "evidence": [
+        "js/gadgets.js:44",
+        "js/gadgets.js:1495",
+        "modes/small-battle/js/skills.js:9",
+        "forgeax/assets/gameplay/native-ordnance.ts:11"
+      ]
+    },
+    {
+      "id": "EQ-04",
+      "category": "装备与射击",
+      "status": "部分实现",
+      "priority": "P0",
+      "title": "武器机制：散布、霰弹、后坐力与发射物",
+      "original": "原版武器定义及射击过程区分弹丸数、散布、后坐力、自动/半自动和发射器。",
+      "current": "新版已接入武器数据、模型、伤害、射速、弹量和换弹；开火统一使用准星方向的一条射线。",
+      "remaining": "按武器接回霰弹多弹丸、射击散布、后坐力、发射器弹道/爆炸与相应命中结算；以新引擎承担表现和碰撞。",
+      "acceptance": "代表性步枪、手枪、霰弹枪、狙击枪和发射器的实际伤害形态与设计一致，不能只验证能扣弹和命中。",
+      "evidence": [
+        "js/weapons.js:64",
+        "js/weapons.js:212",
+        "js/weapons.js:298",
+        "forgeax/assets/gameplay/battle.plugin.ts:102"
+      ]
+    },
+    {
+      "id": "EQ-05",
+      "category": "装备与射击",
+      "status": "未接入",
+      "priority": "P1",
+      "title": "近战攻击与局内检视",
+      "original": "原版有战斗刀挥砍、背刺/近战判定和小型战斗武器检视。",
+      "current": "新版装备检视模型已存在；战斗输入未接入独立近战和局内检视操作。",
+      "remaining": "恢复近战切换、挥砍范围、背刺/伤害规则、持刀速度，以及局内武器检视。",
+      "acceptance": "能够从整备选择近战装备并在场内击中目标；检视可进入、退出且不影响射击状态。",
+      "evidence": [
+        "js/melee.js:1",
+        "js/gadgets.js:1398",
+        "modes/small-battle/js/weapon-inspect.js:1",
+        "forgeax/assets/gameplay/battle.plugin.ts:84"
+      ]
+    },
+    {
+      "id": "EQ-06",
+      "category": "装备与射击",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "兵种差异、主动/被动技能和移动动作",
+      "original": "原版大征服兵种配合道具与团队系统；小型战斗有六兵种技能及冲刺等动作。",
+      "current": "新版六个小型兵种均能触发技能，但部分被动/效果为简化实现；大征服 G 键分支直接投手雷。",
+      "remaining": "逐兵种核对技能完整作用、被动、资源/冷却；补齐原动作中的冲刺、滑铲和实际蹲姿，接回大征服职业作用。",
+      "acceptance": "每个兵种执行一组实战场景，检查对自己、友军、敌军、载具和地形的实际影响；激活成功不等于效果等价。",
+      "evidence": [
+        "modes/small-battle/js/skills.js:31",
+        "modes/small-battle/js/skills.js:1228",
+        "js/player.js:1",
+        "forgeax/assets/gameplay/native-skills.ts:14",
+        "forgeax/assets/gameplay/battle.plugin.ts:84"
+      ]
+    },
+    {
+      "id": "TEAM-01",
+      "category": "团队作战与 AI",
+      "status": "未接入",
+      "priority": "P0",
+      "title": "倒地、流血、求救、拖拽与救援",
+      "original": "原版大征服有玩家/AI 倒地、流血倒计时、求救、拖拽、复活和放弃救援。",
+      "current": "新版生命归零后直接进入死亡和自动重生，没有倒地状态。",
+      "remaining": "接通完整救援生命周期、玩家与 AI 救援交互、救援保护与兵力扣除时机。",
+      "acceptance": "大征服玩家和 AI 均可被救起；拖拽、超时死亡、主动放弃、救援取消、票数结算均正确。",
+      "evidence": [
+        "js/revive.js:115",
+        "js/revive.js:262",
+        "js/main.js:2502",
+        "forgeax/assets/gameplay/native-arena.ts:71"
+      ]
+    },
+    {
+      "id": "TEAM-02",
+      "category": "团队作战与 AI",
+      "status": "未接入",
+      "priority": "P1",
+      "title": "真实小队管理与队长指令",
+      "original": "原版支持加入/退出小队、锁队、队长转移、目标命令及命令完成判定。",
+      "current": "新版部署四人卡片属于展示，战场没有对应的小队管理系统。",
+      "remaining": "接回小队成员关系、队长/锁队操作、占领/防守命令、队员状态与命令反馈。",
+      "acceptance": "部署显示与战场实际小队一致；改变成员/队长后，命令权限和 AI 执行目标同步更新。",
+      "evidence": [
+        "js/squads.js:125",
+        "js/squads.js:199",
+        "js/main.js:2503",
+        "forgeax/assets/ui/ui.plugin.ts:58"
+      ]
+    },
+    {
+      "id": "TEAM-03",
+      "category": "团队作战与 AI",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "死亡后部署选择",
+      "original": "原版提供部署地图和出生点选择，并结合阵营、已占点及小队等条件。",
+      "current": "新版可在控制点/前哨附近自动出生，但玩家没有完整的选择部署流程。",
+      "remaining": "恢复可选部署地点、可用条件、禁止出生状态、部署确认与阵营相关限制。",
+      "acceptance": "死亡后能选择合法出生点；争夺、失守和占用状态更新后不能进入无效位置。",
+      "evidence": [
+        "js/ui.js:138",
+        "js/conquest.js:1009",
+        "forgeax/assets/gameplay/native-arena.ts:56",
+        "forgeax/assets/gameplay/native-arena.ts:102"
+      ]
+    },
+    {
+      "id": "TEAM-04",
+      "category": "团队作战与 AI",
+      "status": "未接入",
+      "priority": "P1",
+      "title": "战术标记与团队贡献计分",
+      "original": "原版有敌人/地点标记、队长目标通报，以及助攻、救援、治疗、补弹、侦察、命令、摧毁载具等计分。",
+      "current": "新版有击杀提示和基础比分，但没有接入原 Comms/Scoring 的完整事件体系。",
+      "remaining": "恢复标记与通报、贡献分归属、去重/冷却、勋带和团队/个人统计。",
+      "acceptance": "同一动作只计分一次；救援、补给、侦察、占领等行为能在 HUD 和结算中准确追溯。",
+      "evidence": [
+        "js/comms.js:64",
+        "js/scoring.js:7",
+        "forgeax/assets/gameplay/objective-rules.ts:13",
+        "forgeax/assets/ui/ui.plugin.ts:144"
+      ]
+    },
+    {
+      "id": "AI-01",
+      "category": "团队作战与 AI",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "AI 兵种分工、支援与乘员协作",
+      "original": "原版 AI 与小队、救援、兵种和载具系统存在联动。",
+      "current": "新版已有寻路、避障、视线、射击、撤退、目标选择和核心地图跳跃/滑索；普通 AI 单位仍以统一步兵配置为主。",
+      "remaining": "为新 AI 接回不同装备和职责、救援/补给、队长命令、载具乘员协作；继续改进跨地形路径。",
+      "acceptance": "在满员实战中观察到明确的职业支援和目标协作，不能只让所有 AI 以相同武器互射。",
+      "evidence": [
+        "js/ai.js:2396",
+        "js/ai.js:2603",
+        "js/main.js:2409",
+        "forgeax/assets/gameplay/native-arena.ts:65"
+      ]
+    },
+    {
+      "id": "AI-02",
+      "category": "团队作战与 AI",
+      "status": "验收失败",
+      "priority": "P0",
+      "title": "核心攻防满员 AI 目标推进",
+      "original": "核心攻防的主要目标是攻击并摧毁敌方核心。",
+      "current": "隔离单个进攻 AI 可以摧毁核心；完整 50 人仿真在 360 秒模拟时间内未伤到核心，浏览器推进测试也失败。",
+      "remaining": "修复满员环境中的进攻路径、交火停滞、目标优先级和攻防协作，重新进行完整人数测试。",
+      "acceptance": "满员 AI 能持续推进并实际伤到核心；同时验证可达的胜负结束流程。360 秒是当前测试门槛，不代表原版保证六分钟结束。",
+      "evidence": [
+        "forgeax/docs/migration/validation-2026-09-14.json:1",
+        "forgeax/artifacts/native-core-full-simulation.log:1",
+        "forgeax/assets/gameplay/native-arena.ts:86"
+      ]
+    },
+    {
+      "id": "MODE-01",
+      "category": "模式完整性",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "大征服规则与点位对应",
+      "original": "原版有地图控制点配置、兵力消耗、团队贡献分、救援和补给联动。",
+      "current": "新版有六点占领、争夺、兵力和胜负；六个点按两基地插值生成，个人击杀加 25 分，与原计分 100 分不同。",
+      "remaining": "核对原地图点位和模式参数，恢复各系统联动；玩法数值如需改动应明确作为设计变更。",
+      "acceptance": "以原规则案例验证点位、占领、票数和计分；在 64 人场景完成一局并正确退出、再开局。",
+      "evidence": [
+        "js/conquest.js:252",
+        "js/scoring.js:7",
+        "forgeax/assets/gameplay/native-arena.ts:39",
+        "forgeax/assets/gameplay/objective-rules.ts:13"
+      ]
+    },
+    {
+      "id": "MODE-02",
+      "category": "模式完整性",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "核心攻防建造交互",
+      "original": "原版有建造预览、旋转、掩体和塔楼设计联动。",
+      "current": "新版已恢复默认地图、前哨、滑索、资源、掩体和防御塔；当前使用固定塔蓝图，没有可视化放置预览。",
+      "remaining": "接回合法/非法放置预览、自定义塔方案、相关入口和建筑附属交互。",
+      "acceptance": "玩家可预览并旋转建筑；保存的自定义蓝图能带入对局，资源扣除和失败回退正确。",
+      "evidence": [
+        "js/building.js:55",
+        "js/tower-designer.js:1",
+        "forgeax/assets/gameplay/native-building.ts:4"
+      ]
+    },
+    {
+      "id": "MODE-03",
+      "category": "模式完整性",
+      "status": "未验收",
+      "priority": "P1",
+      "title": "团队死斗与自由混战整局循环",
+      "original": "原版有模式计分、胜负、复活和结果页。",
+      "current": "新版导入原计分规则并接入 AI；已通过进入、移动、开火、退出和重进的短流程。",
+      "remaining": "补做分数达到上限、时间结束、平局/排名、死亡复活、结算再开局，以及满员长时实战验证。",
+      "acceptance": "两个模式均从首页完整游玩至结算后再次开局；通过所有条件后才能标记完整。",
+      "evidence": [
+        "modes/small-battle/js/tdm-match.js:1",
+        "modes/small-battle/js/ffa-match.js:1",
+        "forgeax/assets/gameplay/native-arena.ts:43",
+        "forgeax/docs/migration/validation-2026-09-14.json:1"
+      ]
+    },
+    {
+      "id": "MODE-04",
+      "category": "模式完整性",
+      "status": "未验收",
+      "priority": "P1",
+      "title": "爆破整场多回合",
+      "original": "原版有携带、丢弃、拾取、安拆炸弹、单命回合、换边和整场胜负。",
+      "current": "新版已接入炸弹和回合规则；浏览器证据证明过一回合，完整 BO13 未完成实测。",
+      "remaining": "补做完整多回合、半场换边、不同炸弹结局和整场结束；模式专属统计/UI 另列为未接通项。",
+      "acceptance": "真实浏览器完成至先得 7 分，并覆盖攻守换边、安拆/爆炸/歼灭及下一场状态清理。",
+      "evidence": [
+        "modes/small-battle/js/sd-match.js:1",
+        "modes/small-battle/js/sd-bomb.js:1",
+        "forgeax/assets/gameplay/native-arena.ts:42",
+        "forgeax/docs/migration/validation-2026-09-14.json:1"
+      ]
+    },
+    {
+      "id": "MODE-05",
+      "category": "模式完整性",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "枪械模式完整晋级与特殊击杀规则",
+      "original": "原版有武器序列晋级、最终级胜利和降级等特殊规则。",
+      "current": "新版已导入原晋级规则；整条序列未实战跑通，近战/特殊武器操作不完整会影响规则可达性。",
+      "remaining": "补齐对应攻击操作，验证有效武器击杀、降级、最终级胜利和再次开局。",
+      "acceptance": "从第一把武器实战晋级到胜利；覆盖无效武器击杀、近战/自杀等原已启用的特殊规则。",
+      "evidence": [
+        "modes/small-battle/js/gg-match.js:302",
+        "modes/small-battle/js/gg-match.js:399",
+        "forgeax/assets/gameplay/battle.plugin.ts:84",
+        "forgeax/assets/gameplay/native-arena.ts:43"
+      ]
+    },
+    {
+      "id": "MODE-06",
+      "category": "模式完整性",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "TDM 连杀空袭与战场飞机事件",
+      "original": "原版 TDM 每连续 5 次击杀可调用空袭；原战场事件系统有飞机、导弹和阵营伤害。",
+      "current": "新版保留计分模块中的调用，但 game 对象没有 battlefieldEvents 实例，所以空袭不会产生。",
+      "remaining": "用新引擎接入飞机/空袭事件、伤害归属、反制、触发与场景清理。",
+      "acceptance": "达到连杀阈值会出现一次真实空袭，能对目标造成正确伤害；环境击杀不得循环召唤空袭。",
+      "evidence": [
+        "modes/small-battle/js/tdm-match.js:280",
+        "modes/small-battle/js/battlefield-events.js:748",
+        "modes/small-battle/js/main.js:273",
+        "forgeax/assets/gameplay/native-arena.ts:36"
+      ]
+    },
+    {
+      "id": "SOLO-01",
+      "category": "单人与训练",
+      "status": "未接入",
+      "priority": "P1",
+      "title": "训练场与试枪流程",
+      "original": "原版主界面/大厅具有独立训练场入口，支持武器试用和返回。",
+      "current": "新版 tutorial 只是说明弹层；没有创建 Range 训练场。",
+      "remaining": "接回靶场场景、试枪、命中反馈、装备切换和进出流程。",
+      "acceptance": "从大厅进入训练场使用代表性装备后返回，不触发正式对局结算或残留战场状态。",
+      "evidence": [
+        "js/range.js:1",
+        "js/main.js:332",
+        "modes/small-battle/js/main.js:374",
+        "forgeax/assets/ui/ui.plugin.ts:132"
+      ]
+    },
+    {
+      "id": "SOLO-02",
+      "category": "单人与训练",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "单人入口与原个人城区地图路径",
+      "original": "原版小型战斗存在个人模式路径；个人自由混战有 Doodle District 城区生成分支。",
+      "current": "新版已有本地 AI 对局；单人按钮固定选择 conquest，尚未承接个人城区地图的独立选择路径。",
+      "remaining": "明确单人按钮的当前内容，恢复需要保留的个人模式与城区地图；未来搜打撤另行设计开发。",
+      "acceptance": "单人入口清楚标示实际玩法并进入对应地图；城区布局/出生点可验证。不要把原 pve-district 文件误认为已经完成的搜打撤。",
+      "evidence": [
+        "modes/small-battle/js/main.js:345",
+        "modes/small-battle/js/voxel-world.js:645",
+        "forgeax/assets/ui/ui.plugin.ts:123",
+        "forgeax/assets/gameplay/battle.plugin.ts:51"
+      ]
+    },
+    {
+      "id": "VEH-01",
+      "category": "载具",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "制导、弹种和装甲伤害",
+      "original": "原版具有瞄准制导导弹和按伤害类型/装甲类型处理的载具伤害。",
+      "current": "新版吉普、步战车、坦克可驾驶射击，有装填/弹药/过热；弹体没有后续制导，车辆伤害直接减血。",
+      "remaining": "恢复瞄准制导、弹种适配、装甲伤害规则和命中反馈，核查载具与步兵的射线/爆炸判定。",
+      "acceptance": "能实际引导导弹改变路径；不同弹种对不同装甲目标的结果符合规则，墙后及偏离射线的目标不能误伤。",
+      "evidence": [
+        "js/vehicles.js:3126",
+        "js/vehicles.js:3648",
+        "forgeax/assets/gameplay/native-vehicles.ts:28",
+        "forgeax/assets/gameplay/native-vehicles.ts:31"
+      ]
+    },
+    {
+      "id": "VEH-02",
+      "category": "载具",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "载具乘员与维修完整交互",
+      "original": "原版有乘员/座位关系、AI 乘车联动及载具维修补给逻辑。",
+      "current": "新版玩家能上车、换座和下车；AI 主要是敌方车辆自动驾驶。T 键在近处直接加 50 血，缺少完整道具约束。",
+      "remaining": "接回实际乘员占位、座位权限、AI 协作、玩家/乘员受伤规则及维修条件；联机乘员依赖 NET-02。",
+      "acceptance": "逐种车辆验证不同座位驾驶/射击权限、车毁乘员结果、维修条件、补给和重生。",
+      "evidence": [
+        "js/vehicles.js:225",
+        "js/ai.js:2405",
+        "forgeax/assets/gameplay/native-vehicles.ts:23",
+        "forgeax/assets/gameplay/native-vehicles.ts:44"
+      ]
+    },
+    {
+      "id": "MAP-01",
+      "category": "地图与破坏交互",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "地图生成、变体与自定义地图加载",
+      "original": "原版有种子重建、TDM/爆破/FFA 和个人城区等生成分支及编辑内容。",
+      "current": "新版导出了默认/固定种子的地图；核心默认布局和四份小地图复现校验已通过。",
+      "remaining": "接回运行时地图选择/变体/种子生成和自定义地图加载，以及地图参数和出生点校验。",
+      "acceptance": "可选择至少两组种子/变体，重开和联机使用相同数据；默认地图仍可复现。",
+      "evidence": [
+        "modes/small-battle/js/voxel-world.js:403",
+        "modes/small-battle/js/voxel-world.js:555",
+        "forgeax/assets/gameplay/battle.plugin.ts:51",
+        "forgeax/docs/migration/validation-2026-09-14.json:1"
+      ]
+    },
+    {
+      "id": "MAP-02",
+      "category": "地图与破坏交互",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "细地形和门/楼梯等独立附属物",
+      "original": "原版有 10 厘米地形高度场，以及独立网格碰撞的门、半格楼梯和门破坏交互。",
+      "current": "新版原生碰撞、体素破坏、投掷物和碎块已经工作；当前地图以整米数据为主，未完整导入这些附属对象。",
+      "remaining": "迁入细地形数据及其原生碰撞，接回门/楼梯等附属物及可破坏属性；以造化能力实现。",
+      "acceptance": "原本可通行楼梯仍可通行；门的阻挡、破坏和消失同步正确，细地形不出现明显悬空/卡位。",
+      "evidence": [
+        "js/terrain-fine.js:2",
+        "js/voxel-world.js:817",
+        "js/voxel-world.js:839",
+        "forgeax/assets/gameplay/voxel-map.ts:22"
+      ]
+    },
+    {
+      "id": "UI-01",
+      "category": "界面与档案",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "档案、设置等菜单的真实交互",
+      "original": "原版界面含士兵档案、设置、编辑/训练等入口。",
+      "current": "新版首页→模式→装备→部署→战场→返回已打通；archive 标记始终为 false，多个保留入口没有对应处理。",
+      "remaining": "逐按钮接通档案/设置和所属功能，清理占位状态；保留已确认的首页和部署 UI 流程。",
+      "acceptance": "对当前可见按钮逐个验收；每个入口都有可返回的有效内容，设置可应用并在重启后保持。",
+      "evidence": [
+        "js/soldier-menu.js:1",
+        "js/config.js:1",
+        "forgeax/assets/ui/ui.plugin.ts:22",
+        "forgeax/assets/ui/ui.plugin.ts:114"
+      ]
+    },
+    {
+      "id": "UI-02",
+      "category": "界面与档案",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "完整战场 HUD、计分板与模式结果页",
+      "original": "原版具有模式专属 HUD、计分/战绩和爆破统计结果界面。",
+      "current": "新版显示血甲、弹药、基础小地图、计时、比分和简要胜负；结果页主要列前五名击杀。",
+      "remaining": "接回完整计分板、队友/目标信息、爆破专属统计、枪械进度和载具弹药/座位状态；对照各模式避免误显示。",
+      "acceptance": "同一 HUD 字段能追溯到实时游戏状态；步兵/载具、回合/整场结果均显示对应内容。",
+      "evidence": [
+        "js/ui.js:1",
+        "modes/small-battle/js/sd-stats.js:1",
+        "modes/small-battle/js/sd-result.js:1",
+        "modes/small-battle/js/gg-ui.js:1",
+        "forgeax/assets/ui/ui.plugin.ts:140"
+      ]
+    },
+    {
+      "id": "DATA-01",
+      "category": "界面与档案",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "购买/解锁与装备档案闭环",
+      "original": "原版有交易规则、武器购买、材料/武器菜单和装备使用。",
+      "current": "新版原经济函数已经迁移并通过对照测试，已拥有装备可穿戴；UI 没有调用购买，未解锁项只能查看。",
+      "remaining": "接通购买、余额/条件反馈、库存更新、装备更新和战后经济入口。",
+      "acceptance": "购买成功扣款一次并永久解锁；失败不扣款；重载后库存与装备正确。",
+      "evidence": [
+        "js/hub.js:881",
+        "modes/small-battle/js/arsenal.js:485",
+        "forgeax/assets/ui/ui.plugin.ts:70",
+        "forgeax/assets/gameplay/__tests__/rules-and-voxel.test.ts:11"
+      ]
+    },
+    {
+      "id": "DATA-02",
+      "category": "界面与档案",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "原战争模式战绩、成就与旧档数据兼容",
+      "original": "原版小型战斗有跨局战绩、成就、经济结算和本地存档。",
+      "current": "新版有新的本地经济存储；原 Career 及完整战后持久结算没有接到当前战场，也没有旧站点存档迁移入口。",
+      "remaining": "恢复原战争模式战后记录和成就，提供旧存档导出/导入及版本校验；8765 与 8766 的存储不能视为自动共享。",
+      "acceptance": "完成一局后刷新仍有正确战绩/收益；旧存档可显式迁入并保留原文件。此项不要求未来搜打撤加入长期养成。",
+      "evidence": [
+        "modes/small-battle/js/career.js:14",
+        "modes/small-battle/js/economy.js:710",
+        "forgeax/assets/ui/ui.plugin.ts:20",
+        "forgeax/assets/ui/ui.plugin.ts:145"
+      ]
+    },
+    {
+      "id": "TOOL-01",
+      "category": "开发工具",
+      "status": "未接入",
+      "priority": "P1",
+      "title": "地图、关卡和塔楼编辑器",
+      "original": "原版有地图编辑器、关卡编辑器、塔楼设计器及导入导出流程。",
+      "current": "新版导入了一部分生成后的地图和固定塔蓝图；没有接通这些编辑器的实际入口/保存/加载流程。",
+      "remaining": "以造化原生工具承接编辑、保存、导入导出、内容校验和进入游戏测试。",
+      "acceptance": "从编辑器新建地图/塔楼，保存并重新打开，打包后在游戏中载入同一内容。",
+      "evidence": [
+        "js/map-editor.js:1",
+        "js/level-editor.js:1",
+        "js/tower-designer.js:1",
+        "forgeax/assets/gameplay/native-building.ts:3",
+        "forgeax/forge.json:1"
+      ]
+    },
+    {
+      "id": "FX-01",
+      "category": "动作与反馈",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "角色动作和第一人称武器动作",
+      "original": "原版士兵与枪械有动作、姿态和射击反馈。",
+      "current": "新版角色/枪械模型和相机已接入；战场角色为静态网格，关节动作和枪械动作没有完整接回。",
+      "remaining": "用新引擎补齐行走/奔跑/蹲姿、持枪、开火、换弹、近战和技能动作，并与玩法时序绑定。",
+      "acceptance": "第三人称能识别角色当前动作，第一人称换弹/开火/技能反馈和实际操作时间一致。",
+      "evidence": [
+        "js/soldier.js:1",
+        "js/weapon-viewmodels.js:1",
+        "js/weapons.js:2",
+        "forgeax/assets/gameplay/native-arena.ts:30",
+        "forgeax/assets/gameplay/battle.plugin.ts:102"
+      ]
+    },
+    {
+      "id": "FX-02",
+      "category": "动作与反馈",
+      "status": "部分实现",
+      "priority": "P1",
+      "title": "空间音频与完整事件音效",
+      "original": "原版音频路由支持空间声音和多类玩法事件。",
+      "current": "新版 93 个音效文件已导入并播放枪声、脚步、受伤、爆炸、载具循环；AudioSource 的 spatialBlend 当前为 0，仅手动按距离调音量。",
+      "remaining": "接回空间方位、更多武器/动作/交互事件及音量设置，验证监听与生命周期。",
+      "acceptance": "转身后声源方向正确变化；不同距离、武器、载具和状态的声音符合事件，退出后无残留声源。",
+      "evidence": [
+        "js/audio.js:2",
+        "forgeax/assets/gameplay/native-audio.ts:20",
+        "forgeax/assets/gameplay/native-audio.ts:24"
+      ]
+    },
+    {
+      "id": "FX-03",
+      "category": "动作与反馈",
+      "status": "部分实现",
+      "priority": "P2",
+      "title": "天气、环境与命中特效",
+      "original": "原版有 atmosphere、vehicle-effects 和射击/爆炸反馈内容。",
+      "current": "新版采用造化原生材质、灯光与相机，有基础爆炸碎块，但原环境与反馈事件未全部接入。",
+      "remaining": "按新引擎的表现标准补齐天气/环境、枪口、命中材质、装甲命中、烟尘与载具损毁等效果。",
+      "acceptance": "代表性事件都有可辨识反馈，天气切换不破坏可读性；不以旧画面逐像素一致作为完成条件。",
+      "evidence": [
+        "js/atmosphere.js:1",
+        "js/vehicle-effects.js:1",
+        "js/weapons.js:2",
+        "forgeax/assets/gameplay/native-ordnance.ts:10"
+      ]
+    },
+    {
+      "id": "DEV-01",
+      "category": "交付与开发验收",
+      "status": "未验收",
+      "priority": "P0",
+      "title": "Studio 开发流程与热更新稳定性",
+      "original": "后续开发目标是以造化工程/工具作为主工程。此项属于交付条件，不是旧游戏玩法缺失。",
+      "current": "CLI 检查、类型检查、生产构建已通过；历史记录仍有开发态依赖 504/资源 404，Studio 使用链路未验收。",
+      "remaining": "验证 Studio 打开、编辑场景/资源、预览、保存、重启、重新构建，并处理开发态资源问题。",
+      "acceptance": "在 Studio 中完成一次资产和玩法修改，重启后仍能预览并生成可用构建；无依赖开发机临时状态的步骤。",
+      "evidence": [
+        "forgeax/README.md:1",
+        "forgeax/docs/feedback.md:1",
+        "forgeax/docs/migration/validation-2026-09-14.json:1"
+      ]
+    },
+    {
+      "id": "DEV-02",
+      "category": "交付与开发验收",
+      "status": "未验收",
+      "priority": "P0",
+      "title": "完整替换包、性能与长时间稳定",
+      "original": "“可替换原版”要求全部保留玩法可用，并有可运行交付包。此项属于验收范围。",
+      "current": "最新记录有 35 项基础测试、83 项物理包测试、六模式短流程；完整核心推进失败，最终发布与全模式长时验收未完成。",
+      "remaining": "从最终打包产物验收全部模式/菜单、多人同步、持续破坏、人数与载具满载、进出循环、内存和帧时间。",
+      "acceptance": "形成可分享运行包及目标机器性能数据，所有 P0 和保留玩法缺口关闭；构建成功或端口可打开不作为完整替换证明。",
+      "evidence": [
+        "forgeax/docs/migration/validation-2026-09-14.json:1",
+        "forgeax/docs/migration/replacement-status.json:1",
+        "forgeax/scripts/verify-replacement.cjs:1"
+      ]
+    }
+  ],
+  "sourceSnapshot": [
+    {
+      "path": "js/pvp.js",
+      "sha256": "79b42224e9faf416bb79d7e4b5ef918a2671bb3da53c87065ceed907acd8dfa2"
+    },
+    {
+      "path": "forgeax/assets/ui/ui.plugin.ts",
+      "sha256": "e3c8e225a9a40e53d05dba67a49579b4b8a9e5b2283311ee748b7e2052725772"
+    },
+    {
+      "path": "forgeax/assets/gameplay/native-arena.ts",
+      "sha256": "651dc9c94adf09606ddf0c40efa3bc02a91b0803e878f0acb23ad299e7161dc4"
+    },
+    {
+      "path": "js/net-protocol.js",
+      "sha256": "4e678a4121a51189d5141b1ac5a5d6469d2db3b1970cb4f186219c84e88ffcf5"
+    },
+    {
+      "path": "js/net-simulation.js",
+      "sha256": "76c9e7ef0ae614714c8a3f8de51cd0895e0cbcfc3234bc3fb6c9d79327c0d6c6"
+    },
+    {
+      "path": "modes/small-battle/js/sd-net.js",
+      "sha256": "b57f8653ba0c06901613943a9ac717e808a0f9c1fdc5de9ec0547fa166725393"
+    },
+    {
+      "path": "js/gadgets.js",
+      "sha256": "67364e2c9533e2c823a4b31f721e4a3c5a4c3c89d07ddcc59b4b878dbb37d36f"
+    },
+    {
+      "path": "forgeax/assets/gameplay/battle.plugin.ts",
+      "sha256": "ad6f9b51fc770ef697c6a382de18c804ac5fef76ef8a4b190e51cfb8f7571457"
+    },
+    {
+      "path": "js/throwables.js",
+      "sha256": "a9d329303ad1e91f8a49b573874bbe75089c65770147ab7bc3bb22a9a377f037"
+    },
+    {
+      "path": "modes/small-battle/js/throwables.js",
+      "sha256": "afb62dd8bd358037e19049f57ae796c144dc920f13145f021ef7e6cb2b7fd306"
+    },
+    {
+      "path": "forgeax/assets/gameplay/native-ordnance.ts",
+      "sha256": "23a5c2e6eb04ad2bc48050f47effeb3bbf942beefe7d6a14b1dd85b2b1716b13"
+    },
+    {
+      "path": "modes/small-battle/js/skills.js",
+      "sha256": "358906e5730de6d292c2113e496718d48a9a08f2fdb84842d0948fb21e4d5ae1"
+    },
+    {
+      "path": "js/weapons.js",
+      "sha256": "30f775d2536c9945951e87b1a5daddc2886c500819b0dfdcd4e8fe6c1dc8da57"
+    },
+    {
+      "path": "js/melee.js",
+      "sha256": "51107066860e9f7351ce4a3c98fef13ab076312e43b909b3588e6efb8335ae48"
+    },
+    {
+      "path": "modes/small-battle/js/weapon-inspect.js",
+      "sha256": "e06cc875c731ef5f6978641198bc47d4760f5e8dd296fd27d44f388fe8b2e53b"
+    },
+    {
+      "path": "js/player.js",
+      "sha256": "57758bfcb11e6b0be27fe2eccbb5c237b145098b4c2c0e74124d7816d69bc7b1"
+    },
+    {
+      "path": "forgeax/assets/gameplay/native-skills.ts",
+      "sha256": "a0efa70c3b05144c805169fe39aa099ccbacf05dec9f7f799e0f48bf26c8d787"
+    },
+    {
+      "path": "js/revive.js",
+      "sha256": "4d0b677f1276e478fe86784927fcb77f2fe8cecfe3de0afbc8001f56e7673a3b"
+    },
+    {
+      "path": "js/main.js",
+      "sha256": "bfd8bf906a49686c753c38ef3f5747083abb5c084dbb8d1292da88f51357611d"
+    },
+    {
+      "path": "js/squads.js",
+      "sha256": "5d4974056a8097544d3d5b9cbcfe73c85d3d087cef7efcc5c7f0d8f3d9da0c11"
+    },
+    {
+      "path": "js/ui.js",
+      "sha256": "5018d825cbd6af3803b72f93f0ffacae2e5b614268442b7a7d64e65f91fc1eb2"
+    },
+    {
+      "path": "js/conquest.js",
+      "sha256": "72f546b2680828e85c3526e7df2d960d43186505e20ed48bd2a785e43da0f4f3"
+    },
+    {
+      "path": "js/comms.js",
+      "sha256": "11027358b6791b0e322c89fb6061ce2fdf008fd5b6ba7f27398d8e12c477d33a"
+    },
+    {
+      "path": "js/scoring.js",
+      "sha256": "f7007b1aa899de072c2ec286833b8a0ad8ed61f7c9037593e80589bf224c9c77"
+    },
+    {
+      "path": "forgeax/assets/gameplay/objective-rules.ts",
+      "sha256": "1b33188512276873c450c3dffd1088cd4489461d399f9c5112d4033c3094bb66"
+    },
+    {
+      "path": "js/ai.js",
+      "sha256": "6203b698bcabf77fb452f72b4c4bbfbd07b9540767981df542e93592c938ce16"
+    },
+    {
+      "path": "forgeax/docs/migration/validation-2026-09-14.json",
+      "sha256": "40c60ade93ebc8b0d125540de87694088bce8de17793efd2e3368e141e3c867a"
+    },
+    {
+      "path": "forgeax/artifacts/native-core-full-simulation.log",
+      "sha256": "ed8b85b55c3973eaf787d448c955c1ef4acca50075b6c7615ba0caec3092e401"
+    },
+    {
+      "path": "js/building.js",
+      "sha256": "1b9d1b664e79fe231e817bc7cfcfc750b85a9a04490ed83a9653788e846aa730"
+    },
+    {
+      "path": "js/tower-designer.js",
+      "sha256": "8d27256ba0699102820962250a8200f9f854af714ee566ad174367c15dc529fe"
+    },
+    {
+      "path": "forgeax/assets/gameplay/native-building.ts",
+      "sha256": "1301e4c056fcb814422efbe999fd228d2aecf2ca9d8bf43f8151de3d50d969d7"
+    },
+    {
+      "path": "modes/small-battle/js/tdm-match.js",
+      "sha256": "23f759a41a0c478feb23c7317c37be1cfe40be7acc99ba88e4d0009365173f2a"
+    },
+    {
+      "path": "modes/small-battle/js/ffa-match.js",
+      "sha256": "4531a0a05148dd905bc0a2ba647feec0b5be59cff8613d1772d3101fb3cfc2e5"
+    },
+    {
+      "path": "modes/small-battle/js/sd-match.js",
+      "sha256": "10e93e747ed320d758173d9a741d671e9a8c4e14c6748d0b1dd8b5ddbad339f5"
+    },
+    {
+      "path": "modes/small-battle/js/sd-bomb.js",
+      "sha256": "e97637f8655ab873719d6497ded2e53e7ad0f3cc828f3e27c3b3af1db4aa4829"
+    },
+    {
+      "path": "modes/small-battle/js/gg-match.js",
+      "sha256": "8019991ca208074f3dc46f25773923d465ba60c6320fd130b5718148a500a763"
+    },
+    {
+      "path": "modes/small-battle/js/battlefield-events.js",
+      "sha256": "4d915f385dceb23883ab5db6b24f36df95b802ebe613f7d1615e6aa2ead521e4"
+    },
+    {
+      "path": "modes/small-battle/js/main.js",
+      "sha256": "27891091e321987e719ac7809a7906110cc108c1847ecc80b2619d1b462723ca"
+    },
+    {
+      "path": "js/range.js",
+      "sha256": "5cda5b8ad2a6409f003543aa43842370b49dfd57b7aa802eec6edcd45461fc1f"
+    },
+    {
+      "path": "modes/small-battle/js/voxel-world.js",
+      "sha256": "84fa5c47e150c213e4e2e009c735ed85255d331392193398f13165ebcb66db92"
+    },
+    {
+      "path": "js/vehicles.js",
+      "sha256": "e34c5bdfaf992e7223e97796688b1e2418181aff8aa1ef1a4b003a3a56971b84"
+    },
+    {
+      "path": "forgeax/assets/gameplay/native-vehicles.ts",
+      "sha256": "27933e61b15b8c7c82e6d0aa372f8292c16338393c8e11bc2abe907546effaf9"
+    },
+    {
+      "path": "js/terrain-fine.js",
+      "sha256": "ed6fc0558d3b975a6b5a81d901ae6fc518144142653583fa291e49e5c35da49e"
+    },
+    {
+      "path": "js/voxel-world.js",
+      "sha256": "5e32749ac5e3500c91424811d40d3c27de2449ea119e548b5c8a5ae96a828b25"
+    },
+    {
+      "path": "forgeax/assets/gameplay/voxel-map.ts",
+      "sha256": "816790e0f27eba645d823f9b6a5d5344669d5e726530ae61bd2df8640a3b0607"
+    },
+    {
+      "path": "js/soldier-menu.js",
+      "sha256": "2ae40902a2ed3a1c95a8e3275e623188a87f980b061544c546dc07ea7d4974f4"
+    },
+    {
+      "path": "js/config.js",
+      "sha256": "d9f655dcd3b3ae9052c52699cda703219e6c627e503b3a3c98fa4d6f0d896755"
+    },
+    {
+      "path": "modes/small-battle/js/sd-stats.js",
+      "sha256": "4bb182e7f4a5f38484b4424b734bdcbc11889c8a3eaf2316105a6e06e7f851a4"
+    },
+    {
+      "path": "modes/small-battle/js/sd-result.js",
+      "sha256": "560ca188f4002e5a73b78fa65cd092e0ab9d646259bdb2dce0df0765d30a30ff"
+    },
+    {
+      "path": "modes/small-battle/js/gg-ui.js",
+      "sha256": "05103e5a332662001eb7cb24309fd54a943379837b4129898b6050a1c87dd0f8"
+    },
+    {
+      "path": "js/hub.js",
+      "sha256": "aa4fa774125e40f38b086012a612c2762ece44022c7c1811a58ad91d4c6c8169"
+    },
+    {
+      "path": "modes/small-battle/js/arsenal.js",
+      "sha256": "36722ba41d4b30fbf3b11ff79c2f44060553bfa599fd9d8f7aa94a720dc12822"
+    },
+    {
+      "path": "forgeax/assets/gameplay/__tests__/rules-and-voxel.test.ts",
+      "sha256": "1d16f940c2cc4a56729134d7f9a68a716c6f67adcd6f0fef31e3dfe819ba79b7"
+    },
+    {
+      "path": "modes/small-battle/js/career.js",
+      "sha256": "00cb6daa53c8a6015ebd09568f04657ad3993d04f438888226421b84383dd038"
+    },
+    {
+      "path": "modes/small-battle/js/economy.js",
+      "sha256": "beec479293f97c6f8a0ec1ad3d98246f17c48906b80b27de19508cd1be941855"
+    },
+    {
+      "path": "js/map-editor.js",
+      "sha256": "0a14461ae10b262c946d6c301d1a1a5d9353a4234651041fab812e2c420a92cb"
+    },
+    {
+      "path": "js/level-editor.js",
+      "sha256": "88068970c9f69eb1e9e5cfcc326fc466f564bac7eda526422c65cbfb3e911576"
+    },
+    {
+      "path": "forgeax/forge.json",
+      "sha256": "3805850bc5d698a1f0834b7511b2328ad745b6a0e9f8ef898b8c500bc6ce13a7"
+    },
+    {
+      "path": "js/soldier.js",
+      "sha256": "a0cbd2faf8ee26355b2a45ba3a3bb9b9d0057047ecfbc0925742c4b14fe3091b"
+    },
+    {
+      "path": "js/weapon-viewmodels.js",
+      "sha256": "904ceb9ba7016acb37d95586961d38daaae83d74d4f57641d1cf6bae032b9bb6"
+    },
+    {
+      "path": "js/audio.js",
+      "sha256": "91cf30044f4c41f1d311ce4d5f5087a7ad56c3cadba81071a5bc2990260a1c89"
+    },
+    {
+      "path": "forgeax/assets/gameplay/native-audio.ts",
+      "sha256": "e15fecbd280caf58415bb2a9f59b18f904dc6540ac07e20b49ea3346dad981b3"
+    },
+    {
+      "path": "js/atmosphere.js",
+      "sha256": "66c71fe8ab9856fe02b4ed6c0bc5f872eddc35628dc75623a8c1ada478a0d194"
+    },
+    {
+      "path": "js/vehicle-effects.js",
+      "sha256": "0c4370dc120b8f5b9edb735d11da6a524d64224ba4a5dd62af3496235d5bd7b3"
+    },
+    {
+      "path": "forgeax/README.md",
+      "sha256": "6f4f4422a50ea9d29a5659cd278e06ac0b9d11c554f052126e20d5c2a5bbc22d"
+    },
+    {
+      "path": "forgeax/docs/feedback.md",
+      "sha256": "7ba4264f8ba2f6194ae4b79bb2a7996dfb251af71174baac6e03d55eef64d2fc"
+    },
+    {
+      "path": "forgeax/docs/migration/replacement-status.json",
+      "sha256": "b88b1e4bb20b55daa8410a9b8a72345370d1d7ab29036f0021e6127cff849924"
+    },
+    {
+      "path": "forgeax/scripts/verify-replacement.cjs",
+      "sha256": "eedf2bcfdec2cffefe5846abd3b54838f85082b94fdce72ed1a04e1f0580c895"
+    }
+  ]
+}

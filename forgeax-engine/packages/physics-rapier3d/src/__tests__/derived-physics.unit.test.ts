@@ -777,3 +777,29 @@ describe('Rapier 3D derived voxel candidates', () => {
     fresh.dispose();
   });
 });
+
+// Published terrain is committed world state, not an in-flight candidate.
+it('streams more than 32 committed voxel bodies while retaining the pending-candidate budget', async () => {
+ const rapier = await loadRapier3D();
+ if ('code' in rapier) throw new Error('Real Rapier WASM is required');
+ const pw = createRapier3DPhysicsWorld(rapier);
+ try {
+  for (let entity = 1; entity <= 40; entity++) {
+   addBody(pw, entity, [entity * 3, 0, 0]);
+   const candidate = pw.prepareDerivedShapeCandidate({...voxelCandidate(entity, 1), bodyType: 'static'});
+   expect(candidate.ok, 'candidate ' + entity).toBe(true);
+   if (!candidate.ok) throw candidate.error;
+   expect(pw.admitDerivedShapeCandidate(candidate.value).ok).toBe(true);
+   pw.step(1 / 60);
+   expect(pw.getDerivedPublication(entity)?.revision).toBe(1);
+  }
+  for (let entity = 100; entity < 132; entity++) {
+   addBody(pw, entity, [entity * 3, 0, 0]);
+   expect(pw.prepareDerivedShapeCandidate(voxelCandidate(entity, 1)).ok).toBe(true);
+  }
+  addBody(pw, 133, [399, 0, 0]);
+  const excess = pw.prepareDerivedShapeCandidate(voxelCandidate(133, 1));
+  expect(excess.ok).toBe(false);
+  if (!excess.ok) expect(excess.error.code).toBe('derived-candidate-budget-exceeded');
+ } finally { pw.dispose(); }
+});

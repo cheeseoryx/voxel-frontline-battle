@@ -824,13 +824,17 @@ export class RapierPhysicsWorld3D implements PhysicsWorld {
         ),
       );
     }
-    if (this.derivedCandidates.size >= DERIVED_PHYSICS_LIMITS.maxCandidates) {
+    // Published records describe live bodies; only pending work consumes admission quota.
+    const pendingCount = [...this.derivedCandidates.values()].filter(
+      (candidate) => candidate.state !== 'published',
+    ).length;
+    if (pendingCount >= DERIVED_PHYSICS_LIMITS.maxCandidates) {
       return err(
         new DerivedPhysicsError(
           'derived-candidate-budget-exceeded',
           `this PhysicsWorld keeps at most ${DERIVED_PHYSICS_LIMITS.maxCandidates} candidates`,
           'cancel or publish an existing candidate before preparing another',
-          { entity: input.entity, actual: this.derivedCandidates.size },
+          { entity: input.entity, actual: pendingCount },
         ),
       );
     }
@@ -1847,6 +1851,7 @@ export class RapierPhysicsWorld3D implements PhysicsWorld {
         }),
       );
       candidate.state = 'published';
+      this.derivedCandidateBytes = Math.max(0, this.derivedCandidateBytes - candidate.bytes);
     }
   }
 
@@ -2028,7 +2033,9 @@ export class RapierPhysicsWorld3D implements PhysicsWorld {
   private releaseDerivedCandidate(candidateId: string): void {
     const record = this.derivedCandidates.get(candidateId);
     if (record === undefined) return;
-    this.derivedCandidateBytes = Math.max(0, this.derivedCandidateBytes - record.bytes);
+    if (record.state !== 'published') {
+      this.derivedCandidateBytes = Math.max(0, this.derivedCandidateBytes - record.bytes);
+    }
     this.derivedCandidates.delete(candidateId);
   }
 
@@ -2415,7 +2422,7 @@ export class RapierPhysicsWorld3D implements PhysicsWorld {
       collider,
       delta,
       RAPIER.QueryFilterFlags.EXCLUDE_SENSORS,
-      undefined,
+      collider.collisionGroups(),
       // biome-ignore lint/suspicious/noExplicitAny: Rapier Collider in filter predicate
       (other: any) => other.handle !== collider.handle,
     );

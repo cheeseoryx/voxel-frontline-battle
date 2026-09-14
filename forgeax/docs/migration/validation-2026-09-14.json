@@ -1,0 +1,295 @@
+{
+  "schemaVersion": 2,
+  "updatedAt": "2026-09-14T09:07:47.880Z",
+  "fullReplacement": false,
+  "standard": "Rendering and physical response use the local ForgeaX engine. Gameplay coverage is audited separately.",
+  "project": {
+    "doctor": {
+      "path": "artifacts/native-doctor-final.log",
+      "modifiedAt": "2026-09-14T09:07:22.913Z",
+      "sha256": "f62c40f11340e14da3ecf3e8a97b58dfe1f98b74779dcb33d92fe196f721a648",
+      "ok": true,
+      "command": "project check"
+    },
+    "typecheck": {
+      "path": "artifacts/native-typecheck-latest.log",
+      "modifiedAt": "2026-09-14T09:05:25.926Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ok": true
+    },
+    "tests": {
+      "path": "artifacts/native-tests-final.log",
+      "modifiedAt": "2026-09-14T09:05:25.835Z",
+      "sha256": "b32c0682168e985170b7ed9815225c97ee0577c96027eb453df41aea079a8e71",
+      "passed": 35,
+      "ok": true
+    },
+    "build": {
+      "path": "artifacts/native-build-final.log",
+      "modifiedAt": "2026-09-14T09:06:21.746Z",
+      "sha256": "b0f2c6151ecb63104b71e4a7a590f9593a852dc3334ccccb3bc651cf75bf7a15",
+      "ok": true,
+      "command": "project build"
+    }
+  },
+  "enginePhysics": {
+    "passed": 83,
+    "scope": "physics-rapier3d unit package; not the full engine release matrix",
+    "patch": "docs/migration/engine-native-physics.patch"
+  },
+  "originalIntegrity": {
+    "ok": true,
+    "checked": 290,
+    "mismatches": []
+  },
+  "mapReproducibility": [
+    {
+      "path": "assets\\original\\core-map.ts",
+      "matches": true
+    },
+    {
+      "path": "assets\\original\\tdm-map.ts",
+      "matches": true
+    },
+    {
+      "path": "assets\\original\\demo-map.ts",
+      "matches": true
+    },
+    {
+      "path": "assets\\original\\ffa-map.ts",
+      "matches": true
+    }
+  ],
+  "browserModes": [
+    {
+      "path": "artifacts/systems-conquest/verification.json",
+      "modifiedAt": "2026-09-14T08:56:11.068Z",
+      "sha256": "d0757a243bc100d9aae69a2b89f4ee0f1b66cd5d70e2523cd4b723598d4b2704",
+      "mode": "conquest",
+      "ok": true,
+      "combatants": 64,
+      "physicsBodies": 120,
+      "errors": [],
+      "failure": null
+    },
+    {
+      "path": "artifacts/systems-core/verification.json",
+      "modifiedAt": "2026-09-14T09:06:48.382Z",
+      "sha256": "0f87b765cc49a8222e08fe7bc714ecc4c31caf9f142b4dfd3cea6b7c714c4d1b",
+      "mode": "core",
+      "ok": true,
+      "combatants": 50,
+      "physicsBodies": 132,
+      "errors": [],
+      "failure": null
+    },
+    {
+      "path": "artifacts/systems-tdm/verification.json",
+      "modifiedAt": "2026-09-14T09:07:16.781Z",
+      "sha256": "1d7cfcd55efb439d901a7c0f88a290c2afefcc4825fdecad7b90c21b3efcf146",
+      "mode": "tdm",
+      "ok": true,
+      "combatants": 24,
+      "physicsBodies": 72,
+      "errors": [],
+      "failure": null
+    },
+    {
+      "path": "artifacts/systems-demo/verification.json",
+      "modifiedAt": "2026-09-14T08:43:38.653Z",
+      "sha256": "3146ff98fa11c5e8c58b38a01961c4c69ae9bd28f595a227b1a979d4575df83a",
+      "mode": "demo",
+      "ok": true,
+      "combatants": 10,
+      "physicsBodies": 43,
+      "errors": [],
+      "failure": null
+    },
+    {
+      "path": "artifacts/systems-ffa/verification.json",
+      "modifiedAt": "2026-09-14T08:42:34.707Z",
+      "sha256": "9396f45e8a7d4978bd0ec9010c2b7455b6cfe70437d794777a33ef28d5de9836",
+      "mode": "ffa",
+      "ok": true,
+      "combatants": 8,
+      "physicsBodies": 63,
+      "errors": [],
+      "failure": null
+    },
+    {
+      "path": "artifacts/systems-gungame/verification.json",
+      "modifiedAt": "2026-09-14T08:43:04.727Z",
+      "sha256": "98b91264f7867c4025d47497be64349a66acc08ccda26863125db566f2315937",
+      "mode": "gungame",
+      "ok": true,
+      "combatants": 8,
+      "physicsBodies": 86,
+      "errors": [],
+      "failure": null
+    }
+  ],
+  "vehicleInteraction": {
+    "path": "artifacts/native-interactions/verification.json",
+    "modifiedAt": "2026-09-14T08:39:32.001Z",
+    "sha256": "0430450ae9207d0d78fdfcd70a03e9d0f4b9806b4821bfecfd8dfccff88d2050",
+    "ok": true,
+    "errors": [],
+    "failure": null,
+    "scope": "Real browser boarding, driving, exit, missile/gunner firing, grenade and reentry"
+  },
+  "classSkills": {
+    "path": "artifacts/native-skills/verification.json",
+    "modifiedAt": "2026-09-14T08:46:24.897Z",
+    "sha256": "e2360fb8f47d4049dbfa446d4835eab1a09ab9a13a9f1395ed75839a298ed43b",
+    "ok": true,
+    "errors": [],
+    "scope": "Six class activation journeys and native AudioEngine running without lastError"
+  },
+  "objectiveRuns": {
+    "conquest": {
+      "path": "artifacts/long-conquest/verification.json",
+      "modifiedAt": "2026-09-14T07:54:53.698Z",
+      "sha256": "2a9c165f3f179ee792bc91ac1f943d6e42053bee926965aeff36879c8b868a88",
+      "ok": true,
+      "errors": [],
+      "samples": 5,
+      "lastScore": {
+        "ally": 1000,
+        "enemy": 998
+      },
+      "lastOwners": [
+        "ally",
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    "demo": {
+      "path": "artifacts/long-demo/verification.json",
+      "modifiedAt": "2026-09-14T08:16:59.818Z",
+      "sha256": "420ee76cac11d9b7345a8570505540a696bab9e2bf32bf625ee6e9ef5f5208af",
+      "ok": true,
+      "errors": [],
+      "samples": 5,
+      "lastScore": {
+        "ally": 0,
+        "enemy": 1
+      },
+      "lastOwners": []
+    },
+    "core": {
+      "path": "artifacts/long-core/verification.json",
+      "modifiedAt": "2026-09-14T08:56:38.655Z",
+      "sha256": "79d3e8ca79891aac68c3a23897cc890424c87334f760caaea32a91ddb9522c5e",
+      "ok": false,
+      "errors": [
+        "AssertionError [ERR_ASSERTION]: AI must damage a core"
+      ],
+      "samples": 24,
+      "lastScore": {
+        "ally": 1000,
+        "enemy": 1000
+      },
+      "lastOwners": [
+        "ally",
+        "enemy"
+      ]
+    }
+  },
+  "fullCoreSimulation": {
+    "path": "artifacts/native-core-full-simulation.log",
+    "modifiedAt": "2026-09-14T09:03:41.613Z",
+    "sha256": "ed8b85b55c3973eaf787d448c955c1ef4acca50075b6c7615ba0caec3092e401",
+    "ok": false,
+    "command": "project test",
+    "scope": "Full 50-combatant native physics simulation; core objective must receive damage within 360 simulated seconds"
+  },
+  "coreIsolatedTest": {
+    "includedInProjectTests": true,
+    "scope": "Six authored ziplines ridden in both directions by the player; one attacking AI destroys the core with other AI disabled. Does not prove full-squad balance."
+  },
+  "remaining": [
+    {
+      "id": "navigation",
+      "status": "partial",
+      "evidence": "artifacts/native-equipment/verification.json"
+    },
+    {
+      "id": "weapons",
+      "status": "partial",
+      "evidence": "docs/migration/weapons-provenance.json"
+    },
+    {
+      "id": "conquest",
+      "status": "partial",
+      "evidence": "已接通 64 人新战术 AI、6 个控制点、占领/争夺/回退、兵力消耗、全点控制胜利；完整负载和补给细节待验收。"
+    },
+    {
+      "id": "tdm",
+      "status": "partial",
+      "evidence": "24 人原计分规则与新战术 AI、技能/音效已接入；长局与全部操作组合待验收。"
+    },
+    {
+      "id": "ffa",
+      "status": "partial",
+      "evidence": "8 人无队伍对战、原个人计分与新 AI 已接入；随机地图及长局待验收。"
+    },
+    {
+      "id": "gungame",
+      "status": "partial",
+      "evidence": "8 人无队伍对战、原武器进阶与新 AI 已接入；完整实战晋级及特殊武器操作待验收。"
+    },
+    {
+      "id": "demo",
+      "status": "partial",
+      "evidence": "A/B 包点、携带/丢弃/拾取/安装/拆除、原单命回合及换边规则已接入；完整 BO13 浏览器验收待完成。"
+    },
+    {
+      "id": "core",
+      "status": "partial",
+      "evidence": "原版默认地图 59 项布局/45 栋建筑/桥网，50 人新 AI，1000 HP 核心，前哨占领和部署，资源/掩体/防御塔，玩家与 AI 滑索通行均已接入；隔离进攻 AI 可摧毁核心。完整 50 人仿真仍未在 360 秒内伤到核心，目标推进验收失败，需继续改进战术协作与攻防节奏。"
+    },
+    {
+      "id": "solo",
+      "status": "partial",
+      "evidence": "单人入口当前仍只进入大征服地图探索"
+    },
+    {
+      "id": "destruction",
+      "status": "partial",
+      "evidence": "新标准采用造化 Rapier 体素碰撞、原生角色控制器、动态投掷物/碎块。现用整米作者数据；地形结构拆分/更细体素及门等附属物待接入，不再要求复刻旧物理解算。"
+    },
+    {
+      "id": "vehicles",
+      "status": "partial",
+      "evidence": "原版吉普/步战车/坦克模型和参数，原生碰撞驾驶、上下车、换座/换武器、弹匣/备弹/独立装填/过热、损毁/重生、基地补给；真实浏览器驾驶和两种座位射击通过。精细悬挂、制导、所有载具组合仍未完整验收。"
+    },
+    {
+      "id": "presentation",
+      "status": "partial",
+      "evidence": "原生资产、材质和相机；93 个原音效已接入枪声、脚步、受伤、爆炸和载具循环。角色关节动作、天气等仍缺失；不再要求逐像素复刻旧渲染。"
+    },
+    {
+      "id": "network",
+      "status": "pending",
+      "evidence": "当前预览对局全部在本机；尚无真实房间"
+    },
+    {
+      "id": "tools",
+      "status": "pending",
+      "evidence": ""
+    },
+    {
+      "id": "archives",
+      "status": "partial",
+      "evidence": "原经济交易已迁移测试；完整交互尚未接通"
+    },
+    {
+      "id": "delivery",
+      "status": "pending",
+      "evidence": "当前只验收 CLI 构建与局部浏览器旅程"
+    }
+  ]
+}

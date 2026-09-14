@@ -1,0 +1,154 @@
+{
+  "sources": [
+    {
+      "path": "js/vendor/three.gltf.global.js",
+      "sha256": "6eee8615d5a1fb34ff5e8143dfa05ab9019a8068101957dd52bee2235b226788"
+    },
+    {
+      "path": "js/voxel-world.js",
+      "sha256": "5e32749ac5e3500c91424811d40d3c27de2449ea119e548b5c8a5ae96a828b25"
+    },
+    {
+      "path": "js/weapon-catalog.js",
+      "sha256": "a43a64811a9c2a31cad386a543487de48495a2264610e3130d1454a6a433dfe7"
+    },
+    {
+      "path": "js/soldier.js",
+      "sha256": "a0cbd2faf8ee26355b2a45ba3a3bb9b9d0057047ecfbc0925742c4b14fe3091b"
+    },
+    {
+      "path": "modes/small-battle/js/voxel-world.js",
+      "sha256": "84fa5c47e150c213e4e2e009c735ed85255d331392193398f13165ebcb66db92"
+    },
+    {
+      "path": "modes/small-battle/js/weapon-catalog.js",
+      "sha256": "3b0ac15b048c37cdf8bbffcfad6068364b81f9a8061279d578c4cf8da20c9ccb"
+    },
+    {
+      "path": "modes/small-battle/js/soldier.js",
+      "sha256": "32ebfa910d63cddf3f8e1247b9c6928c33efb6a008a6e7c6f09c33d630bc70f6"
+    }
+  ],
+  "models": {
+    "ally/assault": {
+      "meshes": 47,
+      "vertices": 1138,
+      "triangles": 584
+    },
+    "ally/engineer": {
+      "meshes": 44,
+      "vertices": 1066,
+      "triangles": 548
+    },
+    "ally/support": {
+      "meshes": 49,
+      "vertices": 1186,
+      "triangles": 608
+    },
+    "ally/recon": {
+      "meshes": 36,
+      "vertices": 874,
+      "triangles": 452
+    },
+    "enemy/assault": {
+      "meshes": 47,
+      "vertices": 1138,
+      "triangles": 584
+    },
+    "enemy/engineer": {
+      "meshes": 44,
+      "vertices": 1066,
+      "triangles": 548
+    },
+    "enemy/support": {
+      "meshes": 49,
+      "vertices": 1186,
+      "triangles": 608
+    },
+    "enemy/recon": {
+      "meshes": 36,
+      "vertices": 874,
+      "triangles": 452
+    },
+    "small/ally/vanguard": {
+      "meshes": 47,
+      "vertices": 1138,
+      "triangles": 584
+    },
+    "small/ally/medic": {
+      "meshes": 49,
+      "vertices": 1186,
+      "triangles": 608
+    },
+    "small/ally/ghost": {
+      "meshes": 36,
+      "vertices": 874,
+      "triangles": 452
+    },
+    "small/ally/juggernaut": {
+      "meshes": 38,
+      "vertices": 922,
+      "triangles": 476
+    },
+    "small/ally/raider": {
+      "meshes": 45,
+      "vertices": 1090,
+      "triangles": 560
+    },
+    "small/ally/engineer": {
+      "meshes": 44,
+      "vertices": 1066,
+      "triangles": 548
+    },
+    "small/enemy/vanguard": {
+      "meshes": 47,
+      "vertices": 1138,
+      "triangles": 584
+    },
+    "small/enemy/medic": {
+      "meshes": 49,
+      "vertices": 1186,
+      "triangles": 608
+    },
+    "small/enemy/ghost": {
+      "meshes": 36,
+      "vertices": 874,
+      "triangles": 452
+    },
+    "small/enemy/juggernaut": {
+      "meshes": 38,
+      "vertices": 922,
+      "triangles": 476
+    },
+    "small/enemy/raider": {
+      "meshes": 45,
+      "vertices": 1090,
+      "triangles": 560
+    },
+    "small/enemy/engineer": {
+      "meshes": 44,
+      "vertices": 1066,
+      "triangles": 548
+    },
+    "small/ai/ally": {
+      "meshes": 47,
+      "vertices": 1138,
+      "triangles": 584
+    },
+    "small/ai/enemy": {
+      "meshes": 47,
+      "vertices": 1138,
+      "triangles": 584
+    },
+    "small/ai/enemy_heavy": {
+      "meshes": 38,
+      "vertices": 922,
+      "triangles": 476
+    },
+    "small/ai/enemy_ranged": {
+      "meshes": 36,
+      "vertices": 874,
+      "triangles": 452
+    }
+  }
+}

@@ -1,0 +1,19 @@
+/* Native ownership adapters; the original screen composition stays authoritative. */
+.native-class-emblem{display:block;width:32px;height:32px;margin:0 auto 6px;color:#c4dce6;}
+.native-class-emblem svg{width:100%;height:100%;fill:currentColor;}
+.frontline-gear-icon{display:block;min-width:0;}
+.frontline-gear-icon svg{width:100%;height:100%;fill:currentColor;}
+#arsenal-list .arsenal-item>span{height:48px;width:100%;display:block;}
+#arsenal-list .arsenal-item>span svg{width:100%;height:100%;fill:currentColor;}
+#class-stage-canvas,#squad-intro-canvas{display:block;}
+:host(.native-battle){background:transparent;}
+
+#native-battle-message{position:absolute;left:25%;right:25%;top:34%;text-align:center;color:#fff;font-size:22px;text-shadow:0 2px 5px #000;pointer-events:none;}#kill-feed{white-space:pre-line;}
+
+#hud.native-arena .ticket-readout{display:block;font-size:32px;font-weight:800;}#hud.native-arena #resources{display:none;}
+
+/* Objective guidance stays clear of the aiming area. */
+#native-battle-message{top:auto;bottom:20%;left:15%;right:15%;font-size:14px;line-height:1.6;background:rgba(12,23,29,.65);padding:7px 12px;border-radius:3px;}
+#native-battle-message:empty{display:none;}
+#minimap{width:100%;height:100%;display:block;overflow:hidden;}
+#kill-feed{font-size:14px;line-height:1.8;}

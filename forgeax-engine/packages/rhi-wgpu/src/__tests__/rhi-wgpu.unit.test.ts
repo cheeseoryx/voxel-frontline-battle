@@ -1591,3 +1591,61 @@ function setNavigatorGpu(gpu: unknown): void {
     });
   });
 }
+
+describe('canvas drawing-buffer resize', () => {
+  it('reconfigures before acquire and presents the previous image first', () => {
+    const calls: string[] = [];
+    const raw = {
+      configure: vi.fn((desc: unknown) => {
+        const size = desc as { width: number; height: number };
+        calls.push(`configure:${size.width}x${size.height}`);
+      }),
+      unconfigure: vi.fn(),
+      getConfiguration: vi.fn(() => null),
+      getCurrentTexture: vi.fn(() => {
+        calls.push('acquire');
+        return { getTexture: () => ({}), present: () => calls.push('present') };
+      }),
+    };
+    const canvas = { width: 1600, height: 960 };
+    const context = makeCanvasContext(raw, canvas as HTMLCanvasElement);
+    context.configure({ device: {} as never, format: 'rgba8unorm', usage: 0x10 }).unwrap();
+    context.getCurrentTexture().unwrap();
+    canvas.width = 672;
+    canvas.height = 627;
+    context.getCurrentTexture().unwrap();
+    expect(calls).toEqual([
+      'configure:1600x960',
+      'acquire',
+      'present',
+      'configure:672x627',
+      'acquire',
+    ]);
+    context.getCurrentTexture().unwrap();
+    expect(raw.configure).toHaveBeenCalledTimes(2);
+    canvas.width = 1600;
+    canvas.height = 960;
+    context.getCurrentTexture().unwrap();
+    expect(raw.configure).toHaveBeenCalledTimes(3);
+    context.unconfigure();
+  });
+  it('reports a failed resize without acquiring a mismatched image', () => {
+    const raw = {
+      configure: vi.fn(),
+      unconfigure: vi.fn(),
+      getConfiguration: vi.fn(() => null),
+      getCurrentTexture: vi.fn(() => ({})),
+    };
+    const canvas = { width: 1600, height: 960 };
+    const context = makeCanvasContext(raw, canvas as HTMLCanvasElement);
+    context.configure({ device: {} as never, format: 'rgba8unorm', usage: 0x10 }).unwrap();
+    canvas.width = 672;
+    raw.configure.mockImplementationOnce(() => {
+      throw new Error('resize failed');
+    });
+    expect(context.getCurrentTexture().ok).toBe(false);
+    expect(raw.getCurrentTexture).not.toHaveBeenCalled();
+    expect(context.getCurrentTexture().ok).toBe(true);
+    context.unconfigure();
+  });
+});

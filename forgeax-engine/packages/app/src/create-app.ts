@@ -137,7 +137,10 @@ function createFrameInspectionRef(): FrameInspectionRef {
   return { current: createExecutionFrameInspection };
 }
 
-function canvasAspectPlugin(canvas: HTMLCanvasElement): Plugin {
+function canvasAspectPlugin(
+  canvas: HTMLCanvasElement,
+  getMaxDimension: () => number | undefined,
+): Plugin {
   return {
     name: 'canvas-aspect',
     inject: ['world'],
@@ -147,7 +150,7 @@ function canvasAspectPlugin(canvas: HTMLCanvasElement): Plugin {
           name: 'app-sync-camera-aspect',
           queries: [],
           fn: () => {
-            syncCanvasDrawingBuffer(canvas);
+            syncCanvasDrawingBuffer(canvas, getMaxDimension());
             syncCameraAspect(ctx.world, canvas.width, canvas.height);
           },
         };
@@ -494,6 +497,7 @@ async function createAppFromCanvas(
     if (!constructed.ok) throw constructed.error;
     renderer = constructed.value.renderer;
     rendererDebugDrawHost = constructed.value.debugDrawHost;
+    syncCanvasDrawingBuffer(canvas, rendererDebugDrawHost.device?.limits.maxTextureDimension2D);
     rendererFeatureHost = createRenderFeatureHost(constructed.value.featureHost);
     assets = constructed.value.assets;
     markRendererBootstrapStage('renderer-initialized');
@@ -618,7 +622,7 @@ async function createAppFromCanvas(
     extensions: [
       rhiDebugHostPlugin(cleanupRhiDebugHost),
       ...userPlugins,
-      canvasAspectPlugin(canvas),
+      canvasAspectPlugin(canvas, () => rendererDebugDrawHost.device?.limits.maxTextureDimension2D),
     ],
   });
   try {
@@ -823,6 +827,7 @@ export function syncCanvasDrawingBuffer(
   canvas: Pick<HTMLCanvasElement, 'clientWidth' | 'clientHeight' | 'width' | 'height'> & {
     readonly style?: Pick<CSSStyleDeclaration, 'width' | 'height'>;
   },
+  maxTextureDimension2D?: number,
 ): void {
   if (
     !Number.isFinite(canvas.clientWidth) ||
@@ -856,8 +861,18 @@ export function syncCanvasDrawingBuffer(
     canvas.clientHeight === previous.drawingHeight;
   const cssWidth = drawingBufferIsTheLayoutMeasurement ? previous.cssWidth : canvas.clientWidth;
   const cssHeight = drawingBufferIsTheLayoutMeasurement ? previous.cssHeight : canvas.clientHeight;
-  const width = Math.max(1, Math.round(cssWidth * dpr));
-  const height = Math.max(1, Math.round(cssHeight * dpr));
+  // Device limits belong to the admitted device, not the physical GPU or a
+  // browser-name preset. Downlevel WebGL devices may admit only a 2048px edge.
+  // Fit both axes with the same scale before allocating any surface/attachments.
+  const maxDimension =
+    maxTextureDimension2D !== undefined &&
+    Number.isFinite(maxTextureDimension2D) &&
+    maxTextureDimension2D >= 1
+      ? Math.floor(maxTextureDimension2D)
+      : Number.POSITIVE_INFINITY;
+  const scale = Math.min(dpr, maxDimension / cssWidth, maxDimension / cssHeight);
+  const width = Math.max(1, Math.round(cssWidth * scale));
+  const height = Math.max(1, Math.round(cssHeight * scale));
   if (canvas.width !== width) canvas.width = width;
   if (canvas.height !== height) canvas.height = height;
   syncedCanvasSizes.set(canvas, {

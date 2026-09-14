@@ -1,0 +1,137 @@
+diff --git a/packages/physics-rapier3d/src/__tests__/derived-physics.unit.test.ts b/packages/physics-rapier3d/src/__tests__/derived-physics.unit.test.ts
+index cae4180..1d773b2 100644
+--- a/packages/physics-rapier3d/src/__tests__/derived-physics.unit.test.ts
++++ b/packages/physics-rapier3d/src/__tests__/derived-physics.unit.test.ts
+@@ -777,3 +777,29 @@ describe('Rapier 3D derived voxel candidates', () => {
+     fresh.dispose();
+   });
+ });
++
++// Published terrain is committed world state, not an in-flight candidate.
++it('streams more than 32 committed voxel bodies while retaining the pending-candidate budget', async () => {
++ const rapier = await loadRapier3D();
++ if ('code' in rapier) throw new Error('Real Rapier WASM is required');
++ const pw = createRapier3DPhysicsWorld(rapier);
++ try {
++  for (let entity = 1; entity <= 40; entity++) {
++   addBody(pw, entity, [entity * 3, 0, 0]);
++   const candidate = pw.prepareDerivedShapeCandidate({...voxelCandidate(entity, 1), bodyType: 'static'});
++   expect(candidate.ok, 'candidate ' + entity).toBe(true);
++   if (!candidate.ok) throw candidate.error;
++   expect(pw.admitDerivedShapeCandidate(candidate.value).ok).toBe(true);
++   pw.step(1 / 60);
++   expect(pw.getDerivedPublication(entity)?.revision).toBe(1);
++  }
++  for (let entity = 100; entity < 132; entity++) {
++   addBody(pw, entity, [entity * 3, 0, 0]);
++   expect(pw.prepareDerivedShapeCandidate(voxelCandidate(entity, 1)).ok).toBe(true);
++  }
++  addBody(pw, 133, [399, 0, 0]);
++  const excess = pw.prepareDerivedShapeCandidate(voxelCandidate(133, 1));
++  expect(excess.ok).toBe(false);
++  if (!excess.ok) expect(excess.error.code).toBe('derived-candidate-budget-exceeded');
++ } finally { pw.dispose(); }
++});
+diff --git a/packages/physics-rapier3d/src/__tests__/physics-rapier3d.unit.test.ts b/packages/physics-rapier3d/src/__tests__/physics-rapier3d.unit.test.ts
+index 29860e0..441f9c1 100644
+--- a/packages/physics-rapier3d/src/__tests__/physics-rapier3d.unit.test.ts
++++ b/packages/physics-rapier3d/src/__tests__/physics-rapier3d.unit.test.ts
+@@ -1,3 +1,4 @@
++import {vec3} from '@forgeax/engine-math';
+ // Consolidated by feat-20260609-test-pool-startup-reduction-merge-tiny-test-files
+ // biome-ignore-all lint/complexity/noUselessLoneBlockStatements: scope isolation between merged source files
+ //
+@@ -2417,3 +2418,26 @@ describe('incremental physics ECS reconciliation', () => {
+     });
+   });
+ }
++
++it('character movement honors collision groups while retaining admitted walls', async () => {
++  const rapier = await loadRapier3D();
++  if ('code' in rapier) throw Error(rapier.code);
++  const world = prepareWorld(), physics = createRapier3DPhysicsWorld(rapier);
++  world.insertResource('PhysicsWorld', physics);
++  const unregister = registerPhysicsSystems(world);
++  try {
++    const actor = world.spawn(
++      {component: Transform, data: {pos: [0, 2, 0]}},
++      {component: RigidBody, data: {type: RigidBodyTypeValue.kinematic}},
++      {component: Collider, data: {shape: ColliderShapeValue.cuboid, halfExtents: [.3,.8,.3], collisionGroups: 0x00040001}},
++      {component: CharacterController, data: {autoStepMaxHeight: 0}},
++    ).unwrap();
++    world.spawn({component: Transform, data: {pos: [2,2,0]}}, {component: Collider, data: {shape: ColliderShapeValue.cuboid, halfExtents: [.5,2,4], collisionGroups: 0x00040001}}).unwrap();
++    world.spawn({component: Transform, data: {pos: [5,2,0]}}, {component: Collider, data: {shape: ColliderShapeValue.cuboid, halfExtents: [.5,2,4], collisionGroups: 0x0001ffff}}).unwrap();
++    runPhysicsTicks(world, 2);
++    for(let tick=0;tick<80;tick++){physics.moveAndSlide(actor,vec3.create(.1,0,0));runPhysicsTicks(world);}
++    const x=world.get(actor,Transform).unwrap().pos[0];
++    expect(x).toBeGreaterThan(3.5);
++    expect(x).toBeLessThan(4.5);
++  } finally {unregister();physics.dispose();}
++});
+diff --git a/packages/physics-rapier3d/src/index.ts b/packages/physics-rapier3d/src/index.ts
+index 9935205..36c8308 100644
+--- a/packages/physics-rapier3d/src/index.ts
++++ b/packages/physics-rapier3d/src/index.ts
+@@ -8,6 +8,10 @@ export {
+   createRapier3DPhysicsWorld,
+   RapierPhysicsWorld3D,
+   registerPhysicsSystems,
++  PhysicsSyncBackend,
++  PhysicsStepSimulation,
++  PhysicsWriteback,
++  PhysicsCollisionSync,
+ } from './rapier-physics-world-3d';
+ export type { Rapier3DModule } from './wasm-loader';
+ export { loadRapier3D } from './wasm-loader';
+diff --git a/packages/physics-rapier3d/src/rapier-physics-world-3d.ts b/packages/physics-rapier3d/src/rapier-physics-world-3d.ts
+index 9d17445..104b2ef 100644
+--- a/packages/physics-rapier3d/src/rapier-physics-world-3d.ts
++++ b/packages/physics-rapier3d/src/rapier-physics-world-3d.ts
+@@ -824,13 +824,17 @@ export class RapierPhysicsWorld3D implements PhysicsWorld {
+         ),
+       );
+     }
+-    if (this.derivedCandidates.size >= DERIVED_PHYSICS_LIMITS.maxCandidates) {
++    // Published records describe live bodies; only pending work consumes admission quota.
++    const pendingCount = [...this.derivedCandidates.values()].filter(
++      (candidate) => candidate.state !== 'published',
++    ).length;
++    if (pendingCount >= DERIVED_PHYSICS_LIMITS.maxCandidates) {
+       return err(
+         new DerivedPhysicsError(
+           'derived-candidate-budget-exceeded',
+           `this PhysicsWorld keeps at most ${DERIVED_PHYSICS_LIMITS.maxCandidates} candidates`,
+           'cancel or publish an existing candidate before preparing another',
+-          { entity: input.entity, actual: this.derivedCandidates.size },
++          { entity: input.entity, actual: pendingCount },
+         ),
+       );
+     }
+@@ -1847,6 +1851,7 @@ export class RapierPhysicsWorld3D implements PhysicsWorld {
+         }),
+       );
+       candidate.state = 'published';
++      this.derivedCandidateBytes = Math.max(0, this.derivedCandidateBytes - candidate.bytes);
+     }
+   }
+ 
+@@ -2028,7 +2033,9 @@ export class RapierPhysicsWorld3D implements PhysicsWorld {
+   private releaseDerivedCandidate(candidateId: string): void {
+     const record = this.derivedCandidates.get(candidateId);
+     if (record === undefined) return;
+-    this.derivedCandidateBytes = Math.max(0, this.derivedCandidateBytes - record.bytes);
++    if (record.state !== 'published') {
++      this.derivedCandidateBytes = Math.max(0, this.derivedCandidateBytes - record.bytes);
++    }
+     this.derivedCandidates.delete(candidateId);
+   }
+ 
+@@ -2415,7 +2422,7 @@ export class RapierPhysicsWorld3D implements PhysicsWorld {
+       collider,
+       delta,
+       RAPIER.QueryFilterFlags.EXCLUDE_SENSORS,
+-      undefined,
++      collider.collisionGroups(),
+       // biome-ignore lint/suspicious/noExplicitAny: Rapier Collider in filter predicate
+       (other: any) => other.handle !== collider.handle,
+     );

@@ -1,3 +1,4 @@
+import {vec3} from '@forgeax/engine-math';
 // Consolidated by feat-20260609-test-pool-startup-reduction-merge-tiny-test-files
 // biome-ignore-all lint/complexity/noUselessLoneBlockStatements: scope isolation between merged source files
 //
@@ -2417,3 +2418,26 @@ describe('incremental physics ECS reconciliation', () => {
     });
   });
 }
+
+it('character movement honors collision groups while retaining admitted walls', async () => {
+  const rapier = await loadRapier3D();
+  if ('code' in rapier) throw Error(rapier.code);
+  const world = prepareWorld(), physics = createRapier3DPhysicsWorld(rapier);
+  world.insertResource('PhysicsWorld', physics);
+  const unregister = registerPhysicsSystems(world);
+  try {
+    const actor = world.spawn(
+      {component: Transform, data: {pos: [0, 2, 0]}},
+      {component: RigidBody, data: {type: RigidBodyTypeValue.kinematic}},
+      {component: Collider, data: {shape: ColliderShapeValue.cuboid, halfExtents: [.3,.8,.3], collisionGroups: 0x00040001}},
+      {component: CharacterController, data: {autoStepMaxHeight: 0}},
+    ).unwrap();
+    world.spawn({component: Transform, data: {pos: [2,2,0]}}, {component: Collider, data: {shape: ColliderShapeValue.cuboid, halfExtents: [.5,2,4], collisionGroups: 0x00040001}}).unwrap();
+    world.spawn({component: Transform, data: {pos: [5,2,0]}}, {component: Collider, data: {shape: ColliderShapeValue.cuboid, halfExtents: [.5,2,4], collisionGroups: 0x0001ffff}}).unwrap();
+    runPhysicsTicks(world, 2);
+    for(let tick=0;tick<80;tick++){physics.moveAndSlide(actor,vec3.create(.1,0,0));runPhysicsTicks(world);}
+    const x=world.get(actor,Transform).unwrap().pos[0];
+    expect(x).toBeGreaterThan(3.5);
+    expect(x).toBeLessThan(4.5);
+  } finally {unregister();physics.dispose();}
+});

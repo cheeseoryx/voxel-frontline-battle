@@ -47,9 +47,9 @@
 
 #import forgeax_view::common::{view, shadowMap, shadowSampler}
 #import forgeax_pbr::brdf::{f_schlick, v_smith, d_ggx, threeR184DirectMultiScatter}
-#import forgeax_pbr::shadow_pcf::{sample_shadow_2d}
+#import forgeax_pbr::shadow_pcf::{sample_shadow_2d, shadow_sample_compare}
 #ifdef DIRECTIONAL_PCSS_AVAILABLE
-#import forgeax_pbr::shadow_pcf::{shadow_biased_receiver_depth, shadow_clamp_texel_to_tile, shadow_load_raw_depth, shadow_sample_compare}
+#import forgeax_pbr::shadow_pcf::{shadow_biased_receiver_depth, shadow_clamp_texel_to_tile, shadow_load_raw_depth}
 #endif
 
 // feat-20260621-learn-render-5-3-production-shadow-demos M0 / AC-14:
@@ -321,7 +321,7 @@ fn _sampleShadowForCascade(
   #endif
   let kernel = select(select(3u, 5u, filterProfile == 3u), 1u, filterProfile == 1u);
   if (kernel == 1u) {
-    let lit = textureSampleCompareLevel(shadowMap, shadowSampler, clamp(uv, tileLo, tileHi), adjustedDepth);
+    let lit = shadow_sample_compare(shadowMap, shadowSampler, clamp(uv, tileLo, tileHi), adjustedDepth);
     return lit;
   }
 
@@ -340,16 +340,16 @@ fn _sampleShadowForCascade(
       let hiWeight = vec2<f32>(1.0) + pcfFraction;
       let loOffset = vec2<f32>(-1.0) - pcfFraction + vec2<f32>(1.0) / loWeight;
       let hiOffset = vec2<f32>(1.0) - pcfFraction + pcfFraction / hiWeight;
-      let litLoLo = textureSampleCompareLevel(
+      let litLoLo = shadow_sample_compare(
         shadowMap, shadowSampler, uv + vec2<f32>(loOffset.x, loOffset.y) * texel, adjustedDepth,
       );
-      let litHiLo = textureSampleCompareLevel(
+      let litHiLo = shadow_sample_compare(
         shadowMap, shadowSampler, uv + vec2<f32>(hiOffset.x, loOffset.y) * texel, adjustedDepth,
       );
-      let litLoHi = textureSampleCompareLevel(
+      let litLoHi = shadow_sample_compare(
         shadowMap, shadowSampler, uv + vec2<f32>(loOffset.x, hiOffset.y) * texel, adjustedDepth,
       );
-      let litHiHi = textureSampleCompareLevel(
+      let litHiHi = shadow_sample_compare(
         shadowMap, shadowSampler, uv + vec2<f32>(hiOffset.x, hiOffset.y) * texel, adjustedDepth,
       );
       return (
@@ -362,7 +362,7 @@ fn _sampleShadowForCascade(
     for (var x = -1; x <= 1; x++) {
       for (var y = -1; y <= 1; y++) {
         let offsetUv = clamp(uv + vec2<f32>(f32(x), f32(y)) * texel, tileLo, tileHi);
-        let lit = textureSampleCompareLevel(shadowMap, shadowSampler, offsetUv, adjustedDepth);
+        let lit = shadow_sample_compare(shadowMap, shadowSampler, offsetUv, adjustedDepth);
         blocked = blocked + (1.0 - lit);
       }
     }
@@ -372,7 +372,7 @@ fn _sampleShadowForCascade(
   for (var x = -i32(MAX_PCF_HALF); x <= i32(MAX_PCF_HALF); x++) {
     for (var y = -i32(MAX_PCF_HALF); y <= i32(MAX_PCF_HALF); y++) {
       let offsetUv = clamp(uv + vec2<f32>(f32(x), f32(y)) * texel, tileLo, tileHi);
-      let lit = textureSampleCompareLevel(shadowMap, shadowSampler, offsetUv, adjustedDepth);
+      let lit = shadow_sample_compare(shadowMap, shadowSampler, offsetUv, adjustedDepth);
       blocked = blocked + (1.0 - lit);
     }
   }

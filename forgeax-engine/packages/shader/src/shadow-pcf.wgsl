@@ -45,13 +45,22 @@ fn shadow_load_raw_depth(
   return textureLoad(shadowMap, texel, 0);
 }
 
+@diagnostic(off, derivative_uniformity)
 fn shadow_sample_compare(
   shadowMap    : texture_depth_2d,
   shadowSampler: sampler_comparison,
   uv           : vec2<f32>,
   depthRef     : f32,
 ) -> f32 {
+  #ifdef STORAGE_BUFFER_AVAILABLE
   return textureSampleCompareLevel(shadowMap, shadowSampler, uv, depthRef);
+  #else
+  // WebGL2's single-mip shadow atlas does not need explicit LOD. Using an
+  // implicit comparison sample avoids ANGLE's unsupported shadow textureLod
+  // executable on Chromium-derived browsers. Derivatives cannot select another
+  // mip (the atlas has only level 0); PCF and the comparison sampler stay intact.
+  return textureSampleCompare(shadowMap, shadowSampler, uv, depthRef);
+  #endif
 }
 
 fn shadow_biased_receiver_depth(
@@ -128,7 +137,7 @@ fn sample_shadow_2d_kernel(
     for (var x = -2; x <= 2; x = x + 1) {
       if (abs(x) <= halfWidth && abs(y) <= halfWidth) {
         let offsetUv = uv + vec2<f32>(f32(x), f32(y)) * texel;
-        let lit = textureSampleCompareLevel(shadowMap, shadowSampler, offsetUv, adjustedDepth);
+        let lit = shadow_sample_compare(shadowMap, shadowSampler, offsetUv, adjustedDepth);
         blocked = blocked + (1.0 - lit);
         samples = samples + 1.0;
       }

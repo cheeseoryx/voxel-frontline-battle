@@ -1,0 +1,7 @@
+const fs=require('fs'),path=require('path'),vm=require('vm'),crypto=require('crypto');
+const root=path.resolve(__dirname,'../..'),e={console,performance,TextDecoder,TextEncoder};e.window=e;e.self=e;vm.createContext(e);const sources=[];
+for(const rel of ['js/vendor/three.gltf.global.js','modes/small-battle/js/voxel-world.js','modes/small-battle/js/building.js']){const bytes=fs.readFileSync(path.join(root,rel));sources.push({path:rel,sha256:crypto.createHash('sha256').update(bytes).digest('hex')});vm.runInContext(bytes.toString(),e);}
+const world=new e.VF.VoxelWorld(new e.THREE.Scene(),{deferGeneration:true});world._rebuildChunk=()=>{};
+const building=Object.create(e.VF.Building.prototype);building.world=world;const origin={x:32,y:2,z:32},def={width:14,height:20};building._stampTowerCollision(origin,def,0);building._registerTowerDoorAndStairs(origin,def,0);
+const cells=[];for(let y=0;y<world.height;y++)for(let z=18;z<48;z++)for(let x=18;x<48;x++){const id=world.get(x,y,z);if(id)cells.push([x-32,y-2,z-32,id]);}
+fs.writeFileSync(path.join(__dirname,'../assets/original/tower-blueprint.ts'),'export default '+JSON.stringify(cells)+';\n');fs.writeFileSync(path.join(__dirname,'../docs/migration/building-provenance.json'),JSON.stringify({sources,cells:cells.length,note:'Original tower collision voxels and spiral stairs; separate animated door remains pending.'},null,2));console.log('Imported tower blueprint: '+cells.length+' voxels');

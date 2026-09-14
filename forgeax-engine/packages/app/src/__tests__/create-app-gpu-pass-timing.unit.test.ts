@@ -33,7 +33,11 @@ describe('app GPU pass timing forwarding', () => {
     const options = { gpuPassTiming } satisfies CreateAppOptions;
     constructRuntimeRendererHost.mockResolvedValue({
       ok: true,
-      value: { renderer: rendererStub(), assets: undefined },
+      value: {
+        renderer: rendererStub(),
+        debugDrawHost: { device: { limits: { maxTextureDimension2D: 2048 } } },
+        assets: undefined,
+      },
     });
     const canvas = { tagName: 'canvas', isConnected: true } as HTMLCanvasElement;
 

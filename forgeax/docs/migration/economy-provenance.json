@@ -1,0 +1,12 @@
+{
+  "sources": [
+    {
+      "path": "js/economy.js",
+      "sha256": "48679a040ec6b0c44b6176164fe5be9277781d30f8944b45f62af4da023e873a"
+    },
+    {
+      "path": "modes/small-battle/js/economy.js",
+      "sha256": "beec479293f97c6f8a0ec1ad3d98246f17c48906b80b27de19508cd1be941855"
+    }
+  ]
+}

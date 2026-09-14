@@ -16,7 +16,19 @@
     "engine:check": "node scripts/forgeax-tool.mjs project engine check",
     "engine:local": "node scripts/forgeax-tool.mjs project engine use-local --path ../forgeax-engine",
     "engine:build": "pnpm --dir ../forgeax-engine build:engine",
-    "verify:original": "node scripts/verify-original.cjs"
+    "verify:original": "node scripts/verify-original.cjs",
+    "import:original": "node scripts/import-original.cjs",
+    "verify:replacement": "node scripts/verify-replacement.cjs",
+    "preview:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-preview.ps1",
+    "check:equipment": "node scripts/check-equipment.cjs",
+    "check:battle": "node scripts/check-native-battle.cjs",
+    "check:arena": "node scripts/check-native-arena.cjs",
+    "check:native": "node scripts/check-native-systems.cjs",
+    "check:vehicles": "node scripts/check-native-interactions.cjs",
+    "check:skills": "node scripts/check-native-skills.cjs",
+    "check:objectives": "node scripts/check-native-objectives.cjs",
+    "check:visibility": "node scripts/check-battle-visibility.cjs",
+    "check:qq": "node scripts/check-qq-preview.cjs"
   },
   "forgeax": {
     "metrics": {
@@ -48,6 +60,8 @@
   "devDependencies": {
     "@types/node": "20.19.40",
     "@webgpu/types": "0.1.71",
+    "playwright": "1.62.1",
+    "pngjs": "7.0.0",
     "tsx": "4.23.1",
     "typescript": "6.0.3",
     "vitest": "4.0.18"

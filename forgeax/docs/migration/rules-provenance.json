@@ -1,0 +1,72 @@
+{
+  "sources": [
+    {
+      "path": "js/vendor/three.gltf.global.js",
+      "sha256": "6eee8615d5a1fb34ff5e8143dfa05ab9019a8068101957dd52bee2235b226788"
+    },
+    {
+      "path": "js/feel-config.js",
+      "sha256": "3d0e1abde81bc8aa53083a4447c8c9a0dcef26a555fb37a22ee4ad47003c923b"
+    },
+    {
+      "path": "js/voxel-world.js",
+      "sha256": "5e32749ac5e3500c91424811d40d3c27de2449ea119e548b5c8a5ae96a828b25"
+    },
+    {
+      "path": "js/weapon-catalog.js",
+      "sha256": "a43a64811a9c2a31cad386a543487de48495a2264610e3130d1454a6a433dfe7"
+    },
+    {
+      "path": "js/soldier.js",
+      "sha256": "a0cbd2faf8ee26355b2a45ba3a3bb9b9d0057047ecfbc0925742c4b14fe3091b"
+    },
+    {
+      "path": "js/weapons.js",
+      "sha256": "30f775d2536c9945951e87b1a5daddc2886c500819b0dfdcd4e8fe6c1dc8da57"
+    },
+    {
+      "path": "js/throwables.js",
+      "sha256": "a9d329303ad1e91f8a49b573874bbe75089c65770147ab7bc3bb22a9a377f037"
+    },
+    {
+      "path": "js/economy.js",
+      "sha256": "48679a040ec6b0c44b6176164fe5be9277781d30f8944b45f62af4da023e873a"
+    },
+    {
+      "path": "js/gadgets.js",
+      "sha256": "67364e2c9533e2c823a4b31f721e4a3c5a4c3c89d07ddcc59b4b878dbb37d36f"
+    },
+    {
+      "path": "modes/small-battle/js/feel-config.js",
+      "sha256": "30447774529fa28e60c70c90e5de483c58434db8c3a0a975e5a26712728b7cd2"
+    },
+    {
+      "path": "modes/small-battle/js/voxel-world.js",
+      "sha256": "84fa5c47e150c213e4e2e009c735ed85255d331392193398f13165ebcb66db92"
+    },
+    {
+      "path": "modes/small-battle/js/weapon-catalog.js",
+      "sha256": "3b0ac15b048c37cdf8bbffcfad6068364b81f9a8061279d578c4cf8da20c9ccb"
+    },
+    {
+      "path": "modes/small-battle/js/soldier.js",
+      "sha256": "32ebfa910d63cddf3f8e1247b9c6928c33efb6a008a6e7c6f09c33d630bc70f6"
+    },
+    {
+      "path": "modes/small-battle/js/weapons.js",
+      "sha256": "510400fc884ee008b29fda771465d24d4cfd0db472cc482a018725b3bf1ae06c"
+    },
+    {
+      "path": "modes/small-battle/js/throwables.js",
+      "sha256": "afb62dd8bd358037e19049f57ae796c144dc920f13145f021ef7e6cb2b7fd306"
+    },
+    {
+      "path": "modes/small-battle/js/economy.js",
+      "sha256": "beec479293f97c6f8a0ec1ad3d98246f17c48906b80b27de19508cd1be941855"
+    },
+    {
+      "path": "modes/small-battle/js/gamemodes.js",
+      "sha256": "668c5ec811406dabc77693952ea6af585d1afc5ac6505035ee93bd979cf4452a"
+    }
+  ]
+}

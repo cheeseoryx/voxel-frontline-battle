@@ -64,7 +64,11 @@ vi.mock('@forgeax/engine-runtime', async (importOriginal) => {
   };
   constructRuntimeRendererHost.mockResolvedValue({
     ok: true,
-    value: { renderer: rendererStub, assets: undefined },
+    value: {
+      renderer: rendererStub,
+      debugDrawHost: { device: { limits: { maxTextureDimension2D: 2048 } } },
+      assets: undefined,
+    },
   });
   return {
     ...actual,

@@ -1,0 +1,14 @@
+{
+  "path": "js/vendor/three.gltf.global.js",
+  "sha256": "6eee8615d5a1fb34ff5e8143dfa05ab9019a8068101957dd52bee2235b226788",
+  "exports": [
+    "Vector3",
+    "Box3",
+    "Quaternion",
+    "Euler",
+    "Matrix4",
+    "Color"
+  ],
+  "topLevelDeclarations": 59,
+  "bytes": 42731
+}

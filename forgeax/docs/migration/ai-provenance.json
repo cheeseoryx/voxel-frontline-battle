@@ -1,0 +1,21 @@
+{
+  "source": "modes/small-battle/js/ai.js",
+  "sha256": "29721ffedbc509532189550abf164a69f6c9389df2b19b44823b02276940fa44",
+  "presentationPorts": [
+    "_clearDeathFx",
+    "material hit flash",
+    "_acquireDeathChunk",
+    "_releaseDeathChunk",
+    "_spawnDeathBurstRing",
+    "_spawnDeathFlashBall",
+    "_emitDeathChunks",
+    "_playVoxelDeath",
+    "_updateDeathChunks"
+  ],
+  "clock": "World Time",
+  "math": "original value types only",
+  "pending": [
+    "Animated soldier joint binding",
+    "Death effect visual parity"
+  ]
+}

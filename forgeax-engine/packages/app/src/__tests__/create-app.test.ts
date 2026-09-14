@@ -118,6 +118,77 @@ describe('create-app.test.ts', () => {
       }
     });
 
+    it('fits a high-DPI viewport to the live device limit without repeated buffer resets', () => {
+      let width = 300,
+        height = 150,
+        writes = 0;
+      const canvas = {
+        clientWidth: 1805,
+        clientHeight: 1083,
+        style: { width: '100%', height: '100%' },
+        get width() {
+          return width;
+        },
+        set width(v: number) {
+          width = v;
+          writes++;
+        },
+        get height() {
+          return height;
+        },
+        set height(v: number) {
+          height = v;
+          writes++;
+        },
+      };
+      const before = globalThis.devicePixelRatio;
+      Object.defineProperty(globalThis, 'devicePixelRatio', { configurable: true, value: 1.5 });
+      try {
+        syncCanvasDrawingBuffer(canvas, 2048);
+        expect([width, height]).toEqual([2048, 1229]);
+        syncCanvasDrawingBuffer(canvas, 2048);
+        expect(writes).toBe(2);
+        canvas.clientWidth = 758;
+        canvas.clientHeight = 720;
+        syncCanvasDrawingBuffer(canvas, 2048);
+        expect([width, height]).toEqual([1137, 1080]);
+        canvas.clientWidth = 1805;
+        canvas.clientHeight = 1083;
+        syncCanvasDrawingBuffer(canvas, 2048);
+        expect([width, height]).toEqual([2048, 1229]);
+        syncCanvasDrawingBuffer(canvas, 8192);
+        expect([width, height]).toEqual([2708, 1625]);
+      } finally {
+        Object.defineProperty(globalThis, 'devicePixelRatio', {
+          configurable: true,
+          value: before,
+        });
+      }
+    });
+
+    it('bounds portrait buffers by height while preserving the viewport aspect', () => {
+      const canvas = {
+        clientWidth: 900,
+        clientHeight: 1600,
+        width: 300,
+        height: 150,
+        style: { width: '100%', height: '100%' },
+      };
+      const before = globalThis.devicePixelRatio;
+      Object.defineProperty(globalThis, 'devicePixelRatio', { configurable: true, value: 2 });
+      try {
+        syncCanvasDrawingBuffer(canvas, 1024);
+        expect([canvas.width, canvas.height]).toEqual([576, 1024]);
+        syncCanvasDrawingBuffer(canvas, undefined);
+        expect([canvas.width, canvas.height]).toEqual([1800, 3200]);
+      } finally {
+        Object.defineProperty(globalThis, 'devicePixelRatio', {
+          configurable: true,
+          value: before,
+        });
+      }
+    });
+
     it('leaves a zero-sized host untouched', () => {
       const canvas = { clientWidth: 0, clientHeight: 400, width: 300, height: 150 };
       syncCanvasDrawingBuffer(canvas);

@@ -1,0 +1,428 @@
+{
+  "sources": [
+    {
+      "path": "js/vendor/three.gltf.global.js",
+      "sha256": "6eee8615d5a1fb34ff5e8143dfa05ab9019a8068101957dd52bee2235b226788"
+    },
+    {
+      "path": "js/voxel-world.js",
+      "sha256": "5e32749ac5e3500c91424811d40d3c27de2449ea119e548b5c8a5ae96a828b25"
+    },
+    {
+      "path": "js/weapon-catalog.js",
+      "sha256": "a43a64811a9c2a31cad386a543487de48495a2264610e3130d1454a6a433dfe7"
+    },
+    {
+      "path": "js/weapons.js",
+      "sha256": "30f775d2536c9945951e87b1a5daddc2886c500819b0dfdcd4e8fe6c1dc8da57"
+    },
+    {
+      "path": "js/weapon-viewmodels.js",
+      "sha256": "904ceb9ba7016acb37d95586961d38daaae83d74d4f57641d1cf6bae032b9bb6"
+    },
+    {
+      "path": "js/soldier.js",
+      "sha256": "a0cbd2faf8ee26355b2a45ba3a3bb9b9d0057047ecfbc0925742c4b14fe3091b"
+    },
+    {
+      "path": "modes/small-battle/js/weapon-catalog.js",
+      "sha256": "3b0ac15b048c37cdf8bbffcfad6068364b81f9a8061279d578c4cf8da20c9ccb"
+    },
+    {
+      "path": "modes/small-battle/js/weapons.js",
+      "sha256": "510400fc884ee008b29fda771465d24d4cfd0db472cc482a018725b3bf1ae06c"
+    },
+    {
+      "path": "modes/small-battle/js/weapon-viewmodels.js",
+      "sha256": "7b8f6906d339820d85315dc0ddc878abd6b78ded11f8e4ae66aa96c45f3db5d2"
+    },
+    {
+      "path": "modes/small-battle/js/soldier.js",
+      "sha256": "32ebfa910d63cddf3f8e1247b9c6928c33efb6a008a6e7c6f09c33d630bc70f6"
+    }
+  ],
+  "sourceCorrections": [
+    {
+      "file": "js/weapon-viewmodels.js",
+      "change": "Pass the owning gun to addRail; original callers omit the required first argument and throw."
+    }
+  ],
+  "models": {
+    "gun/acr": {
+      "vertices": 456,
+      "triangles": 228
+    },
+    "gun/ak74": {
+      "vertices": 240,
+      "triangles": 120
+    },
+    "gun/auga3": {
+      "vertices": 384,
+      "triangles": 192
+    },
+    "gun/famas": {
+      "vertices": 240,
+      "triangles": 120
+    },
+    "gun/sg550": {
+      "vertices": 456,
+      "triangles": 228
+    },
+    "gun/f2000": {
+      "vertices": 288,
+      "triangles": 144
+    },
+    "gun/ak15": {
+      "vertices": 432,
+      "triangles": 216
+    },
+    "gun/scarh": {
+      "vertices": 432,
+      "triangles": 216
+    },
+    "gun/fal": {
+      "vertices": 408,
+      "triangles": 204
+    },
+    "gun/g3": {
+      "vertices": 408,
+      "triangles": 204
+    },
+    "gun/g36c": {
+      "vertices": 264,
+      "triangles": 132
+    },
+    "gun/m4a1": {
+      "vertices": 456,
+      "triangles": 228
+    },
+    "gun/asval": {
+      "vertices": 384,
+      "triangles": 192
+    },
+    "gun/groza": {
+      "vertices": 264,
+      "triangles": 132
+    },
+    "gun/hk419": {
+      "vertices": 456,
+      "triangles": 228
+    },
+    "gun/ak5c": {
+      "vertices": 456,
+      "triangles": 228
+    },
+    "gun/honeybadger": {
+      "vertices": 384,
+      "triangles": 192
+    },
+    "gun/mp7": {
+      "vertices": 408,
+      "triangles": 204
+    },
+    "gun/pp2000": {
+      "vertices": 240,
+      "triangles": 120
+    },
+    "gun/p90": {
+      "vertices": 216,
+      "triangles": 108
+    },
+    "gun/vector": {
+      "vertices": 408,
+      "triangles": 204
+    },
+    "gun/ump45": {
+      "vertices": 360,
+      "triangles": 180
+    },
+    "gun/mp5": {
+      "vertices": 360,
+      "triangles": 180
+    },
+    "gun/pp19": {
+      "vertices": 384,
+      "triangles": 192
+    },
+    "gun/scorpionevo": {
+      "vertices": 360,
+      "triangles": 180
+    },
+    "gun/l86a1": {
+      "vertices": 456,
+      "triangles": 228
+    },
+    "gun/mg36": {
+      "vertices": 264,
+      "triangles": 132
+    },
+    "gun/rpk16": {
+      "vertices": 432,
+      "triangles": 216
+    },
+    "gun/m249": {
+      "vertices": 456,
+      "triangles": 228
+    },
+    "gun/ultimax100": {
+      "vertices": 432,
+      "triangles": 216
+    },
+    "gun/mk20": {
+      "vertices": 264,
+      "triangles": 132
+    },
+    "gun/m110": {
+      "vertices": 264,
+      "triangles": 132
+    },
+    "gun/mk14ebr": {
+      "vertices": 456,
+      "triangles": 228
+    },
+    "gun/sr": {
+      "vertices": 336,
+      "triangles": 168
+    },
+    "gun/ssg69": {
+      "vertices": 264,
+      "triangles": 132
+    },
+    "gun/sv98": {
+      "vertices": 264,
+      "triangles": 132
+    },
+    "gun/l96": {
+      "vertices": 264,
+      "triangles": 132
+    },
+    "gun/rem700": {
+      "vertices": 264,
+      "triangles": 132
+    },
+    "gun/m200": {
+      "vertices": 264,
+      "triangles": 132
+    },
+    "gun/msr": {
+      "vertices": 264,
+      "triangles": 132
+    },
+    "gun/m9": {
+      "vertices": 120,
+      "triangles": 60
+    },
+    "gun/mp443": {
+      "vertices": 120,
+      "triangles": 60
+    },
+    "gun/usp": {
+      "vertices": 120,
+      "triangles": 60
+    },
+    "gun/glock18": {
+      "vertices": 120,
+      "triangles": 60
+    },
+    "gun/unica": {
+      "vertices": 96,
+      "triangles": 48
+    },
+    "gun/deserteagle": {
+      "vertices": 120,
+      "triangles": 60
+    },
+    "gun/rsh12": {
+      "vertices": 96,
+      "triangles": 48
+    },
+    "gun/svd": {
+      "vertices": 336,
+      "triangles": 168
+    },
+    "arms/ally/assault": {
+      "vertices": 2088,
+      "triangles": 1044
+    },
+    "arms/ally/engineer": {
+      "vertices": 2088,
+      "triangles": 1044
+    },
+    "arms/ally/support": {
+      "vertices": 2088,
+      "triangles": 1044
+    },
+    "arms/ally/recon": {
+      "vertices": 2088,
+      "triangles": 1044
+    },
+    "arms/enemy/assault": {
+      "vertices": 2088,
+      "triangles": 1044
+    },
+    "arms/enemy/engineer": {
+      "vertices": 2088,
+      "triangles": 1044
+    },
+    "arms/enemy/support": {
+      "vertices": 2088,
+      "triangles": 1044
+    },
+    "arms/enemy/recon": {
+      "vertices": 2088,
+      "triangles": 1044
+    },
+    "small/arms/vanguard": {
+      "vertices": 2088,
+      "triangles": 1044
+    },
+    "small/arms/medic": {
+      "vertices": 2088,
+      "triangles": 1044
+    },
+    "small/arms/ghost": {
+      "vertices": 2088,
+      "triangles": 1044
+    },
+    "small/arms/juggernaut": {
+      "vertices": 2088,
+      "triangles": 1044
+    },
+    "small/arms/raider": {
+      "vertices": 2088,
+      "triangles": 1044
+    },
+    "small/arms/engineer": {
+      "vertices": 2088,
+      "triangles": 1044
+    },
+    "small/gun/ar": {
+      "vertices": 672,
+      "triangles": 336
+    },
+    "small/inspect/ar": {
+      "vertices": 288,
+      "triangles": 144
+    },
+    "small/gun/sg": {
+      "vertices": 552,
+      "triangles": 276
+    },
+    "small/inspect/sg": {
+      "vertices": 168,
+      "triangles": 84
+    },
+    "small/gun/sr": {
+      "vertices": 672,
+      "triangles": 336
+    },
+    "small/inspect/sr": {
+      "vertices": 288,
+      "triangles": 144
+    },
+    "small/gun/knife": {
+      "vertices": 960,
+      "triangles": 480
+    },
+    "small/inspect/knife": {
+      "vertices": 576,
+      "triangles": 288
+    },
+    "small/gun/ak74": {
+      "vertices": 720,
+      "triangles": 360
+    },
+    "small/inspect/ak74": {
+      "vertices": 336,
+      "triangles": 168
+    },
+    "small/gun/acr": {
+      "vertices": 936,
+      "triangles": 468
+    },
+    "small/inspect/acr": {
+      "vertices": 552,
+      "triangles": 276
+    },
+    "small/gun/scarh": {
+      "vertices": 864,
+      "triangles": 432
+    },
+    "small/inspect/scarh": {
+      "vertices": 480,
+      "triangles": 240
+    },
+    "small/gun/m4a1": {
+      "vertices": 960,
+      "triangles": 480
+    },
+    "small/inspect/m4a1": {
+      "vertices": 576,
+      "triangles": 288
+    },
+    "small/gun/hk419": {
+      "vertices": 1152,
+      "triangles": 576
+    },
+    "small/inspect/hk419": {
+      "vertices": 768,
+      "triangles": 384
+    },
+    "small/gun/mp7": {
+      "vertices": 792,
+      "triangles": 396
+    },
+    "small/inspect/mp7": {
+      "vertices": 408,
+      "triangles": 204
+    },
+    "small/gun/p90": {
+      "vertices": 576,
+      "triangles": 288
+    },
+    "small/inspect/p90": {
+      "vertices": 192,
+      "triangles": 96
+    },
+    "small/gun/mp5": {
+      "vertices": 696,
+      "triangles": 348
+    },
+    "small/inspect/mp5": {
+      "vertices": 312,
+      "triangles": 156
+    },
+    "small/gun/m249": {
+      "vertices": 912,
+      "triangles": 456
+    },
+    "small/inspect/m249": {
+      "vertices": 528,
+      "triangles": 264
+    },
+    "small/gun/mk14ebr": {
+      "vertices": 864,
+      "triangles": 432
+    },
+    "small/inspect/mk14ebr": {
+      "vertices": 480,
+      "triangles": 240
+    },
+    "small/gun/m200": {
+      "vertices": 720,
+      "triangles": 360
+    },
+    "small/inspect/m200": {
+      "vertices": 336,
+      "triangles": 168
+    },
+    "small/gun/usp": {
+      "vertices": 408,
+      "triangles": 204
+    },
+    "small/inspect/usp": {
+      "vertices": 216,
+      "triangles": 108
+    }
+  }
+}

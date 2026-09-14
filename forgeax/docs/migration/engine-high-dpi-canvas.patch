@@ -1,0 +1,255 @@
+diff --git a/forgeax-engine/packages/app/README.md b/forgeax-engine/packages/app/README.md
+index 102f95a..0d40e69 100644
+--- a/forgeax-engine/packages/app/README.md
++++ b/forgeax-engine/packages/app/README.md
+@@ -29,6 +29,8 @@ app.start().unwrap();
+ 
+ The canvas form creates a World, renderer, default plugins, browser input backend, and rAF loop. Handle the `Result` before calling `start`.
+ 
++The main-thread canvas host fits CSS size × device pixel ratio to the active device's `maxTextureDimension2D`, using one scale for both axes. It applies that limit after renderer construction and before each frame, so high-DPI windows and preview reparenting cannot request an oversized surface. CSS layout stays at the requested size; explicit intrinsic canvas sizes remain caller-owned.
++
+ ## Recovery frame contract
+ 
+ Use `renderer.state() -> renderer.inspect() -> renderer.recover() ->
+diff --git a/forgeax-engine/packages/app/src/__tests__/create-app-features.test.ts b/forgeax-engine/packages/app/src/__tests__/create-app-features.test.ts
+index f18c590..2e829de 100644
+--- a/forgeax-engine/packages/app/src/__tests__/create-app-features.test.ts
++++ b/forgeax-engine/packages/app/src/__tests__/create-app-features.test.ts
+@@ -31,13 +31,49 @@ function rendererStub() {
+ }
+ 
+ describe('createApp features passthrough', () => {
++  it('uses the constructed device limit before the first rendered frame', async () => {
++    constructRuntimeRendererHost.mockResolvedValue({
++      ok: true,
++      value: {
++        renderer: rendererStub(),
++        debugDrawHost: { device: { limits: { maxTextureDimension2D: 2048 } } },
++        assets: undefined,
++      },
++    });
++    const canvas = {
++      tagName: 'canvas',
++      isConnected: true,
++      clientWidth: 1805,
++      clientHeight: 1083,
++      width: 300,
++      height: 150,
++      style: { width: '100%', height: '100%' },
++    } as HTMLCanvasElement;
++    const previous = globalThis.devicePixelRatio;
++    Object.defineProperty(globalThis, 'devicePixelRatio', { configurable: true, value: 1.5 });
++    try {
++      const result = await createApp(canvas);
++      expect(result.ok).toBe(true);
++      expect([canvas.width, canvas.height]).toEqual([2048, 1229]);
++    } finally {
++      Object.defineProperty(globalThis, 'devicePixelRatio', {
++        configurable: true,
++        value: previous,
++      });
++      constructRuntimeRendererHost.mockClear();
++    }
++  });
+   it('forwards the same ordered feature array to createRenderer', async () => {
+     const first = { identity: 'test.first' } as unknown as RenderFeature<unknown>;
+     const second = { identity: 'test.second' } as unknown as RenderFeature<unknown>;
+     const features = [first, second] as const;
+     constructRuntimeRendererHost.mockResolvedValue({
+       ok: true,
+-      value: { renderer: rendererStub(), assets: undefined },
++      value: {
++        renderer: rendererStub(),
++        debugDrawHost: { device: { limits: { maxTextureDimension2D: 2048 } } },
++        assets: undefined,
++      },
+     });
+ 
+     const canvas = { tagName: 'canvas', isConnected: true } as HTMLCanvasElement;
+diff --git a/forgeax-engine/packages/app/src/__tests__/create-app-gpu-pass-timing.unit.test.ts b/forgeax-engine/packages/app/src/__tests__/create-app-gpu-pass-timing.unit.test.ts
+index d8f7026..17b657e 100644
+--- a/forgeax-engine/packages/app/src/__tests__/create-app-gpu-pass-timing.unit.test.ts
++++ b/forgeax-engine/packages/app/src/__tests__/create-app-gpu-pass-timing.unit.test.ts
+@@ -33,7 +33,11 @@ describe('app GPU pass timing forwarding', () => {
+     const options = { gpuPassTiming } satisfies CreateAppOptions;
+     constructRuntimeRendererHost.mockResolvedValue({
+       ok: true,
+-      value: { renderer: rendererStub(), assets: undefined },
++      value: {
++        renderer: rendererStub(),
++        debugDrawHost: { device: { limits: { maxTextureDimension2D: 2048 } } },
++        assets: undefined,
++      },
+     });
+     const canvas = { tagName: 'canvas', isConnected: true } as HTMLCanvasElement;
+ 
+diff --git a/forgeax-engine/packages/app/src/__tests__/create-app-listener-sync.test.ts b/forgeax-engine/packages/app/src/__tests__/create-app-listener-sync.test.ts
+index 52950f5..b2e0f09 100644
+--- a/forgeax-engine/packages/app/src/__tests__/create-app-listener-sync.test.ts
++++ b/forgeax-engine/packages/app/src/__tests__/create-app-listener-sync.test.ts
+@@ -64,7 +64,11 @@ vi.mock('@forgeax/engine-runtime', async (importOriginal) => {
+   };
+   constructRuntimeRendererHost.mockResolvedValue({
+     ok: true,
+-    value: { renderer: rendererStub, assets: undefined },
++    value: {
++      renderer: rendererStub,
++      debugDrawHost: { device: { limits: { maxTextureDimension2D: 2048 } } },
++      assets: undefined,
++    },
+   });
+   return {
+     ...actual,
+diff --git a/forgeax-engine/packages/app/src/__tests__/create-app.test.ts b/forgeax-engine/packages/app/src/__tests__/create-app.test.ts
+index c4ddd1d..3483fc9 100644
+--- a/forgeax-engine/packages/app/src/__tests__/create-app.test.ts
++++ b/forgeax-engine/packages/app/src/__tests__/create-app.test.ts
+@@ -118,6 +118,77 @@ describe('create-app.test.ts', () => {
+       }
+     });
+ 
++    it('fits a high-DPI viewport to the live device limit without repeated buffer resets', () => {
++      let width = 300,
++        height = 150,
++        writes = 0;
++      const canvas = {
++        clientWidth: 1805,
++        clientHeight: 1083,
++        style: { width: '100%', height: '100%' },
++        get width() {
++          return width;
++        },
++        set width(v: number) {
++          width = v;
++          writes++;
++        },
++        get height() {
++          return height;
++        },
++        set height(v: number) {
++          height = v;
++          writes++;
++        },
++      };
++      const before = globalThis.devicePixelRatio;
++      Object.defineProperty(globalThis, 'devicePixelRatio', { configurable: true, value: 1.5 });
++      try {
++        syncCanvasDrawingBuffer(canvas, 2048);
++        expect([width, height]).toEqual([2048, 1229]);
++        syncCanvasDrawingBuffer(canvas, 2048);
++        expect(writes).toBe(2);
++        canvas.clientWidth = 758;
++        canvas.clientHeight = 720;
++        syncCanvasDrawingBuffer(canvas, 2048);
++        expect([width, height]).toEqual([1137, 1080]);
++        canvas.clientWidth = 1805;
++        canvas.clientHeight = 1083;
++        syncCanvasDrawingBuffer(canvas, 2048);
++        expect([width, height]).toEqual([2048, 1229]);
++        syncCanvasDrawingBuffer(canvas, 8192);
++        expect([width, height]).toEqual([2708, 1625]);
++      } finally {
++        Object.defineProperty(globalThis, 'devicePixelRatio', {
++          configurable: true,
++          value: before,
++        });
++      }
++    });
++
++    it('bounds portrait buffers by height while preserving the viewport aspect', () => {
++      const canvas = {
++        clientWidth: 900,
++        clientHeight: 1600,
++        width: 300,
++        height: 150,
++        style: { width: '100%', height: '100%' },
++      };
++      const before = globalThis.devicePixelRatio;
++      Object.defineProperty(globalThis, 'devicePixelRatio', { configurable: true, value: 2 });
++      try {
++        syncCanvasDrawingBuffer(canvas, 1024);
++        expect([canvas.width, canvas.height]).toEqual([576, 1024]);
++        syncCanvasDrawingBuffer(canvas, undefined);
++        expect([canvas.width, canvas.height]).toEqual([1800, 3200]);
++      } finally {
++        Object.defineProperty(globalThis, 'devicePixelRatio', {
++          configurable: true,
++          value: before,
++        });
++      }
++    });
++
+     it('leaves a zero-sized host untouched', () => {
+       const canvas = { clientWidth: 0, clientHeight: 400, width: 300, height: 150 };
+       syncCanvasDrawingBuffer(canvas);
+diff --git a/forgeax-engine/packages/app/src/create-app.ts b/forgeax-engine/packages/app/src/create-app.ts
+index 9dd7e46..1583066 100644
+--- a/forgeax-engine/packages/app/src/create-app.ts
++++ b/forgeax-engine/packages/app/src/create-app.ts
+@@ -137,7 +137,10 @@ function createFrameInspectionRef(): FrameInspectionRef {
+   return { current: createExecutionFrameInspection };
+ }
+ 
+-function canvasAspectPlugin(canvas: HTMLCanvasElement): Plugin {
++function canvasAspectPlugin(
++  canvas: HTMLCanvasElement,
++  getMaxDimension: () => number | undefined,
++): Plugin {
+   return {
+     name: 'canvas-aspect',
+     inject: ['world'],
+@@ -147,7 +150,7 @@ function canvasAspectPlugin(canvas: HTMLCanvasElement): Plugin {
+           name: 'app-sync-camera-aspect',
+           queries: [],
+           fn: () => {
+-            syncCanvasDrawingBuffer(canvas);
++            syncCanvasDrawingBuffer(canvas, getMaxDimension());
+             syncCameraAspect(ctx.world, canvas.width, canvas.height);
+           },
+         };
+@@ -494,6 +497,7 @@ async function createAppFromCanvas(
+     if (!constructed.ok) throw constructed.error;
+     renderer = constructed.value.renderer;
+     rendererDebugDrawHost = constructed.value.debugDrawHost;
++    syncCanvasDrawingBuffer(canvas, rendererDebugDrawHost.device?.limits.maxTextureDimension2D);
+     rendererFeatureHost = createRenderFeatureHost(constructed.value.featureHost);
+     assets = constructed.value.assets;
+     markRendererBootstrapStage('renderer-initialized');
+@@ -618,7 +622,7 @@ async function createAppFromCanvas(
+     extensions: [
+       rhiDebugHostPlugin(cleanupRhiDebugHost),
+       ...userPlugins,
+-      canvasAspectPlugin(canvas),
++      canvasAspectPlugin(canvas, () => rendererDebugDrawHost.device?.limits.maxTextureDimension2D),
+     ],
+   });
+   try {
+@@ -823,6 +827,7 @@ export function syncCanvasDrawingBuffer(
+   canvas: Pick<HTMLCanvasElement, 'clientWidth' | 'clientHeight' | 'width' | 'height'> & {
+     readonly style?: Pick<CSSStyleDeclaration, 'width' | 'height'>;
+   },
++  maxTextureDimension2D?: number,
+ ): void {
+   if (
+     !Number.isFinite(canvas.clientWidth) ||
+@@ -856,8 +861,18 @@ export function syncCanvasDrawingBuffer(
+     canvas.clientHeight === previous.drawingHeight;
+   const cssWidth = drawingBufferIsTheLayoutMeasurement ? previous.cssWidth : canvas.clientWidth;
+   const cssHeight = drawingBufferIsTheLayoutMeasurement ? previous.cssHeight : canvas.clientHeight;
+-  const width = Math.max(1, Math.round(cssWidth * dpr));
+-  const height = Math.max(1, Math.round(cssHeight * dpr));
++  // Device limits belong to the admitted device, not the physical GPU or a
++  // browser-name preset. Downlevel WebGL devices may admit only a 2048px edge.
++  // Fit both axes with the same scale before allocating any surface/attachments.
++  const maxDimension =
++    maxTextureDimension2D !== undefined &&
++    Number.isFinite(maxTextureDimension2D) &&
++    maxTextureDimension2D >= 1
++      ? Math.floor(maxTextureDimension2D)
++      : Number.POSITIVE_INFINITY;
++  const scale = Math.min(dpr, maxDimension / cssWidth, maxDimension / cssHeight);
++  const width = Math.max(1, Math.round(cssWidth * scale));
++  const height = Math.max(1, Math.round(cssHeight * scale));
+   if (canvas.width !== width) canvas.width = width;
+   if (canvas.height !== height) canvas.height = height;
+   syncedCanvasSizes.set(canvas, {

@@ -1,0 +1,470 @@
+{
+  "manifestSha256": "5e0570a6e6f995b3e57ad3db7cfdceb0094278a2a7b7b91bbe06134404fba416",
+  "sources": [
+    {
+      "path": "assets/sfx/characters/boots/walk_01.wav",
+      "bytes": 21212,
+      "sha256": "45271e66718c9399045d1c1cef700681f45915dd3857161bf1d824dc3f520519"
+    },
+    {
+      "path": "assets/sfx/characters/boots/walk_02.wav",
+      "bytes": 21212,
+      "sha256": "a8521c8cac25d128b413eb2285bc635ab3a9a656501a7d56152d02d3c26c76fb"
+    },
+    {
+      "path": "assets/sfx/characters/boots/walk_03.wav",
+      "bytes": 21212,
+      "sha256": "3070ddf8a7bee1ce1795e55969e23d9ebba050d3f5975e355a1554e29629c25e"
+    },
+    {
+      "path": "assets/sfx/characters/boots/walk_04.wav",
+      "bytes": 21212,
+      "sha256": "f7fa5ff8a4cace4acd73ea087a30b21d6c037d64abcfccb42e5339defd220a0c"
+    },
+    {
+      "path": "assets/sfx/characters/boots/run_01.wav",
+      "bytes": 17684,
+      "sha256": "1e04ed179a2a5ee853bdd0c567b5e50712b50eed672b61e01bd03c5c008a4eed"
+    },
+    {
+      "path": "assets/sfx/characters/boots/run_02.wav",
+      "bytes": 17684,
+      "sha256": "a22859dfc65b53cbb17fbb1f52db6e43bde44336d2a1793501c26fa4ec5ebf04"
+    },
+    {
+      "path": "assets/sfx/characters/boots/run_03.wav",
+      "bytes": 17684,
+      "sha256": "fdc944b7bfefbd5277b5ed8a9af11bc31c516fef8892709785fdeb32676e14d7"
+    },
+    {
+      "path": "assets/sfx/characters/boots/run_04.wav",
+      "bytes": 17684,
+      "sha256": "91ac74675f2532b6abe5f9fdcacf51d95e74ec4492841eb073f3868cfeed5dea"
+    },
+    {
+      "path": "assets/sfx/characters/boots/crouch_01.wav",
+      "bytes": 19448,
+      "sha256": "3ba3bb79d15d9f1bf8e67fad263c31555587ee9355127d24df01dd2bd11ccd6b"
+    },
+    {
+      "path": "assets/sfx/characters/boots/crouch_02.wav",
+      "bytes": 19448,
+      "sha256": "97da39a54edf52a846f3bfb7abd726ff668d737d1d35dcaa987a830135e0967f"
+    },
+    {
+      "path": "assets/sfx/characters/boots/crouch_03.wav",
+      "bytes": 19448,
+      "sha256": "6dfccd34256f8503b0b315f386d9a9c37f7c56990f494860b9c83b79ed82bd20"
+    },
+    {
+      "path": "assets/sfx/characters/boots/crouch_04.wav",
+      "bytes": 19448,
+      "sha256": "7465ca75fbe999e676a26e431540b9e5b10c8c84f5efd35039285b13c8544c57"
+    },
+    {
+      "path": "assets/sfx/characters/body/jump_01.wav",
+      "bytes": 28268,
+      "sha256": "6bd30f3d101e90132bcbf71eb84a11e6440bc04bb524ea379d6960d88b2789c5"
+    },
+    {
+      "path": "assets/sfx/characters/body/land_soft_01.wav",
+      "bytes": 31796,
+      "sha256": "d4efbb142d356876b954b918d374c34421bd11355bc7b41d91191c5e87ccd58e"
+    },
+    {
+      "path": "assets/sfx/characters/body/land_hard_01.wav",
+      "bytes": 48556,
+      "sha256": "39d46a685f4ac311b3e51a5328502887a1c15524c39597e1e7dc4df19aaa5a99"
+    },
+    {
+      "path": "assets/sfx/characters/body/hurt_01.wav",
+      "bytes": 37088,
+      "sha256": "3e35474cf18206c2e3a1b71c8ba149f9eda7d09b9a333d409d034f24580cf897"
+    },
+    {
+      "path": "assets/sfx/characters/body/hurt_02.wav",
+      "bytes": 37088,
+      "sha256": "9d41b14035e35172209a0ddd710670436a0ef9526bc29f380d31363626002ce1"
+    },
+    {
+      "path": "assets/sfx/characters/body/death_01.wav",
+      "bytes": 83834,
+      "sha256": "f7bdfca6b44f60c34f449b07e17b3a6f2640adcddbf2a79bd1ce1fb640013ddb"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle545/fire_close_01.wav",
+      "bytes": 34596,
+      "sha256": "960cea1a370948a28fda475da8ca793f9bb89db58ad5bcce2ad6635793aa55a8"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle545/fire_close_02.wav",
+      "bytes": 34186,
+      "sha256": "d9b69abe73bf7a18ba1999094f98a8912ba0cb7ad4182efaf720b251ec6ed9c6"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle545/fire_distant_01.wav",
+      "bytes": 72368,
+      "sha256": "58c43ecfb46b2e1d45120138b6bdd39c2bfa06f4d53fac50bcbe775a1d793508"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle556/fire_close_01.wav",
+      "bytes": 29020,
+      "sha256": "12eb2050cd879d68ee5ea09d948a567ba3e641e677034882184157c0f6b3d619"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle556/fire_close_02.wav",
+      "bytes": 28676,
+      "sha256": "b0c8c86a168e99b79ca8117ac401d873a10fa7dc105a9e0e926b0b3c1a09d6bd"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle556/fire_distant_01.wav",
+      "bytes": 65312,
+      "sha256": "5e129e1e296c61ae7982a9b8bf902e96ea8451a1ed4ee14e1bc2067c0b39f681"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle762/fire_close_01.wav",
+      "bytes": 37378,
+      "sha256": "f2d9ee73174c251d68753c8bb04b63a6a8518f3d91a4bc22bae4b0daa402722e"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle762/fire_close_02.wav",
+      "bytes": 36934,
+      "sha256": "6eeab46a738e5078c482c7ab44e85172f1724520bdb789072bc3f24ebbb045f2"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/rifle762/fire_distant_01.wav",
+      "bytes": 79424,
+      "sha256": "1262995401b6f8341cccdf8c6d8a2143d34f8919b91659bb38c483ea074cc3be"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/pdw46/fire_close_01.wav",
+      "bytes": 24544,
+      "sha256": "d9e2b2ca754fc8330ef7b5749d991a37554a91abf4364cea59f0ccccedb1ef98"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/pdw46/fire_close_02.wav",
+      "bytes": 24254,
+      "sha256": "36b62add3e7a5c161be317554de706b78a05f67ce921a42aa7fce3e7c15be1ed"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/pdw46/fire_distant_01.wav",
+      "bytes": 56492,
+      "sha256": "cb292a7dc35cf936acbb78943339a82ce28e2c18b660cedbb65b7a2104ad770d"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/smg9/fire_close_01.wav",
+      "bytes": 26924,
+      "sha256": "1912748864e371a05f9e6e8b093cf7a39c04ede21f4f232b4b5c07adfc182236"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/smg9/fire_close_02.wav",
+      "bytes": 26606,
+      "sha256": "94804b5ee7892240788e399f20184009ce18dfc796652b9fea140977e765f27a"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/smg9/fire_distant_01.wav",
+      "bytes": 60022,
+      "sha256": "50867190fa3149195104a46202d54850987fd7c84ac1e1d6d31d89baa80b6f39"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/lmg556/fire_close_01.wav",
+      "bytes": 33560,
+      "sha256": "f4d42a23371733903ab9bcb7401461bb0d6fbf6e5f4782066c666226bdd3cf9c"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/lmg556/fire_close_02.wav",
+      "bytes": 33162,
+      "sha256": "27070d41fb7b00ec807fc057bd779854a4e37ce9ac2cc46f5e253863a8fb564d"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/lmg556/fire_distant_01.wav",
+      "bytes": 74132,
+      "sha256": "0a29a76aa57fe0ef87feef8e9aed5c0dddff97ca4a3db049e8c2ce8b2893812e"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/dmr762/fire_close_01.wav",
+      "bytes": 39876,
+      "sha256": "39e8a9bbbc9404543f1544d9989a88342367144a2d900f8d1e15c3ecab148444"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/dmr762/fire_close_02.wav",
+      "bytes": 39404,
+      "sha256": "353eaae0c35ab8b47330c1cca824a903a4eee52fe705a986e0e68a3f3b2569d5"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/dmr762/fire_distant_01.wav",
+      "bytes": 84716,
+      "sha256": "90db2122c74298ec73f458cdc69f86f9cde6911ce5d0880eb7903ec5757501a3"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/sniperheavy/fire_close_01.wav",
+      "bytes": 47084,
+      "sha256": "da80011755c688b9fe85679a9e9e0d37c86a69472c7961a15141cd2c760042ba"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/sniperheavy/fire_close_02.wav",
+      "bytes": 46526,
+      "sha256": "c61febf7b5b0bcad4368407c960f528bbb80a608ebf6acce376256a1372a5aca"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/sniperheavy/fire_distant_01.wav",
+      "bytes": 98830,
+      "sha256": "0cd0625b8f56b40ea49339ab368967cd6e4cc18df396ce72038ec284d96d2601"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/pistol45/fire_close_01.wav",
+      "bytes": 23126,
+      "sha256": "f1b861bc57b8ff38826149a222fd596aec955d64500d1820fc128566df459d35"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/pistol45/fire_close_02.wav",
+      "bytes": 22852,
+      "sha256": "06ccc1ce73b409de448190809e5bbc76e5d7fe5b137bf3e5903ab564289c74f6"
+    },
+    {
+      "path": "assets/sfx/weapons/profiles/pistol45/fire_distant_01.wav",
+      "bytes": 52964,
+      "sha256": "0a544ba3cc010eb452e7b159981f0e55fd7aa0b44f520c4a5039c568da5d0d6e"
+    },
+    {
+      "path": "assets/sfx/weapons/mechanics/empty_01.wav",
+      "bytes": 14156,
+      "sha256": "13768e1ea89ef65eebe0ed5bb0f3168ebf97173e509ed5d45dd4b7f2148f708e"
+    },
+    {
+      "path": "assets/sfx/weapons/mechanics/reload_start_01.wav",
+      "bytes": 21212,
+      "sha256": "da55eea391f9a785ce8c88e1e08ae6b8af25b72ac3a3973866d8644650fcbc37"
+    },
+    {
+      "path": "assets/sfx/weapons/mechanics/reload_mag_01.wav",
+      "bytes": 28268,
+      "sha256": "1978c20224009343070f2402484adaf638eba6a3ce197e1176eb11af16b7ae89"
+    },
+    {
+      "path": "assets/sfx/weapons/mechanics/reload_rack_01.wav",
+      "bytes": 26504,
+      "sha256": "2b29467765b71e352c0fb0139262350099df9554cbd90315a7ca21db9b651a55"
+    },
+    {
+      "path": "assets/sfx/throwables/frag/pin_01.wav",
+      "bytes": 24742,
+      "sha256": "0e30126ffbff045e80329955e0a3c6e3d8a3315777e61bffa3c41a342cfce555"
+    },
+    {
+      "path": "assets/sfx/throwables/frag/throw_01.wav",
+      "bytes": 22976,
+      "sha256": "80b5d9b7e1978300c02e89526e6fc60d079287a6fde61af8ba6d6abcdb79f338"
+    },
+    {
+      "path": "assets/sfx/throwables/frag/bounce_01.wav",
+      "bytes": 19448,
+      "sha256": "dda463114bee7ed617b30a4a45c0e1833d766aac4540dfc9d3aa4124d4c59dc9"
+    },
+    {
+      "path": "assets/sfx/throwables/flash/pin_01.wav",
+      "bytes": 24742,
+      "sha256": "f22ab3def6e020feacc5253410f18812254befaf77c35281a2d999b311eecf48"
+    },
+    {
+      "path": "assets/sfx/throwables/flash/throw_01.wav",
+      "bytes": 22976,
+      "sha256": "c3983381a232dd6fbdce7001237bfdb04aa2a81271f615c0b698ab948571c485"
+    },
+    {
+      "path": "assets/sfx/throwables/flash/bounce_01.wav",
+      "bytes": 19448,
+      "sha256": "e9f853d43acb3eaf324402397c521927f6b6abc79b090e8320747bca94b73f9a"
+    },
+    {
+      "path": "assets/sfx/throwables/smoke/pin_01.wav",
+      "bytes": 24742,
+      "sha256": "48c154e6583d25f7466d2b46dde85ee49f8efaa78be7a8cba4c686738b37abea"
+    },
+    {
+      "path": "assets/sfx/throwables/smoke/throw_01.wav",
+      "bytes": 22976,
+      "sha256": "92ec02c6f5e211da1fb3a6834d876ebcc3207fb69efb71d35760a7ea91b54120"
+    },
+    {
+      "path": "assets/sfx/throwables/smoke/bounce_01.wav",
+      "bytes": 19448,
+      "sha256": "1898c1f264cf3fa759642788e083a68eb03e86c205ae4e9fec450dc3037dafea"
+    },
+    {
+      "path": "assets/sfx/throwables/frag/detonate_close_01.wav",
+      "bytes": 163214,
+      "sha256": "fb1e206f5b334baa793912f75b0c731c7b928c9c123aa3b8e36837819a8c1c30"
+    },
+    {
+      "path": "assets/sfx/throwables/frag/detonate_distant_01.wav",
+      "bytes": 198494,
+      "sha256": "e7697c6a1f9b99bc3aa34d324fb64d5c113a564d76cbceca72c7aa2afdd26910"
+    },
+    {
+      "path": "assets/sfx/throwables/flash/detonate_01.wav",
+      "bytes": 61784,
+      "sha256": "c39b31d654b3cfdc10ea7b5a0af88a16b897ac94e9356b015d550a228ca27db2"
+    },
+    {
+      "path": "assets/sfx/throwables/flash/ring_01.wav",
+      "bytes": 119116,
+      "sha256": "78306cf9c5a142d5c3cff91f6720647586ca06bfbcd3af3d5896298ec2b54d74"
+    },
+    {
+      "path": "assets/sfx/throwables/smoke/ignite_01.wav",
+      "bytes": 54728,
+      "sha256": "d039965a8e2a1ce0ce50c87c75358a64875a3a1eae0a08c94eee9054fe740ad4"
+    },
+    {
+      "path": "assets/sfx/throwables/smoke/hiss_loop_01.wav",
+      "bytes": 176444,
+      "sha256": "4de7291ff27265b3ec6de6d4cc44dfe598aad85e20e3901156c2661760d1f544"
+    },
+    {
+      "path": "assets/sfx/vehicles/jeep/idle_loop_01.wav",
+      "bytes": 150386,
+      "sha256": "09d183a3272d4f4db819b4f49841e0cb34538b76aac2c9b9aa8434eaf21a28bd"
+    },
+    {
+      "path": "assets/sfx/vehicles/jeep/engine_loop_01.wav",
+      "bytes": 149670,
+      "sha256": "5756a591688c4c61d429f0de85d377a6d7eb8df292f3995f8f11ae874d507f8b"
+    },
+    {
+      "path": "assets/sfx/vehicles/jeep/rev_loop_01.wav",
+      "bytes": 150116,
+      "sha256": "691cef2ad95d7277ca0b4773b4bfb764f1d52425f879b5d5547130565d738ee9"
+    },
+    {
+      "path": "assets/sfx/vehicles/jeep/movement_loop_01.wav",
+      "bytes": 158804,
+      "sha256": "f7638ffc2bfb523222e2956d636b88ce067d8bb0a1e34b812d4ff0883233db1f"
+    },
+    {
+      "path": "assets/sfx/vehicles/jeep/shift_01.wav",
+      "bytes": 30034,
+      "sha256": "3bd6d7339410377dc6ce41f55737a2558cb74e42d090a121476ed273259ac438"
+    },
+    {
+      "path": "assets/sfx/vehicles/jeep/brake_01.wav",
+      "bytes": 35324,
+      "sha256": "62e5a1bd06c76006315790885dd27701f00c40ae6f8ed0609e519cf658e632a9"
+    },
+    {
+      "path": "assets/sfx/vehicles/ifv/idle_loop_01.wav",
+      "bytes": 149752,
+      "sha256": "6c7ef0e4ff384b101eac1a6cd9bdf50b0fbf1b01cd785b4a30ab65c842b8911d"
+    },
+    {
+      "path": "assets/sfx/vehicles/ifv/engine_loop_01.wav",
+      "bytes": 150064,
+      "sha256": "b97606dcfb888f1df1661003ada0393efd9ea169908815bca62f1e08146691a9"
+    },
+    {
+      "path": "assets/sfx/vehicles/ifv/rev_loop_01.wav",
+      "bytes": 149634,
+      "sha256": "4f060fe8f2ae50f8cec8c5a55fd6c9ed05c5b6673f59a5e3d0ab676fe1b22464"
+    },
+    {
+      "path": "assets/sfx/vehicles/ifv/movement_loop_01.wav",
+      "bytes": 159334,
+      "sha256": "93490b8d20c9bdff9677cd784d7554d67e87c70cbdeee4380ac769a90e58edb5"
+    },
+    {
+      "path": "assets/sfx/vehicles/ifv/shift_01.wav",
+      "bytes": 30034,
+      "sha256": "0e8f465bb09669a3073d6f3c9eed48a25c2bd226f10f90e383968f8bbe37c92d"
+    },
+    {
+      "path": "assets/sfx/vehicles/ifv/brake_01.wav",
+      "bytes": 48556,
+      "sha256": "5bc8fd36c4fc4daaa993cd2e9072ea2e31b6d6cb275e1a0b9e8d365261892b44"
+    },
+    {
+      "path": "assets/sfx/vehicles/tank/idle_loop_01.wav",
+      "bytes": 150504,
+      "sha256": "7bb0971f19a9a7a00e29b6d0947dc8bc1962ffbe6859e5785756c132fe29b8f8"
+    },
+    {
+      "path": "assets/sfx/vehicles/tank/engine_loop_01.wav",
+      "bytes": 150344,
+      "sha256": "4bd1123552661d890fcbabddac277811f3ef0a0368034bde71bbe844f177e554"
+    },
+    {
+      "path": "assets/sfx/vehicles/tank/rev_loop_01.wav",
+      "bytes": 150240,
+      "sha256": "66f76d004d3f49c55fc09a29324cd87469103a638795ed22f5b1de0b6222de00"
+    },
+    {
+      "path": "assets/sfx/vehicles/tank/movement_loop_01.wav",
+      "bytes": 158100,
+      "sha256": "39f0741cda0f2cc3fd96c6e944437023751f19e5d50e18c7146e9a61e739bf19"
+    },
+    {
+      "path": "assets/sfx/vehicles/tank/shift_01.wav",
+      "bytes": 30034,
+      "sha256": "4bd99a47a55b65222304e04e741a48a21b8ac144c068d82cec207a11aaeb3e03"
+    },
+    {
+      "path": "assets/sfx/vehicles/tank/brake_01.wav",
+      "bytes": 48556,
+      "sha256": "f3ad33d1f0447fa7f275c1fb06f47b2294aaae7c728586b30b2c6ca2e9973e96"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/tank_cannon_01.wav",
+      "bytes": 127934,
+      "sha256": "058d352f17770623a88aa18d946dd4d2d1727d3b6b14a4c2e5103f6041c3d05e"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/tank_cannon_far_01.wav",
+      "bytes": 185264,
+      "sha256": "a8a97f3c418b5b2abbecb9a0b88da0f3187204a517ffbbb7ee0ae50351ef7a61"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/tank_breech_01.wav",
+      "bytes": 33560,
+      "sha256": "448e2ea50b93b624f44ea8a0a4cad2b05156b9b927bc96d971be5ca277ccb42c"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/tank_coax_01.wav",
+      "bytes": 21212,
+      "sha256": "5e9c1bc9d1404ea2b34e17e19acf5b6800f070974c9454109a783f87d735f3e6"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/tank_hmg_01.wav",
+      "bytes": 31796,
+      "sha256": "a1dfc2984421e782a2653bf5470756b7c0eb02338167bd1448ea85beea1ac40f"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/ifv_autocannon_01.wav",
+      "bytes": 42380,
+      "sha256": "9abd33c585351e7bf3e1ea7a686cb1e16bcae6066c4b9e1db69f2010fb3f01de"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/ifv_missile_01.wav",
+      "bytes": 83834,
+      "sha256": "e76c7eb070e564b9e6b5bd01c0fd4ead8790953a81a84c218e041eb0d5c6ec26"
+    },
+    {
+      "path": "assets/sfx/vehicles/weapons/ifv_grenade_01.wav",
+      "bytes": 48556,
+      "sha256": "32670ff790e5cb50b4dd374ef9244ec5d2a1aaca33bbc4b10851ca337e975535"
+    },
+    {
+      "path": "assets/sfx/vehicles/impacts/armor_01.wav",
+      "bytes": 48556,
+      "sha256": "73ea85e225838ac5717fa8b6ca4fa4e1af250c4db06a8d412953ed2c39a099f4"
+    },
+    {
+      "path": "assets/sfx/vehicles/impacts/ground_01.wav",
+      "bytes": 52964,
+      "sha256": "e1c3e7b2f027770352f174a6857011bb752d93d05f33a4c985ab106dd1e0b94b"
+    },
+    {
+      "path": "assets/sfx/vehicles/impacts/structure_01.wav",
+      "bytes": 61784,
+      "sha256": "41b14fdfb1fa4281dac1a9ef92ae680e451fdfe4980602ff6bab25fbd7d6266a"
+    }
+  ]
+}

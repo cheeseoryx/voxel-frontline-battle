@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-09-14",
+  "target": "采用造化原生渲染和物理，完整承接原版游戏功能",
+  "completeReplacement": false,
+  "features": [
+    {
+      "id": "engine",
+      "name": "本地造化引擎编译、工程绑定和生产构建",
+      "status": "verified",
+      "evidence": "docs/migration/engine-source.md"
+    },
+    {
+      "id": "navigation",
+      "name": "首页、模式选择、装备选择、部署和返回",
+      "status": "partial",
+      "evidence": "artifacts/native-equipment/verification.json"
+    },
+    {
+      "id": "weapons",
+      "name": "原版武器、兵种、装备与经济规则",
+      "status": "partial",
+      "evidence": "docs/migration/weapons-provenance.json"
+    },
+    {
+      "id": "conquest",
+      "name": "大征服占点、兵力、补给、胜负及完整 AI",
+      "status": "partial",
+      "evidence": "已接通 64 人新战术 AI、6 个控制点、占领/争夺/回退、兵力消耗、全点控制胜利；完整负载和补给细节待验收。"
+    },
+    {
+      "id": "tdm",
+      "name": "团队死斗完整对局",
+      "status": "partial",
+      "evidence": "24 人原计分规则与新战术 AI、技能/音效已接入；长局与全部操作组合待验收。"
+    },
+    {
+      "id": "ffa",
+      "name": "自由混战完整对局",
+      "status": "partial",
+      "evidence": "8 人无队伍对战、原个人计分与新 AI 已接入；随机地图及长局待验收。"
+    },
+    {
+      "id": "gungame",
+      "name": "枪械模式完整对局",
+      "status": "partial",
+      "evidence": "8 人无队伍对战、原武器进阶与新 AI 已接入；完整实战晋级及特殊武器操作待验收。"
+    },
+    {
+      "id": "demo",
+      "name": "爆破完整对局",
+      "status": "partial",
+      "evidence": "A/B 包点、携带/丢弃/拾取/安装/拆除、原单命回合及换边规则已接入；完整 BO13 浏览器验收待完成。"
+    },
+    {
+      "id": "core",
+      "name": "核心攻防完整对局",
+      "status": "partial",
+      "evidence": "原版默认地图 59 项布局/45 栋建筑/桥网，50 人新 AI，1000 HP 核心，前哨占领和部署，资源/掩体/防御塔，玩家与 AI 滑索通行均已接入；隔离进攻 AI 可摧毁核心。完整 50 人仿真仍未在 360 秒内伤到核心，目标推进验收失败，需继续改进战术协作与攻防节奏。"
+    },
+    {
+      "id": "solo",
+      "name": "原版单人、训练场与城区玩法",
+      "status": "partial",
+      "evidence": "单人入口当前仍只进入大征服地图探索"
+    },
+    {
+      "id": "destruction",
+      "name": "造化原生地形、破坏、碰撞与结构行为",
+      "status": "partial",
+      "evidence": "新标准采用造化 Rapier 体素碰撞、原生角色控制器、动态投掷物/碎块。现用整米作者数据；地形结构拆分/更细体素及门等附属物待接入，不再要求复刻旧物理解算。"
+    },
+    {
+      "id": "vehicles",
+      "name": "车辆、载具武器、维修、上下车与补给",
+      "status": "partial",
+      "evidence": "原版吉普/步战车/坦克模型和参数，原生碰撞驾驶、上下车、换座/换武器、弹匣/备弹/独立装填/过热、损毁/重生、基地补给；真实浏览器驾驶和两种座位射击通过。精细悬挂、制导、所有载具组合仍未完整验收。"
+    },
+    {
+      "id": "presentation",
+      "name": "角色动画、枪械动作、音频、天气、光照与视觉效果",
+      "status": "partial",
+      "evidence": "原生资产、材质和相机；93 个原音效已接入枪声、脚步、受伤、爆炸和载具循环。角色关节动作、天气等仍缺失；不再要求逐像素复刻旧渲染。"
+    },
+    {
+      "id": "network",
+      "name": "浏览服务器、快速匹配、PVP、AI 替换、断线重连",
+      "status": "pending",
+      "evidence": "当前预览对局全部在本机；尚无真实房间"
+    },
+    {
+      "id": "tools",
+      "name": "地图编辑、关卡编辑、塔楼编辑及导入导出",
+      "status": "pending",
+      "evidence": ""
+    },
+    {
+      "id": "archives",
+      "name": "装备档案、购买、成就、设置及持久数据兼容",
+      "status": "partial",
+      "evidence": "原经济交易已迁移测试；完整交互尚未接通"
+    },
+    {
+      "id": "delivery",
+      "name": "最终包、性能、长时稳定和 Studio 开发验收",
+      "status": "pending",
+      "evidence": "当前只验收 CLI 构建与局部浏览器旅程"
+    }
+  ]
+}

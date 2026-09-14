@@ -1,0 +1,50 @@
+[
+  {
+    "path": "modes/small-battle/js/tdm-match.js",
+    "sha256": "23f759a41a0c478feb23c7317c37be1cfe40be7acc99ba88e4d0009365173f2a",
+    "export": "installTdmMatch",
+    "bodyUnchangedExceptModuleStrictDirective": true
+  },
+  {
+    "path": "modes/small-battle/js/ffa-match.js",
+    "sha256": "4531a0a05148dd905bc0a2ba647feec0b5be59cff8613d1772d3101fb3cfc2e5",
+    "export": "installFfaMatch",
+    "bodyUnchangedExceptModuleStrictDirective": true
+  },
+  {
+    "path": "modes/small-battle/js/gg-match.js",
+    "sha256": "8019991ca208074f3dc46f25773923d465ba60c6320fd130b5718148a500a763",
+    "export": "installGgMatch",
+    "bodyUnchangedExceptModuleStrictDirective": true
+  },
+  {
+    "path": "modes/small-battle/js/sd-match.js",
+    "sha256": "10e93e747ed320d758173d9a741d671e9a8c4e14c6748d0b1dd8b5ddbad339f5",
+    "export": "installSdMatch",
+    "bodyUnchangedExceptModuleStrictDirective": true
+  },
+  {
+    "path": "modes/small-battle/js/sd-bomb.js",
+    "sha256": "e97637f8655ab873719d6497ded2e53e7ad0f3cc828f3e27c3b3af1db4aa4829",
+    "export": "installSdBomb",
+    "bodyUnchangedExceptModuleStrictDirective": true
+  },
+  {
+    "path": "modes/small-battle/js/sd-stats.js",
+    "sha256": "4bb182e7f4a5f38484b4424b734bdcbc11889c8a3eaf2316105a6e06e7f851a4",
+    "export": "installSdStats",
+    "bodyUnchangedExceptModuleStrictDirective": true
+  },
+  {
+    "path": "modes/small-battle/js/tdm-spawn.js",
+    "sha256": "bba8ff4903e8b76288ea9bfad0c088ead91b82fe00568f73419ecf4a6b24a559",
+    "export": "installTdmSpawn",
+    "bodyUnchangedExceptModuleStrictDirective": true
+  },
+  {
+    "path": "modes/small-battle/js/ffa-spawn.js",
+    "sha256": "be8499cc32e02255aeab208fd149e429fb8f3d6a9bbdb5daa3ff10775bea63b2",
+    "export": "installFfaSpawn",
+    "bodyUnchangedExceptModuleStrictDirective": true
+  }
+]

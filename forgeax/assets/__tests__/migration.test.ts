@@ -6,9 +6,9 @@ import source from '../original/soldiers.ts';
 import {sceneGuid,modelGuid,guidText} from '../identity.ts';
 
 describe('original content migration',()=>{
- it('keeps all eight faction/class variants and original triangle colors',async()=>{
+ it('keeps all original preview and AI variants and original triangle colors',async()=>{
   const r=await Reflect.apply(pack.build,undefined,[{}]);expect(r.ok).toBe(true);
-  expect(Object.keys(source.models)).toHaveLength(8);
+  expect(Object.keys(source.models)).toHaveLength(24);
   for(const [name,data] of Object.entries(source.models)){
    const mesh=r.value['soldier/'+name];expect(mesh.indices.length).toBe(data.indices.length);
    expect(mesh.attributes.position.length/3).toBe(data.vertices.length/8);
