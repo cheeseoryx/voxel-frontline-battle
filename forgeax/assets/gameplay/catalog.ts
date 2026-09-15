@@ -12,7 +12,7 @@ export const MODE_NAMES:Record<ModeId,string>={conquest:'大型战争 · 征服'
 export const SLOT_NAMES:Record<Slot,string>={primary:'主武器',secondary:'副武器',gadget1:'轻型装备',gadget2:'重型装备',grenade:'投掷物',melee:'近战'};
 export const SLOT_IDS=Object.keys(SLOT_NAMES) as Slot[];
 export const runtimeFor=(mode:ModeId):Runtime=>mode==='conquest'?'large':'small';
-export const classesFor=(mode:ModeId)=>original[runtimeFor(mode)].classes as readonly SoldierClass[];
+export const classesFor=(mode:ModeId)=>(original[runtimeFor(mode)].classes as readonly SoldierClass[]).map(c=>c.id==='vanguard'?{...c,blurb:'G 取出 C4，左键投出，右键引爆全部遥控炸药。投出后冷却 24 秒。',activeSkill:{name:'遥控 C4',desc:'G 取出 / 左键投出 / 右键引爆全部。命中黏附，可附着载具。'}}:c);
 export const className=(c:SoldierClass)=>c.nameZh||c.label.split(/[|｜]/).pop()?.trim()||c.id;
 export const weaponsFor=(mode:ModeId)=>original[runtimeFor(mode)].weapons as unknown as Record<string,Weapon>;
 export const teamless=(mode:ModeId)=>mode==='ffa'||mode==='gungame';
@@ -40,9 +40,10 @@ export function itemsFor(mode:ModeId,slot:Slot):Item[]{
  }
  if(runtime==='large'){
   const list=slot==='grenade'?original.large.gadgets.grenades:slot==='melee'?original.large.gadgets.melee:original.large.gadgets.equipment;
-  return list.map(i=>({...i,def:weapons[i.id]}));
+  return list.map(i=>({...i,desc:i.id==='charge'?'左键投出，右键引爆全部已投出的遥控炸药；可黏附墙面和载具。':i.desc,def:weapons[i.id]}));
  }
- if(slot==='grenade')return Object.entries(original.small.throwables).map(([id,def])=>({id,name:def.nameZh,kind:id,desc:def.flavor||''}));
+ if(slot==='grenade')return Object.entries(original.small.throwables).map(([id,def])=>({id,name:def.nameZh,kind:id,desc:id==='semtex'?'Q 取出，命中黏附；左键投出，右键引爆全部已投出的遥控炸药。':def.flavor||''}));
+ if(slot==='melee'&&(mode==='core'||mode==='gungame'))return [];
  if(slot==='melee')return [{id:'knife',name:'战术匕首',kind:'knife',desc:'近战'}];
  return [];
 }
@@ -57,6 +58,7 @@ export function equipItem(mode:ModeId,slot:Slot,id:string,loadout:Loadout,econom
   if(slot==='primary'||slot==='secondary'){economy.setLoadoutSlot!(id,slot==='primary'?1:2);if(economy.weaponForSlot!(slot==='primary'?1:2)!==id)return false;}
   else if(slot==='grenade'){economy.setThrowableSlot!(id);if(economy.throwableForSlot!()!==id)return false;}
  }
+ if(mode==='conquest'&&(slot==='gadget1'||slot==='gadget2')){const other=slot==='gadget1'?'gadget2':'gadget1';if(loadout[other]===id)loadout[other]=loadout[slot];}
  loadout[slot]=id;return true;
 }
 export {original};

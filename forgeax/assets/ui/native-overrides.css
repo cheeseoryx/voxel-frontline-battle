@@ -17,3 +17,18 @@
 #native-battle-message:empty{display:none;}
 #minimap{width:100%;height:100%;display:block;overflow:hidden;}
 #kill-feed{font-size:14px;line-height:1.8;}
+
+/* Equipment state only; preserve the deployed UI layout. */
+#native-equipment-effect{position:absolute;inset:0;pointer-events:none;z-index:15;}
+#native-melee-slot .gadget-slot-role{white-space:nowrap;}
+#throw-hud .selected,#gadget-hud .selected{border-color:#98d5ef;box-shadow:inset 0 -2px #98d5ef;}
+
+.native-equipment-icon{background:none!important;clip-path:none!important;mask:none!important;-webkit-mask:none!important;}
+.native-equipment-icon::before,.native-equipment-icon::after{display:none!important;}
+.native-equipment-icon svg{display:block;width:100%;height:100%;fill:currentColor;}
+
+#native-binocular-optic{position:absolute;inset:0;pointer-events:none;z-index:10;background:radial-gradient(ellipse 60% 65% at center,transparent 64%,rgba(5,8,10,.92) 66%);}
+
+#native-throwable-status{position:absolute;left:50%;top:62%;transform:translateX(-50%);padding:.5em .9em;color:#eff6f8;background:rgba(14,24,31,.72);border-left:2px solid #bcdbea;font:500 13px/1.5 sans-serif;pointer-events:none;z-index:16;white-space:nowrap}
+
+.native-large-class-icon{display:grid;place-items:center;font:700 26px/1 sans-serif;color:#a8d5e5}

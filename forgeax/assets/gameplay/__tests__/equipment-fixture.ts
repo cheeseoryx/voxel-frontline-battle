@@ -1,0 +1,32 @@
+import {describe,it,expect} from 'vitest';
+import {World} from '@forgeax/engine/ecs';
+import {Transform,GlobalTransform,Name,ChildOf} from '@forgeax/engine/scene';
+import {MeshFilter,MeshRenderer,Visibility} from '@forgeax/engine/render';
+import {registerPhysicsComponents} from '@forgeax/engine/physics';
+import {createRapier3DPhysicsWorld,loadRapier3D,registerPhysicsSystems} from '@forgeax/engine/physics-rapier3d';
+import {createBoxGeometry} from '@forgeax/engine/geometry';
+import {NativePhysics} from '../native-physics.ts';
+import {createEquipment,type EquipmentAssets} from '../native-equipment.ts';
+import {EquipmentInventory,equipmentSlot} from '../equipment-rules.ts';
+import {weaponsFor,equipItem,createEconomies,type Loadout,type ModeId} from '../catalog.ts';
+import {smallTerrainMaterialGuid} from '../../identity.ts';
+import {VoxelMap,type Vec3} from '../voxel-map.ts';
+const kit:Loadout={primary:'ak74',secondary:'usp',gadget1:'medkit',gadget2:'ammo',grenade:'frag',melee:'knife'};
+export async function setup(loadout=kit,mode:ModeId='conquest'){
+ const world=new World();for(const c of [Transform,GlobalTransform,Name,ChildOf,MeshFilter,MeshRenderer,Visibility])world.components.register(c).unwrap();registerPhysicsComponents(world);
+ const rapier=await loadRapier3D();if('code' in rapier)throw Error(rapier.code);const backend=createRapier3DPhysicsWorld(rapier);world.insertResource('PhysicsWorld',backend);const unregister=registerPhysicsSystems(world);
+ const size=64,ground=new Int8Array(size*size),map=new VoxelMap(size,24,new Uint8Array(size*size*24),ground,new Float32Array(size*size),{});for(let x=0;x<size;x++)for(let z=0;z<size;z++)map.set(x,0,z,1);
+ const physics=new NativePhysics(world,map),body=physics.character([30,1.04,30],'player'),camera=world.spawn({component:Transform,data:{pos:[30,2.84,30]}}).unwrap(),enemyBody=physics.character([30,1.04,22],'enemy');
+ const defs=weaponsFor(mode),b:any={mode,classId:mode==='conquest'?'assault':'vanguard',map,physics,playerBody:body,camera,equipment:loadout,material:smallTerrainMaterialGuid,dead:false,health:50,armor:0,buildBlocks:8,buildCores:0,deployables:[],elapsed:0,skillCooldown:0,keys:new Set(),yaw:0,pitch:0,notice:'',noticeLeft:0,reload:0,cooldown:0,shots:0,broken:0,grenades:2,ammoState:Object.fromEntries(Object.entries(defs).map(([id,w])=>[id,{mag:w.magSize,reserve:w.reserve}]))};
+ const player:any={id:'player',alive:true,isPlayer:true,team:'ally',entity:body},enemy:any={id:'enemy',alive:true,hp:100,team:'enemy',entity:enemyBody,mesh:{rotation:{y:0}}};
+ b.arena={match:{scoringLive:()=>true},objectives:[],player,units:[enemy],position:(u:any)=>{const p=physics.position(u.entity);return [p[0],p[1]-.9,p[2]];},damage:(u:any,n:number)=>{if(u.isPlayer)b.health=Math.max(0,b.health-n);else u.hp-=n;},blast:()=>{}};
+ const h=world.allocSharedRef('MeshAsset',{...createBoxGeometry(.5,.4,.5).unwrap(),materialSlots:[{slotName:'body',defaultMaterial:smallTerrainMaterialGuid(1)}]});
+ const assets:EquipmentAssets=new Map(['medkit','ammo','charge'].map(id=>['deployed/'+id,h]));
+ const setWeapon=(id:string,refill:boolean)=>{b.weaponId=id;b.weapon=defs[id];b.reload=0;b.cooldown=0;if(refill)b.ammoState[id]={mag:defs[id].magSize,reserve:defs[id].reserve};};
+ setWeapon(loadout.primary,false);Object.defineProperties(b,{mag:{get:()=>b.ammoState[b.weaponId].mag,set:(v:number)=>b.ammoState[b.weaponId].mag=v},reserve:{get:()=>b.ammoState[b.weaponId].reserve,set:(v:number)=>b.ammoState[b.weaponId].reserve=v}});
+ const gear=createEquipment(world,b,assets,setWeapon);b.gear=gear;
+ const tick=(dt=1/60)=>{b.elapsed+=dt;physics.around(physics.position(body));physics.around(physics.position(enemyBody));physics.flush();world.update(dt).unwrap();gear.update(dt);b.cooldown=Math.max(0,b.cooldown-dt);};
+ const advance=(seconds:number)=>{for(let i=0;i<Math.ceil(seconds*60);i++)tick();};
+ advance(.5);
+ return {b,world,physics,backend,gear,enemy,advance,dispose(){gear.dispose();physics.dispose();world.despawn(body).unwrap();world.despawn(camera).unwrap();world.despawn(enemyBody).unwrap();world.sharedRefs.release(h).unwrap();world.update(1/60).unwrap();expect(backend.getBodyCount()).toBe(0);unregister();backend.dispose();}};
+}

@@ -1,0 +1,21 @@
+{
+  "sources": [
+    {
+      "path": "js/audio.js",
+      "sha256": "91cf30044f4c41f1d311ce4d5f5087a7ad56c3cadba81071a5bc2990260a1c89"
+    },
+    {
+      "path": "modes/small-battle/js/audio.js",
+      "sha256": "bd75939779e424021c32660377af972ccc000e49fbcc141b82b649dd581847a3"
+    }
+  ],
+  "processing": "Original SOUNDS and envelope/filter functions executed in offline build context; fixed noise seed 0x4d454c45; Engine AudioSource at runtime",
+  "clips": [
+    "melee/melee_swing.wav",
+    "melee/melee_hit.wav",
+    "melee/melee_backstab.wav",
+    "small/melee/melee_swing.wav",
+    "small/melee/melee_hit.wav",
+    "small/melee/melee_backstab.wav"
+  ]
+}

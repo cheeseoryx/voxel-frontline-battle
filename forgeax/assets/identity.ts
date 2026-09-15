@@ -20,3 +20,6 @@ export const vehicleGuid=(key:string)=>AssetGuid.derive(vehiclePackage,key);
 
 export const audioPackage=definePackageId('fc5a27fb-6a94-4205-96ea-af573a5581d4');
 export const audioGuid=(key:string)=>AssetGuid.derive(audioPackage,key);
+
+export const throwableFxPackage=definePackageId('40d91c03-b273-445d-b4b3-d1e2eb17455b');
+export const throwableFxGuid=(key:string)=>AssetGuid.derive(throwableFxPackage,'material/'+key);
