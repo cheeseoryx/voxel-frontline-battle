@@ -3,7 +3,7 @@ const {chromium}=require('playwright'),assert=require('assert/strict'),fs=requir
 (async()=>{const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--enable-unsafe-swiftshader']});try{
  const context=await browser.newContext({viewport:{width:1440,height:900}}),errors=[];
  let page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
- const out='docs/ui-refactor';fs.mkdirSync(out,{recursive:true});
+ const out=require('path').join(process.env.VOXEL_FRONTLINE_DOCS_DIR || require('path').resolve(__dirname,'../../voxel-frontline-docs'),'docs/ui-refactor');fs.mkdirSync(out,{recursive:true});
  await page.goto('http://127.0.0.1:8765/',{waitUntil:'domcontentloaded'});await page.waitForSelector('#enter-hub-btn:not([disabled])',{timeout:60000});await page.click('#enter-hub-btn');await page.waitForSelector('#mode-overlay:not(.hidden)',{timeout:60000});await page.waitForTimeout(900);
  await page.screenshot({path:out+'/lobby.png'});
  assert.equal(await page.locator('.mode-back').count(),0);
