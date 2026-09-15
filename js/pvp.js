@@ -415,7 +415,6 @@
         slot.weaponId = this.localLoadout.weaponId;
         slot.spawnId = this.localLoadout.spawnId;
         slot.team = this.localLoadout.team;
-        slot.skinId = this.localLoadout.skinId;
       }
       if (this._playState) {
         slot.x = this._playState.x;
@@ -510,12 +509,6 @@
             weaponId: other.weaponId || 'ar',
             spawnId: other.spawnId || null,
             team: other.team || (this.mode === 'host' ? 'enemy' : 'ally'),
-            // bus 槽位没带 skinId 时沿用 spawnReady 送来的值，
-            // 否则会被 sanitize 归 'box' 覆盖掉
-            skinId:
-              other.skinId ||
-              (this.remoteLoadout && this.remoteLoadout.skinId) ||
-              'box',
           });
         }
         if (other.x != null) {
@@ -1454,15 +1447,6 @@
         global.VF.WEAPONS[loadout.weaponId]
           ? loadout.weaponId
           : 'ar';
-      const validSkins = ['box'].concat(
-        ((global.VF && global.VF.SoldierVoxel && global.VF.SoldierVoxel.SKINS) || []).map(
-          function (s) {
-            return s.id;
-          }
-        )
-      );
-      const skinId =
-        validSkins.indexOf(loadout.skinId) >= 0 ? loadout.skinId : 'box';
       let spawnId = loadout.spawnId || null;
       const world = global.VF && global.VF.game && global.VF.game.world;
       const spawnPoints =
@@ -1481,7 +1465,6 @@
         weaponId: weaponId,
         spawnId: spawnId,
         team: expectedTeam,
-        skinId: skinId,
       };
     },
 
@@ -1667,13 +1650,12 @@
       if (model) model.visible = false;
     },
 
-    _makePreviewModel(classId, team, skinId) {
+    _makePreviewModel(classId, team) {
       const Soldier = global.VF.Soldier;
       let m;
       if (Soldier.createClassSoldier) {
         m = Soldier.createClassSoldier(classId || 'assault', {
           team: team || 'ally',
-          skinId: skinId || 'box',
         });
       } else {
         m = Soldier.createPreviewSoldier(classId || 'assault');
@@ -1692,33 +1674,17 @@
       if (!prev || !prev.scene) return;
       const ll = this.localLoadout;
       const rl = this.remoteLoadout;
-      const youSkin =
-        (global.VF.Soldier &&
-          global.VF.Soldier.getPlayerSkinId &&
-          global.VF.Soldier.getPlayerSkinId()) ||
-        'box';
-      const foeSkin = (rl && rl.skinId) || 'box';
       const youKey =
         (ll && ll.classId ? ll.classId : 'assault') +
         '|' +
-        (ll && ll.team ? ll.team : 'ally') +
-        '|' +
-        youSkin;
+        (ll && ll.team ? ll.team : 'ally');
       const foeKey = rl
-          ? (rl.classId || 'assault') +
-            '|' +
-            (rl.team || 'enemy') +
-            '|' +
-            foeSkin
+          ? (rl.classId || 'assault') + '|' + (rl.team || 'enemy')
         : '';
 
       if (youKey !== prev.youKey) {
         if (prev.youModel) prev.scene.remove(prev.youModel);
-        prev.youModel = this._makePreviewModel(
-          ll && ll.classId,
-          ll && ll.team,
-          youSkin
-        );
+        prev.youModel = this._makePreviewModel(ll && ll.classId, ll && ll.team);
         prev.scene.add(prev.youModel);
         prev.youKey = youKey;
       }
@@ -1729,11 +1695,7 @@
           prev.foeModel = null;
         }
         if (foeKey) {
-          prev.foeModel = this._makePreviewModel(
-            rl.classId,
-            rl.team,
-            foeSkin
-          );
+          prev.foeModel = this._makePreviewModel(rl.classId, rl.team);
           prev.scene.add(prev.foeModel);
         }
         prev.foeKey = foeKey;
@@ -2259,21 +2221,26 @@
         (this.remoteState && this.remoteState.team) ||
         (this.remoteLoadout && this.remoteLoadout.team) ||
         (this.mode === 'host' ? 'enemy' : 'ally');
-      const skinId = (this.remoteLoadout && this.remoteLoadout.skinId) || 'box';
+      // 远端拿的枪：有美术 GLB 就背上美术枪，否则还是程序化步枪
+      const weaponId =
+        (this.remoteState && this.remoteState.weaponId) ||
+        (this.remoteLoadout && this.remoteLoadout.weaponId) ||
+        null;
       const V = global.VF && global.VF.SoldierVoxel;
-      // 体素皮肤未就绪时先用盒子兵顶上，同时触发加载；
-      // 加载完成后 wantApplied 变化，下一次调用自然重建
-      const wantApplied =
-        skinId !== 'box' && V && V.isReady(skinId) ? skinId : 'box';
-      if (skinId !== 'box' && V && !V.isReady(skinId)) {
-        V.preload(skinId);
-      }
+      // 兵种模型未就绪时先用盒子兵顶上，同时触发加载；
+      // 加载完成后 appliedModel 变化，下一次调用自然重建
+      const wantApplied = V && V.isReady(classId) ? 'glb' : 'box';
+      if (V && !V.isReady(classId)) V.preload(classId);
+      const WM = global.VF && global.VF.WeaponModels;
+      if (weaponId && WM && WM.preload && !WM.has(weaponId)) WM.preload([weaponId]);
 
       if (
         this.remoteAvatar &&
         this.remoteAvatar.classId === classId &&
         this.remoteAvatar.team === team &&
-        this.remoteAvatar.appliedSkinId === wantApplied
+        this.remoteAvatar.weaponId === weaponId &&
+        this.remoteAvatar.appliedModel === wantApplied &&
+        (!weaponId || !WM || WM.has(weaponId)) === this.remoteAvatar.appliedWeaponArt
       ) {
         return this.remoteAvatar;
       }
@@ -2281,7 +2248,7 @@
       this.removeRemoteAvatar(scene);
       const mesh = global.VF.Soldier.createClassSoldier(classId, {
         team: team,
-        skinId: wantApplied,
+        weaponId: weaponId,
       });
       mesh.name = 'RemotePlayer';
       mesh.rotation.order = 'YXZ';
@@ -2290,7 +2257,9 @@
         mesh: mesh,
         classId: classId,
         team: team,
-        appliedSkinId: wantApplied,
+        weaponId: weaponId,
+        appliedWeaponArt: !!(weaponId && WM && WM.has(weaponId)),
+        appliedModel: wantApplied,
         _tx: 0,
         _ty: 8,
         _tz: 0,
@@ -2332,6 +2301,16 @@
       while (dy < -Math.PI) dy += Math.PI * 2;
       m.rotation.y += dy * k;
       m.visible = st.alive !== false && !st.stealth && !st.vehicleId;
+      const Vox = global.VF && global.VF.SoldierVoxel;
+      // 阵亡切 Death（终态，停在最后一帧），复活切回 locomotion。
+      // 注意：上面 m.visible 在阵亡时已经把化身隐藏了，所以倒地动画目前看不见；
+      // 这里仍然同步状态，避免复活后角色还停在死亡姿势上。
+      if (st.alive === false && av._alive !== false) {
+        if (Vox && Vox.die) Vox.die(m);
+      } else if (st.alive !== false && av._alive === false) {
+        if (Vox && Vox.revive) Vox.revive(m);
+      }
+      av._alive = st.alive;
       if (
         av._weaponFireSeq != null &&
         st.weaponFireSeq != null &&
@@ -2340,6 +2319,8 @@
         !st.vehicleId &&
         global.VF.Audio
       ) {
+        // 骨骼角色播开火动作；盒子兵没有 glbAnim，内部直接忽略
+        if (Vox && Vox.fire) Vox.fire(m);
         global.VF.Audio.play('weapon.' + (st.weaponId || 'ak74') + '.fire', {
           position: m.position,
           maxDistance: 280,

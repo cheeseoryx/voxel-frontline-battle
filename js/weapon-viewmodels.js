@@ -105,7 +105,37 @@
     return 'rifle';
   }
 
-  function buildGun(def) {
+  /**
+   * @param {object} def  weapon-catalog 里的武器定义（必须有 def.id）
+   * @param {object} [opts] { art: true } 才走美术 GLB
+   *
+   * 美术资产是**显式 opt-in**，不是默认行为。两个理由：
+   *   1. 这里的程序化枪是"枪身原点在枪膛、总长 1.34m"，而 GLB 是真枪尺寸、
+   *      原点在握把。第一人称的双手是 add 到 gun 节点上的固定局部坐标
+   *      （js/soldier.js createViewModel 的 ViewRightHand / ViewLeftHand），
+   *      换成 GLB 手就浮在枪外了。第一人称要吃 GLB，得走 soldier.js 里那条
+   *      带重新摆位的 glbGun 分支，不能从这儿走。
+   *   2. forgeax/scripts/import-original-weapons.cjs 靠这个函数导出**原始
+   *      程序化**武器做对照，默认给 GLB 会把对照基准弄坏。
+   * 只有展示界面（js/arsenal.js 的预览 canvas）适合直接要美术枪。
+   */
+  function buildGun(def, opts) {
+    // 美术资产优先（assets/weapons/*.glb，见 js/weapon-models.js）。
+    // 展示界面必须从这里拿 GLB：它是唯一入口（预览 canvas 只认 buildGun）。
+    // 没资产 / 还没加载完就照旧走程序化，不会开天窗。
+    const art =
+      opts && opts.art && def && def.id && global.VF && global.VF.WeaponModels && global.VF.WeaponModels.build
+        ? global.VF.WeaponModels.build(def.id)
+        : null;
+    if (art) {
+      // 中性姿势，与程序化枪一致（枪口朝 -Z）。
+      // arsenal.js 会把这个 transform 归零、再按包围盒重新取景；
+      // 这里给值是为了让其它直接调用方也能拿来就用。
+      art.gun.position.set(0.05, -0.05, -0.1);
+      art.gun.rotation.set(0.1, 0.16, 0.05);
+      return art;
+    }
+
     const gun = new THREE.Group();
     gun.name = 'ViewGun';
     gun.frustumCulled = false;

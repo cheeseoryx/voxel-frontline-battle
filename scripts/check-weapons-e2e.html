@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<!-- base href="/" 必须：本页在 /scripts/ 下，武器 GLB 按相对 assets/ 解析 -->
+<base href="/" />
+<title>check-weapons-e2e harness</title>
+<style>
+  html,body{margin:0;background:#1b2430}
+  #wrap{position:relative;width:1080px;height:420px}
+  #wrap canvas{position:absolute;left:0;top:0;display:block}
+  #gl{z-index:1}
+  #lbl{z-index:2;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="gl" width="1080" height="420"></canvas>
+  <canvas id="lbl" width="1080" height="420"></canvas>
+</div>
+<script src="../js/vendor/three.gltf.global.js"></script>
+<script src="../js/weapon-models.js"></script>
+<script src="../js/weapon-viewmodels.js"></script>
+<script src="../js/weapon-catalog.js"></script>
+<script src="../js/soldier.js"></script>
+<script>
+/*
+ * 端到端验证页：走游戏真实的三条消费路径渲染美术枪械。
+ *   ① 第一人称  VF.Soldier.createViewModel(classId, weaponId)
+ *   ② 第三人称  VF.Soldier.createClassSoldier(classId, { weaponId, voxel:false })
+ *   ③ 背枪      VF.SoldierVoxel._mountBackWeapon 需要骨骼模型，这里跳过，
+ *              由 check-roles.js 那条链路单独覆盖（体素角色需要 soldier_anims）
+ *
+ * 断言思路：
+ *   - createViewModel 产出的 gun 下有 WeaponMesh（说明吃了 GLB，不再是盒子）
+ *   - muzzle 世界坐标在相机前方（-Z），高度接近准星线
+ *   - 五把枪两两截图不同（证明换的是不同资产，不是同一个模型）
+ */
+(function () {
+  const glCanvas = document.getElementById('gl');
+  const lblCanvas = document.getElementById('lbl');
+  const renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: true, preserveDrawingBuffer: true });
+  renderer.setSize(1080, 420, false);
+  renderer.setScissorTest(true);
+
+  const W = 540;
+  const H = 420;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x1b2430);
+  scene.add(new THREE.HemisphereLight(0xdfeaff, 0x2a3340, 1.0));
+  const key = new THREE.DirectionalLight(0xfff2e0, 1.5);
+  key.position.set(1.5, 3, 2);
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0x88aaff, 0.8);
+  rim.position.set(-3, 1.5, -2);
+  scene.add(rim);
+
+  let fpsRoot = null;
+  let tpsRoot = null;
+
+  function clearRoots() {
+    if (fpsRoot && fpsRoot.parent) fpsRoot.parent.remove(fpsRoot);
+    if (tpsRoot && tpsRoot.parent) tpsRoot.parent.remove(tpsRoot);
+    fpsRoot = null;
+    tpsRoot = null;
+  }
+
+  // ① 第一人称：viewmodel 正常是挂在相机下的相机空间节点
+  function buildFPS(classId, weaponId) {
+    const cam = new THREE.PerspectiveCamera(58, W / H, 0.01, 100);
+    cam.position.set(0, 0, 0);
+    const vm = VF.Soldier.createViewModel(classId, weaponId, { team: 'ally' });
+    fpsRoot = vm.root;
+    cam.add(fpsRoot);
+    scene.add(cam);
+    vm.root.updateMatrixWorld(true);
+    const gunMesh = vm.gun.getObjectByName('WeaponMesh');
+    const worldMuzzle = new THREE.Vector3();
+    vm.muzzle.getWorldPosition(worldMuzzle);
+    return {
+      cam: cam,
+      isArt: !!gunMesh,
+      gunChildren: vm.gun.children.map((c) => c.name),
+      muzzleWorld: [worldMuzzle.x, worldMuzzle.y, worldMuzzle.z],
+      // 相机空间下 muzzle 的 z 就是"枪口在准星前方多远"，越负越靠前
+      muzzleInCam: vm.muzzle.position.toArray().map((v) => +v.toFixed(3)),
+    };
+  }
+
+  // ② 第三人称：createClassSoldier 走盒子兵（voxel:false），枪由 addGun 挂在手上
+  function buildTPS(classId, weaponId) {
+    tpsRoot = VF.Soldier.createClassSoldier(classId || 'assault', {
+      team: 'ally',
+      voxel: false,
+      weaponId: weaponId,
+    });
+    scene.add(tpsRoot);
+    // 面向镜头，略侧一点看清枪身
+    tpsRoot.rotation.y = Math.PI * 0.82;
+    tpsRoot.updateMatrixWorld(true);
+    const gun = tpsRoot.getObjectByName('ViewGun') || tpsRoot.getObjectByName('Weapon');
+    const gunMesh = gun ? gun.getObjectByName('WeaponMesh') : null;
+    const box = gun ? new THREE.Box3().setFromObject(gun) : null;
+    const size = new THREE.Vector3();
+    if (box) box.getSize(size);
+    return {
+      isArt: !!gunMesh,
+      gunName: gun ? gun.name : null,
+      gunChildren: gun ? gun.children.map((c) => c.name) : [],
+      gunSize: [+size.x.toFixed(3), +size.y.toFixed(3), +size.z.toFixed(3)],
+    };
+  }
+
+  function drawLabels(title, info) {
+    const ctx = lblCanvas.getContext('2d');
+    ctx.clearRect(0, 0, 1080, 420);
+    ctx.fillStyle = '#ff6b8a';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText(title, 8, 20);
+    ctx.fillStyle = '#9fb3c8';
+    ctx.font = '12px sans-serif';
+    ctx.fillText(info, 8, 38);
+    ctx.fillStyle = '#7fd1ff';
+    ctx.font = '13px sans-serif';
+    ctx.fillText('① 第一人称 viewmodel（相机空间）', 12, 410);
+    ctx.fillText('② 第三人称化身手持（世界空间）', W + 12, 410);
+    // 中缝
+    ctx.strokeStyle = '#2b3a4a';
+    ctx.beginPath();
+    ctx.moveTo(W, 0);
+    ctx.lineTo(W, 420);
+    ctx.stroke();
+  }
+
+  async function render(id) {
+    const M = VF.WeaponModels;
+    if (!M) return { ok: false, reason: 'VF.WeaponModels 未注册' };
+    await M.preloadAll();
+    if (!M.has(id)) return { ok: false, reason: '没有 ' + id + ' 的美术资产' };
+
+    clearRoots();
+
+    // ---- ① 第一人称 ----
+    const fps = buildFPS('assault', id);
+    const fpsCam = fps.cam;
+    renderer.setViewport(0, 0, W, H);
+    renderer.setScissor(0, 0, W, H);
+    renderer.render(scene, fpsCam);
+    scene.remove(fpsCam);
+
+    // ---- ② 第三人称 ----
+    const tps = buildTPS('assault', id);
+    const tpsCam = new THREE.PerspectiveCamera(38, W / H, 0.1, 40);
+    tpsCam.position.set(0.9, 1.5, 2.6);
+    tpsCam.lookAt(0, 1.15, 0);
+    renderer.setViewport(W, 0, W, H);
+    renderer.setScissor(W, 0, W, H);
+    renderer.render(scene, tpsCam);
+
+    const def = VF.WEAPON_CATALOG && VF.WEAPON_CATALOG[id];
+    drawLabels(
+      id + (def ? '  ' + (def.name || '') : '') + '   资产就绪 ✓' + (M.has(id) ? '' : '(缺)'),
+      '尺寸 ' + (tps.gunSize || []).join('×') + 'm    ' +
+        '第一人称枪口(相机空间) [' + fps.muzzleInCam.join(', ') + ']    ' +
+        'gun 子节点 ' + (fps.gunChildren || []).join(',')
+    );
+
+    return {
+      ok: true,
+      fpsIsArt: fps.isArt,
+      fpsGunChildren: fps.gunChildren,
+      fpsMuzzleInCam: fps.muzzleInCam,
+      tpsIsArt: tps.isArt,
+      tpsGunName: tps.gunName,
+      tpsGunSize: tps.gunSize,
+    };
+  }
+
+  window.WeaponsE2E = {
+    // 只测枪：注册表里现在还登记了投掷物（长轴 Y、没有枪口），
+    // 走这条"第一人称找 muzzle + 第三人称断言长轴 Z"的链路会直接炸。
+    // 投掷物由 scripts/check-throwables.js 单独覆盖。
+    ids: () => VF.WeaponModels.ids('gun'),
+    preloadAll: () => VF.WeaponModels.preloadAll(),
+    has: (id) => VF.WeaponModels.has(id),
+    render,
+  };
+})();
+</script>
+</body>
+</html>

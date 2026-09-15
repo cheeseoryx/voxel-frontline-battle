@@ -251,6 +251,14 @@
         .catch(function () {});
     }
 
+    // Authored weapon art (assets/weapons/*.glb). Same deal as vehicles: not
+    // awaited, and a gun with no art (or a failed download) keeps its
+    // procedural voxel model. Player.js re-runs applyWeaponModel once each
+    // gun's GLB lands, so the viewmodel hot-swaps mid-match.
+    if (VF.WeaponModels && VF.WeaponModels.preloadAll) {
+      VF.WeaponModels.preloadAll().catch(function () {});
+    }
+
     // Voxel world
     game.world = new VF.VoxelWorld(scene);
 
@@ -1917,9 +1925,6 @@
         'ar',
       spawnId: spawn && spawn.id,
       team: game.world._playerTeam,
-      skinId:
-        (VF.Soldier && VF.Soldier.getPlayerSkinId && VF.Soldier.getPlayerSkinId()) ||
-        'box',
     };
 
     VF.Pvp.openSpawnGate(

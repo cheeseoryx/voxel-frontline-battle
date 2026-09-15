@@ -1,19 +1,37 @@
 /**
- * throwables.js — voxel-frontline-battle 投掷物模块
- * （frag / semtex / molotov / flash / stun / smoke）
+ * throwables.js — 投掷型投掷物（frag / semtex / molotov / flash / stun / smoke）
  *
- * 槽位 5；按住 G 蓄力投出。物理层复用先锋 C4 的思路：出手点在镜头前、
- * 分段射线碰体素、粘附时贴在墙外。C4 本身仍是配件/技能（碰到就粘），
- * 不走本模块。
+ * 物理层复用先锋 C4 的思路：出手点在镜头前、分段射线碰体素、粘附时贴在墙外。
+ * C4 本身仍是 G 技能（碰到就粘 + 冷却），本模块是独立的 Q 键一次性道具。
+ *
+ * 验证期：局内滚轮/点击自由换种类，不限数量。枪械模式不发。
  */
 (function (global) {
   'use strict';
 
   const VF = (global.VF = global.VF || {});
 
-  const KEY = 'KeyG';
-  const POOL = ['frag', 'flash', 'smoke'];
-  /** 仅调试：不限量，且允许局内滚轮/点选换雷。正式局按部署装备锁定种类。 */
+  const KEY = 'KeyQ';
+  const POOL = ['frag', 'semtex', 'molotov', 'flash', 'stun', 'smoke'];
+
+  /**
+   * What you actually deploy with: the arsenal's pick first, then the rest of
+   * what has been bought, so the in-match wheel can only reach owned kinds.
+   */
+  function carried() {
+    const E = VF.Economy;
+    const owned = POOL.filter(function (id) {
+      return !E || !E.ownsThrowable || E.ownsThrowable(id);
+    });
+    const pick = E && E.throwableForSlot ? E.throwableForSlot() : null;
+    const at = owned.indexOf(pick);
+    if (at > 0) {
+      owned.splice(at, 1);
+      owned.unshift(pick);
+    }
+    return owned.length ? owned : [POOL[0]];
+  }
+  /** 验证用：不限量、局内可换。之后改回开局装配时关掉。 */
   const DEBUG_UNLIMITED = false;
 
   const PHYS = {
@@ -34,14 +52,45 @@
     previewSteps: 48,
   };
 
-  /** 真雷 0.10 m，程序化盒子 0.28 m —— 美术资产按这个系数放大到同一量级。 */
-  const ART_SCALE = 2.0;
-
   const ANIM = {
-    draw: 0.22,
-    throw: 0.4,
-    releaseAt: 0.15,
-    recover: 0.2,
+    draw: 0.24,
+    throw: 0.52,
+    releaseAt: 0.34,
+    recover: 0.22,
+  };
+
+  /** First-person held size vs world mesh. 1 fills the lens; 0.48 read as a toy. */
+  const VIEW_ITEM_SCALE = 0.55;
+
+  /** 真雷 0.10 m，本套的体素盒子统一做到 ~0.33 m —— 美术资产按这个系数放大。 */
+  const ART_SCALE = 2.6;
+
+  /**
+   * Throw arc, in metres and radians. The load-up is the shoulder swinging the
+   * hand up and out behind the head — hauling it toward the lens instead just
+   * makes the fist fill the screen and drags the upper arm across the glass.
+   * The forward half is the whole viewmodel punching out, because rotating an
+   * anchored shoulder barely changes the hand's depth and on its own reads as a
+   * downward chop. Tuned for a ~110° sweep that parks the hand off the top for
+   * about 0.12s of anticipation, while still leaving frame through an edge at
+   * every point of it.
+   */
+  const ARC = {
+    backZ: 0.04,
+    backY: 0.06,
+    backPitch: 0.1,
+    backYaw: 0.05,
+    outZ: 0.5,
+    outY: 0.12,
+    outPitch: 0.2,
+    outYaw: 0.1,
+    cockRx: 0.82,
+    cockRy: 0.3,
+    cockRz: 0.18,
+    tossRx: 1.35,
+    tossRy: 0.55,
+    wristCock: 0.45,
+    wristSnap: 1.25,
   };
 
   const NAMES = {
@@ -135,6 +184,72 @@
     },
   };
 
+  /** Loadout-screen copy. Every number below is derived from DEFS, never typed twice. */
+  const THROW_META = {
+    frag: { kind: 'lethal', flavor: '拔销后计时起爆，落地会弹跳' },
+    semtex: { kind: 'lethal', flavor: '命中即粘，贴人贴墙都不会滚走' },
+    molotov: { kind: 'lethal', flavor: '落地碎裂成火池，用来封路和逼位' },
+    flash: { kind: 'tactical', flavor: '起爆致盲，正对着看时持续最久' },
+    stun: { kind: 'tactical', flavor: '压制移动与转向，给进攻开路' },
+    smoke: { kind: 'tactical', flavor: '扩散成烟幕，切断一条线的视野' },
+  };
+
+  const FUSE_FROM_LABEL = {
+    throw: '出手起算',
+    stick: '粘住起算',
+    impact: '触地即发',
+    land: '落地起算',
+  };
+
+  /**
+   * Lethals and tacticals have to share one stat panel, so both collapse onto a
+   * common shape: `potency` is damage for a lethal and effect seconds for a
+   * tactical, with the unit carried alongside instead of being assumed.
+   */
+  function throwableCatalog() {
+    const out = {};
+    Object.keys(THROW_META).forEach(function (id) {
+      const d = DEFS[id];
+      const meta = THROW_META[id];
+      if (!d) return;
+      const dps = d.tickDamage ? d.tickDamage / d.tickInterval : 0;
+      const entry = {
+        id: id,
+        name: NAMES[id] || id,
+        nameZh: NAMES[id] || id,
+        kind: meta.kind,
+        flavor: meta.flavor,
+        color: d.color,
+        collide: d.collide,
+        fuseFrom: d.fuseFrom,
+        fuseFromLabel: FUSE_FROM_LABEL[d.fuseFrom] || '',
+        fuseTime: d.fuseTime || 0,
+        radius: d.outerRadius || d.effectRadius || d.fireRadius || 0,
+        innerRadius: d.innerRadius || 0,
+        edgeDamage: d.minEdgeDamage || 0,
+        coreDamage: d.coreDamage || 0,
+        duration: d.areaDuration || d.maxBlind || d.maxStun || 0,
+        dps: dps,
+      };
+      if (dps) {
+        // A fire pool has no single hit to quote, so it is rated per second.
+        entry.potency = dps;
+        entry.potencyLabel = '灼烧';
+        entry.potencyUnit = '/秒';
+      } else if (meta.kind === 'lethal') {
+        entry.potency = d.maxDamage || 0;
+        entry.potencyLabel = '伤害';
+        entry.potencyUnit = '';
+      } else {
+        entry.potency = d.maxBlind || d.maxStun || d.areaDuration || 0;
+        entry.potencyLabel = d.maxBlind ? '致盲' : d.maxStun ? '压制' : '遮蔽';
+        entry.potencyUnit = '秒';
+      }
+      out[id] = entry;
+    });
+    return out;
+  }
+
   const state = {
     active: false,
     equipped: null,
@@ -167,13 +282,6 @@
     return DEFS[id] || DEFS.frag;
   }
 
-  function playSound(id, position, options) {
-    if (!VF.Audio || !VF.Audio.play) return;
-    const opts = Object.assign({}, options || {});
-    if (position) opts.position = position;
-    VF.Audio.play(id, opts);
-  }
-
   function modeAllows() {
     const GM = VF.GameModes;
     if (!GM) return true;
@@ -183,8 +291,15 @@
 
   function combatLive() {
     if (!state.active) return false;
-    if (!VF.game || !VF.game.running) return false;
-    if (VF.Range && VF.Range.isOpen) return false;
+    const g = VF.game;
+    if (!g || !g.running) return false;
+    if (VF.GgMatch && VF.GgMatch.active) return false;
+    const tdm = VF.TdmMatch;
+    if (tdm && tdm.active) return tdm.scoringLive();
+    const ffa = VF.FfaMatch;
+    if (ffa && ffa.active) return ffa.scoringLive();
+    const sd = VF.SdMatch;
+    if (sd && sd.active) return !!(sd.scoringLive && sd.scoringLive());
     return true;
   }
 
@@ -196,27 +311,11 @@
     if (VF.Range && VF.Range.isOpen) return false;
     if (g.levelEditing) return false;
     if (g.building && g.building.active) return false;
-    if (p.downed) return false;
-    if (
-      p.vehicleId &&
-      !(VF.Vehicles && VF.Vehicles.canUsePersonalWeapon && VF.Vehicles.canUsePersonalWeapon(p))
-    ) {
-      return false;
-    }
     if (!combatLive()) return false;
     return true;
   }
 
-  function loadoutGrenadeId() {
-    if (VF.Gadgets && VF.Gadgets.ensureLoadout) {
-      const gid = VF.Gadgets.ensureLoadout().grenade;
-      if (gid && DEFS[gid] && POOL.indexOf(gid) >= 0) return gid;
-    }
-    return POOL[0];
-  }
-
   function canCycle() {
-    if (!DEBUG_UNLIMITED) return false;
     if (!state.active) return false;
     const g = VF.game;
     if (!g || !g.running) return false;
@@ -224,9 +323,6 @@
     if (VF.Range && VF.Range.isOpen) return false;
     if (g.levelEditing) return false;
     if (g.building && g.building.active) return false;
-    if (!((VF.Gadgets && VF.Gadgets.hand === 'grenade') || state.holding || state.pose !== 'idle')) {
-      return false;
-    }
     return combatLive();
   }
 
@@ -403,18 +499,23 @@
 
   /** First walkable top-face at or below (x,y,z). */
   function groundY(world, x, y, z) {
-    if (world && world.getWalkHeight) {
-      const top = world.getWalkHeight(x, z);
-      if (top != null && isFinite(top)) return top + 0.04;
-    }
+    const terrain = terrainTopAt(world, x, z);
+    const floor = terrain != null && isFinite(terrain) ? terrain + 0.04 : null;
+    // Deliberately not world.getWalkHeight: that answers with the highest
+    // surface in the whole column, so an effect that landed on the street
+    // under a bridge, or on a lower floor indoors, gets moved up onto the
+    // deck or the roof and does nothing where it actually hit. Walk down
+    // from the impact and take the first structure top face instead, then
+    // fall back to the terrain, which carries finer height detail.
+    const stop = floor != null ? floor : y - 12;
     let gy = y + 0.15;
-    for (let i = 0; i < 48; i++) {
-      if (!isSolid(world, x, gy, z) && isSolid(world, x, gy - 0.25, z)) {
+    for (let i = 0; i < 400 && gy - 0.25 > stop; i++) {
+      if (!isVoxelSolid(world, x, gy, z) && isVoxelSolid(world, x, gy - 0.25, z)) {
         return Math.floor(gy - 0.25) + 1.04;
       }
       gy -= 0.25;
     }
-    return y;
+    return floor != null ? floor : y;
   }
 
   function fxMat(color, opacity, additive) {
@@ -430,6 +531,341 @@
     return new THREE.MeshBasicMaterial(o);
   }
 
+  // Block volumes, but not posterized voxel-art: mild face shade, real alpha,
+  // and fog that does not bleach dark smoke back to wall-grey.
+  const VOXEL_BOX = new THREE.BoxGeometry(1, 1, 1);
+  const VOXEL_VERT = `
+varying vec3 vN;
+varying vec3 vWorld;
+varying vec3 vCenter;
+varying vec3 vRadius;
+void main() {
+  vN = normalize(mat3(modelMatrix) * normal);
+  vCenter = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  vRadius = vec3(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz), length(modelMatrix[2].xyz)) * 0.5;
+  vec4 w = modelMatrix * vec4(position, 1.0);
+  vWorld = w.xyz;
+  gl_Position = projectionMatrix * viewMatrix * w;
+}
+`;
+  const VOXEL_FRAG = `
+uniform vec3 uColor;
+uniform float uOpacity;
+uniform float uEmi;
+uniform float uPixel;
+uniform float uTime;
+uniform float uUseFog;
+uniform float uFogNear;
+uniform float uFogFar;
+uniform float uFogAmt;
+uniform float uSoft;
+uniform float uAlphaCut;
+uniform float uCloudY0;
+uniform float uCloudH;
+uniform vec3 uFogColor;
+varying vec3 vN;
+varying vec3 vWorld;
+varying vec3 vCenter;
+varying vec3 vRadius;
+float hash13(vec3 p) {
+  return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+}
+float vnoise(vec3 p) {
+  vec3 i = floor(p);
+  vec3 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float n000 = hash13(i);
+  float n100 = hash13(i + vec3(1.0, 0.0, 0.0));
+  float n010 = hash13(i + vec3(0.0, 1.0, 0.0));
+  float n110 = hash13(i + vec3(1.0, 1.0, 0.0));
+  float n001 = hash13(i + vec3(0.0, 0.0, 1.0));
+  float n101 = hash13(i + vec3(1.0, 0.0, 1.0));
+  float n011 = hash13(i + vec3(0.0, 1.0, 1.0));
+  float n111 = hash13(i + vec3(1.0, 1.0, 1.0));
+  float nx00 = mix(n000, n100, f.x);
+  float nx10 = mix(n010, n110, f.x);
+  float nx01 = mix(n001, n101, f.x);
+  float nx11 = mix(n011, n111, f.x);
+  return mix(mix(nx00, nx10, f.y), mix(nx01, nx11, f.y), f.z);
+}
+void main() {
+  vec3 n = normalize(vN);
+  float shade = 0.88 + 0.12 * n.y;
+  float px = max(uPixel, 1.5);
+  vec3 cell = floor(vWorld * px);
+  float speckle = hash13(cell);
+  vec3 col = uColor * shade * (0.94 + speckle * 0.08);
+  col += uColor * uEmi;
+  float a = uOpacity;
+  if (uSoft > 0.5) {
+    // Alpha comes from how much of the puff's ellipsoid the view ray crosses.
+    // A box surface can never give a volume falloff, so solve the volume here;
+    // the cube's own faces then stay invisible instead of showing as seams.
+    vec3 rd = normalize(vWorld - cameraPosition);
+    vec3 ro = (cameraPosition - vCenter) / vRadius;
+    vec3 rdn = rd / vRadius;
+    float qa = dot(rdn, rdn);
+    float qb = 2.0 * dot(ro, rdn);
+    float qc = dot(ro, ro) - 1.0;
+    float disc = qb * qb - 4.0 * qa * qc;
+    if (disc <= 0.0) discard;
+    float sq = sqrt(disc);
+    float t0 = max((-qb - sq) / (2.0 * qa), 0.0);
+    float t1 = (-qb + sq) / (2.0 * qa);
+    if (t1 <= t0) discard;
+    // Only the fire's thin drifting smoke uses this path now; the smoke
+    // grenade is built from real voxels instead.
+    vec3 pSurf = cameraPosition + rd * t0;
+    vec3 pRef = cameraPosition + rd * ((t0 + t1) * 0.5);
+    float f =
+      vnoise(pRef * 0.42 + uTime * 0.035) * 0.58 +
+      vnoise(pRef * 1.15 - uTime * 0.07) * 0.29 +
+      vnoise(pRef * 2.9 + 11.0) * 0.13;
+    a = 1.0 - exp(-(t1 - t0) * uOpacity * (0.25 + f * 1.5));
+    a *= smoothstep(0.0, 0.34, f - 0.1);
+    float hT = clamp((pSurf.y - uCloudY0) / max(0.001, uCloudH), 0.0, 1.0);
+    float grain = vnoise(pSurf * 1.5 + 4.3) * 0.62 + vnoise(pSurf * 3.4 - 2.1) * 0.38;
+    float lift = mix(0.62, 1.2, smoothstep(0.02, 0.98, hT)) * (0.86 + grain * 0.28);
+    col = uColor * (floor(lift * 9.0) / 9.0 + 0.06);
+  }
+  // Depth-only twins discard their faint outer gradient so they only occupy
+  // the depth buffer where the cloud is thick enough to hide what is behind.
+  if (a < uAlphaCut) discard;
+  if (uUseFog > 0.5) {
+    float fogT = smoothstep(uFogNear, uFogFar, length(vWorld - cameraPosition));
+    fogT *= 1.0 - clamp(uEmi, 0.0, 1.0);
+    col = mix(col, uFogColor, fogT * uFogAmt);
+  }
+  gl_FragColor = vec4(col, a);
+}
+`;
+
+  // Smoke is built as one merged block of world-grid voxels rather than soft
+  // sprites: any transparent volume, however it is shaded, ends up reading as
+  // foam or bubbles. Cells grow in from the ground up as the cloud expands and
+  // dissolve through an ordered dither as it thins, so the material stays
+  // opaque the whole time — which also means the fog pass sees real depth.
+  const SMOKE_VERT = `
+attribute vec3 aCenter;
+attribute float aDist;
+attribute float aRim;
+attribute float aRnd;
+uniform float uFill;
+uniform float uDens;
+uniform float uTime;
+varying vec3 vN;
+varying vec3 vWorld;
+varying float vRim;
+varying float vRnd;
+void main() {
+  vN = normalize(mat3(modelMatrix) * normal);
+  vRim = aRim;
+  vRnd = aRnd;
+  // Same pop, ramp and dens mix as the solid pass. The only change is the
+  // fill axis: height from the ground instead of horizontal radius from the
+  // middle, so the column no longer arrives at full height first.
+  // Per-cell jitter and a wider ramp keep the rising front from reading as
+  // a flat layer of cubes switching on together.
+  float j = (aRnd - 0.5) * 1.2;
+  float s = clamp((uFill - aCenter.y + j) / 1.15, 0.0, 1.0);
+  s = s * s * (3.0 - 2.0 * s);
+  s *= mix(0.86, 1.0, uDens);
+  // Drift is a smooth function of where the cell sits, not of the cell's own
+  // random seed: neighbours have to move together or the block faces pull
+  // apart and the cloud shows cracks.
+  vec3 drift = vec3(
+    sin(aCenter.z * 0.5 + uTime * 0.5),
+    sin(aCenter.x * 0.42 + uTime * 0.41) * 0.6,
+    cos(aCenter.x * 0.47 + uTime * 0.46)
+  ) * 0.09;
+  vec3 local = aCenter + drift + (position - aCenter) * s;
+  vec4 w = modelMatrix * vec4(local, 1.0);
+  vWorld = w.xyz;
+  gl_Position = projectionMatrix * viewMatrix * w;
+}
+`;
+  const SMOKE_FRAG = `
+uniform vec3 uColor;
+uniform float uDens;
+uniform float uTime;
+uniform float uY0;
+uniform float uH;
+uniform float uUseFog;
+uniform float uFogNear;
+uniform float uFogFar;
+uniform float uFogAmt;
+uniform vec3 uFogColor;
+varying vec3 vN;
+varying vec3 vWorld;
+varying float vRim;
+varying float vRnd;
+float bayer2(vec2 a) {
+  a = floor(a);
+  return fract(a.x * 0.5 + a.y * a.y * 0.75);
+}
+float bayer4(vec2 a) {
+  return bayer2(a * 0.5) * 0.25 + bayer2(a);
+}
+void main() {
+  // Ordered dither, in screen space and at pixel scale, is how the fringe and
+  // the dissolve stay chunky instead of turning into a soft gradient.
+  float cover = mix(1.0, 0.6, vRim);
+  float flick = fract(sin((vRnd + floor(uTime * 2.5)) * 91.7) * 4137.13);
+  cover -= vRim * 0.16 * step(0.62, flick);
+  cover *= smoothstep(0.0, 0.9, uDens);
+  if (cover < bayer4(gl_FragCoord.xy)) discard;
+  float face = 0.88 + 0.26 * vN.y + 0.07 * vN.x - 0.06 * vN.z;
+  // Inner walls, seen through a gap, read as a cavity rather than a lit face.
+  if (!gl_FrontFacing) face *= 0.55;
+  float lift = mix(0.74, 1.18, clamp((vWorld.y - uY0) / max(0.001, uH), 0.0, 1.0));
+  float tone = face * lift * (0.93 + vRnd * 0.14);
+  vec3 col = uColor * (floor(tone * 6.0 + 0.5) / 6.0);
+  if (uUseFog > 0.5) {
+    float fogT = smoothstep(uFogNear, uFogFar, length(vWorld - cameraPosition));
+    col = mix(col, uFogColor, fogT * uFogAmt);
+  }
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+  function makeSmokeVoxelMat(opts) {
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color(opts.color) },
+        uDens: { value: 1 },
+        uFill: { value: 0 },
+        uTime: { value: 0 },
+        uY0: { value: opts.y0 || 0 },
+        uH: { value: opts.h || 1 },
+        uUseFog: { value: 1 },
+        uFogNear: { value: 70 },
+        uFogFar: { value: 340 },
+        uFogAmt: { value: 0.14 },
+        uFogColor: { value: new THREE.Color(0xbcd6ea) },
+      },
+      vertexShader: SMOKE_VERT,
+      fragmentShader: SMOKE_FRAG,
+      transparent: false,
+      depthWrite: true,
+      depthTest: true,
+      // Double sided so that a gap in the shell shows the cloud's own inner
+      // wall instead of a bright window straight through to the sky.
+      side: THREE.DoubleSide,
+      fog: false,
+      toneMapped: false,
+    });
+    return mat;
+  }
+
+  function makeVoxelMat(opts) {
+    opts = opts || {};
+    const soft = !!opts.soft;
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color(opts.color || 0xffffff) },
+        uOpacity: { value: opts.opacity != null ? opts.opacity : 1 },
+        uEmi: { value: opts.emi || 0 },
+        uPixel: { value: opts.pixel != null ? opts.pixel : 5 },
+        uTime: { value: 0 },
+        uUseFog: { value: 1 },
+        uFogNear: { value: 70 },
+        uFogFar: { value: 340 },
+        uFogAmt: { value: opts.fogAmt != null ? opts.fogAmt : 0.28 },
+        uSoft: { value: soft ? 1 : 0 },
+        uAlphaCut: { value: opts.alphaCut != null ? opts.alphaCut : 0.02 },
+        uCloudY0: { value: opts.cloudY0 || 0 },
+        uCloudH: { value: opts.cloudH || 1 },
+        uFogColor: { value: new THREE.Color(0xbcd6ea) },
+      },
+      vertexShader: VOXEL_VERT,
+      fragmentShader: VOXEL_FRAG,
+      transparent: opts.opaque ? false : soft || (opts.opacity != null && opts.opacity < 0.97),
+      depthWrite:
+        opts.depthWrite != null
+          ? !!opts.depthWrite
+          : !!(opts.opaque || (!soft && opts.depthWrite !== false && !(opts.opacity != null && opts.opacity < 0.85))),
+      depthTest: true,
+      fog: false,
+      toneMapped: opts.toneMapped !== false,
+    });
+    mat.userData.baseOp = opts.opacity != null ? opts.opacity : 1;
+    mat.userData.baseEmi = opts.emi || 0;
+    return mat;
+  }
+
+  function syncVoxelFog(mat) {
+    if (!mat || !mat.uniforms) return;
+    const fog = VF.game && VF.game.scene && VF.game.scene.fog;
+    if (!fog) {
+      mat.uniforms.uUseFog.value = 0;
+      return;
+    }
+    mat.uniforms.uUseFog.value = 1;
+    mat.uniforms.uFogNear.value = fog.near;
+    mat.uniforms.uFogFar.value = fog.far;
+    mat.uniforms.uFogColor.value.copy(fog.color);
+  }
+
+  function tickVoxelMats(mats, fade, time) {
+    if (!mats) return;
+    for (let i = 0; i < mats.length; i++) {
+      const mat = mats[i];
+      if (!mat || !mat.uniforms) continue;
+      const base = mat.userData.baseOp != null ? mat.userData.baseOp : 1;
+      mat.uniforms.uOpacity.value = base * fade;
+      mat.uniforms.uEmi.value = (mat.userData.baseEmi || 0) * fade;
+      mat.uniforms.uTime.value = time;
+      syncVoxelFog(mat);
+    }
+  }
+
+  function snapG(v, g) {
+    return Math.round(v / g) * g;
+  }
+
+  function addVoxel(root, mat, x, y, z, sx, sy, sz, data) {
+    const key = (data && data.key) || snapG(x, 0.12) + ',' + snapG(y, 0.12) + ',' + snapG(z, 0.12);
+    const occ = root.userData.occ || (root.userData.occ = {});
+    if (occ[key]) return null;
+    occ[key] = 1;
+    const mesh = new THREE.Mesh(VOXEL_BOX, mat);
+    mesh.position.set(x, y, z);
+    mesh.scale.set(sx, sy, sz);
+    mesh.frustumCulled = false;
+    if (data) {
+      for (const k in data) {
+        if (k !== 'key') mesh.userData[k] = data[k];
+      }
+    }
+    mesh.userData.baseX = x;
+    mesh.userData.baseY = y;
+    mesh.userData.baseZ = z;
+    mesh.userData.baseScaleX = sx;
+    mesh.userData.baseScaleY = sy;
+    mesh.userData.baseScaleZ = sz;
+    if (data && data.hidden) mesh.visible = false;
+    root.add(mesh);
+    return mesh;
+  }
+
+  function disposeZoneMesh(mesh) {
+    if (!mesh) return;
+    if (mesh.parent) mesh.parent.remove(mesh);
+    const seen = [];
+    mesh.traverse(function (n) {
+      // Only geometry built for this effect; the shared unit box must survive.
+      if (n.geometry && n.geometry.userData.owned && n.geometry.dispose) n.geometry.dispose();
+      if (!n.material) return;
+      const list = Array.isArray(n.material) ? n.material : [n.material];
+      for (let i = 0; i < list.length; i++) {
+        const m = list[i];
+        if (!m || seen.indexOf(m) >= 0) continue;
+        seen.push(m);
+        if (m.dispose) m.dispose();
+      }
+    });
+  }
+
   function smokeDensity(z) {
     if (!z || z.kind !== 'smoke') return 0;
     if (z.phase === 'stable') return 1;
@@ -442,46 +878,6 @@
       return Math.max(0, (z.fadeLeft != null ? z.fadeLeft : 0) / f);
     }
     return 0.5;
-  }
-
-  /** Overlapping puffs that fill a cylinder of radius maxR (the ground ring). */
-  function fillSmokeCloud(world, ox, oy, oz, maxR) {
-    const slots = [];
-    const push = function (x, y, z) {
-      if (isSolid(world, x, y, z)) return;
-      if (!voxelLos(world, ox, oy, oz, x, y, z)) return;
-      const dx = x - ox;
-      const dz = z - oz;
-      slots.push({
-        x: x,
-        y: y,
-        z: z,
-        d: Math.sqrt(dx * dx + dz * dz),
-      });
-    };
-    const rings = [
-      { y: 0.15, rs: [0, 1.55, 3.05, 4.45] },
-      { y: 1.15, rs: [0.9, 2.45, 4.15] },
-      { y: 2.15, rs: [0.5, 2.05, 3.55] },
-    ];
-    for (let li = 0; li < rings.length; li++) {
-      const layer = rings[li];
-      for (let ri = 0; ri < layer.rs.length; ri++) {
-        const rad = layer.rs[ri];
-        if (rad > maxR - 0.15) continue;
-        const n = rad < 0.2 ? 1 : Math.max(5, Math.round((rad * 2.1) + 4));
-        const spin = li * 0.22 + ri * 0.17;
-        for (let i = 0; i < n; i++) {
-          const ang = spin + (i / n) * Math.PI * 2;
-          const jr = rad < 0.2 ? 0 : (i % 2 === 0 ? 0.12 : -0.1);
-          const x = ox + Math.cos(ang) * (rad + jr);
-          const z = oz + Math.sin(ang) * (rad + jr);
-          const y = oy + layer.y + ((i + li) % 3) * 0.12 - 0.12;
-          push(x, y, z);
-        }
-      }
-    }
-    return slots;
   }
 
   function segHitsPoint(ax, ay, az, bx, by, bz, px, py, pz, r2) {
@@ -531,16 +927,34 @@
     return minC + t * (1 - minC);
   }
 
+  function orientFlatC4(mesh, nx, ny, nz) {
+    if (!mesh) return;
+    mesh.rotation.set(0, 0, 0);
+    if (ny > 0.5) {
+      // Floor — default orientation
+    } else if (ny < -0.5) {
+      mesh.rotation.x = Math.PI;
+    } else if (Math.abs(nx) > 0.5) {
+      mesh.rotation.z = nx > 0 ? -Math.PI / 2 : Math.PI / 2;
+    } else if (Math.abs(nz) > 0.5) {
+      mesh.rotation.x = nz > 0 ? Math.PI / 2 : -Math.PI / 2;
+    }
+  }
+
   /**
-   * 美术投掷物 GLB（assets/weapons/Mod_Grenade.glb 等，注册表在
-   * js/weapon-models.js 的第三批）。没有资产就返回 null，调用方回退程序化盒子。
+   * One voxel model per kind, sized to a common ~0.33 m envelope so the world
+   * projectile, the loadout preview and the first-person hold can all share it
+   * without per-kind scale tweaks.
+   */
+  /**
+   * 美术投掷物 GLB（assets/weapons/Mod_Grenade.glb 等）。
+   * 注册表在根目录 ../../js/weapon-models.js 的第三批 —— 本套只有这一个文件
+   * 是从根目录引的，别在 modes/small-battle/js/ 下另建一份。
+   * 没有资产就返回 null，调用方回退本文件里的体素盒子。
    *
-   * 跟枪械那套的差别：
-   *   - 长轴是 Y（竖着放），没有枪口，几何体已三轴归中 → 飞行时绕质心自转。
-   *   - 真雷只有 0.1 m 上下，而程序化盒子是夸张过的 0.28 m，要乘 ART_SCALE
-   *     才不会看起来"缩水"。
-   *   - 共享材质是为第一人称调的（fog=false）。世界里的飞行体要吃场景雾，
-   *     所以 forWorld 时克隆一份自己持有 —— 改 CACHE 里那份会连累第一人称。
+   * 真雷 0.1 m 上下，而这里的体素盒子统一做到 ~0.33 m，所以乘 ART_SCALE。
+   * forWorld 时把共享材质克隆一份并开雾：CACHE 里那份是为第一人称调的
+   * （fog=false），直接改会连累手持视角。
    */
   function artThrowable(id, scale, forWorld) {
     const M = global.VF && global.VF.WeaponModels;
@@ -564,22 +978,111 @@
   }
 
   function makeMesh(id) {
-    // 美术资产优先；没资产（semtex / molotov / stun）照旧走程序化盒子。
+    if (id === 'semtex' && VF.makeC4Mesh) return VF.makeC4Mesh();
+    // 美术资产优先；没资产（molotov / stun / semtex）照旧走体素盒子。
     const art = artThrowable(id, ART_SCALE, true);
     if (art) return art;
     const def = defOf(id);
     const g = new THREE.Group();
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(id === 'molotov' ? 0.18 : 0.22, 0.28, 0.18),
-      new THREE.MeshLambertMaterial({ color: def.color, emissive: def.color, emissiveIntensity: 0.18 })
-    );
-    g.add(body);
-    const cap = new THREE.Mesh(
-      new THREE.BoxGeometry(0.1, 0.08, 0.1),
-      new THREE.MeshLambertMaterial({ color: 0x222222 })
-    );
-    cap.position.y = 0.16;
-    g.add(cap);
+    g.name = 'Throwable_' + id;
+
+    function box(w, h, d, color, x, y, z, opts) {
+      const mat = Object.assign({ color: color }, opts || {});
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial(mat));
+      m.position.set(x || 0, y || 0, z || 0);
+      g.add(m);
+      return m;
+    }
+
+    const STEEL = 0x9fa5a3;
+    const BRASS = 0xc4a862;
+    const DARK = 0x2a2c2a;
+
+    /** Safety lever hugging the body with the pull ring stacked above it. */
+    function pinAssembly(sideX, topY, spoonLen) {
+      box(0.018, spoonLen, 0.044, STEEL, sideX, topY - spoonLen * 0.5, 0);
+      const ry = topY + 0.032;
+      box(0.036, 0.01, 0.01, BRASS, sideX, ry + 0.017, 0);
+      box(0.036, 0.01, 0.01, BRASS, sideX, ry - 0.017, 0);
+      box(0.01, 0.044, 0.01, BRASS, sideX - 0.017, ry, 0);
+      box(0.01, 0.044, 0.01, BRASS, sideX + 0.017, ry, 0);
+    }
+
+    /** Fuse housing screwed into the top of a grenade body. */
+    function fuseHead(y, w) {
+      box(w, 0.036, w, DARK, 0, y, 0);
+      box(w * 0.6, 0.016, w * 0.6, STEEL, 0, y + 0.024, 0);
+    }
+
+    if (id === 'frag') {
+      // M67: stepped boxes round off the ovoid, grooves suggest the segmenting.
+      const olive = def.color;
+      box(0.10, 0.03, 0.10, olive, 0, -0.12);
+      box(0.16, 0.05, 0.16, olive, 0, -0.08);
+      box(0.19, 0.11, 0.19, olive, 0, 0);
+      box(0.16, 0.05, 0.16, olive, 0, 0.08);
+      box(0.10, 0.03, 0.10, olive, 0, 0.12);
+      box(0.196, 0.014, 0.196, 0x33402a, 0, 0.032);
+      box(0.196, 0.014, 0.196, 0x33402a, 0, -0.032);
+      fuseHead(0.152, 0.07);
+      pinAssembly(0.095, 0.15, 0.13);
+    } else if (id === 'molotov') {
+      // Cocktail bottle: tinted glass over a visible fuel line, paper label,
+      // and a rag fuse stuffed in the neck that flops out to one side.
+      const glass = { transparent: true, opacity: 0.62 };
+      const glassCol = 0x5a7a55;
+      box(0.135, 0.028, 0.135, 0x40563d, 0, -0.104);
+      box(0.125, 0.13, 0.125, glassCol, 0, -0.03, 0, glass);
+      box(0.105, 0.104, 0.105, def.color, 0, -0.042, 0, {
+        emissive: def.color,
+        emissiveIntensity: 0.26,
+      });
+      box(0.10, 0.034, 0.10, glassCol, 0, 0.052, 0, glass);
+      box(0.055, 0.058, 0.055, glassCol, 0, 0.098, 0, glass);
+      box(0.07, 0.018, 0.07, glassCol, 0, 0.134, 0, glass);
+      box(0.084, 0.04, 0.006, 0xc9bd94, 0, -0.03, 0.064);
+      const cloth = 0xcdbe93;
+      box(0.042, 0.024, 0.042, cloth, 0, 0.15);
+      box(0.03, 0.036, 0.034, cloth, 0.014, 0.171);
+      box(0.026, 0.03, 0.028, cloth, 0.038, 0.183);
+      box(0.022, 0.024, 0.024, 0x93835c, 0.058, 0.177);
+    } else if (id === 'flash') {
+      // M84: light steel can whose six ports read from any spin angle.
+      box(0.145, 0.19, 0.145, 0xb4b8b2);
+      box(0.155, 0.022, 0.155, DARK, 0, 0.106);
+      box(0.155, 0.022, 0.155, DARK, 0, -0.106);
+      [-0.05, 0, 0.05].forEach(function (vy) {
+        box(0.024, 0.024, 0.006, DARK, 0, vy, 0.0745);
+        box(0.024, 0.024, 0.006, DARK, 0, vy, -0.0745);
+        box(0.006, 0.024, 0.024, DARK, 0.0745, vy, 0);
+        box(0.006, 0.024, 0.024, DARK, -0.0745, vy, 0);
+      });
+      fuseHead(0.136, 0.06);
+      pinAssembly(0.088, 0.134, 0.11);
+    } else if (id === 'stun') {
+      // Squatter and darker than the flash, with a lit band for the id colour.
+      box(0.155, 0.165, 0.155, 0x3a4048);
+      box(0.162, 0.038, 0.162, def.color, 0, 0.022, 0, {
+        emissive: def.color,
+        emissiveIntensity: 0.3,
+      });
+      box(0.165, 0.02, 0.165, DARK, 0, 0.093);
+      box(0.165, 0.02, 0.165, DARK, 0, -0.093);
+      fuseHead(0.122, 0.06);
+      pinAssembly(0.093, 0.12, 0.1);
+    } else {
+      // M18 smoke: tall canister, colour band, ports punched in the top plate.
+      box(0.135, 0.235, 0.135, 0x5f6a52);
+      box(0.142, 0.044, 0.142, def.color, 0, 0.05);
+      box(0.145, 0.02, 0.145, DARK, 0, 0.128);
+      box(0.145, 0.02, 0.145, DARK, 0, -0.128);
+      [-0.04, 0.04].forEach(function (px) {
+        box(0.026, 0.008, 0.026, 0x1e201e, px, 0.139, 0.04);
+        box(0.026, 0.008, 0.026, 0x1e201e, px, 0.139, -0.04);
+      });
+      fuseHead(0.155, 0.055);
+      pinAssembly(0.082, 0.152, 0.12);
+    }
     return g;
   }
 
@@ -659,12 +1162,8 @@
       this.stop();
       if (!modeAllows()) return this;
       state.active = true;
-      state.equipped = loadoutGrenadeId();
-      if (VF.Gadgets && VF.Gadgets.grenades != null) {
-        state.ammo = VF.Gadgets.grenades;
-      } else {
-        state.ammo = (VF.Gadgets && VF.Gadgets.GRENADE_MAX) || 2;
-      }
+      state.equipped = carried()[0];
+      state.ammo = DEBUG_UNLIMITED ? 9999 : 1;
       state.holding = false;
       state.holdTime = 0;
       state.pose = 'idle';
@@ -676,17 +1175,15 @@
       state.flashT = 0;
       state.stunT = 0;
       this._bind();
+      // 本套没有根目录 main.js 那句 preloadAll，美术投掷物得自己预载。
+      // 没下完也不影响开局：makeMesh 会先回退体素盒子，下完再换。
+      const WM = global.VF && global.VF.WeaponModels;
+      if (WM && WM.preload) WM.preload(['frag', 'flash', 'smoke']);
       this._syncHud();
+      if (VF.UI && VF.UI.toast) {
+        VF.UI.toast('投掷物 · 滚轮切换 · Q 投掷' + (DEBUG_UNLIMITED ? '（不限量）' : ''));
+      }
       return this;
-    },
-
-    setAmmo: function (n) {
-      state.ammo = Math.max(0, n | 0);
-      this._syncHud();
-    },
-
-    currentId: function () {
-      return state.equipped || null;
     },
 
     stop: function () {
@@ -706,22 +1203,6 @@
       this._syncSmokeMarkers();
     },
 
-    /** Round reset: clear in-flight nades without disabling G. */
-    clearRound: function () {
-      this._abortPose();
-      this._clearLive();
-      this._clearZones();
-      this._hidePreview();
-      state.flashT = 0;
-      state.stunT = 0;
-      this._syncFlash();
-      this._syncStunVeil();
-      this._syncSmokeVeil();
-      this._syncSmokeMarkers();
-      if (state.active) this._syncHud();
-      if (state.active && VF.Gadgets && VF.Gadgets.hand === 'grenade') this.showIdleHold();
-    },
-
     isActive: function () {
       return state.active;
     },
@@ -729,34 +1210,6 @@
     /** Draw / charge / throw / recovery — blocks shooting and weapon swap. */
     busy: function () {
       return state.pose && state.pose !== 'idle';
-    },
-
-    _idleHolding: function () {
-      const p = VF.game && VF.game.player;
-      return !!(
-        VF.Gadgets &&
-        VF.Gadgets.hand === 'grenade' &&
-        p &&
-        p._throwNode &&
-        p._throwNode.visible
-      );
-    },
-
-    showIdleHold: function () {
-      if (!state.equipped) state.equipped = loadoutGrenadeId();
-      if (this.busy()) {
-        this._showHeldVm();
-        return;
-      }
-      this._showHeldVm();
-      if (!DEBUG_UNLIMITED && state.ammo <= 0) this._hideHeldItem(true);
-      else this._hideHeldItem(false);
-      this._applyThrowPose();
-    },
-
-    hideIdleHold: function () {
-      if (this.busy()) return;
-      this._hideHeldVm();
     },
 
     moveMul: function () {
@@ -813,7 +1266,6 @@
       if (!state.active) return;
       if (state.pose && state.pose !== 'idle') this._updatePose(dt);
       else if (state.holding) this._updateHold(dt);
-      else if (this._idleHolding()) this._applyThrowPose();
       this._updateLive(dt);
       this._updateZones(dt);
       if (state.flashT > 0) {
@@ -851,11 +1303,7 @@
         if (e.code !== KEY || e.repeat) return;
         if (!state.active || !canHold()) return;
         if (self.busy()) return;
-        if (VF.Gadgets && VF.Gadgets._throwAim) return;
-        if (!DEBUG_UNLIMITED && state.ammo <= 0) {
-          if (VF.UI && VF.UI.toast) VF.UI.toast('没有投掷物');
-          return;
-        }
+        if (!DEBUG_UNLIMITED && state.ammo <= 0) return;
         e.preventDefault();
         self._beginHold();
       });
@@ -873,53 +1321,30 @@
           e.preventDefault();
           return;
         }
-        if (!canCycle()) return;
-        e.preventDefault();
-        self._cycle(e.deltaY > 0 ? 1 : -1);
       }, { passive: false });
       document.addEventListener('mousedown', function (e) {
         const slot = e.target && e.target.closest && e.target.closest('#throw-hud [data-throw-id]');
-        if (slot) {
-          e.preventDefault();
-          if (!DEBUG_UNLIMITED) return;
-          if (self.busy()) return;
-          if (!state.active || !combatLive()) return;
-          const g = VF.game;
-          if (g && g.building && g.building.active) return;
-          self._equip(slot.getAttribute('data-throw-id'));
-          return;
-        }
-        if (e.button === 0 && VF.Gadgets && VF.Gadgets.hand === 'grenade') {
-          if (!state.active || !canHold()) return;
-          if (self.busy()) return;
-          if (!DEBUG_UNLIMITED && state.ammo <= 0) return;
-          e.preventDefault();
-          self._beginHold();
-        }
-      });
-      document.addEventListener('mouseup', function (e) {
-        if (e.button !== 0) return;
-        if (!self.busy()) return;
-        if (state.holding || state.pose === 'draw' || state.pose === 'charge') {
-          e.preventDefault();
-          self._releaseThrow();
-        }
+        if (!slot) return;
+        e.preventDefault();
+        if (self.busy()) return;
+        if (!canCycle()) return;
+        self._equip(slot.getAttribute('data-throw-id'));
       });
     },
 
     _equip: function (id) {
-      if (!DEBUG_UNLIMITED) return;
-      if (!id || !DEFS[id] || POOL.indexOf(id) < 0 || id === state.equipped) return;
+      if (!id || !DEFS[id] || id === state.equipped) return;
       if (this.busy()) return;
+      if (carried().indexOf(id) < 0) return;
       state.equipped = id;
       this._syncHud();
-      if (VF.Gadgets && VF.Gadgets.hand === 'grenade') this.showIdleHold();
     },
 
     _cycle: function (dir) {
-      const i = Math.max(0, POOL.indexOf(state.equipped));
-      const n = POOL.length;
-      const next = POOL[(i + (dir > 0 ? 1 : -1) + n) % n];
+      const pool = carried();
+      const i = Math.max(0, pool.indexOf(state.equipped));
+      const n = pool.length;
+      const next = pool[(i + (dir > 0 ? 1 : -1) + n) % n];
       this._equip(next);
     },
 
@@ -930,11 +1355,9 @@
       state.poseT = 0;
       state.wantThrow = false;
       state.thrown = false;
+      if (VF.UI && VF.UI.setHotbarSlot) VF.UI.setHotbarSlot('throw');
       this._showHeldVm();
-      playSound('throwable.' + state.equipped + '.pin', null, {
-        local: true,
-        priority: 6,
-      });
+      if (VF.Audio) VF.Audio.play('nade_pin');
     },
 
     _updateHold: function (dt) {
@@ -1036,10 +1459,7 @@
       state.thrown = true;
       this._consume();
       this._hideHeldItem(true);
-      playSound('throwable.' + def.id + '.throw', launch.origin, {
-        local: true,
-        priority: 5,
-      });
+      if (VF.Audio) VF.Audio.play('nade_throw');
     },
 
     _holster: function () {
@@ -1050,8 +1470,7 @@
       state.wantThrow = false;
       state.thrown = false;
       this._hidePreview();
-      if (VF.Gadgets && VF.Gadgets.hand === 'grenade') this.showIdleHold();
-      else this._hideHeldVm();
+      this._hideHeldVm();
     },
 
     _abortPose: function () {
@@ -1063,25 +1482,27 @@
       state.thrown = false;
       this._hidePreview();
       this._hideHeldVm();
+      const w = VF.game && VF.game.weapons;
+      if (w && VF.UI && VF.UI.setHotbarSlot && w.current && VF.WEAPONS && VF.WEAPONS[w.current]) {
+        VF.UI.setHotbarSlot(VF.WEAPONS[w.current].slot);
+      }
     },
 
     _showHeldVm: function () {
       const p = VF.game && VF.game.player;
       if (!p || !p.camera) return;
-      const team = p.team === 'enemy' ? 'enemy' : 'ally';
       const stale =
         !p._throwNode ||
         p._throwNode.parent !== p.camera ||
         p._throwNode.userData.classId !== p.classId ||
-        p._throwNode.userData.team !== team ||
         !p._throwNode.userData.hip ||
         !p._throwNode.userData.rArmRest ||
-        !p._throwNode.userData.lArm ||
-        !p._throwNode.userData.lArmRest;
+        !p._throwNode.userData.lHandRest ||
+        !(p._throwNode.userData.parts && p._throwNode.userData.parts.holder);
       if (stale) {
         if (p._throwNode && p._throwNode.parent) p._throwNode.parent.remove(p._throwNode);
         if (VF.Soldier && VF.Soldier.createThrowableViewModel) {
-          p._throwNode = VF.Soldier.createThrowableViewModel(p.classId, { team: team });
+          p._throwNode = VF.Soldier.createThrowableViewModel(p.classId);
           p._throwNode.userData.classId = p.classId;
           p.camera.add(p._throwNode);
         }
@@ -1091,7 +1512,6 @@
       node.visible = true;
       if (node.userData.item) node.userData.item.visible = true;
       this._styleHeldItem(node, state.equipped);
-      if (p._gadgetNode) p._gadgetNode.visible = false;
       if (p.viewModel) p.viewModel.visible = false;
       if (p._weaponViewModel) p._weaponViewModel.visible = false;
       if (p.gunNode) p.gunNode.visible = false;
@@ -1099,79 +1519,51 @@
       if (p.leftArm) p.leftArm.visible = false;
       if (p._knifeNode) p._knifeNode.visible = false;
       if (p.muzzleFlash) p.muzzleFlash.visible = false;
-      if (node.userData.lArm) node.userData.lArm.visible = false;
-      if (p.camera) {
-        const kids = p.camera.children;
-        for (let i = 0; i < kids.length; i++) {
-          const ch = kids[i];
-          if (ch === node) continue;
-          const n = ch.name || '';
-          if (
-            n === 'SoldierViewModel' ||
-            n === 'ViewGadget' ||
-            n === 'BuildViewModel' ||
-            n === 'ViewKnife'
-          ) {
-            ch.visible = false;
-          }
-        }
-      }
       this._applyThrowPose();
     },
 
+    /**
+     * Swap the held model for the equipped kind. The world mesh is reused rather
+     * than a hand-built stand-in, so what you hold is what leaves your hand.
+     */
     _styleHeldItem: function (node, id) {
       if (!node) return;
       const parts = node.userData.parts || {};
-      const isBottle = id === 'molotov';
-      const isCan = id === 'flash' || id === 'stun' || id === 'smoke';
-      // 美术资产优先。程序化那套只有三种外形（雷 / 瓶 / 罐），闪光弹和烟雾弹
-      // 共用"罐"，分不出谁是谁；有 GLB 就把三种全藏了换真模型。
-      // 资产可能是懒加载的，第一次进来还没有 → 先用程序化顶着，之后
-      // _showHeldVm 再调一次就换过来了。
-      let art = node.userData.artItem;
-      if (art && art.userData.artId !== id) {
-        if (art.parent) art.parent.remove(art);
-        art = node.userData.artItem = null;
-      }
-      if (!art && node.userData.item) {
-        const built = artThrowable(id, ART_SCALE, false);
-        if (built) {
-          built.userData.artId = id;
-          node.userData.item.add(built);
-          art = node.userData.artItem = built;
+      const item = node.userData.item;
+      const holder = parts.holder;
+      const isC4 = id === 'semtex';
+      // 美术资产是懒加载的：第一次进游戏可能还没下完，那时先用体素盒子，
+      // 等资产到了（下面的 preload 完成后再切一次雷）再重建。
+      const WM = global.VF && global.VF.WeaponModels;
+      const hasArt = !!(WM && WM.has && WM.has(id));
+      if (holder && (holder.userData.kind !== id || holder.userData.art !== hasArt)) {
+        for (let i = holder.children.length - 1; i >= 0; i--) {
+          const child = holder.children[i];
+          holder.remove(child);
+          child.traverse(function (m) {
+            // 美术资产的几何体 / 材质在 weapon-models.js 的 CACHE 里跨消费点
+            // 共享（世界飞行体、展示界面预览都在用同一份），析构了它们会一起坏。
+            // 带 shared 标记的跳过（跟根目录 js/arsenal.js 一个规矩）。
+            if (m.geometry && !(m.geometry.userData && m.geometry.userData.shared)) m.geometry.dispose();
+            if (m.material && m.material.dispose && !(m.material.userData && m.material.userData.shared)) {
+              m.material.dispose();
+            }
+          });
         }
-      }
-      if (art) {
-        if (parts.grenade) parts.grenade.visible = false;
-        if (parts.bottle) parts.bottle.visible = false;
-        if (parts.can) parts.can.visible = false;
-        return; // 美术件自带贴图，不再用 def.color 染色
-      }
-
-      if (parts.grenade) parts.grenade.visible = !isBottle && !isCan;
-      if (parts.bottle) parts.bottle.visible = isBottle;
-      if (parts.can) parts.can.visible = isCan;
-      const def = defOf(id);
-      const paint = function (obj) {
-        if (!obj) return;
-        obj.traverse(function (m) {
-          if (m.material && m.material.color && m.material.emissive) {
-            m.material.color.setHex(def.color);
-            m.material.emissive.setHex(def.color);
-            m.material.emissiveIntensity = 0.16;
-          }
+        const mesh = makeMesh(id);
+        // Viewmodels sit inside the near plane, so culling has to be off or the
+        // whole item pops out at certain angles.
+        mesh.traverse(function (m) {
+          m.frustumCulled = false;
         });
-      };
-      const body = node.userData.body;
-      if (body && body.material && body.material.color) {
-        body.material.color.setHex(def.color);
-        if (body.material.emissive) {
-          body.material.emissive.setHex(def.color);
-          body.material.emissiveIntensity = 0.2;
-        }
+        holder.add(mesh);
+        holder.userData.kind = id;
+        holder.userData.art = hasArt;
       }
-      if (isBottle) paint(parts.bottle);
-      if (isCan) paint(parts.can);
+      if (item) {
+        item.scale.setScalar(VIEW_ITEM_SCALE);
+        item.rotation.set(isC4 ? 0.12 : 0, isC4 ? 0.4 : -0.9, 0);
+      }
     },
 
     _hideHeldItem: function (hide) {
@@ -1183,22 +1575,12 @@
     _hideHeldVm: function () {
       const p = VF.game && VF.game.player;
       if (p && p._throwNode) p._throwNode.visible = false;
-      const grenadeHand = VF.Gadgets && VF.Gadgets.hand === 'grenade';
-      if (grenadeHand) return;
-      if (VF.Gadgets && VF.Gadgets._syncHeldVisual && VF.Gadgets.hand !== 'grenade') {
-        VF.Gadgets._syncHeldVisual(VF.game);
-        return;
-      }
-      const w = VF.game && VF.game.weapons;
       if (p && p._heldMode !== 'build') {
         if (p.viewModel) p.viewModel.visible = true;
         if (p._weaponViewModel) p._weaponViewModel.visible = true;
       }
-      if (w && w.current === 'knife' && VF.Melee && VF.Melee.restyle) {
-        VF.Melee.restyle(p, 'knife');
-      } else if (w && w._restyleGun) {
-        w._restyleGun(w.current);
-      }
+      const w = VF.game && VF.game.weapons;
+      if (w && w._restyleGun) w._restyleGun(w.current);
     },
 
     _applyThrowPose: function () {
@@ -1224,58 +1606,78 @@
       let drz = 0;
       let r = { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 };
       let l = { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 };
+      let rh = { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 };
+      let lh = { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 };
+      // The arms hang off anchored shoulders, so every phase below swings them
+      // by rotation only — translating an arm walks its shoulder in from off
+      // frame and the limb reads as a slab floating beside the lens.
       if (state.pose === 'draw') {
-        const k = sm(state.poseT / ANIM.draw);
-        dx = 0.03 * (1 - k);
-        dy = -0.26 + k * 0.26;
-        dz = 0.1 - k * 0.1;
-        drx = 0.28 - k * 0.28;
-        r.z = 0.04 * (1 - k);
-        r.rx = 0.18 * (1 - k);
-        l.y = -0.08 * (1 - k);
+        // Rest pose is already the 平举 cook. Draw lifts into it from a holster.
+        const u = 1 - sm(state.poseT / ANIM.draw);
+        dy = -0.12 * u;
+        dz = 0.06 * u;
+        r.rx = -0.72 * u;
+        r.ry = 0.14 * u;
+        l.rx = -0.78 * u;
+        l.ry = -0.12 * u;
+        lh.rx = 0.3 * u;
       } else if (state.pose === 'charge') {
         const c = chargeRatio();
         dy = c * 0.02;
-        dz = c * 0.03;
-        drx = c * 0.08;
-        r.z = c * 0.03;
-        r.rx = c * 0.12;
-        l.z = c * 0.02;
+        r.rx = c * 0.16;
+        r.ry = c * 0.06;
+        rh.rx = c * 0.12;
+        l.rx = -c * 0.03;
+        lh.ry = c * 0.06;
       } else if (state.pose === 'throw') {
         const k = Math.max(0, Math.min(1, state.poseT / ANIM.throw));
-        const cock = k < 0.32 ? sm(k / 0.32) : 1;
-        const toss = k < 0.32 ? 0 : sm((k - 0.32) / 0.68);
-        const follow = Math.max(0, (toss - 0.4) / 0.6);
-        dx = toss * 0.04;
-        dy = cock * 0.02 - follow * 0.08;
-        dz = -toss * 0.06;
-        drx = cock * 0.06 - toss * 0.12;
-        dry = -toss * 0.04;
-        r.z = cock * 0.05 - toss * 0.22;
-        r.y = cock * 0.03 + toss * 0.04 - follow * 0.38;
-        r.x = toss * 0.02 + follow * 0.06;
-        r.rx = cock * 0.32 - toss * 0.7 - follow * 0.2;
-        r.ry = -toss * 0.08;
-        r.rz = -toss * 0.1;
-        l.y = -toss * 0.28 - follow * 0.18;
-        l.x = -toss * 0.1;
-        l.z = toss * 0.06;
-        l.rx = toss * 0.25;
-        l.rz = toss * 0.12;
+        // A throw has to be seen loading up before it goes, so the wind-up eases
+        // in over its own third of the clip and the release is an ease-out whip.
+        const cock = k < 0.38 ? sm(k / 0.38) : 1;
+        const raw = k < 0.38 ? 0 : (k - 0.38) / 0.62;
+        const toss = 1 - Math.pow(1 - raw, 2.6);
+        const follow = Math.max(0, (raw - 0.45) / 0.55);
+        dy = cock * ARC.backY - toss * ARC.outY;
+        dz = cock * ARC.backZ - toss * ARC.outZ + follow * ARC.outZ * 0.24;
+        drx = cock * ARC.backPitch - toss * ARC.outPitch;
+        dry = cock * ARC.backYaw - toss * ARC.outYaw;
+        // Right: load the hand up and out behind the ear, then sweep it down and
+        // through past the crosshair, wrist snapping open at the release.
+        r.rx = 0.16 + cock * ARC.cockRx - toss * ARC.tossRx;
+        r.ry = 0.06 + cock * ARC.cockRy - toss * ARC.tossRy;
+        r.rz = -cock * ARC.cockRz + toss * ARC.cockRz * 0.43;
+        rh.rx = 0.12 + cock * ARC.wristCock - toss * ARC.wristSnap;
+        rh.ry = cock * 0.12 - toss * 0.3;
+        // Left simply folds away as the throw goes. Cancelling the root's punch
+        // off its shoulder keeps it from being carried forward with the right
+        // arm, which looks like the off hand is throwing something too.
+        l.z = -dz;
+        l.y = -dy;
+        l.rx = -0.03 - toss * 0.95;
+        l.ry = -toss * 0.34;
+        lh.rx = -toss * 0.45;
+        lh.rz = toss * 0.66;
       } else if (state.pose === 'recover') {
+        // Blends from the throw's last frame to the holster, expressed off the
+        // same ARC values — hand-copied start angles drift the moment the arc is
+        // retuned and pop the hands a frame after release.
         const k = sm(state.poseT / ANIM.recover);
-        dx = 0.04 + k * 0.08;
-        dy = -0.06 - k * 0.38;
-        dz = -0.06 + k * 0.16;
-        drx = -0.06 + k * 0.2;
-        dry = -0.04;
-        r.y = -0.31 - k * 0.28;
-        r.z = -0.17 + k * 0.12;
-        r.x = 0.08 + k * 0.06;
-        r.rx = -0.58 + k * 0.2;
-        l.y = -0.46 - k * 0.22;
-        l.x = -0.1 - k * 0.08;
-        l.rx = 0.25 + k * 0.15;
+        const mix = function (a, b) { return a + (b - a) * k; };
+        dy = mix(ARC.backY - ARC.outY, -0.2);
+        dz = mix(ARC.backZ - ARC.outZ * 0.76, -0.02);
+        drx = mix(ARC.backPitch - ARC.outPitch, 0);
+        dry = mix(ARC.backYaw - ARC.outYaw, 0);
+        r.rx = mix(0.16 + ARC.cockRx - ARC.tossRx, -0.97);
+        r.ry = mix(0.06 + ARC.cockRy - ARC.tossRy, 0.12);
+        r.rz = mix(-ARC.cockRz * 0.57, 0);
+        rh.rx = mix(0.12 + ARC.wristCock - ARC.wristSnap, -0.12);
+        rh.ry = mix(-0.18, 0);
+        l.z = -dz;
+        l.y = -dy;
+        l.rx = mix(-0.98, -1.1);
+        l.ry = mix(-0.34, -0.14);
+        lh.rx = mix(-0.45, -0.15);
+        lh.rz = mix(0.66, 0.26);
       }
       const sway = (p._swayBlend || 0) * (state.pose === 'charge' ? 0.55 : 0.15);
       const t = p._bobTime || 0;
@@ -1286,15 +1688,13 @@
       node.rotation.set(hip.rx + drx, hip.ry + dry, hip.rz + drz);
       poseArm(node.userData.rArm, node.userData.rArmRest, r.x, r.y, r.z, r.rx, r.ry, r.rz);
       poseArm(node.userData.lArm, node.userData.lArmRest, l.x, l.y, l.z, l.rx, l.ry, l.rz);
+      poseArm(node.userData.rHand, node.userData.rHandRest, rh.x, rh.y, rh.z, rh.rx, rh.ry, rh.rz);
+      poseArm(node.userData.lHand, node.userData.lHandRest, lh.x, lh.y, lh.z, lh.rx, lh.ry, lh.rz);
     },
 
     _consume: function () {
       if (DEBUG_UNLIMITED) return;
       state.ammo = Math.max(0, state.ammo - 1);
-      if (VF.Gadgets) {
-        VF.Gadgets.grenades = state.ammo;
-        if (VF.Gadgets.syncHud) VF.Gadgets.syncHud(VF.game);
-      }
     },
 
     _cancelHold: function () {
@@ -1324,6 +1724,14 @@
           g.landed = true;
           g.settled = true;
           g.vx = g.vy = g.vz = 0;
+          // An impact fuse is lit by a collision and by nothing else, so one
+          // that never registers a hit has to be set off here or it hangs in
+          // the air, inert and invisible, for the rest of the round.
+          if (def.fuseFrom === 'impact') {
+            this._trigger(g);
+            this._removeLive(i);
+            continue;
+          }
           g.fuse = 0.05;
         }
 
@@ -1333,6 +1741,14 @@
         }
 
         const landReady = def.fuseFrom === 'land' && (g.settled || g.landed);
+        if (g.id === 'semtex' && g.fuse != null && g.fuse > 0 && (g.attach || g.settled)) {
+          g._beepAcc = (g._beepAcc || 0) + dt;
+          const interval = 0.16 + Math.max(0, g.fuse) * 0.14;
+          if (g._beepAcc >= interval) {
+            g._beepAcc = 0;
+            if (VF.Audio) VF.Audio.play('semtex_beep');
+          }
+        }
         if (def.fuseFrom === 'throw' || (def.fuseFrom === 'stick' && (g.attach || g.settled)) || landReady) {
           g.fuse -= dt;
           if (g.fuse <= 0) {
@@ -1353,6 +1769,9 @@
               g.mesh.rotation.x += spin;
               g.mesh.rotation.z += spin * 0.62;
             }
+          }
+          if (g.id === 'semtex' && g.mesh.userData.led) {
+            g.mesh.userData.led.visible = Math.sin(performance.now() * 0.02) > 0;
           }
         }
       }
@@ -1427,10 +1846,13 @@
           g.x = ox;
           g.y = oy;
           g.z = oz;
-          playSound('throwable.' + g.id + '.bounce', { x: g.x, y: g.y, z: g.z }, {
-            maxDistance: 55,
-            priority: 3,
-          });
+          const now = performance.now();
+          if (!g._bounceAt || now - g._bounceAt > 85) {
+            g._bounceAt = now;
+            if (VF.Audio && VF.Audio.playAt) {
+              VF.Audio.playAt('nade_bounce', g.x, g.y, g.z, { volMul: 0.55, hear: 40 });
+            }
+          }
           continue;
         }
 
@@ -1461,7 +1883,8 @@
             g.z = hit.z;
             this._settleNade(g, def);
             g.fuse = def.fuseTime;
-            if (VF.Audio) VF.Audio.play('c4_plant');
+            orientFlatC4(g.mesh, hit.nx, hit.ny, hit.nz);
+            if (VF.Audio) VF.Audio.play('semtex_stick');
             return;
           }
           const rest = def.restitution != null ? def.restitution : PHYS.restitution;
@@ -1484,15 +1907,6 @@
           const floor = nyn > 0.5;
           const impact = Math.abs(vn);
           const horiz = Math.hypot(g.vx, g.vz);
-          const audioNow = performance.now();
-          if (impact > 0.9 && (!g._bounceAudioAt || audioNow - g._bounceAudioAt > 90)) {
-            g._bounceAudioAt = audioNow;
-            playSound('throwable.' + g.id + '.bounce', { x: g.x, y: g.y, z: g.z }, {
-              gain: Math.min(1, 0.35 + impact / 12),
-              maxDistance: 55,
-              priority: 3,
-            });
-          }
           if (floor) {
             g.groundHits = (g.groundHits || 0) + 1;
             this._restOnFloor(g, world);
@@ -1502,6 +1916,18 @@
             else if (g.vy < 0) g.vy = Math.abs(g.vy) * rest;
           }
           const spd = Math.sqrt(g.vx * g.vx + g.vy * g.vy + g.vz * g.vz);
+          if (impact > 1.15) {
+            const now = performance.now();
+            if (!g._bounceAt || now - g._bounceAt > 85) {
+              g._bounceAt = now;
+              const vol = Math.min(1, 0.28 + impact * 0.1);
+              if (VF.Audio && VF.Audio.playAt) {
+                VF.Audio.playAt('nade_bounce', g.x, g.y, g.z, { volMul: vol, hear: 52 });
+              } else if (VF.Audio) {
+                VF.Audio.play('nade_bounce', { volMul: vol });
+              }
+            }
+          }
           if (def.fuseFrom === 'land' && !g.landed) {
             g.landed = true;
             g.fuse = def.fuseTime;
@@ -1542,7 +1968,7 @@
         g._offY = actor.y - p.y;
         g._offZ = actor.z - p.z;
       }
-      if (VF.Audio) VF.Audio.play('c4_plant');
+      if (VF.Audio) VF.Audio.play('semtex_stick');
     },
 
     _followAttach: function (g) {
@@ -1599,13 +2025,7 @@
 
     _explode: function (g, def) {
       const world = VF.game && VF.game.world;
-      playSound('throwable.frag.detonate', { x: g.x, y: g.y, z: g.z }, {
-        maxDistance: 450,
-        priority: 10,
-        gain: 1.6,
-        refDistance: 12,
-        rolloff: 0.55,
-      });
+      if (VF.Audio) VF.Audio.play(g.id === 'semtex' ? 'semtex' : 'explosion');
       this._blastFx(g.x, g.y, g.z, def);
       this._breakBlocks(g.x, g.y, g.z, def.outerRadius, def.breakChance);
       if (world && world.deformTerrainCircle) {
@@ -1793,7 +2213,7 @@
         if (VF.UI && VF.UI.toast) VF.UI.toast('燃烧瓶入水熄灭');
         return;
       }
-      if (VF.Audio) VF.Audio.play('explosion');
+      if (VF.Audio) VF.Audio.play('molotov');
       const gy = groundY(world, g.x, g.y, g.z);
       const mesh = this._makeFireMesh(g.x, gy, g.z, def.fireRadius, world);
       VF.game.scene.add(mesh);
@@ -1818,61 +2238,150 @@
     _makeFireMesh: function (x, y, z, r, world) {
       const root = new THREE.Group();
       root.frustumCulled = false;
-      const blobGeo = new THREE.SphereGeometry(1, 10, 8);
+      let seq = 0;
 
-      const glow = new THREE.Mesh(new THREE.CircleGeometry(r * 1.08, 28), fxMat(0xffaa22, 0.28, true));
-      glow.rotation.x = -Math.PI / 2;
-      glow.position.y = 0.03;
-      root.add(glow);
+      const matHot = makeVoxelMat({
+        color: 0xffb43a,
+        opacity: 1,
+        emi: 0.34,
+        pixel: 5,
+        fogAmt: 0.06,
+        opaque: true,
+        toneMapped: false,
+      });
+      const matMid = makeVoxelMat({
+        color: 0xf9600f,
+        opacity: 1,
+        emi: 0.2,
+        pixel: 5,
+        fogAmt: 0.06,
+        opaque: true,
+        toneMapped: false,
+      });
+      const matDim = makeVoxelMat({
+        color: 0xc7300a,
+        opacity: 1,
+        emi: 0.1,
+        pixel: 4.5,
+        fogAmt: 0.08,
+        opaque: true,
+        toneMapped: false,
+      });
+      const matChar = makeVoxelMat({
+        color: 0x30231e,
+        opacity: 1,
+        emi: 0.04,
+        pixel: 4,
+        fogAmt: 0.12,
+        opaque: true,
+      });
+      const matSmoke = makeVoxelMat({
+        color: 0x555c64,
+        opacity: 0.2,
+        emi: 0,
+        pixel: 3.2,
+        fogAmt: 0.02,
+        soft: true,
+        toneMapped: false,
+        cloudY0: y + 1.4,
+        cloudH: 3.2,
+      });
+      root.userData.fxMats = [matHot, matMid, matDim, matChar, matSmoke];
 
-      const addBlob = (lx, ly, lz, sc, color, op, additive, kind) => {
-        if (world && isSolid(world, x + lx, y + ly, z + lz)) return;
-        const mesh = new THREE.Mesh(blobGeo, fxMat(color, op, additive));
-        mesh.scale.setScalar(sc);
-        mesh.position.set(lx, ly, lz);
-        mesh.userData.kind = kind;
-        mesh.userData.phase = Math.random() * 6.283;
-        mesh.userData.spin = 0.6 + Math.random() * 1.4;
-        mesh.userData.baseY = ly;
-        mesh.userData.baseX = lx;
-        mesh.userData.baseZ = lz;
-        mesh.userData.baseScale = sc;
-        mesh.userData.baseOp = op;
-        mesh.renderOrder = kind === 'ember' ? 6 : kind === 'fire' ? 5 : 3;
-        root.add(mesh);
+      const rnd = (lo, hi) => lo + Math.random() * (hi - lo);
+      const TAU = Math.PI * 2;
+      const can = (lx, ly, lz) => !(world && isSolid(world, x + lx, y + Math.max(ly, 0.4), z + lz));
+      const put = (lx, ly, lz, sx, sy, sz, mat, kind) => {
+        if (!can(lx, ly, lz)) return null;
+        const m = addVoxel(root, mat, lx, ly, lz, sx, sy, sz, {
+          kind: kind,
+          d: Math.hypot(lx, lz),
+          phase: Math.random() * TAU,
+          spin: 0.55 + Math.random() * 1.4,
+          key: 'f' + seq++,
+        });
+        if (m) m.rotation.y = Math.random() * TAU;
+        return m;
       };
 
-      const ring = (n, r0, r1, y0, y1, s0, s1, color, op, additive, kind) => {
-        for (let i = 0; i < n; i++) {
-          const a = (i / n) * Math.PI * 2 + (Math.random() - 0.5) * 0.45;
-          const rr = r0 + Math.random() * (r1 - r0);
-          addBlob(
-            Math.cos(a) * rr,
-            y0 + Math.random() * (y1 - y0),
-            Math.sin(a) * rr,
-            s0 + Math.random() * (s1 - s0),
-            color,
-            op,
-            additive,
-            kind
-          );
+      // One continuous burn scar: tiles sit on a jittered grid but are wider
+      // than the spacing, so they weld into a single pool instead of reading as
+      // separate patches. The outline comes from low-frequency waves and the
+      // embers from low-frequency blotches, never per-tile randomness.
+      const s1 = Math.random() * TAU;
+      const s2 = Math.random() * TAU;
+      const s3 = Math.random() * TAU;
+      const edgeAt = (a) =>
+        r * (0.9 + 0.1 * Math.sin(a * 3 + s1) + 0.07 * Math.sin(a * 5 + s2) + 0.05 * Math.sin(a * 8 + s3));
+      const gstep = 0.46;
+      const gn = Math.ceil(r / gstep) + 1;
+      for (let ix = -gn; ix <= gn; ix++) {
+        for (let iz = -gn; iz <= gn; iz++) {
+          const lx = ix * gstep + rnd(-0.07, 0.07);
+          const lz = iz * gstep + rnd(-0.07, 0.07);
+          const d = Math.hypot(lx, lz);
+          if (d > edgeAt(Math.atan2(lz, lx))) continue;
+          const blot =
+            Math.sin(lx * 1.6 + s1) + Math.sin(lz * 1.9 + s2) + Math.sin((lx + lz) * 1.1 + s3) - (d / r) * 1.2;
+          const mat = blot > 1.05 ? matHot : blot > 0.05 ? matMid : matChar;
+          // Distinct tops per layer (plus jitter) so overlapping tiles never
+          // end up coplanar and z-fight.
+          const h = (mat === matHot ? 0.2 : mat === matMid ? 0.155 : 0.11) + Math.random() * 0.03;
+          put(lx, h * 0.5, lz, gstep * 1.55, h, gstep * 1.55, mat, 'ground');
         }
-      };
+      }
 
-      // Ground fire carpet: dense yellow core → orange mid → thinner rim
-      ring(10, 0.0, r * 0.28, 0.22, 0.85, 0.62, 0.95, 0xfff04a, 0.88, true, 'fire');
-      ring(8, 0.05, r * 0.22, 0.45, 1.15, 0.5, 0.78, 0xffee66, 0.8, true, 'fire');
-      ring(16, r * 0.28, r * 0.68, 0.18, 0.75, 0.48, 0.78, 0xff8818, 0.78, true, 'fire');
-      ring(14, r * 0.62, r * 0.98, 0.14, 0.52, 0.38, 0.62, 0xff5510, 0.62, true, 'fire');
+      // Flame tongues: stacked cubes tapering upward, gaps between them so the
+      // silhouette reads as separate flames instead of one wall.
+      for (let i = 0; i < 30; i++) {
+        const a = Math.random() * TAU;
+        const rr = Math.sqrt(Math.random()) * r * 0.95;
+        const near = Math.max(0, 1 - rr / r);
+        const total = rnd(0.5, 0.95) + near * rnd(0.45, 1.35);
+        const segs = 2 + Math.floor(Math.random() * 3);
+        let cx = Math.cos(a) * rr;
+        let cz = Math.sin(a) * rr;
+        let base = 0.02;
+        let w = rnd(0.3, 0.52) * (0.8 + near * 0.5);
+        for (let s = 0; s < segs; s++) {
+          const t = s / segs;
+          const segH = (total / segs) * rnd(0.75, 1.3);
+          const mat = t < 0.3 ? matHot : t < 0.68 ? matMid : matDim;
+          put(cx, base + segH * 0.5, cz, w, segH, w * rnd(0.75, 1.1), mat, 'flame');
+          base += segH * rnd(0.78, 0.96);
+          w *= rnd(0.56, 0.8);
+          cx += rnd(-0.14, 0.14);
+          cz += rnd(-0.14, 0.14);
+        }
+      }
 
-      // Light haze only — must not wall off soldiers or the camera.
-      ring(6, r * 0.15, r * 0.45, 0.9, 1.6, 0.45, 0.7, 0x6a6e68, 0.16, false, 'plume');
-      ring(5, r * 0.12, r * 0.4, 1.5, 2.4, 0.4, 0.62, 0x7a7e78, 0.12, false, 'plume');
-      ring(4, r * 0.08, r * 0.32, 2.2, 3.1, 0.35, 0.52, 0x8a8e88, 0.09, false, 'plume');
+      // Thin smoke drifting off the pool, kept clear of the flames themselves.
+      for (let i = 0; i < 18; i++) {
+        const a = Math.random() * TAU;
+        const rr = Math.random() * r * 0.7;
+        const s = rnd(1.1, 2.1);
+        put(
+          Math.cos(a) * rr,
+          rnd(2.1, 3.9),
+          Math.sin(a) * rr,
+          s,
+          s * rnd(0.7, 1.05),
+          s * rnd(0.85, 1.15),
+          matSmoke,
+          'plume'
+        );
+      }
+      for (let i = 0; i < 22; i++) {
+        const a = Math.random() * TAU;
+        const rr = Math.random() * r * 0.9;
+        put(Math.cos(a) * rr, rnd(0.4, 1.6), Math.sin(a) * rr, 0.1, 0.1, 0.1, matHot, 'ember');
+      }
 
-      // Embers in the fire→smoke transition
-      ring(18, r * 0.1, r * 0.8, 0.55, 2.2, 0.1, 0.16, 0xff6622, 0.95, true, 'ember');
-
+      const light = new THREE.PointLight(0xff6a1c, 3.4, 15, 1.4);
+      light.position.set(0, 0.95, 0);
+      root.add(light);
+      root.userData.light = light;
+      root.userData.lightBase = 3.4;
       root.position.set(x, y, z);
       return root;
     },
@@ -1885,25 +2394,12 @@
       const cz = g.z;
       const maxR = def.effectRadius || 5;
       const colH = 3.4;
-      const cells = fillSmokeCloud(world, cx, cy, cz, maxR);
-      const mesh = this._makeSmokeMesh(cx, cy, cz, gy, cells, maxR);
+      const mesh = this._makeSmokeMesh(cx, gy, cz, maxR, world);
       VF.game.scene.add(mesh);
-      playSound('throwable.smoke.ignite', { x: cx, y: cy, z: cz }, {
-        maxDistance: 90,
-        priority: 6,
-      });
+      if (VF.Audio) VF.Audio.play('smoke');
       const expand = def.expandTime;
       const stable = def.areaDuration;
       const fade = def.fadeTime;
-      const audioKey = 'throwable-smoke:' + (++state._soundSeq || (state._soundSeq = 1));
-      if (VF.Audio && VF.Audio.playLoop) {
-        VF.Audio.playLoop('throwable.smoke.loop', audioKey, {
-          position: { x: cx, y: cy, z: cz },
-          maxDistance: 55,
-          gain: 0.42,
-          priority: 3,
-        });
-      }
       state.zones.push({
         kind: 'smoke',
         x: cx,
@@ -1919,35 +2415,206 @@
         fadeLeft: fade,
         age: 0,
         phase: 'expand',
-        cells: cells,
+        cells: null,
         mesh: mesh,
-        audioKey: audioKey,
       });
     },
 
-    _makeSmokeMesh: function (cx, cy, cz, gy, cells, maxR) {
+    /**
+     * One merged mesh of grid-aligned cubes. The occupied cells come from a
+     * noise-carved dome, so the outline is cauliflower-lumpy rather than round,
+     * and only the faces that touch an empty cell are emitted.
+     */
+    _makeSmokeMesh: function (cx, gy, cz, maxR, world) {
       const root = new THREE.Group();
       root.frustumCulled = false;
-      const geo = new THREE.SphereGeometry(1.55, 12, 10);
-      for (let i = 0; i < cells.length; i++) {
-        const c = cells[i];
-        const dark = i % 3 === 0;
-        const puff = new THREE.Mesh(geo, fxMat(dark ? 0x2a322f : 0x4a5650, 0.72, false));
-        puff.position.set(c.x - cx, c.y - cy, c.z - cz);
-        puff.userData.d = c.d;
-        puff.userData.baseOp = dark ? 0.8 : 0.62;
-        puff.userData.baseScale = 0.92 + (i % 5) * 0.04;
-        puff.visible = false;
-        puff.renderOrder = 4;
-        root.add(puff);
+      const cell = 0.44;
+      const colH = 3.6;
+      const mat = makeSmokeVoxelMat({ color: 0x60646b, y0: gy, h: colH });
+      // Deliberately not in fxMats: this material has no uOpacity/uEmi, so it
+      // must not go through tickVoxelMats. _updateZones drives it directly.
+      root.userData.smokeMat = mat;
+      root.userData.smokeH = colH;
+
+      const seed = Math.random() * 977;
+      const h3 = (x, y, z) => {
+        const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7 + seed) * 43758.5453;
+        return s - Math.floor(s);
+      };
+      const vn = (x, y, z) => {
+        const xi = Math.floor(x);
+        const yi = Math.floor(y);
+        const zi = Math.floor(z);
+        const xf = x - xi;
+        const yf = y - yi;
+        const zf = z - zi;
+        const u = xf * xf * (3 - 2 * xf);
+        const v = yf * yf * (3 - 2 * yf);
+        const w = zf * zf * (3 - 2 * zf);
+        const mix2 = (a, b, t) => a + (b - a) * t;
+        const y0 = mix2(
+          mix2(h3(xi, yi, zi), h3(xi + 1, yi, zi), u),
+          mix2(h3(xi, yi + 1, zi), h3(xi + 1, yi + 1, zi), u),
+          v
+        );
+        const y1 = mix2(
+          mix2(h3(xi, yi, zi + 1), h3(xi + 1, yi, zi + 1), u),
+          mix2(h3(xi, yi + 1, zi + 1), h3(xi + 1, yi + 1, zi + 1), u),
+          v
+        );
+        return mix2(y0, y1, w);
+      };
+      const lumps = (x, y, z) =>
+        vn(x * 0.62, y * 0.62, z * 0.62) * 0.56 +
+        vn(x * 1.35, y * 1.35, z * 1.35) * 0.29 +
+        vn(x * 2.7, y * 2.7, z * 2.7) * 0.15;
+
+      const nx = Math.ceil(maxR / cell) + 1;
+      const ny = Math.ceil(colH / cell);
+      const span = nx * 2 + 1;
+      const solid = new Uint8Array(span * span * ny);
+      const idx = (ix, iy, iz) => (iy * span + (ix + nx)) * span + (iz + nx);
+      const yc = colH * 0.5;
+      for (let iy = 0; iy < ny; iy++) {
+        const ly = (iy + 0.5) * cell;
+        for (let ix = -nx; ix <= nx; ix++) {
+          for (let iz = -nx; iz <= nx; iz++) {
+            const lx = ix * cell;
+            const lz = iz * cell;
+            const hr = Math.hypot(lx, lz) / maxR;
+            // Flat-bottomed dome, not an ellipsoid: the lower half has to be a
+            // full disc or the cloud thins out exactly at eye level, where a
+            // gap both looks wrong and lets players see through the cover.
+            const vr = Math.max(0, ly - yc) / (colH * 0.55);
+            const q = Math.hypot(hr, vr);
+            const edge = 1.02 + (lumps(lx, ly, lz) - 0.5) * 0.48;
+            if (q >= edge) continue;
+            if (world && isSolid(world, cx + lx, gy + ly, cz + lz)) continue;
+            solid[idx(ix, iy, iz)] = 1;
+          }
+        }
       }
-      const ring = new THREE.Mesh(new THREE.RingGeometry(0.93, 1.02, 48), fxMat(0xd0e0dc, 0.7, false));
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.y = gy - cy + 0.05;
-      ring.userData.ring = true;
-      ring.scale.setScalar(0.5);
-      root.add(ring);
-      root.position.set(cx, cy, cz);
+
+      const inRange = (ix, iy, iz) =>
+        iy >= 0 && iy < ny && ix >= -nx && ix <= nx && iz >= -nx && iz <= nx;
+      const solidAt = (ix, iy, iz) => (inRange(ix, iy, iz) ? solid[idx(ix, iy, iz)] : 0);
+      // Close pinholes. The cloud is only a few cells thick near its top, so
+      // the noise punches straight through it; each hole is a peephole onto the
+      // bright sky, and enough of them average the whole cloud out to pale grey.
+      const NB6 = [
+        [1, 0, 0],
+        [-1, 0, 0],
+        [0, 1, 0],
+        [0, -1, 0],
+        [0, 0, 1],
+        [0, 0, -1],
+      ];
+      for (let pass = 0; pass < 2; pass++) {
+        const add = [];
+        for (let iy = 0; iy < ny; iy++) {
+          for (let ix = -nx; ix <= nx; ix++) {
+            for (let iz = -nx; iz <= nx; iz++) {
+              if (solid[idx(ix, iy, iz)]) continue;
+              let nb = 0;
+              for (let d = 0; d < 6; d++) {
+                const o = NB6[d];
+                nb += solidAt(ix + o[0], iy + o[1], iz + o[2]);
+              }
+              if (nb >= 4) add.push(ix, iy, iz);
+            }
+          }
+        }
+        for (let a = 0; a < add.length; a += 3) solid[idx(add[a], add[a + 1], add[a + 2])] = 1;
+      }
+
+      const pos = [];
+      const nor = [];
+      const cens = [];
+      const dists = [];
+      const rims = [];
+      const seeds = [];
+      // Face basis picked so that u × v == the face normal, which makes the
+      // two triangles below wind counter-clockwise seen from outside.
+      const DIRS = [
+        { n: [1, 0, 0], u: [0, 1, 0], v: [0, 0, 1] },
+        { n: [-1, 0, 0], u: [0, 0, 1], v: [0, 1, 0] },
+        { n: [0, 1, 0], u: [0, 0, 1], v: [1, 0, 0] },
+        { n: [0, -1, 0], u: [1, 0, 0], v: [0, 0, 1] },
+        { n: [0, 0, 1], u: [1, 0, 0], v: [0, 1, 0] },
+        { n: [0, 0, -1], u: [0, 1, 0], v: [1, 0, 0] },
+      ];
+      const at = (ix, iy, iz) => {
+        if (iy < 0 || iy >= ny || ix < -nx || ix > nx || iz < -nx || iz > nx) return 0;
+        return solid[idx(ix, iy, iz)];
+      };
+      // Slightly oversized cubes so neighbours overlap and no seam of
+      // background can show between them.
+      const hh = cell * 0.53;
+      for (let iy = 0; iy < ny; iy++) {
+        for (let ix = -nx; ix <= nx; ix++) {
+          for (let iz = -nx; iz <= nx; iz++) {
+            const k = idx(ix, iy, iz);
+            if (!solid[k]) continue;
+            const ccx = ix * cell;
+            const ccy = (iy + 0.5) * cell;
+            const ccz = iz * cell;
+            const dist = Math.hypot(ccx, ccz);
+            const cq = h3(ix * 3.1, iy * 5.7, iz * 2.3);
+            // Only loosely attached cells get dithered. A cell on a flat wall
+            // keeps five neighbours and stays solid, so the body of the cloud
+            // never lets the background bleed through; the lumps sticking out
+            // of the silhouette are the ones that break up into pixels.
+            let nb = 0;
+            for (let d = 0; d < 6; d++) {
+              const n = DIRS[d].n;
+              nb += at(ix + n[0], iy + n[1], iz + n[2]);
+            }
+            const cr = Math.min(1, Math.max(0, (4 - nb) / 3));
+            for (let d = 0; d < 6; d++) {
+              const dir = DIRS[d];
+              const n = dir.n;
+              if (at(ix + n[0], iy + n[1], iz + n[2])) continue;
+              const u = dir.u;
+              const v = dir.v;
+              const fx = ccx + n[0] * hh;
+              const fy = ccy + n[1] * hh;
+              const fz = ccz + n[2] * hh;
+              const corner = (su, sv) => [
+                fx + u[0] * hh * su + v[0] * hh * sv,
+                fy + u[1] * hh * su + v[1] * hh * sv,
+                fz + u[2] * hh * su + v[2] * hh * sv,
+              ];
+              const c0 = corner(-1, -1);
+              const c1 = corner(1, -1);
+              const c2 = corner(1, 1);
+              const c3 = corner(-1, 1);
+              const tri = [c0, c1, c2, c0, c2, c3];
+              for (let t = 0; t < 6; t++) {
+                const c = tri[t];
+                pos.push(c[0], c[1], c[2]);
+                nor.push(n[0], n[1], n[2]);
+                cens.push(ccx, ccy, ccz);
+                dists.push(dist);
+                rims.push(cr);
+                seeds.push(cq);
+              }
+            }
+          }
+        }
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+      geo.setAttribute('aCenter', new THREE.Float32BufferAttribute(cens, 3));
+      geo.setAttribute('aDist', new THREE.Float32BufferAttribute(dists, 1));
+      geo.setAttribute('aRim', new THREE.Float32BufferAttribute(rims, 1));
+      geo.setAttribute('aRnd', new THREE.Float32BufferAttribute(seeds, 1));
+      geo.userData.owned = true;
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.frustumCulled = false;
+      root.add(mesh);
+      root.position.set(cx, gy, cz);
       return root;
     },
 
@@ -1966,12 +2633,13 @@
             }
           }
           if (z.life <= 0) {
-            if (z.mesh && z.mesh.parent) z.mesh.parent.remove(z.mesh);
+            disposeZoneMesh(z.mesh);
             state.zones.splice(i, 1);
           }
           continue;
         }
         if (z.kind === 'fire') {
+          z.age = (z.age || 0) + dt;
           z.acc += dt;
           while (z.acc >= z.tick) {
             z.acc -= z.tick;
@@ -1979,30 +2647,57 @@
           }
           if (z.mesh && z.mesh.children) {
             const t = performance.now() * 0.001;
-            const fade = Math.max(0.25, Math.min(1, z.life / 1.4));
+            // Catches alight from the middle outward, then burns back inward.
+            const lit = Math.min(1, z.age / 0.55);
+            const left = Math.min(1, Math.max(0, z.life) / 1.5);
+            const fade = Math.min(lit, left);
+            const rLit = z.radius * lit * 1.12;
+            const rLeft = z.radius * left * 1.12;
+            tickVoxelMats(z.mesh.userData && z.mesh.userData.fxMats, fade, t);
+            const lightRef = z.mesh.userData && z.mesh.userData.light;
+            if (lightRef) lightRef.intensity = (z.mesh.userData.lightBase || 3.4) * fade;
             for (let c = 0; c < z.mesh.children.length; c++) {
               const ch = z.mesh.children[c];
               const u = ch.userData;
               if (u.phase == null) continue;
+              const d = u.d || 0;
+              const grow = Math.max(0, Math.min(1, (rLit - d) / 0.85));
+              const burn = Math.max(0, Math.min(1, (rLeft - d) / 0.85));
+              const app = Math.min(grow, burn);
+              if (app <= 0.002) {
+                ch.visible = false;
+                continue;
+              }
+              ch.visible = true;
               const w = t * (u.spin || 1) + u.phase;
-              if (u.kind === 'fire') {
-                const flick = 0.86 + Math.sin(w * 5.2) * 0.14;
-                ch.scale.setScalar((u.baseScale || 0.6) * flick);
-                ch.position.y = u.baseY + Math.sin(w * 3.1) * 0.08;
-                if (ch.material) ch.material.opacity = (u.baseOp || 0.7) * fade * flick;
+              const bx = u.baseScaleX || 0.4;
+              const by = u.baseScaleY || bx;
+              const bz = u.baseScaleZ || bx;
+              if (u.kind === 'flame') {
+                const tall = (0.78 + Math.sin(w * 6.6) * 0.16 + Math.sin(w * 11.7) * 0.07) * app;
+                const wob = (0.92 + Math.sin(w * 5.1) * 0.08) * (0.4 + app * 0.6);
+                ch.position.x = (u.baseX || 0) + Math.sin(w * 2.6) * 0.055;
+                ch.position.y = (u.baseY || 0) * tall + Math.sin(w * 3.3) * 0.05 * app;
+                ch.position.z = (u.baseZ || 0) + Math.cos(w * 2.2) * 0.055;
+                ch.scale.set(bx * wob, by * tall, bz * wob);
+              } else if (u.kind === 'ground') {
+                // Only the thickness grows, so neighbouring tiles stay welded.
+                const th = (0.85 + Math.sin(w * 3.6) * 0.15) * app;
+                ch.position.y = (u.baseY || 0) * th;
+                ch.scale.set(bx, by * th, bz);
               } else if (u.kind === 'plume') {
-                ch.position.y = u.baseY + Math.sin(w * 0.7) * 0.18 + (1 - fade) * 0.35;
-                ch.position.x = (u.baseX || 0) + Math.sin(w * 0.45) * 0.12;
-                ch.position.z = (u.baseZ || 0) + Math.cos(w * 0.4) * 0.12;
-                const puff = 0.94 + Math.sin(w * 1.1) * 0.08;
-                ch.scale.setScalar((u.baseScale || 0.8) * puff);
-                if (ch.material) ch.material.opacity = (u.baseOp || 0.5) * fade;
+                const ps = 0.55 + app * 0.45;
+                ch.position.x = (u.baseX || 0) + Math.sin(w * 0.45) * 0.1;
+                ch.position.y = (u.baseY || 0) + Math.sin(w * 0.7) * 0.14 + (1 - fade) * 0.35;
+                ch.position.z = (u.baseZ || 0) + Math.cos(w * 0.4) * 0.1;
+                ch.scale.set(bx * ps, by * ps, bz * ps);
               } else if (u.kind === 'ember') {
-                const lift = (w * 0.35) % 1.6;
-                ch.position.y = u.baseY + lift;
-                ch.position.x = (u.baseX || 0) + Math.sin(w * 2.2) * 0.18;
-                ch.position.z = (u.baseZ || 0) + Math.cos(w * 1.8) * 0.18;
-                if (ch.material) ch.material.opacity = (u.baseOp || 0.9) * fade * (0.45 + 0.55 * Math.sin(w * 8));
+                const lift = (w * 0.32) % 1.5;
+                ch.position.x = (u.baseX || 0) + Math.sin(w * 1.8) * 0.16;
+                ch.position.y = (u.baseY || 0) + lift;
+                ch.position.z = (u.baseZ || 0) + Math.cos(w * 1.5) * 0.16;
+                const pulse = (0.45 + 0.55 * Math.max(0, Math.sin(w * 6.5))) * app;
+                ch.scale.set(bx * pulse, by * pulse, bz * pulse);
               }
             }
           }
@@ -2026,36 +2721,30 @@
             z.radius = z.maxR * Math.max(0, z.fadeLeft / fade);
           }
           const dens = smokeDensity(z);
-          if (z.mesh && z.mesh.children) {
-            for (let c = 0; c < z.mesh.children.length; c++) {
-              const ch = z.mesh.children[c];
-              if (ch.userData.ring) {
-                ch.scale.setScalar(Math.max(0.45, z.radius));
-                if (ch.material) ch.material.opacity = 0.22 + dens * 0.45;
-                continue;
-              }
-              const show = (ch.userData.d || 0) <= z.radius + 0.85;
-              ch.visible = show;
-              if (show && ch.material) {
-                const base = ch.userData.baseOp != null ? ch.userData.baseOp : 0.7;
-                const grow = 0.82 + dens * 0.28;
-                const s0 = ch.userData.baseScale != null ? ch.userData.baseScale : 1;
-                ch.scale.setScalar(s0 * grow);
-                ch.material.opacity = base * (0.35 + 0.65 * dens);
-              }
-            }
+          const smokeMat = z.mesh && z.mesh.userData && z.mesh.userData.smokeMat;
+          if (smokeMat) {
+            const u = smokeMat.uniforms;
+            u.uTime.value = performance.now() * 0.001;
+            u.uDens.value = dens;
+            // Same +1 m clearance as the solid pass, but the fill value is
+            // height so the front walks up the cloud instead of out from the
+            // axis. Held at the top during fade so Bayer dither is what
+            // dissolves it, not the mesh sinking.
+            const smokeH = z.mesh.userData.smokeH || 3.6;
+            const t = z.phase === 'expand'
+              ? Math.min(1, z.age / Math.max(0.001, expand))
+              : 1;
+            u.uFill.value = t * (smokeH + 2.0);
+            syncVoxelFog(smokeMat);
           }
           if (z.age >= total) {
-            if (z.audioKey && VF.Audio && VF.Audio.stopLoop) {
-              VF.Audio.stopLoop(z.audioKey, 0.3);
-            }
-            if (z.mesh && z.mesh.parent) z.mesh.parent.remove(z.mesh);
+            disposeZoneMesh(z.mesh);
             state.zones.splice(i, 1);
             continue;
           }
         }
         if (z.kind !== 'smoke' && z.life <= 0) {
-          if (z.mesh && z.mesh.parent) z.mesh.parent.remove(z.mesh);
+          disposeZoneMesh(z.mesh);
           state.zones.splice(i, 1);
         }
       }
@@ -2099,11 +2788,7 @@
 
     _clearZones: function () {
       for (let i = 0; i < state.zones.length; i++) {
-        const z = state.zones[i];
-        if (z.audioKey && VF.Audio && VF.Audio.stopLoop) {
-          VF.Audio.stopLoop(z.audioKey, 0.08);
-        }
-        if (z.mesh && z.mesh.parent) z.mesh.parent.remove(z.mesh);
+        disposeZoneMesh(state.zones[i].mesh);
       }
       state.zones.length = 0;
     },
@@ -2130,10 +2815,6 @@
 
     _flash: function (g, def) {
       const world = VF.game && VF.game.world;
-      playSound('throwable.flash.detonate', { x: g.x, y: g.y, z: g.z }, {
-        maxDistance: 300,
-        priority: 10,
-      });
       this._popBurst(g.x, g.y + 0.4, g.z, 0xf4f0dc, 1.35);
       const pl = VF.game && VF.game.player;
       if (pl && !pl.dead && pl.object) {
@@ -2141,12 +2822,8 @@
         if (dur > 0.05) {
           state.flashMax = Math.max(state.flashMax, def.maxBlind);
           state.flashT = Math.max(state.flashT, dur);
-          playSound('throwable.flash.ring', null, {
-            local: true,
-            gain: Math.min(1, 0.45 + dur / def.maxBlind * 0.55),
-            priority: 10,
-          });
           if (pl.addShake) pl.addShake(0.28);
+          if (VF.Audio) VF.Audio.play('flash_ring');
         }
       }
       const ai = VF.game && VF.game.ai;
@@ -2163,6 +2840,7 @@
           if (dur > 0) u.throwBlind = Math.max(u.throwBlind || 0, dur);
         }
       }
+      if (VF.Audio) VF.Audio.play('flashbang');
     },
 
     _flashOn: function (target, isPlayer, g, def, world) {
@@ -2243,7 +2921,7 @@
           affect(p, false, u);
         }
       }
-      if (VF.Audio) VF.Audio.play('hit');
+      if (VF.Audio) VF.Audio.play('stun');
     },
 
     _tickAiStatus: function (dt) {
@@ -2363,15 +3041,19 @@
       if (!state.slots) {
         state.slots = el.querySelectorAll('[data-throw-id]');
       }
+      if (VF.UI && VF.UI.syncThrowSlot) VF.UI.syncThrowSlot();
       if (!state.active || !state.equipped) {
         el.classList.add('hidden');
         return;
       }
       el.classList.remove('hidden');
+      const pool = carried();
       for (let i = 0; i < state.slots.length; i++) {
         const slot = state.slots[i];
-        const selected = slot.getAttribute('data-throw-id') === state.equipped;
-        slot.hidden = !DEBUG_UNLIMITED && !selected;
+        const id = slot.getAttribute('data-throw-id');
+        // An unbought kind is not carried, so it should not take up strip space.
+        slot.classList.toggle('hidden', pool.indexOf(id) < 0);
+        const selected = id === state.equipped;
         slot.classList.toggle('selected', selected);
         slot.classList.toggle('holding', selected && (state.holding || state.pose === 'draw' || state.pose === 'charge'));
         const cook = slot.querySelector('[data-throw-cook]');
@@ -2454,7 +3136,7 @@
         if (ey < y0 - 0.2 || ey > y1) continue;
         inside = Math.max(inside, dens * (1 - horiz / Math.max(0.001, r) * 0.35));
       }
-      el.style.opacity = String(inside * 0.88);
+      el.style.opacity = String(inside * 0.95);
     },
 
     _syncSmokeMarkers: function () {
@@ -2482,19 +3164,32 @@
     },
   };
 
-  VF.Throwables = Api;
+  /** Hotbar Q slot mirrors these. */
+  Api.isActive = function () {
+    return !!state.active;
+  };
+  Api.equipped = function () {
+    return state.active ? state.equipped : null;
+  };
+  Api.remaining = function () {
+    return state.active ? state.ammo : 0;
+  };
+  /** Respawn / new round: back to a full carry of the equipped lethal. */
+  Api.refill = function () {
+    if (!state.active) return;
+    if (state.pose && state.pose !== 'idle' && this._abortPose) this._abortPose();
+    state.ammo = DEBUG_UNLIMITED ? 9999 : 1;
+    this._syncHud();
+  };
 
-  /**
-   * 投掷物名录：装备卡按 id 查中文名，生涯统计靠 key 在不在判断一次击杀算不算
-   * 投掷物。只暴露这两处真正会读的字段。
-   */
-  VF.THROWABLE_CATALOG = Object.keys(DEFS).reduce(function (out, id) {
-    out[id] = { id: id, name: NAMES[id] || id, nameZh: NAMES[id] || id };
-    return out;
-  }, {});
-
-  // 造一个投掷物模型（美术 GLB 优先，没资产就程序化盒子）。
-  // 军械库的投掷物槽预览和验证脚本都靠它 —— 世界里那个飞行体也是同一个，
-  // 手上拿的就是扔出去的那个。
+  /** Loadout screen reads the stats and builds a preview from the world mesh. */
+  Api.catalog = throwableCatalog;
+  Api.order = function () {
+    return POOL.slice();
+  };
+  Api.carried = carried;
   Api.makeMesh = makeMesh;
+
+  VF.Throwables = Api;
+  VF.THROWABLE_CATALOG = throwableCatalog();
 })(typeof window !== 'undefined' ? window : globalThis);

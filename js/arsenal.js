@@ -1032,33 +1032,46 @@
       if (preview.pivot) {
         preview.scene.remove(preview.pivot);
         preview.pivot.traverse(function (child) {
-          if (child.geometry) child.geometry.dispose();
-          if (child.material) {
-            if (Array.isArray(child.material)) {
-              child.material.forEach(function (mat) {
-                if (mat && mat.dispose) mat.dispose();
-              });
-            } else if (child.material.dispose) child.material.dispose();
-          }
+          // 美术枪（js/weapon-models.js）的几何体 / 材质是在它的 CACHE 里
+          // 跨帧、跨消费点共享的一份 —— 析构会把第一人称和背枪正在用的
+          // GPU 缓冲一起扔掉（three 之后会重新上传，不会出错，但白费一次，
+          // 而且第一人称那边看起来会闪一下）。带 shared 标记的跳过。
+          const geo = child.geometry;
+          if (geo && geo.dispose && !(geo.userData && geo.userData.shared)) geo.dispose();
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach(function (mat) {
+            if (mat && mat.dispose && !(mat.userData && mat.userData.shared)) mat.dispose();
+          });
         });
         preview.pivot = null;
       }
       const item = findItem(this.slot, this.selectedId);
-      const canBuild =
-        item &&
-        item.def &&
-        global.VF.WeaponViewModels &&
-        global.VF.WeaponViewModels.buildGun;
+      // 投掷物槽走另一条链：它没有 weapon-catalog 里的 def（item.def 是 null），
+      // 模型在 js/throwables.js 的 makeMesh 里（跟世界里的飞行体同一份，
+      // 手上拿的就是扔出去的那个）。
+      const isThrow = this.slot === 'grenade';
+      let obj = null;
+      if (isThrow) {
+        const T = global.VF && global.VF.Throwables;
+        if (item && item.id && T && T.makeMesh) {
+          this._awaitPreviewArt(item.id);
+          obj = T.makeMesh(item.id);
+        }
+      } else if (item && item.def && global.VF.WeaponViewModels && global.VF.WeaponViewModels.buildGun) {
+        // 美术枪是懒加载的：刚进面板时可能还没下完，先照程序化枪画一版，
+        // 资产到了再重建一次（跟 player.js 的 _awaitWeaponArt 一个套路）。
+        if (item.def.id) this._awaitPreviewArt(item.def.id);
+        const built = global.VF.WeaponViewModels.buildGun(item.def, { art: true });
+        obj = built && built.gun;
+      }
       if (node.fallback) {
-        node.fallback.hidden = !!canBuild;
-        if (!canBuild) {
+        node.fallback.hidden = !!obj;
+        if (!obj) {
           node.fallback.innerHTML = item ? gearSvg(item.kind) + '<span>' + escapeHtml(item.name) + '</span>' : '';
         }
       }
-      if (!canBuild) return;
-      const built = global.VF.WeaponViewModels.buildGun(item.def);
-      const gun = built && built.gun;
-      if (!gun) return;
+      if (!obj) return;
+      const gun = obj;
       gun.position.set(0, 0, 0);
       gun.rotation.set(0, 0, 0);
       const pivot = new THREE.Group();
@@ -1067,12 +1080,42 @@
       const size = box.getSize(new THREE.Vector3());
       const center = box.getCenter(new THREE.Vector3());
       gun.position.sub(center);
-      const maxDim = Math.max(size.x, size.y, size.z, 0.35);
+      // 0.35 的下限是给枪兜底的（避免极短的手枪怼到镜头上）。手雷只有 0.2 m，
+      // 套用枪的下限会把它推到很远、在画面里只剩一小点。
+      const maxDim = Math.max(size.x, size.y, size.z, isThrow ? 0.12 : 0.35);
       const dist = maxDim * 2.35;
       preview.camera.position.set(dist * 0.72, maxDim * 0.38, dist * 0.95);
       preview.camera.lookAt(0, 0, 0);
       preview.scene.add(pivot);
       preview.pivot = pivot;
+    },
+
+    /**
+     * 展示面板的美术枪热替换。
+     *
+     * 库存面板可能在任何时刻打开，而 GLB 是启动后异步预载的（js/main.js 的
+     * preloadAll），所以进面板时资产可能还没到。这时先画程序化枪，等这一把
+     * 到了再重建预览 —— 用户不会看到空白，顶多是"过一秒变成真枪"。
+     *
+     * 只在面板开着、且选中的还是同一把时才重建，避免把用户已经切走的枪画回去。
+     */
+    _awaitPreviewArt(weaponId) {
+      const M = global.VF && global.VF.WeaponModels;
+      if (!weaponId || !M || !M.has || !M.preload) return;
+      if (M.has(weaponId)) return;
+      this._previewPending = this._previewPending || {};
+      if (this._previewPending[weaponId]) return;
+      const self = this;
+      this._previewPending[weaponId] = true;
+      M.preload([weaponId]).then(function (loaded) {
+        delete self._previewPending[weaponId];
+        if (!loaded) return;
+        if (!self.isOpen || !self._preview) return;
+        if (self.selectedId !== weaponId) return;
+        self._rebuildPreview();
+      }, function () {
+        delete self._previewPending[weaponId];
+      });
     },
 
     _resizePreview() {

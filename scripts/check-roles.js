@@ -1,11 +1,11 @@
 /*
- * scripts/check-roles.js — 体素角色浏览器验证
+ * scripts/check-roles.js — 兵种角色模型浏览器验证
  *
  * 用法：node scripts/check-roles.js
  * 断言：
- *   1. 四个皮肤全部预载成功
- *   2. 每个皮肤 create 出蒙皮网格角色（含 Weapon / TeamMarker）
- *   3. 五张截图（box + voxel01..04）两两不同 —— 证明确实换了模型
+ *   1. 四个兵种模型全部预载成功
+ *   2. 每个兵种 create 出蒙皮网格角色（含 Weapon / TeamMarker）
+ *   3. 五张截图（box 对照 + assault/engineer/recon/support）两两不同 —— 证明按兵种换了模型
  *   4. 移动驱动后的截图与待机截图不同 —— 证明动画真的在驱动骨骼
  * 产物：tmp/roles-check/*.png（人工复核朝向/站姿/背枪/贴图）
  */
@@ -64,11 +64,11 @@ function serve() {
     await page.waitForFunction(() => window.RolesCheck, null, { timeout: 15000 });
 
     const preloaded = await page.evaluate(() => window.RolesCheck.preloadAll());
-    assert.deepEqual(preloaded, [true, true, true, true], '四个皮肤应全部预载成功');
+    assert.deepEqual(preloaded, [true, true, true, true], '四个兵种模型应全部预载成功');
 
-    const skinIds = ['box'].concat(await page.evaluate(() => window.RolesCheck.skinIds()));
+    const ids = ['box'].concat(await page.evaluate(() => window.RolesCheck.classIds()));
     const shots = {};
-    for (const id of skinIds) {
+    for (const id of ids) {
       const info = await page.evaluate((sid) => window.RolesCheck.render(sid, null), id);
       assert.equal(info.ok, true, id + ' create 失败: ' + (info.reason || ''));
       if (id !== 'box') {
@@ -79,7 +79,7 @@ function serve() {
       await page.locator('#stage').screenshot({ path: file });
       shots[id] = fs.readFileSync(file);
       // 阈值 10000 的说明：swiftshader 软渲染下真实角色截图约 14KB，纯空白 PNG 只有
-      // 2-5KB——10000 足以抓空白画面。真正防"换皮失败"的是后面的两两不同断言。
+      // 2-5KB——10000 足以抓空白画面。真正防"换模型失败"的是后面的两两不同断言。
       assert.ok(shots[id].length > 10000, id + ' 截图疑似空白画面');
 
       // 移动驱动：截图应与待机不同（动画在推进）
@@ -90,11 +90,11 @@ function serve() {
     }
 
     // 五张待机图两两不同
-    for (let i = 0; i < skinIds.length; i++) {
-      for (let j = i + 1; j < skinIds.length; j++) {
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
         assert.ok(
-          Buffer.compare(shots[skinIds[i]], shots[skinIds[j]]) !== 0,
-          skinIds[i] + ' 与 ' + skinIds[j] + ' 截图相同，模型没有切换'
+          Buffer.compare(shots[ids[i]], shots[ids[j]]) !== 0,
+          ids[i] + ' 与 ' + ids[j] + ' 截图相同，模型没有切换'
         );
       }
     }
@@ -104,9 +104,9 @@ function serve() {
     // 断言 armQuat 与 bindQuat 至少有一分量差 > 0.05，证明 create() 内
     // mixer.update(0) 已将骨架推到 idle 站姿而非绑定姿势（A-pose）。
     const bindQ = await page.evaluate(() => window.RolesCheck.bindQuat('soldier01.glb', 'Bip001-L-UpperArm'));
-    const noDriveInfo = await page.evaluate(() => window.RolesCheck.render('voxel01', null, { noDrive: true }));
-    assert.ok(noDriveInfo.ok, 'voxel01 不驱动时 create 失败: ' + (noDriveInfo.reason || ''));
-    assert.ok(noDriveInfo.armQuat !== null, 'voxel01 不驱动时找不到 Bip001-L-UpperArm 骨骼');
+    const noDriveInfo = await page.evaluate(() => window.RolesCheck.render('assault', null, { noDrive: true }));
+    assert.ok(noDriveInfo.ok, 'assault 不驱动时 create 失败: ' + (noDriveInfo.reason || ''));
+    assert.ok(noDriveInfo.armQuat !== null, 'assault 不驱动时找不到 Bip001-L-UpperArm 骨骼');
     assert.ok(bindQ !== null, 'bindQuat 独立加载找不到 Bip001-L-UpperArm 骨骼');
     const maxDiff = Math.max(
       Math.abs(noDriveInfo.armQuat[0] - bindQ[0]),
@@ -118,7 +118,7 @@ function serve() {
       'create() 未驱动的骨骼与绑定姿势相同（A-pose 回归）：maxDiff=' + maxDiff.toFixed(4));
 
     assert.deepEqual(errors, [], '页面不应有 pageerror');
-    console.log('check-roles OK：' + skinIds.length + ' 个角色截图已写入 tmp/roles-check/');
+    console.log('check-roles OK：' + ids.length + ' 个角色截图已写入 tmp/roles-check/');
   } finally {
     await browser.close();
     server.close();

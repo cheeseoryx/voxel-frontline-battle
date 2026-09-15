@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<!-- base href="/" 必须：本页在 /scripts/ 下，资源按相对 assets/ 解析 -->
+<base href="/" />
+<title>check-weapons-side harness</title>
+<style>
+  html,body{margin:0;background:#141b24}
+  #wrap{position:relative;width:1400px;height:520px}
+  #wrap canvas{position:absolute;left:0;top:0;display:block}
+  #gl{z-index:1}
+  #lbl{z-index:2;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="gl" width="1400" height="520"></canvas>
+  <canvas id="lbl" width="1400" height="520"></canvas>
+</div>
+<script src="../js/vendor/three.gltf.global.js"></script>
+<script>
+/*
+ * scripts/check-weapons-side.html — 单把枪的**大图侧视**，专为判定枪口朝向。
+ *
+ * 为什么单独一个页：check-weapons.html 的三视图每格只有 320px 宽，
+ * 步枪细节（握把 / 扳机护圈 / 弹匣 / 枪托）挤在一起看不清，而"哪一端细"
+ * 这个自动判据已经被证明会误判（M249/MP5/MP7 的枪口端有消焰器段、
+ * P90/USP 的枪托比握把厚）。所以这里的做法是：**不做自动判断，只把两端
+ * 都标出来**，由人看图说话。
+ *
+ * 屏幕方向：相机在 +X 看向原点，所以
+ *   屏幕左 = 世界 +Z    屏幕右 = 世界 -Z
+ *   （与 check-weapons.html 侧视一致）
+ *
+ * 图例：
+ *   黄球 = 模型原点(0,0,0)
+ *   青球 + "Z+" = 包围盒 +Z 端
+ *   品红球 + "Z-" = 包围盒 -Z 端
+ *   绿框 = 包围盒
+ *   底部刻度 = 每 0.1m 一根
+ * 阅读方法：枪口是**细管**那一端，枪托是**贴肩的宽板**那一端，
+ *          握把/弹匣是**朝下**伸出的两坨。
+ */
+(function () {
+  const W = 1400;
+  const H = 520;
+  const glCanvas = document.getElementById('gl');
+  const lblCanvas = document.getElementById('lbl');
+  const renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: true, preserveDrawingBuffer: true });
+  renderer.setSize(W, H, false);
+
+  const FILES = {
+    m249: 'assets/weapons/SM_M249_001.glb',
+    mp5: 'assets/weapons/SM_MP5_001.glb',
+    mp7: 'assets/weapons/SM_MP7_001.glb',
+    p90: 'assets/weapons/SM_P90_001.glb',
+    usp: 'assets/weapons/SM_USP_001.glb',
+    acr: 'assets/weapons/Mod_ACR.glb',
+    ak74: 'assets/weapons/Mod_AK_74.glb',
+    hk419: 'assets/weapons/Mod_HK419.glb',
+    m4a1: 'assets/weapons/Mod_M4A1.glb',
+    mk14ebr: 'assets/weapons/Mod_MK14EBR.glb',
+    scarh: 'assets/weapons/Mod_SCAR_H.glb',
+  };
+
+  const cache = {};
+  const loader = new THREE.GLTFLoader();
+
+  function load(url) {
+    if (cache[url]) return cache[url];
+    cache[url] = new Promise((resolve) => {
+      loader.load(url, (g) => resolve({ ok: true, gltf: g }), undefined, (e) =>
+        resolve({ ok: false, err: (e && e.message) || String(e) })
+      );
+    });
+    return cache[url];
+  }
+
+  function ball(r, color) {
+    return new THREE.Mesh(
+      new THREE.SphereGeometry(r, 14, 10),
+      new THREE.MeshBasicMaterial({ color: color })
+    );
+  }
+
+  async function render(id) {
+    const url = FILES[id];
+    if (!url) return { ok: false, reason: '未知 id: ' + id };
+    const res = await load(url);
+    if (!res.ok) return { ok: false, reason: res.err };
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x141b24);
+    scene.add(new THREE.HemisphereLight(0xdfeaff, 0x2a3340, 1.15));
+    const key = new THREE.DirectionalLight(0xfff2e0, 1.7);
+    key.position.set(4, 6, 3);
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0x88aaff, 0.8);
+    fill.position.set(-5, 3, -4);
+    scene.add(fill);
+    const top = new THREE.DirectionalLight(0xffffff, 0.5);
+    top.position.set(0, 8, 0);
+    scene.add(top);
+
+    const root = res.gltf.scene;
+    scene.add(root);
+
+    const box = new THREE.Box3().setFromObject(root);
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+
+    // 长轴应当永远是 Z；不是就直接报出来
+    let longAxis = 0;
+    for (let k = 1; k < 3; k++) if (size.getComponent(k) > size.getComponent(longAxis)) longAxis = k;
+    const axisName = ['X', 'Y', 'Z'][longAxis];
+    const maxDim = Math.max(size.x, size.y, size.z);
+
+    // 原点把长轴切成两段，各占多少（判断原点是否在握把最常用的 25~45% 处）
+    const zMin = box.min.z;
+    const zMax = box.max.z;
+    const zSpan = zMax - zMin || 1;
+    const originPctZ = Math.round(((0 - zMin) / zSpan) * 100);
+
+    // 图元
+    scene.add(new THREE.AxesHelper(maxDim * 0.55));
+    scene.add(new THREE.BoxHelper(root, 0x33ff99));
+
+    const ob = ball(maxDim * 0.022, 0xffd166); // 黄：原点
+    scene.add(ob);
+
+    const posBall = ball(maxDim * 0.018, 0x35e0ff); // 青：+Z 端
+    posBall.position.set(center.x, center.y, zMax);
+    scene.add(posBall);
+
+    const negBall = ball(maxDim * 0.018, 0xff44dd); // 品红：-Z 端
+    negBall.position.set(center.x, center.y, zMin);
+    scene.add(negBall);
+
+    // 沿 Z 轴画一条中心线（帮助看枪管轴线是否偏离 bbox 中心高度）
+    const lineGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(center.x, center.y, zMin),
+      new THREE.Vector3(center.x, center.y, zMax),
+    ]);
+    scene.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0x5c7085 })));
+
+    // 侧视：相机在 +X
+    const halfH = maxDim * 0.36;
+    const halfW = halfH * (W / H);
+    const cam = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, -50, 50);
+    cam.position.set(6, 0, 0);
+    cam.up.set(0, 1, 0);
+    cam.lookAt(0, 0, 0);
+    cam.updateProjectionMatrix();
+    renderer.render(scene, cam);
+
+    // ---- 标签层 ----
+    const ctx = lblCanvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+
+    // 把世界 (y,z) → 画布 (px,py)
+    const toPx = (z) => (0 - z) / (2 * halfW) * W + W / 2;
+    const toPy = (y) => H / 2 - ((y - 0) / (2 * halfH)) * H;
+
+    // 底部刻度：每 0.1m
+    ctx.strokeStyle = '#3b4b5c';
+    ctx.fillStyle = '#7f93a8';
+    ctx.font = '11px sans-serif';
+    const step = 0.1;
+    const z0 = Math.ceil(zMin / step) * step;
+    for (let z = z0; z <= zMax + 1e-6; z += step) {
+      const px = toPx(z);
+      ctx.beginPath();
+      ctx.moveTo(px, H - 34);
+      ctx.lineTo(px, H - 26);
+      ctx.stroke();
+      ctx.fillText(z.toFixed(1), px - 9, H - 12);
+    }
+    ctx.strokeStyle = '#55697d';
+    ctx.beginPath();
+    ctx.moveTo(toPx(zMin), H - 30);
+    ctx.lineTo(toPx(zMax), H - 30);
+    ctx.stroke();
+
+    // 两端竖直参考线 + 端点色块
+    const mark = (z, color, text) => {
+      const px = toPx(z);
+      ctx.strokeStyle = color;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(px, 40);
+      ctx.lineTo(px, H - 30);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = color;
+      ctx.fillRect(px - 1.5, 40, 3, H - 70);
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillText(text, px + (text === 'Z+' ? 8 : -34), 58);
+    };
+    mark(zMax, '#35e0ff', 'Z+');
+    mark(zMin, '#ff44dd', 'Z-');
+
+    // 原点竖线
+    ctx.strokeStyle = '#ffd166';
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(toPx(0), 40);
+    ctx.lineTo(toPx(0), H - 30);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 标题
+    ctx.font = 'bold 17px sans-serif';
+    ctx.fillStyle = '#ff6b8a';
+    ctx.fillText(id + '  (' + url.split('/').pop() + ')', 12, 24);
+    ctx.font = '12.5px sans-serif';
+    ctx.fillStyle = '#9fb3c8';
+    ctx.fillText(
+      '尺寸 ' + size.x.toFixed(3) + '×' + size.y.toFixed(3) + '×' + size.z.toFixed(3) + 'm' +
+        '   长轴=' + axisName + '   Z 跨度 ' + zMin.toFixed(3) + ' … ' + zMax.toFixed(3) +
+        '   原点在 Z 的 ' + originPctZ + '% 处（握把一般 25~45%）',
+      12, 44
+    );
+    ctx.fillStyle = '#ffd166';
+    ctx.fillText('黄球=原点', 12, H - 48);
+    ctx.fillStyle = '#35e0ff';
+    ctx.fillText('青= +Z 端', 96, H - 48);
+    ctx.fillStyle = '#ff44dd';
+    ctx.fillText('品红= -Z 端', 182, H - 48);
+    ctx.fillStyle = '#9fb3c8';
+    ctx.fillText('屏幕左 = 世界 +Z  |  屏幕右 = 世界 -Z   —— 枪口=细管端，枪托=贴肩宽板端', 290, H - 48);
+
+    return {
+      ok: true,
+      size: [size.x, size.y, size.z],
+      longAxis: axisName,
+      zMin: zMin,
+      zMax: zMax,
+      originPctZ: originPctZ,
+    };
+  }
+
+  window.WeaponsSide = { ids: () => Object.keys(FILES), render };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<!-- base href="/" 必须：本页在 /scripts/ 下，而 soldier-voxel.js 用相对路径加载
+     assets/characters/*.glb，没有 base 会解析到 /scripts/assets/ 而 404。 -->
+<base href="/" />
+<title>check-anims harness</title>
+<style>html,body{margin:0;background:#16202a}canvas{display:block}</style>
+</head>
+<body>
+<canvas id="stage" width="420" height="560"></canvas>
+<script src="../js/vendor/three.gltf.global.js"></script>
+<script src="../js/soldier.js"></script>
+<script src="../js/soldier-voxel.js"></script>
+<script>
+/* 动作库验证页：绕开游戏 UI，直接把每个 clip 停在中间帧截图，
+ * 用来确认 15 个动作都真的在驱动骨骼、姿势互不相同。
+ * window.AnimsCheck 由 scripts/check-anims.js 调用。 */
+(function () {
+  const canvas = document.getElementById('stage');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+  renderer.setSize(420, 560, false);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x16202a);
+  scene.add(new THREE.AmbientLight(0x99aabb, 0.9));
+  const key = new THREE.DirectionalLight(0xfff0dd, 1.3);
+  key.position.set(2, 6, 4);
+  scene.add(key);
+  const cam = new THREE.PerspectiveCamera(38, 420 / 560, 0.1, 40);
+  cam.position.set(0, 1.1, 3.2);
+  cam.lookAt(0, 0.95, 0);
+
+  let model = null;
+
+  function freshModel() {
+    if (model) { scene.remove(model); model = null; }
+    model = VF.Soldier.createClassSoldier('assault', { team: 'ally' });
+    if (!model) return null;
+    model.rotation.y = Math.PI;
+    scene.add(model);
+    return model;
+  }
+
+  function shoot() {
+    renderer.render(scene, cam);
+    return canvas.toDataURL('image/png');
+  }
+
+  /** 直接进入 mixer 把指定 clip 停在 t 秒处截图（不经过 drive 状态机）。 */
+  function poseClip(clipName, t) {
+    if (!freshModel()) return { ok: false, reason: 'create returned null' };
+    const a = model.userData.glbAnim;
+    if (!a) return { ok: false, reason: 'no glbAnim' };
+    a.mixer.stopAllAction();
+    const action = a.actions[clipName];
+    if (!action) return { ok: false, reason: '没有这个 clip: ' + clipName };
+    action.reset();
+    action.setLoop(THREE.LoopRepeat, Infinity);
+    action.play();
+    a.mixer.update(t || 0.5);
+    return { ok: true, png: shoot(), boneQuat: sampleQuat() };
+  }
+
+  function sampleQuat() {
+    const b = model.getObjectByName('Bip001-L-UpperArm');
+    if (!b) return null;
+    return [b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w];
+  }
+
+  /**
+   * 走 drive() 状态机推进若干帧后截图。
+   * opts: { crouch, once: 'fire'|'die'|'reload', seconds }
+   */
+  function poseState(state, opts) {
+    opts = opts || {};
+    if (!freshModel()) return { ok: false, reason: 'create returned null' };
+    if (opts.crouch) {
+      VF.Soldier.setCrouchPose(model, true, {});
+    }
+    const secs = opts.seconds != null ? opts.seconds : 0.6;
+    const steps = Math.max(1, Math.round(secs * 60));
+    if (opts.once === 'fire') VF.SoldierVoxel.fire(model);
+    else if (opts.once === 'die') VF.SoldierVoxel.die(model);
+    else if (opts.once === 'reload') VF.SoldierVoxel.reload(model);
+    else if (opts.once === 'jump') VF.SoldierVoxel.jump(model, 'start');
+    for (let i = 0; i < steps; i++) {
+      VF.Soldier.updateLocomotion(model, 1 / 60, state || { moving: false, speedRatio: 0, onGround: true });
+    }
+    return { ok: true, png: shoot(), boneQuat: sampleQuat() };
+  }
+
+  /** 独立加载动作库，返回里面真实存在的 clip 名。 */
+  function loadedClips() {
+    return new Promise((resolve) => {
+      new THREE.GLTFLoader().load(
+        'assets/characters/soldier_anims.glb',
+        (gltf) => resolve(gltf.animations.map((a) => a.name)),
+        undefined,
+        () => resolve(null)
+      );
+    });
+  }
+
+  window.AnimsCheck = {
+    preloadAll: () => VF.SoldierVoxel.preloadAll(),
+    expectedClips: () => Object.keys(VF.SoldierVoxel.CLIP).map((k) => VF.SoldierVoxel.CLIP[k]),
+    loadedClips,
+    poseClip,
+    poseState,
+  };
+})();
+</script>
+</body>
+</html>

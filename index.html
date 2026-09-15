@@ -16,7 +16,7 @@
       background: #1a1008;
     }
   </style>
-  <link rel="stylesheet" href="style.css?v=voxelskin1" />
+  <link rel="stylesheet" href="style.css?v=anims1" />
   <script src="js/game-entry.js?v=home-first1"></script>
   <link rel="stylesheet" href="styles/deployment-base.css?v=2" />
   <link rel="stylesheet" href="styles/frontline-ui.css?v=3" />
@@ -1622,16 +1622,21 @@
        拉取的，到位后由 main.js 调 refreshModels 热替换）。 -->
   <script src="js/vehicle-models.js?v=glbveh8"></script>
   <script src="js/vehicles.js?v=glbveh6"></script>
-  <script src="js/weapon-viewmodels.js?v=wstat2"></script>
-  <script src="js/soldier.js?v=voxelskin1"></script>
-  <script src="js/soldier-voxel.js?v=voxelskin1"></script>
+  <!-- weapon-models.js 加载 assets/weapons/*.glb，必须排在 soldier.js / player.js
+       之前，这样第一把枪生成时 VF.WeaponModels 已注册（模型异步拉取，到位后
+       由 player.js 的 _awaitWeaponArt 重建 viewmodel 热替换）。
+       放在 soldier.js 前也是因为 weapon-viewmodels.js 是它的回退路径。 -->
+  <script src="js/weapon-models.js?v=wpn3"></script>
+  <script src="js/weapon-viewmodels.js?v=wpnart2"></script>
+  <script src="js/soldier.js?v=heldfind1"></script>
+  <script src="js/soldier-voxel.js?v=anims2"></script>
   <script src="js/hitboxes.js?v=move1"></script>
-  <script src="js/player.js?v=prepfreeze1"></script>
+  <script src="js/player.js?v=wpnart1"></script>
   <script src="js/weapon-catalog.js?v=sfx1"></script>
   <script src="js/weapons.js?v=modeapi1"></script>
   <script src="js/melee.js?v=faction-mesh1"></script>
-  <script src="js/throwables.js?v=modeapi1"></script>
-  <script src="js/skills.js?v=prepfreeze1"></script>
+  <script src="js/throwables.js?v=throwart1"></script>
+  <script src="js/skills.js?v=move1"></script>
   <script src="js/building.js?v=gadget1"></script>
   <script src="js/tower-designer.js?v=scorch3"></script>
   <script src="js/hub.js?v=kit1"></script>
@@ -1649,8 +1654,8 @@
   <script src="js/net-simulation.js?v=cannonfx2"></script>
   <script src="js/match-flow.js?v=scorch3"></script>
   <script src="js/soldier-menu.js?v=wepammo1"></script>
-  <script src="js/arsenal.js?v=smallclose1"></script>
-  <script src="js/ui.js?v=modeapi1"></script>
+  <script src="js/arsenal.js?v=wpnart3"></script>
+  <script src="js/ui.js?v=anims1"></script>
   <script src="js/audio.js?v=sfx5"></script>
   <script src="js/vehicle-effects.js?v=sfx2"></script>
   <script src="js/atmosphere.js?v=scorch3"></script>
@@ -1677,11 +1682,11 @@
   <script src="modes/small-battle/js/weapon-inspect.js"></script>
   <script src="modes/small-battle/js/battlefield-events.js"></script>
   <script src="modes/small-battle/js/maps/dust2-default.js"></script>
-  <script src="js/pvp.js?v=modeapi1"></script>
+  <script src="js/pvp.js?v=artmerge1"></script>
   <script src="js/zaohua-online.js?v=zh8"></script>
-  <script src="js/deployment-presentation.js?v=voxelskin1"></script>
+  <script src="js/deployment-presentation.js?v=anims1"></script>
   <script src="js/frontline-ui.js?v=6"></script>
-  <script src="js/main.js?v=modeapi1"></script>
+  <script src="js/main.js?v=anims1"></script>
   <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
   <script src="js/feel-tuner.js?v=move2"></script>
   <!-- render-tuner.js: F9 后处理参数调节（生产环境删除） -->

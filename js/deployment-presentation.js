@@ -274,13 +274,7 @@
         const member = this._squadIntroRoster[i];
         const model = global.VF.Soldier.createPreviewSoldier(
           member.classId || 'assault',
-          {
-            team: previewTeam,
-            skinId:
-              member.isPlayer && global.VF.Soldier.getPlayerSkinId
-                ? global.VF.Soldier.getPlayerSkinId()
-                : 'box',
-          }
+          { team: previewTeam }
         );
         model.position.set(positions[i] || 0, 0, 0);
         model.rotation.y = Math.PI;
@@ -342,11 +336,13 @@
         preview.raf = requestAnimationFrame(tick);
       };
       this._squadIntroPreview.raf = requestAnimationFrame(tick);
-      // 体素皮肤就绪后重建预览，替换盒子兵占位（spec 目标 #2：所选形象在所有展示位生效）
-      const _dpSkinId = global.VF.Soldier && global.VF.Soldier.getPlayerSkinId
-        ? global.VF.Soldier.getPlayerSkinId() : 'box';
-      if (_dpSkinId !== 'box' && global.VF.SoldierVoxel && !global.VF.SoldierVoxel.isReady(_dpSkinId)) {
-        global.VF.SoldierVoxel.preload(_dpSkinId).then((ok) => {
+      // 兵种模型未全部就绪 → 加载完成后重建预览，换掉盒子兵占位
+      const _dpVoxel = global.VF.SoldierVoxel;
+      if (_dpVoxel && _dpVoxel.preloadAll && !_dpVoxel.CLASS_IDS.every(_dpVoxel.isReady)) {
+        _dpVoxel.preloadAll().then((oks) => {
+          const ok = (oks || []).some(function (v) {
+            return !!v;
+          });
           if (!ok || !this.squadIntroOpen) return;
           this._startSquadIntroPreview();
         });

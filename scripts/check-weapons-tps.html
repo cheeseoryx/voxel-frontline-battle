@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<!-- base href="/" 必须：本页在 /scripts/ 下，武器 GLB 按相对 assets/ 解析 -->
+<base href="/" />
+<title>check-weapons-tps harness</title>
+<style>
+  html,body{margin:0;background:#1b2430}
+  #wrap{position:relative;width:720px;height:480px}
+  #wrap canvas{position:absolute;left:0;top:0;display:block}
+  #gl{z-index:1}
+  #lbl{z-index:2;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="gl" width="720" height="480"></canvas>
+  <canvas id="lbl" width="720" height="480"></canvas>
+</div>
+<script src="../js/vendor/three.gltf.global.js"></script>
+<script src="../js/weapon-models.js"></script>
+<script src="../js/weapon-viewmodels.js"></script>
+<script src="../js/weapon-catalog.js"></script>
+<script src="../js/soldier.js"></script>
+<script src="../js/soldier-voxel.js"></script>
+<script>
+/*
+ * 第三/背枪消费点的可视化验证页。
+ *
+ * 左：第三人称化身（VF.Soldier.createClassSoldier）手持枪 —— 走 addGun
+ * 右：背枪（VF.SoldierVoxel.create 的 Dummy001 骨骼下挂的枪）—— 走 _mountBackWeapon
+ *
+ * 背枪这条以前没有独立验证：它依赖体素角色模型（soldier_anims.glb + soldier0N.glb），
+ * 加载失败时会静默回退盒子兵 + 盒子枪，画面上很难发现。这里直接断言骨骼下
+ * 有没有 WeaponMesh。
+ */
+(function () {
+  const glCanvas = document.getElementById('gl');
+  const lblCanvas = document.getElementById('lbl');
+  const renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: true, preserveDrawingBuffer: true });
+  renderer.setSize(720, 480, false);
+  renderer.setScissorTest(true);
+
+  const W = 360;
+  const H = 480;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x1b2430);
+  scene.add(new THREE.HemisphereLight(0xdfeaff, 0x2a3340, 1.2));
+  const key = new THREE.DirectionalLight(0xfff2e0, 1.6);
+  key.position.set(1.5, 3, 2);
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0x88aaff, 0.9);
+  rim.position.set(-3, 1.5, -2);
+  scene.add(rim);
+
+  let heldRoot = null;
+  let backRoot = null;
+  let lastInfo = {};
+
+  function clearRoots() {
+    if (heldRoot && heldRoot.parent) heldRoot.parent.remove(heldRoot);
+    if (backRoot && backRoot.parent) backRoot.parent.remove(backRoot);
+    heldRoot = null;
+    backRoot = null;
+  }
+
+  function boneOf(root, name) {
+    let found = null;
+    root.traverse(function (o) {
+      if (!found && o.name === name) found = o;
+    });
+    return found;
+  }
+
+  function drawLabels(title) {
+    const ctx = lblCanvas.getContext('2d');
+    ctx.clearRect(0, 0, 720, 480);
+    ctx.fillStyle = '#9fb3c8';
+    ctx.font = '13px sans-serif';
+    ctx.fillText(title, 8, 18);
+    ctx.fillStyle = '#7fd1ff';
+    ctx.font = '14px sans-serif';
+    ctx.fillText('③ 第三人称手持', 12, 468);
+    ctx.fillText('④ 背部挂枪', W + 12, 468);
+    ctx.strokeStyle = '#2b3a4a';
+    ctx.beginPath();
+    ctx.moveTo(W, 0);
+    ctx.lineTo(W, 480);
+    ctx.stroke();
+  }
+
+  window.__boot = null;
+
+  async function init() {
+    const boot = {
+      hasTHREE: !!window.THREE,
+      hasWM: !!(window.VF && window.VF.WeaponModels),
+      hasSoldier: !!(window.VF && window.VF.Soldier),
+      hasVoxel: !!(window.VF && window.VF.SoldierVoxel),
+      // 确认加载的是修好的 soldier.js（镜像补偿要认 'ViewGun'）
+      soldierSrc: (function () {
+        const s = document.querySelector('script[src*="soldier.js"]');
+        return s ? s.getAttribute('src') : null;
+      })(),
+    };
+    window.__boot = boot;
+    if (!boot.hasVoxel) {
+      window.__ready = true;
+      return;
+    }
+    // 骨骼角色是异步预载的（soldier_anims.glb 约 1MB + soldier0N.glb）。
+    // 没加载完 create() 会返回 null，背枪那条就测不到，所以必须等。
+    try {
+      await window.VF.SoldierVoxel.preload('assault');
+    } catch (_) {}
+    boot.voxelReady = !!(window.VF.SoldierVoxel.isReady && window.VF.SoldierVoxel.isReady('assault'));
+    window.__boot = boot;
+    window.__ready = true;
+  }
+
+  async function render(id) {
+    const M = window.VF.WeaponModels;
+    if (!M || !window.VF.Soldier) return { ok: false, reason: '依赖未就绪' };
+    await M.preloadAll();
+    if (!M.has(id)) return { ok: false, reason: '没有 ' + id + ' 的美术资产' };
+
+    clearRoots();
+
+    // ---- ③ 第三人称手持 ----
+    heldRoot = window.VF.Soldier.createClassSoldier('assault', {
+      team: 'ally',
+      voxel: false,
+      weaponId: id,
+    });
+    scene.add(heldRoot);
+    heldRoot.rotation.y = Math.PI * 0.82;
+    heldRoot.updateMatrixWorld(true);
+
+    // ---- ④ 背枪 ----
+    let backInfo = { created: false, bone: false, hasMesh: false, children: [] };
+    if (window.VF.SoldierVoxel && window.VF.SoldierVoxel.create) {
+      backRoot = window.VF.SoldierVoxel.create('assault', { team: 'ally', weaponId: id });
+      if (backRoot) {
+        scene.add(backRoot);
+        backRoot.rotation.y = Math.PI * 0.82;
+        backRoot.updateMatrixWorld(true);
+        const bone = boneOf(backRoot, 'Dummy001');
+        const gun = bone
+          ? bone.getObjectByName('ViewGun') || bone.getObjectByName('Weapon')
+          : null;
+        backInfo = {
+          created: true,
+          bone: !!bone,
+          hasMesh: !!(gun && gun.getObjectByName('WeaponMesh')),
+          children: gun ? gun.children.map(function (c) { return c.name; }) : [],
+        };
+      }
+    }
+
+    // 渲染：两个 viewport 各拍一半。相机两半必须分开 new 两个 —— 共用一个
+    // 再改 lookAt 会让第二个 viewport 沿用第一个的朝向，看着像"没刷新"。
+    // 视距按"枪要完整进画"来定：角色高约 1.9m，M249 第三人称 1.36m，
+    // 所以取景范围要 ~2.6m 高，FOV 30° 对应距离约 4.8m。
+    const camL = new THREE.PerspectiveCamera(30, W / H, 0.1, 60);
+    camL.position.set(1.75, 1.55, 4.6);
+    camL.lookAt(0, 1.12, 0);
+    camL.updateMatrixWorld(true);
+
+    const camR = new THREE.PerspectiveCamera(30, W / H, 0.1, 60);
+    // 背枪要从角色**背后**看：角色 wrap.rotation.y = π 已把"背后"转到世界 -Z，
+    // 所以相机放在 -Z 一侧才看得到背上的枪。
+    camR.position.set(-2.1, 1.75, -4.2);
+    camR.lookAt(0, 1.30, 0);
+    camR.updateMatrixWorld(true);
+
+    renderer.setViewport(0, 0, W, H);
+    renderer.setScissor(0, 0, W, H);
+    renderer.clear();
+    if (heldRoot) renderer.render(scene, camL);
+
+    renderer.setViewport(W, 0, W, H);
+    renderer.setScissor(W, 0, W, H);
+    if (backRoot) renderer.render(scene, camR);
+
+    lastInfo = { id: id, back: backInfo };
+    drawLabels(
+      id + '   资产就绪 ✓   ' +
+        '手持节点 ' + (heldRoot ? 'ViewGun' : '-') +
+        '   背枪GLB=' + backInfo.hasMesh
+    );
+    return { ok: true, id: id, back: backInfo };
+  }
+
+  window.WeaponsTPS = { render: render, last: function () { return lastInfo; } };
+  init();
+})();
+</script>
+</body>
+</html>

@@ -175,6 +175,30 @@
   Player.prototype.applyWeaponModel = function (weaponId) {
     if (!global.VF.Soldier) return;
     this._rebuildWeaponViewModel(this.classId, weaponId);
+    this._awaitWeaponArt(weaponId);
+  };
+
+  /**
+   * 美术枪械是懒加载的，applyWeaponModel 可能在 GLB 到位之前就被调用了，
+   * 这时用的是程序化盒子枪。等这一把的 GLB 就绪后重建一次即可。
+   * 记下已处理的 weaponId，避免每次切枪都拉一个 promise。
+   */
+  Player.prototype._awaitWeaponArt = function (weaponId) {
+    const M = global.VF.WeaponModels;
+    if (!weaponId || !M || !M.preload || !M.has) return;
+    if (M.has(weaponId)) return; // 已经是美术模型，不用重建
+    this._weaponArtPending = this._weaponArtPending || {};
+    if (this._weaponArtPending[weaponId]) return;
+    this._weaponArtPending[weaponId] = true;
+    const self = this;
+    M.preload([weaponId]).then(function (loaded) {
+      if (!loaded) return; // 没有资产或加载失败，保持程序化，不重试
+      if (!global.VF.WeaponModels.has(weaponId)) return;
+      // 期间可能又换过枪
+      const W = global.VF.game && global.VF.game.weapons;
+      if (W && W.current !== weaponId) return;
+      self._rebuildWeaponViewModel(self.classId, weaponId);
+    });
   };
 
   /** Swap first-person arms / gun look to match selected class */
@@ -190,6 +214,7 @@
       (global.VF.game && global.VF.game.preferredWeaponId) ||
       (global.VF.DEFAULT_PRIMARY || 'ak74');
     this._rebuildWeaponViewModel(classId, weaponId);
+    this._awaitWeaponArt(weaponId);
     this._heldMode = 'weapon';
     if (wasBuild) this.setHeldMode('build');
     if (global.VF.game && global.VF.game.weapons) {

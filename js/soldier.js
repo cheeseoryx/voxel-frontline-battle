@@ -124,32 +124,6 @@
     return CLASS_ALIASES[classId] || 'assault';
   }
 
-  /* ---------- 角色形象（皮肤） ---------- */
-
-  const SKIN_STORAGE_KEY = 'vf_soldier_skin';
-
-  function getPlayerSkinId() {
-    try {
-      const v = localStorage.getItem(SKIN_STORAGE_KEY);
-      if (v === 'box') return 'box';
-      if (
-        v &&
-        global.VF.SoldierVoxel &&
-        global.VF.SoldierVoxel.isValidSkin &&
-        global.VF.SoldierVoxel.isValidSkin(v)
-      ) {
-        return v;
-      }
-    } catch (_) {}
-    return 'box';
-  }
-
-  function setPlayerSkinId(id) {
-    try {
-      localStorage.setItem(SKIN_STORAGE_KEY, id || 'box');
-    } catch (_) {}
-  }
-
   const _geoCache = {};
   const _matCache = {};
   function _mat(color) {
@@ -324,8 +298,18 @@
   /**
    * 只造枪体（无手臂、不摆位、不挂 root）。盒子兵由 addGun 补手臂；
    * 体素角色（soldier-voxel.js）拿它做背部挂枪。
+   *
+   * weaponId 传了就优先用美术 GLB（js/weapon-models.js），没传 / 没资产 /
+   * 没加载完都回退到下面的程序化盒子枪。三个程序化形态（heavy / sniper /
+   * 默认步枪）继续保留，第三方 AI、预览、早期帧都还在用。
    */
-  function buildGunProp(style, muzzleZ) {
+  function buildGunProp(style, muzzleZ, weaponId) {
+    const art =
+      weaponId && global.VF.WeaponModels && global.VF.WeaponModels.buildProp
+        ? global.VF.WeaponModels.buildProp(weaponId)
+        : null;
+    if (art) return { gun: art, muzzle: art.getObjectByName('Muzzle'), flash: null };
+
     const gun = new THREE.Group();
     gun.name = 'Weapon';
     const g = PALETTE.gun;
@@ -375,9 +359,10 @@
     return { gun, muzzle, flash };
   }
 
-  function addGun(root, style, muzzleZ) {
-    const built = buildGunProp(style, muzzleZ);
+  function addGun(root, style, muzzleZ, weaponId) {
+    const built = buildGunProp(style, muzzleZ, weaponId);
     const gun = built.gun;
+    const isArt = !!(weaponId && global.VF.WeaponModels && global.VF.WeaponModels.has(weaponId));
 
     // Hands + forearms parented to gun (survive finishSoldier facing wrap)
     const skin = PALETTE.skin;
@@ -403,9 +388,21 @@
     lh.rotation.set(0.1, -0.25, 0.35);
     gun.add(lh);
 
-    // Aim-ready: rifle at chest height, barrel forward (-Z)
-    gun.position.set(0.18, 1.22, -0.35);
-    gun.rotation.set(-0.2, 0.05, 0.08);
+    if (isArt) {
+      // 美术枪：原点在握把，所以整把枪要沿 -Z 前推一个护木的距离，
+      // 手才落在护木上；右手（挂点即原点=握把）保持不动。
+      // 推多远按枪长比例给，短枪推少、长枪推多。
+      const M = global.VF.WeaponModels;
+      const reach = Math.abs(M.muzzleDistance(weaponId) || 0.5) * 0.55;
+      lh.position.set(-0.04, -0.03, -reach);
+      lh.rotation.set(0.1, -0.25, 0.35);
+      gun.position.set(0.18, 1.16, -0.4);
+      gun.rotation.set(-0.2, 0.05, 0.08);
+    } else {
+      // Aim-ready: rifle at chest height, barrel forward (-Z)
+      gun.position.set(0.18, 1.22, -0.35);
+      gun.rotation.set(-0.2, 0.05, 0.08);
+    }
 
     root.add(gun);
     return built;
@@ -440,6 +437,25 @@
     marker.userData.faction = team;
   }
 
+  /**
+   * 在 wrap 下找"手持枪"节点。
+   *
+   * 枪体有两种命名：美术 GLB 走 weapon-models.js 的 buildWith，节点名固定
+   * 'ViewGun'（跟第一人称 viewmodel 一致）；程序化盒子枪由 buildGunProp 造，
+   * 节点名 'Weapon'。所以两个名字都要试。
+   *
+   * 另外要**排除背枪**：体素角色的背枪也挂在 wrap 下的 Dummy001 骨骼上，
+   * 如果是 'Weapon' 会被 getObjectByName 顺带命中，导致蹲伏/跑动补偿错误地
+   * 作用到背在身后的枪上。只有父节点就是 wrap 的才是手持枪（addGun 挂在 root，
+   * finishSoldier 把它搬进 wrap 直下）。
+   */
+  function findHeldGun(wrap) {
+    if (!wrap) return null;
+    const named = wrap.getObjectByName('ViewGun') || wrap.getObjectByName('Weapon');
+    if (!named) return null;
+    return named.parent === wrap ? named : null;
+  }
+
   function finishSoldier(root, classId, team, muzzle, flash) {
     addTeamMarker(root, team);
 
@@ -450,7 +466,11 @@
     const kids = root.children.slice();
     for (let i = 0; i < kids.length; i++) wrap.add(kids[i]);
     wrap.rotation.y = Math.PI;
-    const gun = wrap.getObjectByName('Weapon');
+    // 美术枪的枪体节点名是 'ViewGun'（weapon-models.js 里写死的，跟第一人称
+    // 保持一致），程序化盒子枪才叫 'Weapon'。两个名字都要认 —— 否则下面这段
+    // "把枪从背后镜像回身前"的补偿会被整段跳过，美术枪就会反过来插进角色身体里，
+    // 而且 initLocomotion 也拿不到 loco.gun，走路时枪不会跟着晃。
+    const gun = findHeldGun(wrap);
     if (gun) {
       // Wrap flipped gun to the character's back — mirror position + yaw back to front
       gun.position.x *= -1;
@@ -478,7 +498,7 @@
 
   /* ---------- Class builders ---------- */
 
-  function buildVanguard(root, enemyTint) {
+  function buildVanguard(root, enemyTint, weaponId) {
     const olive = enemyTint ? PALETTE.enemyRed : PALETTE.olive;
     const oliveDark = enemyTint ? PALETTE.enemyDark : PALETTE.oliveDark;
     const camo = enemyTint ? 0x5a3030 : PALETTE.camo;
@@ -537,10 +557,10 @@
     pick.rotation.x = 0.25;
     root.add(pick);
 
-    return addGun(root, 'rifle', -0.85);
+    return addGun(root, 'rifle', -0.85, weaponId);
   }
 
-  function buildMedic(root, enemyTint) {
+  function buildMedic(root, enemyTint, weaponId) {
     const white = enemyTint ? 0xc8a0a0 : PALETTE.white;
     const whiteDim = enemyTint ? 0xa87878 : PALETTE.whiteDim;
     const olive = enemyTint ? PALETTE.enemyDark : PALETTE.olive;
@@ -596,10 +616,10 @@
     root.add(box(0.08, 0.03, 0.03, red, -0.22, 1.0, -0.56));
     root.add(box(0.03, 0.08, 0.03, red, -0.22, 1.0, -0.56));
 
-    return addGun(root, 'rifle', -0.85);
+    return addGun(root, 'rifle', -0.85, weaponId);
   }
 
-  function buildGhost(root, enemyTint) {
+  function buildGhost(root, enemyTint, weaponId) {
     const g = enemyTint ? 0x5a3038 : PALETTE.ghillie;
     const gd = enemyTint ? 0x3a1820 : PALETTE.ghillieDark;
     const gb = enemyTint ? 0x4a2820 : PALETTE.ghillieBrown;
@@ -642,10 +662,10 @@
     root.add(box(0.2, 0.22, 0.18, gb, 0.18, 1.25, -0.48));
     root.add(box(0.18, 0.2, 0.16, gd, 0, 1.0, -0.52));
 
-    return addGun(root, 'sniper', -1.15);
+    return addGun(root, 'sniper', -1.15, weaponId);
   }
 
-  function buildJuggernaut(root, enemyTint) {
+  function buildJuggernaut(root, enemyTint, weaponId) {
     const plate = enemyTint ? 0x4a2020 : PALETTE.plate;
     const charcoal = enemyTint ? 0x2a1010 : PALETTE.charcoal;
     const orange = enemyTint ? PALETTE.enemyOrange : PALETTE.orange;
@@ -695,8 +715,7 @@
   }
 
   function buildRaider(root) {
-    const vest = PALETTE.vest;
-    const camo = PALETTE.camoGrey;
+    const vest = PALETTE.vest;    const camo = PALETTE.camoGrey;
     const red = PALETTE.bandana;
 
     addLegPair(root, {
@@ -745,10 +764,10 @@
     root.add(box(0.14, 0.14, 0.1, 0x333330, 0.12, 1.2, -0.46));
     root.add(box(0.08, 0.28, 0.08, PALETTE.gunDark, 0.28, 1.15, -0.35));
 
-    return addGun(root, 'rifle', -0.85);
+    return addGun(root, 'rifle', -0.85, weaponId);
   }
 
-  function buildEngineer(root, enemyTint) {
+  function buildEngineer(root, enemyTint, weaponId) {
     const suit = enemyTint ? PALETTE.enemyDark : PALETTE.oliveDark;
     const orange = enemyTint ? PALETTE.enemyOrange : PALETTE.orange;
 
@@ -795,7 +814,7 @@
     root.add(box(0.06, 0.55, 0.06, PALETTE.grey, 0.22, 1.55, -0.4));
     root.add(box(0.1, 0.08, 0.1, orange, 0.22, 1.85, -0.4));
 
-    return addGun(root, 'rifle', -0.85);
+    return addGun(root, 'rifle', -0.85, weaponId);
   }
 
   function resolveFactionTeam(team) {
@@ -811,25 +830,26 @@
   /**
    * Uniform colors follow the faction id (ally = 蓝, enemy = 红).
    * HUD rings still use TeamLook (friend = blue, foe = red).
+   *
+   * 兵种与美术 GLB 一一对应（见 SoldierVoxel.CLASS_MODELS）：模型就绪即用它，
+   * 未就绪先回退程序化盒子兵，加载完成后重建即可自动换上。
+   * 传 opts.voxel === false 可强制走盒子兵。
+   *
    * @param {string} classId
-   * @param {{ team?: 'ally'|'enemy' }} opts
+   * @param {{ team?: 'ally'|'enemy', voxel?: boolean, weaponId?: string }} opts
    */
   function createClassSoldier(classId, opts) {
     opts = opts || {};
     classId = normalizeClassId(classId);
     const team = opts.team === 'enemy' ? 'enemy' : 'ally';
-    const skinId = opts.skinId || 'box';
-    if (
-      skinId !== 'box' &&
-      global.VF.SoldierVoxel &&
-      global.VF.SoldierVoxel.isReady(skinId)
-    ) {
-      const voxel = global.VF.SoldierVoxel.create(skinId, {
-        classId: classId,
-        team: team,
-      });
-      if (voxel) return voxel;
-      // 创建失败静默回退盒子兵
+    const weaponId = opts.weaponId || null;
+    if (opts.voxel !== false) {
+      const V = global.VF.SoldierVoxel;
+      if (V && V.isReady(classId)) {
+        const voxel = V.create(classId, { classId: classId, team: team, weaponId: weaponId });
+        if (voxel) return voxel;
+        // 创建失败静默回退盒子兵
+      }
     }
     const enemyTint = team === 'enemy';
     const root = new THREE.Group();
@@ -838,17 +858,17 @@
     let gunBits;
     switch (classId) {
       case 'support':
-        gunBits = buildMedic(root, enemyTint);
+        gunBits = buildMedic(root, enemyTint, weaponId);
         break;
       case 'recon':
-        gunBits = buildGhost(root, enemyTint);
+        gunBits = buildGhost(root, enemyTint, weaponId);
         break;
       case 'engineer':
-        gunBits = buildEngineer(root, enemyTint);
+        gunBits = buildEngineer(root, enemyTint, weaponId);
         break;
       case 'assault':
       default:
-        gunBits = buildVanguard(root, enemyTint);
+        gunBits = buildVanguard(root, enemyTint, weaponId);
         break;
     }
 
@@ -917,9 +937,26 @@
     let gun;
     let muzzle;
     let flash;
+    // 美术枪械优先（assets/weapons/*.glb，见 js/weapon-models.js）。
+    // 没资产或还没加载完就落到下面的程序化盒子枪，不会开天窗。
+    const glbGun =
+      weaponId && global.VF.WeaponModels && global.VF.WeaponModels.build
+        ? global.VF.WeaponModels.build(weaponId)
+        : null;
     const useCatalogGun =
       !!(weaponDef && global.VF.WeaponViewModels && global.VF.WeaponViewModels.buildGun);
-    if (useCatalogGun) {
+    if (glbGun) {
+      gun = glbGun.gun;
+      muzzle = glbGun.muzzle;
+      flash = glbGun.flash;
+      // 程序化枪的姿势是围绕"枪身原点在枪膛、总长 1.34m"调的；
+      // GLB 是真枪尺寸（0.21~1.08m）且原点在握把，所以要重定一遍。
+      // 握把到原点的距离按枪长比例推，长枪多往后撤、手枪少撤。
+      const gunSpan = gunMuzzleZ(weaponId);
+      const pull = 0.1 + gunSpan * 0.18;
+      gun.position.set(0.05, -0.08, -0.05 - pull);
+      gun.rotation.set(0.08, 0.14, 0.04);
+    } else if (useCatalogGun) {
       const built = global.VF.WeaponViewModels.buildGun(weaponDef);
       gun = built.gun;
       muzzle = built.muzzle;
@@ -1078,6 +1115,16 @@
     root.userData.classId = classId;
     root.userData.team = team;
     return { root, gun, muzzle, flash, rightArm: arm, leftArm: lArm };
+  }
+
+  /** 该武器的枪口在握把前方的距离（米），用于给美术枪推第一人称摆位 */
+  function gunMuzzleZ(weaponId) {
+    const M = global.VF.WeaponModels;
+    if (M && M.muzzleDistance) {
+      const d = M.muzzleDistance(weaponId);
+      if (d) return Math.abs(d);
+    }
+    return 1.05; // 程序化枪的枪口 z ≈ -1.05
   }
 
   function viewModelSleeveColors(classId, enemyTint) {
@@ -1764,8 +1811,11 @@
       1 + t * 0.04 + slideT * 0.15
     );
 
-    const gun = wrap.getObjectByName('Weapon');
-    if (gun) {
+    // 背枪（挂在 Dummy001 骨骼上的那个 Weapon）不是手持枪，蹲伏不该动它——
+    // 它的四元数是 _mountBackWeapon 按骨骼朝向推导出来的，改 rotation.x 会把它
+    // 从背上翻到胸前/腿侧。findHeldGun 用"父节点必须是 wrap"排掉背枪。
+    const heldGun = findHeldGun(wrap);
+    if (heldGun) {
       const loco = root.userData.loco;
       let baseY;
       let baseRx;
@@ -1773,15 +1823,15 @@
         baseY = loco.gunY0 + (loco.bobY || 0);
         baseRx = loco.gunRx0 + (loco.bobRx || 0);
       } else {
-        if (gun.userData._standPosY == null) {
-          gun.userData._standPosY = gun.position.y;
-          gun.userData._standRotX = gun.rotation.x;
+        if (heldGun.userData._standPosY == null) {
+          heldGun.userData._standPosY = heldGun.position.y;
+          heldGun.userData._standRotX = heldGun.rotation.x;
         }
-        baseY = gun.userData._standPosY;
-        baseRx = gun.userData._standRotX;
+        baseY = heldGun.userData._standPosY;
+        baseRx = heldGun.userData._standRotX;
       }
-      gun.position.y = baseY - t * 0.28 - proneT * 0.22;
-      gun.rotation.x = baseRx - t * 0.4 - proneT * 0.55;
+      heldGun.position.y = baseY - t * 0.28 - proneT * 0.22;
+      heldGun.rotation.x = baseRx - t * 0.4 - proneT * 0.55;
     }
 
     // Knees / boots hint: pull team marker slightly if present
@@ -1795,11 +1845,12 @@
     const wrap = root.getObjectByName('SoldierFacing') || root;
     const leftLeg = wrap.getObjectByName('LeftLeg');
     const rightLeg = wrap.getObjectByName('RightLeg');
-    const gun = wrap.getObjectByName('Weapon');
+    // 同上：只认手持枪。背枪的父节点是骨骼（Dummy001），不是 wrap。
+    const heldGun = findHeldGun(wrap);
     const loco = {
       leftLeg: leftLeg,
       rightLeg: rightLeg,
-      gun: gun,
+      gun: heldGun,
       phase: Math.random() * Math.PI * 2,
       swing: 0,
       bobY: 0,
@@ -1807,14 +1858,14 @@
       bobYaw: 0,
       legLx0: leftLeg ? leftLeg.rotation.x : 0,
       legRx0: rightLeg ? rightLeg.rotation.x : 0,
-      gunY0: gun ? gun.position.y : 0,
-      gunRx0: gun ? gun.rotation.x : 0,
-      gunRy0: gun ? gun.rotation.y : 0,
+      gunY0: heldGun ? heldGun.position.y : 0,
+      gunRx0: heldGun ? heldGun.rotation.x : 0,
+      gunRy0: heldGun ? heldGun.rotation.y : 0,
       time: 0,
     };
-    if (gun) {
-      gun.userData._standPosY = gun.position.y;
-      gun.userData._standRotX = gun.rotation.x;
+    if (heldGun) {
+      heldGun.userData._standPosY = heldGun.position.y;
+      heldGun.userData._standRotX = heldGun.rotation.x;
     }
     root.userData.loco = loco;
     return loco;
@@ -1906,9 +1957,11 @@
 
   /** Strip team ring for clean select-screen previews */
   function createPreviewSoldier(classId, opts) {
+    opts = opts || {};
     const root = createClassSoldier(classId, {
-      team: resolveFactionTeam(opts && opts.team),
-      skinId: opts && opts.skinId,
+      team: resolveFactionTeam(opts.team),
+      voxel: opts.voxel,
+      weaponId: opts.weaponId,
     });
     const marker = root.getObjectByName('TeamMarker');
     if (marker) root.remove(marker);
@@ -1920,8 +1973,6 @@
   global.VF.Soldier = {
     createSoldier,
     buildGunProp,
-    getPlayerSkinId,
-    setPlayerSkinId,
     createClassSoldier,
     createPreviewSoldier,
     createViewModel,

@@ -2,15 +2,18 @@
 /*
  * scripts/bake-roles.js — 体素角色资产烘焙（44MB -> 约 6MB）
  *
- * 输入（.gitignore 排除的原始导出，assets/Roles/）：
+ * 输入（.gitignore 排除的原始导出，assets/Roles/，规格见 assets/Roles/README.md）：
  *   Soldier01~04_Skin.glb      蒙皮网格（02~04 内嵌 4096² PNG）
- *   Soldier01_Walk_120.glb     原地 Walk，1.2s，首尾同姿势
- *   Soldier01_Run_245.glb      原地 Run，0.8s，首尾同姿势
- *   Soldier01_Pick.glb         Pick，1.6s，第 0 帧是可用站姿
+ *   Soldier01_<动作>.glb        动作，只导骨骼、原地、可循环
+ *     已有：Walk_120(1.2s) / Run_245(0.8s) / Pick(1.6s，第 0 帧当站姿用)
+ *     新增动作：在下方 ANIMS 加一行即可，命名 Soldier01_Idle.glb 这种
  *
  * 输出（提交进仓库，assets/characters/）：
  *   soldier01.glb … soldier04.glb   蒙皮网格，贴图统一 1024²
- *   soldier_anims.glb               仅骨架 + Walk/Run/Pick 三个 clip
+ *   soldier_anims.glb               仅骨架 + ANIMS 里全部 clip
+ *
+ * 体检：node scripts/inspect-roles.js —— 打印 assets/Roles/ 下每个 GLB 的
+ *   骨架比对 / clip 时长 / 是否原地 / 能否循环，用来判断新动作能不能接。
  *
  * 用法：node scripts/bake-roles.js
  * 依赖：python + Pillow（仅贴图重采样；缺失时明确报错并中止，不产出半成品）
@@ -35,11 +38,39 @@ const SKINS = [
   { src: 'Soldier03_Skin.glb', out: 'soldier03.glb' },
   { src: 'Soldier04_Skin.glb', out: 'soldier04.glb' },
 ];
+// 动作列表：美术把 Soldier01_XXX.glb 放进 assets/Roles/ 后，在这里加一行即可。
+// name 即运行时 clip 名，js/soldier-voxel.js 靠它取动作。
+// loop=false 的一次性动作（开火/换弹/落地/死亡…）播完由运行时自行回落。
+//
+// assets/Roles/ 现有 39 个动作，这里只收游戏真用得上的 15 个：
+//   - 手枪系列（Pistol_*）暂不收：第三人称化身不区分武器，先统一用步枪姿态
+//   - Idle(20.5s)/Rifle_Idle(14s) 太长，改用 Common_Fight_Idle(2s) 持枪战斗待机
+//   - Pick 已废弃：以前没 Idle 才拿它的第 0 帧当站姿，现在有真 Idle 了
+//   - AnNiu / InHand / Put_Away / Common_Attack_* / Hit_Down_* / Crouch_Idle 徒手版
+//     等暂不收，等玩法真的用上再加
 const ANIMS = [
-  { src: 'Soldier01_Walk_120.glb', name: 'Walk' },
-  { src: 'Soldier01_Run_245.glb', name: 'Run' },
-  { src: 'Soldier01_Pick.glb', name: 'Pick' },
+  // 移动（原地、可循环）
+  { src: 'Soldier01_Common_Fight_Idle.glb', name: 'Idle', loop: true },
+  { src: 'Soldier01_Walk_120.glb', name: 'Walk', loop: true },
+  { src: 'Soldier01_Run_245.glb', name: 'Run', loop: true },
+  { src: 'Soldier01_Fast_Run_410.glb', name: 'Sprint', loop: true },
+  { src: 'Soldier01_Rifle_Crouch_Idle.glb', name: 'CrouchIdle', loop: true },
+  { src: 'Soldier01_Crouch_Walk_90.glb', name: 'CrouchWalk', loop: true },
+  // 跳跃
+  { src: 'Soldier01_Jump_Start.glb', name: 'JumpStart', loop: false },
+  { src: 'Soldier01_Jump_Loop.glb', name: 'JumpLoop', loop: true },
+  { src: 'Soldier01_Jump_end.glb', name: 'JumpEnd', loop: false },
+  // 战斗
+  { src: 'Soldier01_Rifle_Shoot_Once.glb', name: 'Shoot', loop: false },
+  { src: 'Soldier01_Rifle_HuanDan.glb', name: 'Reload', loop: false },
+  { src: 'Soldier01_Rifle_Aim_Idle.glb', name: 'AimIdle', loop: true },
+  // 受击 / 死亡（Death、HitLarge 原始带约 1m 根位移，烘焙时会压平原地）
+  { src: 'Soldier01_Hit_F.glb', name: 'Hit', loop: false },
+  { src: 'Soldier01_Hit_Large.glb', name: 'HitLarge', loop: false },
+  { src: 'Soldier01_Death.glb', name: 'Death', loop: false },
 ];
+// 缺了就直接烘焙失败（站立与移动是硬需求）；其余动作可多可少。
+const REQUIRED_CLIPS = ['Idle', 'Walk', 'Run'];
 
 /* ---------- GLB 读写 ---------- */
 
@@ -194,10 +225,66 @@ function bakeSkin(entry) {
 
 /* ---------- 动作库烘焙 ---------- */
 
-// 三个动作文件共享同一副 34 节点骨架（0 号是蒙皮网格节点，1..33 是骨骼）。
-// 动作库只保留 1..33 号节点（索引整体 -1），合并三个 clip 的 accessor 数据。
+const COMP_SIZE = { 5120: 1, 5121: 1, 5122: 2, 5123: 2, 5125: 4, 5126: 4 };
+const TYPE_NUM = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
+
+// 读 FLOAT accessor 成二维数组（本批导出全部是 FLOAT，非 FLOAT 直接报错，
+// 不做隐式转换——量化过的 accessor 走这条路会静默出错）。
+function readFloats(glb, idx) {
+  const acc = glb.json.accessors[idx];
+  if (acc.componentType !== 5126) {
+    throw new Error('accessor ' + idx + ' 不是 FLOAT，componentType=' + acc.componentType);
+  }
+  const n = TYPE_NUM[acc.type];
+  const view = glb.json.bufferViews[acc.bufferView];
+  const start = (view.byteOffset || 0) + (acc.byteOffset || 0);
+  const raw = glb.bin.slice(start, start + acc.count * n * 4);
+  const out = [];
+  for (let i = 0; i < acc.count; i++) {
+    const el = [];
+    for (let k = 0; k < n; k++) el.push(raw.readFloatLE(i * n * 4 + k * 4));
+    out.push(el);
+  }
+  return out;
+}
+
+function writeFloats(rows) {
+  const n = rows[0].length;
+  const buf = Buffer.alloc(rows.length * n * 4);
+  for (let i = 0; i < rows.length; i++) {
+    for (let k = 0; k < n; k++) buf.writeFloatLE(rows[i][k], i * n * 4 + k * 4);
+  }
+  return buf;
+}
+
+function isConstant(rows, eps) {
+  const e = eps == null ? 1e-5 : eps;
+  for (let i = 1; i < rows.length; i++) {
+    for (let k = 0; k < rows[i].length; k++) {
+      if (Math.abs(rows[i][k] - rows[0][k]) > e) return false;
+    }
+  }
+  return true;
+}
+
+function isUnitScale(rows) {
+  return rows.every((r) => r.every((v) => Math.abs(v - 1) < 1e-4));
+}
+
+// 动作文件共享同一副 34 节点骨架（0 号是蒙皮网格节点，1..33 是骨骼）。
+// 动作库只保留 1..33 号节点（索引整体 -1），合并各 clip 的 accessor 数据。
+//
+// 两条归一化规则（都是为了让资产能直接接进游戏）：
+//   1) 根节点 Root_zhujue01 的 translation 压成首帧常量 —— Death / Hit_Large
+//      原始带约 1m 根位移，不处理的话角色会倒着滑出去一米再停住。
+//      位移由游戏逻辑驱动，动画必须是原地的。
+//   2) 恒为 (1,1,1) 的 scale 轨道整条丢掉 —— 约省 30% 体积。代价是运行时
+//      不再写 scale，等于保持节点 rest 值，所以下面校验 rest scale 必须是 1。
 function bakeAnims(skinBones) {
   const base = readGlb(path.join(SRC, ANIMS[0].src));
+  // 所有动作文件的节点序列必须一致，否则 channel 的 node 索引会串到别的骨头上
+  const baseSig = base.json.nodes.map((n) => n.name || '?').join('|');
+
   const nodes = base.json.nodes.slice(1).map((n) => {
     const node = { name: n.name };
     if (n.translation) node.translation = n.translation;
@@ -219,43 +306,116 @@ function bakeAnims(skinBones) {
   };
   const parts = [];
   let offset = 0;
+  const stats = { dropScale: 0, flattenRoot: 0 };
+  const inputMap = new Map(); // 时间轴按内容去重，跨 clip 复用
+
+  const pushAccessor = (accDef, data, dropMinMax) => {
+    const nv = { buffer: 0, byteLength: data.length };
+    if (offset) nv.byteOffset = offset;
+    if (accDef.byteStride != null) nv.byteStride = accDef.byteStride;
+    json.bufferViews.push(nv);
+    parts.push(data);
+    offset += data.length;
+    const pad = (4 - (offset % 4)) % 4;
+    if (pad) {
+      parts.push(Buffer.alloc(pad));
+      offset += pad;
+    }
+    const acc = Object.assign({}, accDef);
+    acc.bufferView = json.bufferViews.length - 1;
+    if (dropMinMax) {
+      delete acc.min;
+      delete acc.max;
+    }
+    json.accessors.push(acc);
+    return json.accessors.length - 1;
+  };
 
   ANIMS.forEach((entry) => {
     const src = readGlb(path.join(SRC, entry.src));
+    const sig = src.json.nodes.map((n) => n.name || '?').join('|');
+    if (sig !== baseSig) {
+      throw new Error(entry.src + ' 节点序列与 ' + ANIMS[0].src + ' 不一致');
+    }
     const anim = src.json.animations && src.json.animations[0];
     if (!anim) throw new Error(entry.src + ' 没有动作');
-    const accMap = new Map();
-    const remapAccessor = (oldIndex) => {
-      if (accMap.has(oldIndex)) return accMap.get(oldIndex);
-      const acc = Object.assign({}, src.json.accessors[oldIndex]);
+
+    // 时间轴按内容去重：99 条轨道共用同一份 input，不去重会白存 99 遍
+    const remapInput = (oldIndex) => {
+      const acc = src.json.accessors[oldIndex];
       const view = src.json.bufferViews[acc.bufferView];
-      const data = src.bin.slice(view.byteOffset || 0, (view.byteOffset || 0) + view.byteLength);
-      const nv = { buffer: 0, byteLength: data.length };
-      if (offset) nv.byteOffset = offset;
-      json.bufferViews.push(nv);
-      parts.push(data);
-      offset += data.length;
-      const pad = (4 - (offset % 4)) % 4;
-      if (pad) {
-        parts.push(Buffer.alloc(pad));
-        offset += pad;
-      }
-      acc.bufferView = json.bufferViews.length - 1;
-      json.accessors.push(acc);
-      accMap.set(oldIndex, json.accessors.length - 1);
-      return accMap.get(oldIndex);
+      const data = src.bin.slice(
+        view.byteOffset || 0,
+        (view.byteOffset || 0) + view.byteLength
+      );
+      const key = data.toString('base64');
+      if (inputMap.has(key)) return inputMap.get(key);
+      // input 必须保留 min/max（glTF 规范对 sampler input 有要求），所以原样拷贝
+      const idx = pushAccessor(acc, data, false);
+      inputMap.set(key, idx);
+      return idx;
     };
-    const samplers = anim.samplers.map((s) => ({
-      input: remapAccessor(s.input),
-      output: remapAccessor(s.output),
-      interpolation: s.interpolation || 'LINEAR',
-    }));
-    const channels = anim.channels.map((c) => ({
-      sampler: c.sampler,
-      target: { node: c.target.node - 1, path: c.target.path },
-    }));
+
+    const samplers = [];
+    const channels = [];
+
+    anim.channels.forEach((ch) => {
+      const smp = anim.samplers[ch.sampler];
+      const srcNode = src.json.nodes[ch.target.node];
+      const name = srcNode && srcNode.name;
+      const outAcc = src.json.accessors[smp.output];
+      const rows = readFloats(src, smp.output);
+
+      // 规则 2：恒定的 scale 轨道 → 丢掉。判据是「动画常量 == 节点 rest scale」：
+      // 剥掉后运行时不再写 scale，骨骼就等于一直保持 rest 值，两者必须一致。
+      // （脚趾 Bip001-*-Toe0Nub 这类有几根骨骼 scale 不是 1，剥不掉就原样保留）
+      if (ch.target.path === 'scale' && isConstant(rows)) {
+        const rest = (srcNode && srcNode.scale) || [1, 1, 1];
+        const c = rows[0];
+        const same = c.every(
+          (v, k) => Math.abs(v - (rest[k] != null ? rest[k] : 1)) < 1e-4
+        );
+        if (same) {
+          stats.dropScale++;
+          return;
+        }
+      }
+
+      // 规则 1：根节点位移压平
+      let touched = false;
+      if (ch.target.path === 'translation' && name === 'Root_zhujue01' && !isConstant(rows)) {
+        const first = rows[0].slice();
+        rows.forEach((r) => {
+          for (let k = 0; k < r.length; k++) r[k] = first[k];
+        });
+        touched = true;
+        stats.flattenRoot++;
+      }
+
+      const data = touched ? writeFloats(rows) : src.bin.slice(
+        src.json.bufferViews[outAcc.bufferView].byteOffset || 0,
+        (src.json.bufferViews[outAcc.bufferView].byteOffset || 0) +
+          src.json.bufferViews[outAcc.bufferView].byteLength
+      );
+      samplers.push({
+        input: remapInput(smp.input),
+        // output 的 min/max 是可选字段（规范只对 POSITION 强制要求），
+        // 近 3000 条 accessor 各带一份能占到几百 KB，统一删掉
+        output: pushAccessor(outAcc, data, true),
+        interpolation: smp.interpolation || 'LINEAR',
+      });
+      channels.push({
+        sampler: samplers.length - 1,
+        target: { node: ch.target.node - 1, path: ch.target.path },
+      });
+    });
+
     json.animations.push({ name: entry.name, samplers: samplers, channels: channels });
   });
+
+  console.log(
+    '  归一化：剥 scale 轨道 ' + stats.dropScale + ' 条，压平原地位移 ' + stats.flattenRoot + ' 条'
+  );
 
   json.buffers[0].byteLength = offset;
 
@@ -264,9 +424,13 @@ function bakeAnims(skinBones) {
 
   // 自检：重读产物，clip 名齐全、索引不越界、动作骨骼名 ⊆ 蒙皮骨骼名
   const check = readGlb(tmpPath);
-  const names = check.json.animations.map((a) => a.name).sort();
-  if (JSON.stringify(names) !== JSON.stringify(['Pick', 'Run', 'Walk'])) {
-    throw new Error('soldier_anims.glb clip 名不对: ' + names.join(','));
+  const names = check.json.animations.map((a) => a.name);
+  // 站立与移动是硬需求，缺了直接失败；其余动作随 ANIMS 自由增删。
+  REQUIRED_CLIPS.forEach((r) => {
+    if (names.indexOf(r) < 0) throw new Error('soldier_anims.glb 缺 clip: ' + r);
+  });
+  if (new Set(names).size !== names.length) {
+    throw new Error('soldier_anims.glb 有重名 clip: ' + names.join(','));
   }
   check.json.animations.forEach((a) => {
     a.channels.forEach((c) => {
@@ -280,6 +444,17 @@ function bakeAnims(skinBones) {
       }
     });
   });
+  // 归一化生效验证：根节点（新 0 号，原 Root_zhujue01）的 translation 必须恒定
+  check.json.animations.forEach((a) => {
+    a.channels.forEach((c) => {
+      if (c.target.node !== 0 || c.target.path !== 'translation') return;
+      const rows = readFloats(check, a.samplers[c.sampler].output);
+      if (!isConstant(rows)) {
+        throw new Error('clip ' + a.name + ' 根节点仍有位移，归一化没生效');
+      }
+    });
+  });
+
   const animBoneSet = new Set(
     check.json.nodes.filter((n) => n.name && n.name.indexOf('Bip001') === 0).map((n) => n.name)
   );
@@ -297,17 +472,28 @@ function bakeAnims(skinBones) {
 /* ---------- main ---------- */
 
 function main() {
+  // 只补动作时用 --anims-only：蒙皮已经烘焙过、原始 Soldier02~04_Skin.glb
+  // 不在目录里也能跑，骨架基准改从已有产物 soldier01.glb 取。
+  const animsOnly = process.argv.indexOf('--anims-only') >= 0;
   fs.mkdirSync(OUT, { recursive: true });
-  SKINS.forEach((s) => {
-    if (!fs.existsSync(path.join(SRC, s.src))) throw new Error('缺输入: ' + s.src);
-  });
   ANIMS.forEach((a) => {
     if (!fs.existsSync(path.join(SRC, a.src))) throw new Error('缺输入: ' + a.src);
   });
-  const skinBones = bakeSkin(SKINS[0]);
-  SKINS.slice(1).forEach(bakeSkin);
+
+  let skinBones;
+  if (animsOnly) {
+    skinBones = boneNames(readGlb(path.join(OUT, 'soldier01.glb')).json);
+    console.log('--anims-only：跳过蒙皮，骨架基准取自 soldier01.glb');
+  } else {
+    SKINS.forEach((s) => {
+      if (!fs.existsSync(path.join(SRC, s.src))) throw new Error('缺输入: ' + s.src);
+    });
+    skinBones = bakeSkin(SKINS[0]);
+    SKINS.slice(1).forEach(bakeSkin);
+  }
+
   bakeAnims(skinBones);
-  console.log('done. 记得把 index.html 相关 js 的 ?v= 令牌 bump 为 voxelskin1');
+  console.log('done. 记得把 index.html 相关 js 的 ?v= 令牌 bump 一个新值');
 }
 
 main();
