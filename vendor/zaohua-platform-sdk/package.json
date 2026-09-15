@@ -1,0 +1,28 @@
+{
+  "name": "zaohua-platform-sdk",
+  "version": "0.1.2",
+  "description": "Browser SDK for VAG game platform capabilities.",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "tsconfig.json"
+  ],
+  "vag": {
+    "contractVersion": 2,
+    "requiredCapabilities": [
+      "game.loading",
+      "game.lifecycle"
+    ],
+    "capabilities": [
+      "game.loading",
+      "game.lifecycle",
+      "user.current",
+      "storage",
+      "studio.logging"
+    ]
+  }
+}

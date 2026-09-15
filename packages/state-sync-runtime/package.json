@@ -1,0 +1,10 @@
+{
+  "name": "@vibegame/state-sync-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./server": "./source/server/index.ts",
+    "./client": "./source/client/index.ts"
+  }
+}

@@ -32,3 +32,13 @@ tmp/roles-check/
 
 # Local game server process state and logs
 tmp/game-server/
+
+dist/
+game/server/dist/
+
+# esbuild 产物，由 npm run build 从 game/client/source 生成
+js/zaohua-online.js
+
+# Game Builder 本机上传状态：project id、game_id、目标环境都是每台机器自己的
+.game-builder/
+

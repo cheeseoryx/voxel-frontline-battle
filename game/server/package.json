@@ -1,0 +1,12 @@
+{
+  "name": "@game/server",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "node ../../scripts/build-server.mjs"
+  },
+  "dependencies": {
+    "@vibegame/state-sync-runtime": "file:../../packages/state-sync-runtime"
+  }
+}

@@ -7,7 +7,10 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "node scripts/build-zaohua.mjs",
+    "build:client": "node scripts/build-zaohua.mjs",
+    "build:server": "node scripts/build-server.mjs"
   },
   "repository": {
     "type": "git",
@@ -20,7 +23,11 @@
     "url": "https://github.com/cheeseoryx/voxel-frontline-battle/issues"
   },
   "homepage": "https://github.com/cheeseoryx/voxel-frontline-battle#readme",
+  "dependencies": {
+    "zaohua-platform-sdk": "file:./vendor/zaohua-platform-sdk"
+  },
   "devDependencies": {
+    "esbuild": "^0.25.12",
     "playwright": "^1.63.0"
   }
 }

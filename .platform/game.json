@@ -1,0 +1,9 @@
+{
+  "mode": "multiplayer",
+  "published": true,
+  "previewShellMode": "host",
+  "server": {
+    "maxPlayer": 16,
+    "root": "game/server"
+  }
+}
