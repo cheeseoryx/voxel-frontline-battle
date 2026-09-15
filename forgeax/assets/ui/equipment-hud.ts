@@ -14,6 +14,7 @@ export function createEquipmentHud(root:ShadowRoot,host:HTMLElement){
  const overlay=document.createElement('div');overlay.id='native-equipment-effect';overlay.setAttribute('aria-hidden','true');find('hud').append(overlay);
  const status=document.createElement('div');status.id='native-throwable-status';status.className='hidden';status.setAttribute('role','status');find('hud').append(status);
  const drawIcon=(el:HTMLElement,kind:string)=>{if(el.dataset.equipmentIcon===kind)return;el.dataset.equipmentIcon=kind;el.classList.add('native-equipment-icon');el.innerHTML=gearIcons[kind]||gearIcons.rifle;};
+ const classIcon=document.createElement('div');classIcon.className='skill-icon native-large-class-icon hidden';find('skill-active').querySelector('.skill-icon-wrap')!.append(classIcon);
  const optic=document.createElement('div');optic.id='native-binocular-optic';optic.className='hidden';optic.setAttribute('aria-hidden','true');find('hud').append(optic);
  return (b:BattleState)=>{
   const g=b.gear;if(!g)return;const inv=g.inventory,large=b.mode==='conquest',knife=large||b.mode!=='core'&&b.mode!=='gungame';
@@ -35,8 +36,13 @@ export function createEquipmentHud(root:ShadowRoot,host:HTMLElement){
   throwButton.classList.toggle('selected',inv.slot==='grenade');throwButton.setAttribute('aria-label',name('grenade')+'，剩余 '+inv.grenades);
   show('throw-hud',b.mode!=='gungame');put('throwable-count',String(inv.grenades));
   show('gadget-ammo',inv.id==='charge');put('gadget-ammo','C4 '+g.availableCharges+' · 已投出 '+g.projectile.charges.length);
-  show('skill-active',!large);show('skill-passive',!large);find('skill-active').querySelector('.skill-keybind')!.textContent='G';
-  for(const e of root.querySelectorAll<HTMLElement>('[data-skill-icon]'))e.classList.toggle('hidden',e.dataset.skillIcon!==b.classId);
+  show('skill-active',true);show('skill-passive',true);find('skill-active').querySelector('.skill-keybind')!.textContent=large?(b.classId==='recon'?'Q':'X'):'G';find('skill-active').title=b.skills?.hint()||'';
+  classIcon.classList.toggle('hidden',!large);classIcon.textContent=b.classId==='engineer'?'⚒':b.classId==='recon'?'⌖':'✚';
+  const alias=large?({assault:'vanguard',support:'medic',recon:'ghost',engineer:'engineer'} as Record<string,string>)[b.classId]:b.classId;
+  const passive:Record<string,string>={vanguard:'切换武器 / 换弹速度 ×1.15',medic:'每次部署初始护甲 100',ghost:'从背面射击伤害 ×1.3',juggernaut:'受到攻击伤害 ×0.94',raider:'掉落弹药 ×1.3 / 增加资源回收',engineer:'初始 20 建材 / 建造结构承受 2 次打击'};find('skill-passive').title=passive[alias]||'';
+  const skill=b.skills?.snapshot(),dash=find('dash-hud');dash.hidden=false;show('dash-hud',true);show('dash-cd-overlay',(skill?.dashCooldown??0)>0);put('dash-cd-num',String(Math.ceil(skill?.dashCooldown??0)));
+  show('skill-passive-time',!!skill?.ambush||b.speedBoostUntil>b.elapsed);put('skill-passive-time-num',skill?.ambush?'+40':String(Math.ceil(b.speedBoostUntil-b.elapsed)));
+  for(const e of root.querySelectorAll<HTMLElement>('[data-skill-icon]'))e.classList.toggle('hidden',e.dataset.skillIcon!==alias||large&&!!e.closest('#skill-active'));
   show('skill-cd-overlay',b.skillCooldown>0);put('skill-cd-num',String(Math.ceil(b.skillCooldown)));
   put('weapon-hud-name',inv.gun?(b.weapon.nameZh||b.weapon.name):inv.skill?'C4 遥控炸药':name(inv.slot));
   const item=itemsFor(b.mode,inv.slot).find(i=>i.id===inv.id);drawIcon(find('weapon-silhouette'),inv.gun?(b.weapon.category==='pistol'?'pistol':b.weaponId==='rpg'?'rpg':'rifle'):item?.kind||inv.id);

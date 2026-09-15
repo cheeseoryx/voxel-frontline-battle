@@ -292,17 +292,49 @@
       "vertices": 2520,
       "triangles": 1260
     },
+    "gadget/assault/knife-guard": {
+      "vertices": 1032,
+      "triangles": 516
+    },
+    "gadget/assault/knife-slash": {
+      "vertices": 1488,
+      "triangles": 744
+    },
     "gadget/engineer/knife": {
       "vertices": 2520,
       "triangles": 1260
+    },
+    "gadget/engineer/knife-guard": {
+      "vertices": 1032,
+      "triangles": 516
+    },
+    "gadget/engineer/knife-slash": {
+      "vertices": 1488,
+      "triangles": 744
     },
     "gadget/support/knife": {
       "vertices": 2520,
       "triangles": 1260
     },
+    "gadget/support/knife-guard": {
+      "vertices": 1032,
+      "triangles": 516
+    },
+    "gadget/support/knife-slash": {
+      "vertices": 1488,
+      "triangles": 744
+    },
     "gadget/recon/knife": {
       "vertices": 2520,
       "triangles": 1260
+    },
+    "gadget/recon/knife-guard": {
+      "vertices": 1032,
+      "triangles": 516
+    },
+    "gadget/recon/knife-slash": {
+      "vertices": 1488,
+      "triangles": 744
     },
     "gun/rpg": {
       "vertices": 456,
@@ -468,25 +500,73 @@
       "vertices": 2088,
       "triangles": 1044
     },
+    "small/arms/vanguard/right": {
+      "vertices": 1152,
+      "triangles": 576
+    },
+    "small/arms/vanguard/left": {
+      "vertices": 936,
+      "triangles": 468
+    },
     "small/arms/medic": {
       "vertices": 2088,
       "triangles": 1044
+    },
+    "small/arms/medic/right": {
+      "vertices": 1152,
+      "triangles": 576
+    },
+    "small/arms/medic/left": {
+      "vertices": 936,
+      "triangles": 468
     },
     "small/arms/ghost": {
       "vertices": 2088,
       "triangles": 1044
     },
+    "small/arms/ghost/right": {
+      "vertices": 1152,
+      "triangles": 576
+    },
+    "small/arms/ghost/left": {
+      "vertices": 936,
+      "triangles": 468
+    },
     "small/arms/juggernaut": {
       "vertices": 2088,
       "triangles": 1044
+    },
+    "small/arms/juggernaut/right": {
+      "vertices": 1152,
+      "triangles": 576
+    },
+    "small/arms/juggernaut/left": {
+      "vertices": 936,
+      "triangles": 468
     },
     "small/arms/raider": {
       "vertices": 2088,
       "triangles": 1044
     },
+    "small/arms/raider/right": {
+      "vertices": 1152,
+      "triangles": 576
+    },
+    "small/arms/raider/left": {
+      "vertices": 936,
+      "triangles": 468
+    },
     "small/arms/engineer": {
       "vertices": 2088,
       "triangles": 1044
+    },
+    "small/arms/engineer/right": {
+      "vertices": 1152,
+      "triangles": 576
+    },
+    "small/arms/engineer/left": {
+      "vertices": 936,
+      "triangles": 468
     },
     "small/gun/ar": {
       "vertices": 672,
@@ -620,25 +700,73 @@
       "vertices": 3192,
       "triangles": 1596
     },
+    "small/gadget/vanguard/knife-guard": {
+      "vertices": 1032,
+      "triangles": 516
+    },
+    "small/gadget/vanguard/knife-slash": {
+      "vertices": 2160,
+      "triangles": 1080
+    },
     "small/gadget/medic/knife": {
       "vertices": 3192,
       "triangles": 1596
+    },
+    "small/gadget/medic/knife-guard": {
+      "vertices": 1032,
+      "triangles": 516
+    },
+    "small/gadget/medic/knife-slash": {
+      "vertices": 2160,
+      "triangles": 1080
     },
     "small/gadget/ghost/knife": {
       "vertices": 3192,
       "triangles": 1596
     },
+    "small/gadget/ghost/knife-guard": {
+      "vertices": 1032,
+      "triangles": 516
+    },
+    "small/gadget/ghost/knife-slash": {
+      "vertices": 2160,
+      "triangles": 1080
+    },
     "small/gadget/juggernaut/knife": {
       "vertices": 3192,
       "triangles": 1596
+    },
+    "small/gadget/juggernaut/knife-guard": {
+      "vertices": 1032,
+      "triangles": 516
+    },
+    "small/gadget/juggernaut/knife-slash": {
+      "vertices": 2160,
+      "triangles": 1080
     },
     "small/gadget/raider/knife": {
       "vertices": 3192,
       "triangles": 1596
     },
+    "small/gadget/raider/knife-guard": {
+      "vertices": 1032,
+      "triangles": 516
+    },
+    "small/gadget/raider/knife-slash": {
+      "vertices": 2160,
+      "triangles": 1080
+    },
     "small/gadget/engineer/knife": {
       "vertices": 3192,
       "triangles": 1596
+    },
+    "small/gadget/engineer/knife-guard": {
+      "vertices": 1032,
+      "triangles": 516
+    },
+    "small/gadget/engineer/knife-slash": {
+      "vertices": 2160,
+      "triangles": 1080
     },
     "small/gadget/vanguard/frag": {
       "vertices": 2664,
@@ -815,6 +943,34 @@
     "small/deployed/charge": {
       "vertices": 72,
       "triangles": 36
+    },
+    "skill/healer": {
+      "vertices": 96,
+      "triangles": 48
+    },
+    "skill/healer-preview": {
+      "vertices": 96,
+      "triangles": 48
+    },
+    "skill/shield": {
+      "vertices": 336,
+      "triangles": 168
+    },
+    "skill/turret-preview": {
+      "vertices": 192,
+      "triangles": 96
+    },
+    "skill/turret-base": {
+      "vertices": 72,
+      "triangles": 36
+    },
+    "skill/turret-head": {
+      "vertices": 24,
+      "triangles": 12
+    },
+    "skill/turret-barrels": {
+      "vertices": 96,
+      "triangles": 48
     }
   }
 }

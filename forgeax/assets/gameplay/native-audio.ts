@@ -1,3 +1,5 @@
+import {sounds as skillSounds} from '../original/skill-audio.ts';
+import {sounds as meleeSounds} from '../original/melee-audio.ts';
 import type {World,EntityHandle} from '@forgeax/engine/ecs';
 import type {GameHost} from '@forgeax/engine/app';
 import {AudioSource,AudioListener,AUDIO_ENGINE_RESOURCE_KEY,type AudioBackend} from '@forgeax/engine/audio';
@@ -11,7 +13,7 @@ import type {Vec3} from './voxel-map.ts';
 export async function createBattleAudio(world:World,host:GameHost,b:BattleState,cancelled:()=>boolean){
  const handles=new Map<string,Handle<'AudioClipAsset','shared'>>(),sources=new Map<EntityHandle,{left:number;loop:boolean}>(),loops=new Map<string,EntityHandle>();
  const backend=world.getResource<AudioBackend>(AUDIO_ENGINE_RESOURCE_KEY);let disposed=false,listener=false,sequence=0,footstep=0,lastHp=b.health,lastDead=false,wasGrounded=b.grounded;
- const sounds=({...manifest.sounds,...throwableSounds}) as Record<string,any>,paths=[...new Set(Object.values(sounds).flatMap(s=>[...(s.files||[]),...(s.distantFiles||[])]))] as string[];
+ const sounds=({...manifest.sounds,...throwableSounds,...meleeSounds,...skillSounds}) as Record<string,any>,paths=[...new Set(Object.values(sounds).flatMap(s=>[...(s.files||[]),...(s.distantFiles||[])]))] as string[];
  function remove(e:EntityHandle){if(!sources.delete(e))return;backend.stop(e as number);world.despawn(e).unwrap();}
  function dispose(){if(disposed)return;disposed=true;for(const e of [...sources.keys()])remove(e);loops.clear();if(listener)world.removeComponent(b.camera,AudioListener).unwrap();for(const h of handles.values())world.sharedRefs.release(h).unwrap();handles.clear();}
  try{

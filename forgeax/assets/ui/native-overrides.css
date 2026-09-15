@@ -30,3 +30,5 @@
 #native-binocular-optic{position:absolute;inset:0;pointer-events:none;z-index:10;background:radial-gradient(ellipse 60% 65% at center,transparent 64%,rgba(5,8,10,.92) 66%);}
 
 #native-throwable-status{position:absolute;left:50%;top:62%;transform:translateX(-50%);padding:.5em .9em;color:#eff6f8;background:rgba(14,24,31,.72);border-left:2px solid #bcdbea;font:500 13px/1.5 sans-serif;pointer-events:none;z-index:16;white-space:nowrap}
+
+.native-large-class-icon{display:grid;place-items:center;font:700 26px/1 sans-serif;color:#a8d5e5}

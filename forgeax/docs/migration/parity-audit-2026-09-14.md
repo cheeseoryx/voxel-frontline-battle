@@ -10,7 +10,7 @@
 
 51项是可跟进的差异/问题/验收单元，包含总体验收项与细项，不是51个互不重叠功能，也不能换算成迁移完成百分比。
 
-2026-09-15 更新：共 51 个跟进单元，已完成 3 项（EQ-01、EQ-02、EQ-03），其余 48 项继续跟进。未接入 10 项；部分实现 29 项；验收失败 2 项；未验收 5 项；实现有误 2 项。未完成优先级：P0 16 项；P1 31 项；P2 1 项。
+2026-09-15 更新：共 51 个跟进单元，已完成 6 项（EQ-01 至 EQ-06），其余 45 项继续跟进。未接入 7 项；部分实现 29 项；验收失败 2 项；未验收 5 项；实现有误 2 项。未完成优先级：P0 15 项；P1 29 项；P2 1 项。
 
 ## 本次六个直接问题
 
@@ -20,7 +20,7 @@ QQ 连续13发，视角 pitch 保持0；当前没有开火后坐/回正代码。
 
 ### 射击看不到子弹：步兵射击表现未接入
 
-普通枪射线结算可以保留，但原有曳光、枪口闪光、命中反馈未接回；炮弹/手雷的可见方块不能代替枪械表现。 对应 EQ-08、EQ-04。
+普通枪射线结算可以保留，但原有曳光、枪口闪光、命中反馈未接回；炮弹/手雷的可见方块不能代替枪械表现。 对应 EQ-08。
 
 ### 地图远景消失：远景建筑几何缺失
 
@@ -45,7 +45,7 @@ QQ：30/150→13发后17/150→R后30/137。缺失换弹动画与空弹自动换
 - **物理**：玩家/AI 使用 Rapier 角色控制器，车辆是运动学长方体控制器，手雷/碎块和部分炮弹使用动态物理体。已有碰撞与爆炸碎块，不代表全建筑结构坍塌、完整底盘或所有旧交互已迁入。
 - **AI**：当前是重新编写的寻路/视线/射击/目标 AI，未完整承接旧小队、救援、职业支援与乘员协作。另有射速单位错误和核心满员推进失败。
 - **模式/联机**：六个模式入口及部分规则存在，运行的主要是本地 AI 战场。服务器按钮、真人房间、联网伤害/破坏/载具同步尚未接齐；64个单位不是64名真人联机。
-- **装备与数据**：已补齐六槽装备、六类投掷物与 C4/黏弹遥控（EQ-01 至 EQ-03）；枪械的其他表现、购买、战绩、档案与旧站点存档仍按对应条目跟进。
+- **装备与数据**：已补齐六槽装备、六类投掷物、C4/黏弹遥控、枪械散布/霰弹及 RPG、战斗刀与小型结束检视、两套兵种主动/被动技能和 V 冲刺（EQ-01 至 EQ-06）；枪械的其他表现、购买、战绩、档案与旧站点存档仍按对应条目跟进。
 - **开发交付**：造化作者工程已经建立，但 Studio 完整开发闭环、最终打包与全负载性能验收仍不完整；项目 fps/bench/gate 指标当前停用。
 
 ## 已有能力及证据边界
@@ -117,32 +117,32 @@ QQ：30/150→13发后17/150→R后30/137。缺失换弹动画与空弹自动换
 - **证据等级**：2026-09-15：83 项自动测试 / 13 个文件通过；生产构建及类型检查通过；QQ Chromium 138 无界面自动化完成 12 步生产构建操作，零页面/控制台错误。可见窗口中已确认持有模型；桌面焦点中断记录与测试边界见 EQ-03 实现记录。
 - **来源**：[实现与操作记录](F:/voxel-frontline-battle/forgeax/docs/migration/eq-03-implementation.md)；[QQ 实测记录](F:/voxel-frontline-battle/forgeax/artifacts/eq-03/qq-remote-explosives.json)。
 
-#### EQ-04 · 散布、霰弹多弹丸与步兵发射器〔部分实现 / P0〕
+#### EQ-04 · 散布、霰弹多弹丸与步兵发射器〔已完成 / P0〕
 
 - **原版**：原版武器定义及射击过程区分弹丸数、散布、后坐力、自动/半自动和发射器。
-- **当前新版**：原武器数据、模型、伤害、射速和弹量已导入；当前玩家开火统一使用一条准星射线，未消费散布/弹丸数量。步兵 RPG 没有接通独立飞行弹体路径。
-- **剩余工作**：接回霰弹多弹丸、腰射/瞄准散布、发射器弹道与爆炸。后坐力、换弹和视觉反馈详见 EQ-07 至 EQ-11。
+- **当前新版**：已接入原版腰射/瞄准散布与 XYZ 随机弹丸分布；霰弹每发 8 颗、每颗独立判定伤害，一发扣一颗弹药。步枪自动/手枪与狙击半自动成立。RPG 使用 Rapier 弹道、最近碰撞、原版直击/步兵范围伤害与体素破坏，7 秒到期移除，支持实战 R 装填再射。
+- **剩余工作**：本项完成。后坐力、曳光/枪口反馈、换弹动画、ADS 动画、距离衰减/分区护甲仍属 EQ-07 至 EQ-11；整体性能与联机未完成。
 - **验收条件**：代表性步枪、手枪、霰弹枪、狙击枪和发射器的实际伤害形态与设计一致，不能只验证能扣弹和命中。
-- **证据等级**：本轮当前入口复核；详细原版对照沿用前次审计。除注明项目外，未逐项实机验收。
-- **来源**：[js/weapons.js:64](F:/voxel-frontline-battle/js/weapons.js:64)；[js/weapons.js:212](F:/voxel-frontline-battle/js/weapons.js:212)；[js/weapons.js:298](F:/voxel-frontline-battle/js/weapons.js:298)；[forgeax/assets/gameplay/battle.plugin.ts:102](F:/voxel-frontline-battle/forgeax/assets/gameplay/battle.plugin.ts:102)。
+- **证据等级**：2026-09-15：102 项测试 / 15 文件、类型检查及生产构建通过。QQ 无界面浏览器 11 步真实输入复核通过、零页面/控制台错误；代表性枪械参数/命中形态由原版源码对照和原生战斗测试验证。
+- **来源**：[完整实施与验证记录](F:/voxel-frontline-battle/forgeax/docs/migration/eq-04-implementation.md)；[QQ 11 步复核](F:/voxel-frontline-battle/forgeax/artifacts/eq-04/qq-weapon-shots.json)。
 
-#### EQ-05 · 近战攻击与局内检视〔未接入 / P1〕
+#### EQ-05 · 近战攻击与对局结束检视〔已完成 / P1〕
 
-- **原版**：原版有战斗刀挥砍、背刺/近战判定和小型战斗武器检视。
-- **当前新版**：新版装备检视模型已存在；战斗输入未接入独立近战和局内检视操作。
-- **剩余工作**：恢复近战切换、挥砍范围、背刺/伤害规则、持刀速度，以及局内武器检视。
-- **验收条件**：能够从整备选择近战装备并在场内击中目标；检视可进入、退出且不影响射击状态。
-- **证据等级**：本轮当前入口复核；详细原版对照沿用前次审计。除注明项目外，未逐项实机验收。
-- **来源**：[js/melee.js:1](F:/voxel-frontline-battle/js/melee.js:1)；[js/gadgets.js:1398](F:/voxel-frontline-battle/js/gadgets.js:1398)；[modes/small-battle/js/weapon-inspect.js:1](F:/voxel-frontline-battle/modes/small-battle/js/weapon-inspect.js:1)；[forgeax/assets/gameplay/battle.plugin.ts:84](F:/voxel-frontline-battle/forgeax/assets/gameplay/battle.plugin.ts:84)。
+- **原版**：原版有战斗刀挥砍、背刺、短距离突进和持刀移速；小型模式最终结算前自动检视当前枪械或战斗刀 2.4 秒，无自由触发的局内检视键。
+- **当前新版**：已恢复原版 90/999 伤害、2 米/120° 判定、起手/有效/恢复窗口、按住连挥、最近目标与墙/烟遮挡；突进由 Rapier 角色控制器执行，保留 1.12/1.18 持刀移动系数、原版挥刀动作与近战音画反馈。小型五种模式最终结束前检视枪械/持刀，冻结操作和战斗，完整 2.4 秒后展示结果；大征服仍直接结算。
+- **剩余工作**：本项完成。真人近战同步仍随 NET-01 / NET-02 跟进；枪械后坐力/曳光/换弹/ADS/伤害分区及地图和性能仍在其他条目。
+- **验收条件**：在原生战场正确挥砍、背刺、突进、切换与中断；实际存在的旧版结束检视按模式自动进入，完整播放后显示结算，离场和重入状态清洁，不新增旧版没有的检视键。
+- **证据等级**：2026-09-15：132 项测试 / 17 文件、类型检查与生产构建通过。QQ 无界面浏览器 11 + 4 步，实际对局达分结束后的枪械/持刀检视、2.4 秒等待、输入锁定及重入通过，零页面/控制台错误。近战伤害、遮挡和突进通过真实 Rapier 与原生 arena 测试；QQ 自动寻敌路线未触发近战命中，不将它当作实机命中证据。
+- **来源**：[完整实施与验证记录](F:/voxel-frontline-battle/forgeax/docs/migration/eq-05-implementation.md)；[QQ 近战与持刀检视](F:/voxel-frontline-battle/forgeax/artifacts/eq-05/qq-melee.json)；[QQ 枪械检视](F:/voxel-frontline-battle/forgeax/artifacts/eq-05-gun/qq-melee.json)。
 
-#### EQ-06 · 兵种主动/被动技能与职业作用〔部分实现 / P1〕
+#### EQ-06 · 兵种主动/被动技能与职业作用〔已完成 / P1〕
 
 - **原版**：原版大征服兵种配合道具与团队系统；小型战斗有六兵种技能及冲刺等动作。
-- **当前新版**：新版六个小型兵种均能触发技能，但部分被动/效果为简化实现；大征服 G 键分支直接投手雷。
-- **剩余工作**：逐兵种核对完整作用、被动、资源/冷却和大征服道具联动。移动动作另见 MOVE-01。
+- **当前新版**：已按两套旧版恢复大征服四兵种 X/Q 主动与被动、小型六兵种 G 技能及 V 冲刺；包含医疗、隐身与单次伏击加伤、方向护盾、结构 EMP、炮塔、原有 C4 联动、持续救援/修车、侦察标记、护甲/建造耐久/资源掉落/换装速度。使用原生实体、原技能模型音效与唯一 Rapier 物理，补冷却、资源、取消与生命周期清理。
+- **剩余工作**：本项在当前本地战场范围完成。完整求救/拖拽/AI 自主救援归 TEAM-01，贡献计分和团队广播归 TEAM-04，其他姿态归 MOVE-01，独立门系统与网络同步仍按 MAP / NET 条目跟进。
 - **验收条件**：每个兵种执行一组实战场景，检查对自己、友军、敌军、载具和地形的实际影响；激活成功不等于效果等价。
-- **证据等级**：本轮当前入口复核；详细原版对照沿用前次审计。除注明项目外，未逐项实机验收。
-- **来源**：[modes/small-battle/js/skills.js:31](F:/voxel-frontline-battle/modes/small-battle/js/skills.js:31)；[modes/small-battle/js/skills.js:1228](F:/voxel-frontline-battle/modes/small-battle/js/skills.js:1228)；[js/player.js:1](F:/voxel-frontline-battle/js/player.js:1)；[forgeax/assets/gameplay/native-skills.ts:14](F:/voxel-frontline-battle/forgeax/assets/gameplay/native-skills.ts:14)；[forgeax/assets/gameplay/battle.plugin.ts:84](F:/voxel-frontline-battle/forgeax/assets/gameplay/battle.plugin.ts:84)。
+- **证据等级**：2026-09-15：151 项测试 / 18 文件、类型检查与生产构建通过。QQ 默认 GPU 无界面浏览器 37 步通过，零页面/控制台错误，覆盖六小型/四大征服入口、医疗实际回血、兴奋剂、炮塔部署收回、隐身开火解除、EMP 破坏、C4、冲刺、前后爆炸护盾和重入。成功救起目标、受损车辆修复数值与侦察实际标记由真实 native arena / Rapier 集成测试证明，浏览器入口验证不冒充这些效果实测。
+- **来源**：[modes/small-battle/js/skills.js:31](F:/voxel-frontline-battle/modes/small-battle/js/skills.js:31)；[js/player.js:1](F:/voxel-frontline-battle/js/player.js:1)；[forgeax/assets/gameplay/class-skill-rules.ts:1](F:/voxel-frontline-battle/forgeax/assets/gameplay/class-skill-rules.ts:1)；[forgeax/assets/gameplay/native-skills.ts:17](F:/voxel-frontline-battle/forgeax/assets/gameplay/native-skills.ts:17)；[forgeax/assets/gameplay/__tests__/class-skills.test.ts:27](F:/voxel-frontline-battle/forgeax/assets/gameplay/__tests__/class-skills.test.ts:27)；[forgeax/docs/migration/eq-06-implementation.md](F:/voxel-frontline-battle/forgeax/docs/migration/eq-06-implementation.md)；[forgeax/artifacts/eq-06/qq-class-skills.json](F:/voxel-frontline-battle/forgeax/artifacts/eq-06/qq-class-skills.json)。
 
 #### EQ-07 · 后坐力、首发跳动与回正〔未接入 / P0〕
 
@@ -191,14 +191,14 @@ QQ：30/150→13发后17/150→R后30/137。缺失换弹动画与空弹自动换
 
 ### 团队作战与 AI
 
-#### TEAM-01 · 倒地、流血、求救、拖拽与救援〔未接入 / P0〕
+#### TEAM-01 · 倒地、流血、求救、拖拽与救援〔部分实现 / P0〕
 
 - **原版**：原版大征服有玩家/AI 倒地、流血倒计时、求救、拖拽、复活和放弃救援。
-- **当前新版**：新版生命归零后直接进入死亡和自动重生，没有倒地状态。
-- **剩余工作**：接通完整救援生命周期、玩家与 AI 救援交互、救援保护与兵力扣除时机。
+- **当前新版**：EQ-06 已接入大征服玩家/AI 28 秒倒地、支援 X 在 2.8 米内持续 3 秒救起至 50 HP、1.5 秒保护；松键/离开/换目标取消。倒地不扣兵力，救起不计死亡，超时或玩家按住空格 1.2 秒放弃才结算一次伤亡；带基础提示和小地图待救援标识。
+- **剩余工作**：继续接通完整求救、拖拽、AI 自主救援、队伍救援规则和完整倒地 UI；在浏览器完整复验玩家/AI 救援生命周期及相关计分。
 - **验收条件**：大征服玩家和 AI 均可被救起；拖拽、超时死亡、主动放弃、救援取消、票数结算均正确。
-- **证据等级**：本轮当前入口复核；详细原版对照沿用前次审计。除注明项目外，未逐项实机验收。
-- **来源**：[js/revive.js:115](F:/voxel-frontline-battle/js/revive.js:115)；[js/revive.js:262](F:/voxel-frontline-battle/js/revive.js:262)；[js/main.js:2502](F:/voxel-frontline-battle/js/main.js:2502)；[forgeax/assets/gameplay/native-arena.ts:71](F:/voxel-frontline-battle/forgeax/assets/gameplay/native-arena.ts:71)。
+- **证据等级**：2026-09-15：真实 native arena / Rapier 测试通过支援救起、范围/取消/目标变化、保护、超时和兵力结算；QQ 验证支援入口与无目标提示，未将其作为成功救援实机证明。本条完整范围仍未完成。
+- **来源**：[js/revive.js:115](F:/voxel-frontline-battle/js/revive.js:115)；[js/revive.js:262](F:/voxel-frontline-battle/js/revive.js:262)；[forgeax/assets/gameplay/native-arena.ts:86](F:/voxel-frontline-battle/forgeax/assets/gameplay/native-arena.ts:86)；[forgeax/assets/gameplay/__tests__/class-skills.test.ts:28](F:/voxel-frontline-battle/forgeax/assets/gameplay/__tests__/class-skills.test.ts:28)；[forgeax/docs/migration/eq-06-implementation.md](F:/voxel-frontline-battle/forgeax/docs/migration/eq-06-implementation.md)。
 
 #### TEAM-02 · 真实小队管理与队长指令〔未接入 / P1〕
 
@@ -218,14 +218,14 @@ QQ：30/150→13发后17/150→R后30/137。缺失换弹动画与空弹自动换
 - **证据等级**：本轮当前入口复核；详细原版对照沿用前次审计。除注明项目外，未逐项实机验收。
 - **来源**：[js/ui.js:138](F:/voxel-frontline-battle/js/ui.js:138)；[js/conquest.js:1009](F:/voxel-frontline-battle/js/conquest.js:1009)；[forgeax/assets/gameplay/native-arena.ts:56](F:/voxel-frontline-battle/forgeax/assets/gameplay/native-arena.ts:56)；[forgeax/assets/gameplay/native-arena.ts:102](F:/voxel-frontline-battle/forgeax/assets/gameplay/native-arena.ts:102)。
 
-#### TEAM-04 · 战术标记与团队贡献计分〔未接入 / P1〕
+#### TEAM-04 · 战术标记与团队贡献计分〔部分实现 / P1〕
 
 - **原版**：原版有敌人/地点标记、队长目标通报，以及助攻、救援、治疗、补弹、侦察、命令、摧毁载具等计分。
-- **当前新版**：新版有击杀提示和基础比分，但没有接入原 Comms/Scoring 的完整事件体系。
-- **剩余工作**：恢复标记与通报、贡献分归属、去重/冷却、勋带和团队/个人统计。
+- **当前新版**：已有击杀提示和基础比分；EQ-06 接入本地大征服 Q 敌人/载具标记及视线遮挡，小地图显示，侦察持续 5 秒、其他兵种 1 秒。尚未接入原 Comms/Scoring 的完整事件体系。
+- **剩余工作**：补地点标记与队长通报、团队/网络共享、贡献分归属与去重/冷却、勋带及团队/个人统计。
 - **验收条件**：同一动作只计分一次；救援、补给、侦察、占领等行为能在 HUD 和结算中准确追溯。
-- **证据等级**：本轮当前入口复核；详细原版对照沿用前次审计。除注明项目外，未逐项实机验收。
-- **来源**：[js/comms.js:64](F:/voxel-frontline-battle/js/comms.js:64)；[js/scoring.js:7](F:/voxel-frontline-battle/js/scoring.js:7)；[forgeax/assets/gameplay/objective-rules.ts:13](F:/voxel-frontline-battle/forgeax/assets/gameplay/objective-rules.ts:13)；[forgeax/assets/ui/ui.plugin.ts:144](F:/voxel-frontline-battle/forgeax/assets/ui/ui.plugin.ts:144)。
+- **证据等级**：2026-09-15：真实 native arena / Rapier 测试通过 Q 实际敌人标记、时长和遮挡；QQ 验证侦察键位/入口，未取得成功标敌的实机证据。完整贡献计分和团队广播未验收。
+- **来源**：[js/comms.js:64](F:/voxel-frontline-battle/js/comms.js:64)；[js/scoring.js:7](F:/voxel-frontline-battle/js/scoring.js:7)；[forgeax/assets/gameplay/native-skills.ts:72](F:/voxel-frontline-battle/forgeax/assets/gameplay/native-skills.ts:72)；[forgeax/assets/gameplay/__tests__/class-skills.test.ts:42](F:/voxel-frontline-battle/forgeax/assets/gameplay/__tests__/class-skills.test.ts:42)；[forgeax/docs/migration/eq-06-implementation.md](F:/voxel-frontline-battle/forgeax/docs/migration/eq-06-implementation.md)。
 
 #### AI-01 · AI 兵种分工、支援与乘员协作〔部分实现 / P1〕
 
@@ -518,11 +518,11 @@ QQ：30/150→13发后17/150→R后30/137。缺失换弹动画与空弹自动换
 #### MOVE-01 · 蹲伏、滑铲、卧倒、翻越与体力〔部分实现 / P1〕
 
 - **原版**：原版有真实蹲姿、滑铲、卧倒、翻越和体力/动作状态，而非单纯速度变化。
-- **当前新版**：新版已有行走、Shift 加速、跳跃和核心滑索；Ctrl 仅降低速度，角色胶囊高度不变，未接入卧倒/滑铲/翻越/体力状态。
+- **当前新版**：新版已有行走、Shift 加速、跳跃、核心滑索；EQ-06 补 V 冲刺 30 米/0.2 秒/5 秒冷却，采用 Rapier KCC 扫掠、边界限制与结束惯性。Ctrl 仍仅降速、胶囊高度不变，未接入完整卧倒/滑铲/翻越/体力状态。
 - **剩余工作**：用造化角色控制器实现原移动能力、碰撞体变化、镜头高度和状态互斥，补齐第三人称动作。
 - **验收条件**：蹲下可通过对应低矮空间，卧倒/翻越/滑铲有正确碰撞与动作限制，不能只改变速度。
-- **证据等级**：本轮源码复核
-- **来源**：[js/player.js:1825](F:/voxel-frontline-battle/js/player.js:1825)；[js/player.js:1895](F:/voxel-frontline-battle/js/player.js:1895)；[forgeax/assets/gameplay/native-physics.ts:21](F:/voxel-frontline-battle/forgeax/assets/gameplay/native-physics.ts:21)；[forgeax/assets/gameplay/battle.plugin.ts:98](F:/voxel-frontline-battle/forgeax/assets/gameplay/battle.plugin.ts:98)。
+- **证据等级**：2026-09-15：V 冲刺通过真实 Rapier 距离/墙体/边界/冷却测试及 QQ 小型六兵种操作回归；本条其他动作仍按原源码复核结论跟进。
+- **来源**：[js/player.js:1825](F:/voxel-frontline-battle/js/player.js:1825)；[js/player.js:1895](F:/voxel-frontline-battle/js/player.js:1895)；[forgeax/assets/gameplay/native-physics.ts:21](F:/voxel-frontline-battle/forgeax/assets/gameplay/native-physics.ts:21)；[forgeax/assets/gameplay/battle.plugin.ts:98](F:/voxel-frontline-battle/forgeax/assets/gameplay/battle.plugin.ts:98)；[forgeax/assets/gameplay/native-skills.ts:73](F:/voxel-frontline-battle/forgeax/assets/gameplay/native-skills.ts:73)；[forgeax/assets/gameplay/__tests__/class-skills.test.ts:43](F:/voxel-frontline-battle/forgeax/assets/gameplay/__tests__/class-skills.test.ts:43)；[forgeax/docs/migration/eq-06-implementation.md](F:/voxel-frontline-battle/forgeax/docs/migration/eq-06-implementation.md)。
 
 ### 性能与稳定
 
@@ -582,7 +582,7 @@ P0 表示阻碍替换成立或核心可玩性，P1 表示重要的原版保留�
 - 历史核心满员推进失败仍保留；没有以本轮可见性或首发射击测试将其关闭。
 - 同浏览器下的短采样不是性能承诺，帧率需在统一视角、内部像素和负载条件下正式验收。
 
-本轮未修改游戏玩法、模型、背景、UI或引擎，只新增审计与复测材料。
+初始 2026-09-14 审计只读；2026-09-15 起按用户授权逐项修复，EQ-01 至 EQ-04 的实施范围与证据以上述更新记录为准。
 
 Need / Use / Entry / Proof / Defer：需要完整替换差异→使用现存源码与真实QQ→以forge.json插件为入口→来源、操作、CPU采样作为证据→修复与未覆盖整局验收留给后续实施。
 

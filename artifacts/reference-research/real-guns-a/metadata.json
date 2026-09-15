@@ -1,0 +1,68 @@
+[
+  {
+    "id": "ak74",
+    "filePath": "F:/voxel-frontline-battle/artifacts/reference-research/real-guns-a/ak74.jpg",
+    "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Ak74l.jpg",
+    "directImageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/fa/Ak74l.jpg",
+    "author": "Сергей Сандалов (sAg-) / Sergey Sandalov",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "actualModel": "AK-74",
+    "photoContext": "Real wooden-furniture AK-74 in complete left-side view on white background. Wikimedia VRT permission ticket 2013090910013205. Visually inspected.",
+    "width": 799,
+    "height": 292
+  },
+  {
+    "id": "acr",
+    "filePath": "F:/voxel-frontline-battle/artifacts/reference-research/real-guns-a/acr.jpg",
+    "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Bushmaster_ACR.jpg",
+    "directImageUrl": "https://upload.wikimedia.org/wikipedia/commons/a/ad/Bushmaster_ACR.jpg",
+    "author": "Deltaforce5000; background removal/straightening by Auge=mit",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "actualModel": "Bushmaster ACR",
+    "photoContext": "Photograph of real Bushmaster ACR in Flat Dark Earth with EOTech sight and SureFire SOCOM muzzle brake. Complete right-side view on white. Existing Commons image background removed and shadow added in 2022. Visually inspected.",
+    "width": 1550,
+    "height": 700
+  },
+  {
+    "id": "m4a1",
+    "filePath": "F:/voxel-frontline-battle/artifacts/reference-research/real-guns-a/m4a1.jpg",
+    "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:M4A1-flattop.jpg",
+    "directImageUrl": "https://upload.wikimedia.org/wikipedia/commons/e/ee/M4A1-flattop.jpg",
+    "author": "Photo Courtesy of PEO Soldier; modified by MathKnight-at-TAU / MathKnight",
+    "license": "Public domain (United States federal government)",
+    "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/",
+    "actualModel": "M4A1 Carbine Flat-Top (caption identification)",
+    "photoContext": "Real M4A1 carbine with railed handguard and optic, complete left-side view on white background. PEO Soldier original photo modified/straightened. Commons source identifies M4A1; Colt factory marking not independently resolved from image. Visually inspected.",
+    "width": 1033,
+    "height": 436
+  },
+  {
+    "id": "scarh-alternative",
+    "filePath": "F:/voxel-frontline-battle/artifacts/reference-research/real-guns-a/scar17s-alternative.jpg",
+    "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Mama_Bear_and_Papa_Bear.jpg",
+    "directImageUrl": "https://live.staticflickr.com/3814/13941537885_56833cc2ab_o.jpg",
+    "author": "Mitch Barrie",
+    "license": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
+    "actualModel": "FN SCAR 17S 7.62x51 NATO (black LOWER rifle); upper tan rifle is SCAR 16S",
+    "photoContext": "Real photograph on a workbench, complete 3/4 view. SCAR 17S is the BLACK LOWER rifle with experimental hydraulic recoil-absorbing aftermarket stock. Upper tan rifle is SCAR16S and should not be labeled SCAR-H. Visually inspected. Label SCAR17S explicitly; this is a civilian H-family reference with nonstandard stock.",
+    "width": 2384,
+    "height": 1788,
+    "needsCropOrExplicitLabel": true
+  },
+  {
+    "id": "scarh",
+    "filePath": "F:/voxel-frontline-battle/artifacts/reference-research/real-guns-a/scarh.png",
+    "sourcePageUrl": "https://fnherstal.com/en/defence/portable-weapons/fn-scar-h-mk2/",
+    "directImageUrl": "https://fnherstal.com/app/uploads/FN-SCAR-H-Mk2-full-auto-noir.png",
+    "author": "FN Herstal",
+    "license": "All rights reserved; reuse requires written FN Herstal permission",
+    "licenseUrl": "https://fnherstal.com/en/copyrights-trademarks/",
+    "actualModel": "FN SCAR-H Mk2, full-auto, black",
+    "photoContext": "Official FN Herstal SCAR-H Mk2 black full-auto product asset, complete 3/4 view, visually inspected. Exact model confirmed by manufacturer page and image link. Photographic versus rendered origin cannot be independently verified: looks highly retouched/render-like. All rights reserved; local visual reference use selected by task owner, no open-license claim.",
+    "width": 1920,
+    "height": 830
+  }
+]

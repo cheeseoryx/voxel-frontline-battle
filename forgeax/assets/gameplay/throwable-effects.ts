@@ -10,7 +10,7 @@ export function createThrowableEffects(b:BattleState,visuals:ThrowableVisuals,ra
  const los=(a:Vec3,p:Vec3)=>!b.map.raycast(a,p.map((n,i)=>n-a[i]) as Vec3,Math.max(0,distance(a,p)-.2));
  const actors=()=>b.arena?[b.arena.player,...b.arena.units].filter(u=>u.alive&&(u.isPlayer||u.team!=='ally'||teamless(b.mode))):[];
  const point=(u:ReturnType<typeof actors>[number],y:number)=>lift(b.arena!.position(u),y);
- const damage=(u:ReturnType<typeof actors>[number],n:number,kind:string)=>b.arena!.damage(u,n,b.arena!.player,kind);
+ const damage=(u:ReturnType<typeof actors>[number],n:number,kind:string,from:Vec3)=>b.arena!.damage(u,n,b.arena!.player,kind,false,from);
  const ground=(p:Vec3):Vec3=>{const hit=b.map.raycast(lift(p,.15),[0,-1,0],Math.max(16,p[1]+2));return [p[0],hit?hit.point[1]+.04:p[1],p[2]];};
  function core(p:Vec3,radius:number,amount:number){if(b.mode!=='core')return;for(const o of b.arena?.objectives||[]){const q=lift(o.position,1.5);if(o.owner!=='ally'&&distance(p,q)<=radius&&los(p,q))b.arena?.match.damageCore(o.owner,amount,'ally');}}
  function detonate(kind:ThrowableKind,p:Vec3){
@@ -39,12 +39,12 @@ export function createThrowableEffects(b:BattleState,visuals:ThrowableVisuals,ra
   // Original destruction probabilities use ordinary block durability, never force=true.
   const span=Math.ceil(def.radius),center=p.map(Math.floor);
   for(let x=-span;x<=span;x++)for(let y=-span;y<=span;y++)for(let z=-span;z<=span;z++)if(x*x+y*y+z*z<=def.radius**2&&random()<=def.breakChance&&b.map.breakBlock(center[0]+x,center[1]+y,center[2]+z))b.broken++;
-  for(const u of actors()){const q=point(u,u.isPlayer?1.1:1),amount=blastDamage(kind,distance(p,q));if(amount>0&&los(p,q))damage(u,amount,kind);}
+  for(const u of actors()){const q=point(u,u.isPlayer?1.1:1),amount=blastDamage(kind,distance(p,q));if(amount>0&&los(p,q))damage(u,amount,kind,p);}
   b.gear?.damageArea(p,def.radius,def.damage);
   core(p,def.radius,def.core);b.vehicles?.damageArea(p,def.radius,def.damage,'ally');
  }
  function fireTick(z:ThrowableZone){
-  for(const u of actors()){const q=point(u,.4);if(distance(z.position,q)<=R.molotov.radius&&los(lift(z.position,.4),q))damage(u,R.molotov.damage,'molotov');}
+  for(const u of actors()){const q=point(u,.4);if(distance(z.position,q)<=R.molotov.radius&&los(lift(z.position,.4),q))damage(u,R.molotov.damage,'molotov',z.position);}
   core(z.position,R.molotov.radius,R.molotov.core);
  }
  function update(dt:number){
