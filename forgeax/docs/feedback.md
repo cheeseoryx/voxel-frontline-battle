@@ -179,3 +179,49 @@ Template Disposition: Runtime/controller KEEP（本游戏逻辑）；character/a
 Need: 修复用户 150% 缩放下仍黑屏的真实入口。Use: 已有 RendererHost.device.limits 与 App canvas-aspect 生命周期。Entry: engine-app README/create-app.ts、RHI/WASM requestDevice、QQ 捕获的首个结构化 Surface 错误。Proof: 正常窗口失败、尺寸红绿、模型像素红绿、九次实战图像。Defer: Worker 独立宿主和全量引擎发行矩阵未在此局部修改中验收。Template Disposition: 原游戏角色/场景/材质/背景/UI/控制器 KEEP；Canvas Host ADAPT；验收测试 ADAPT；无新增模板内容。
 
 最终补测：QQ 正常窗口 DPR=2 的四兵种/三视口/部署/战场也通过（artifacts/qq-dpi-200-final）；Chrome 正常窗口 DPR=1.5 的 conquest → tdm → gungame 进入与正式开战通过（artifacts/qq-dpi-chrome-final）。汇总和补丁哈希见 docs/migration/qq-high-dpi-fix-2026-09-14.json。
+
+
+## 2026-09-14 — 当前原生版与原版完整差异审计（未执行修复）
+
+- 范围：当前原版 js/ 与 modes/small-battle/，造化 0.1.28 本地源码及8766生产构建。完整清单见 docs/migration/parity-audit-2026-09-14.md / .json，共51项差异和验收单元，不是完成百分比。
+- 复现：普通QQ浏览器、1805×1083 CSS、DPR1.5，首页进入大征服，部署后连续射击、R换弹，靠近友方吉普先按E再按F并驾驶/下车。
+- 期望/实际：期望保留完整射击与原版操作；实际后坐与曳光/枪口等未接入。手动装填通过：30/150→17/150→30/137；旧键E不登车，新键F可以。此局部通过不关闭全部换弹/车型问题，自动换弹及动作仍缺失。操作证据 artifacts/parity-audit-2026-09-14/qq-controls-final.json。
+- 远景：细节网格仅9×9块；buildFarTerrain只生成高度场，不包含地上建筑。far=1100不是此次建筑缺失的修复点。
+- 性能：QQ64单位，新版无分析器12秒样本约11.6次画面回调/秒、p95约116.7ms；原版另一出生点样本46.1次/秒、p95约33.4ms。内部画布/视角/实现不同，不报告严格倍率。CPU采样中布局SHA256和材质纹理来源遍历占主要时间；证据 qq-actions-first.json、original-qq.json、qq-cpu-profile.json、cpu-hotspots.json（同一artifacts目录）。优化尚未进行。
+- 新确认逻辑问题：大征服AK74导入fireRate=670 RPM，AI将其直接作为秒数冷却；通用blast未遍历载具，只有炮弹直击等独立路径伤车。源码依据与验收条目见AI-03、VEH-05。
+- 验证边界：只有上述默认枪械/吉普及短时性能为本轮实测；完整比赛、多端联网、所有装备/车型及最终包没有全部验收。自动化窗口失焦可导致锁鼠标失败，前台聚焦后操作通过，不能据此判定用户所有问题根因。
+- 当前状态：审计完成；本轮未修改模型、背景、UI、玩法或引擎。Need/Use/Entry/Proof/Defer与Template Disposition见报告末尾。
+
+## 2026-09-15 · EQ-01 装备导入
+- 范围：装备 pack 构建；旧版小型战斗投掷物手持模型使用 holder，由其 throwables 模块填充。
+- 复现：仅调用大型战争的样式函数导出小型战斗模型，产生 6 个空网格，project build 失败。
+- 期望：实际可见的投掷物模型，失败时指出具体资产。
+- 实际：CLI 外层仅显示 import-internal-error；直接调用 equipment pack 后定位空网格切线错误。
+- 状态：已改用对应模式的原始样式函数导出，并在作者导出步骤拒绝空模型。正在重新构建验证。
+- 证据：artifacts/eq-01-build.json；scripts/import-original-weapons.cjs。
+
+## 2026-09-15 · EQ-01 完成验证
+- 先前空投掷物导出故障已修复，原版两套样式函数分别导出；186 个模型通过生产构建，原有 94 个模型保持不变。
+- 装备闭环接入：六槽快照、道具部署、RPG、C4、望远镜、所选投掷物、刀、补给/重生/退局清理。
+- QQ 实际 UI 14 步验证通过，控制台和页面错误均为 0；项目 50 项测试全部通过，含装备专项 15 项。
+- 截图复核修复了通用枪模型代替刀、望远镜视野被手持模型挡住的问题；同步了 native-overrides 与实际导入 UI CSS。
+- 证据：docs/migration/eq-01-implementation.md；artifacts/eq-01/qq-equipment.json；artifacts/eq-01-tests-final.log；artifacts/eq-01-build-final.json。
+- 当前状态：EQ-01 已完成；其他迁移差异仍按清单跟进，不作整款游戏等价承诺。
+
+## 2026-09-15 — EQ-02 投掷物效果与反馈缺口
+
+- 范围：游戏接入层 equipment-projectiles / native-equipment / native-arena / native-audio；不是 Engine 黑屏故障。
+- 复现：整备选择烟雾/闪光，实战观察区域时间与 AI；小型战斗选择黏弹/燃烧/震撼。原实现烟雾总共 12 秒、火区隔墙造成伤害、闪光朝向衰减不同、AI 状态期间完全停止移动，小型投掷音频键不存在。
+- 期望：旧版六类规则及模式物品列表成立；烟雾 1.5 秒扩散 + 12 秒稳定 + 2 秒消散，玩家/AI/标识遮挡一致；火焰每 0.5 秒结算且受实体墙阻挡；黏弹接触后 2 秒起爆并跟随目标；状态恢复、离场清理正确。
+- 修复：独立 throwable-rules / throwable-effects，原生网格烟雾/透明火焰及爆闪，Rapier 投掷和黏附；原版小型音效离线混音烹制为原生 AudioClip，保留原 layer 的延迟、音量、速率与滤波。
+- 证据：artifacts/eq-02-tests.log（68 项通过）；artifacts/eq-02/qq-throwables.json（首轮 17 步，六种投掷物，零页面错误）；最终材质改进后的截图/验证记录已在同目录更新。
+- 状态：完成；最终透明火焰/烟雾材质的 QQ 六种投掷物 17 步复验通过，零页面错误。未宣称 PERF / MAP / 其他 EQ 项通过；生产存档未授予装备，浏览器测试使用隔离的已解锁存档样本。
+
+## 2026-09-15 — EQ-03 遥控炸药输入与生命周期断点
+- 范围：游戏装备 owner / 小型先锋技能 / 子弹及爆炸命中路径。
+- 复现：大征服用 C4 后再按装备键会引爆；小型先锋 G 仍调用旧定时 ordnance；黏性炸药贴附两秒自动爆；已部署 C4 的 damageCharge 无任何射击调用。
+- 期望：按当前用户要求，C4/黏性炸药持有时左键投出，右键引爆全部已投出设备，切枪后仍可取回遥控入口。
+- 实际与原因：三套输入和引爆规则并存，旧技能绕过了设备 owner；受击函数未接入真实命中；黏附对象仅支持平移。
+- 修复：统一遥控所有权与批量爆炸队列，接回 G 持有/24 秒冷却、Q 取出黏性炸药及空库存引爆器、子弹/爆炸命中、车辆位置与朝向黏附、支撑丢失后恢复 Rapier 下落；死亡/重生/离局清理。
+- 证据：docs/migration/eq-03-implementation.md、assets/gameplay/__tests__/remote-explosives.test.ts、artifacts/eq-03-tests.log、artifacts/eq-03/qq-remote-explosives.json。
+- 状态：已完成。83 项自动化回归与 QQ 12 步无界面浏览器实测通过，页面/控制台错误为零；可见窗口焦点中断的验证边界见实现记录。旧定时与同键引爆验收被本次用户规则替代。

@@ -1,0 +1,67 @@
+{
+  "source": "modes/small-battle/assets/sfx/index.json",
+  "license": "All files CC0 (public domain) by rubberduck / yd via opengameart.org. See README.md.",
+  "processing": "OfflineAudioContext, 32000 Hz mono PCM; original gain/delay/rate/lowpass/duration",
+  "sources": [
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/pin_spring.ogg",
+      "sha256": "373fb40c3f895e04623633057160a217005b04816a957094ae3c3d66fe21dca0"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/pin_click.ogg",
+      "sha256": "fa2c8ebd6361394762e9964698a0be2e31ae62dc91510f81c716c0ef8cf5741d"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/throw_whoosh.ogg",
+      "sha256": "df32019155c3a8b5fc77244126261695f762ba7018a4fc4c6d9ad201cedeb985"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/bounce_metal.ogg",
+      "sha256": "fcb2e28730c725b794af2e48c784ca933396cf5792f9e24869ed969ae4d888ed"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/frag_boom.ogg",
+      "sha256": "e87ca0ee6b53da1f21cd9086cb75f456495871618fdfed63388bd2208a872596"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/debris.ogg",
+      "sha256": "16080f9bc90924b0e4ede52922529e30e34e72af32a505b39bdfc5ebcbb9248c"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/stick_thud.ogg",
+      "sha256": "c3e1a46dcf5dc0c15706f3333bfccd0b8d491aa197bc39274a6b5588b3da1ffd"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/beep.ogg",
+      "sha256": "61f8eca45a0ea759a89798e8551b31cf33f101e84907095748ab42501295e94b"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/semtex_boom.ogg",
+      "sha256": "0f0c960888e6ebcb1bc68fa77fa0e52a26b8693b7a420a95ed0d669c486bc4f5"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/glass_smash.ogg",
+      "sha256": "35dcb1dc69338bad745e1cd56c676d04e4afb6687b9aa6d05ba83a255252747b"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/fire_whoosh.ogg",
+      "sha256": "bb292a9fc082557e65199d01abe124459d910519b39c913ecb6c6f2207576d6f"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/flash_crack.ogg",
+      "sha256": "aaaba1cdaeb9e5e61abf3ebdff09c967b5d451c42b45259e3b00f62575baafea"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/stun_body.ogg",
+      "sha256": "716392af61b29dabe637c2616091207f390d25357aae3d4c625df5dfea7e961d"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/stun_sub.ogg",
+      "sha256": "cdda50600a4928f2f1b8371224d53c171ac799c1cf2c30b11999508985250b3b"
+    },
+    {
+      "path": "modes/small-battle/assets/sfx/throwables/smoke_hiss.ogg",
+      "sha256": "c2d5d5f73b70c155797c1655bdd1850145a47606803e1d9b6dd9c59d35a6909a"
+    }
+  ]
+}

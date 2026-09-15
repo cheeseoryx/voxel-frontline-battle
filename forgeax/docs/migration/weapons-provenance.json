@@ -22,7 +22,15 @@
     },
     {
       "path": "js/soldier.js",
-      "sha256": "a0cbd2faf8ee26355b2a45ba3a3bb9b9d0057047ecfbc0925742c4b14fe3091b"
+      "sha256": "8a3737d31573e26e17f0484b98b4305ce04b7b6bf36fb4c3e2c84ff9284373a7"
+    },
+    {
+      "path": "js/gadgets.js",
+      "sha256": "67364e2c9533e2c823a4b31f721e4a3c5a4c3c89d07ddcc59b4b878dbb37d36f"
+    },
+    {
+      "path": "js/throwables.js",
+      "sha256": "a9d329303ad1e91f8a49b573874bbe75089c65770147ab7bc3bb22a9a377f037"
     },
     {
       "path": "modes/small-battle/js/weapon-catalog.js",
@@ -39,6 +47,14 @@
     {
       "path": "modes/small-battle/js/soldier.js",
       "sha256": "32ebfa910d63cddf3f8e1247b9c6928c33efb6a008a6e7c6f09c33d630bc70f6"
+    },
+    {
+      "path": "modes/small-battle/js/throwables.js",
+      "sha256": "afb62dd8bd358037e19049f57ae796c144dc920f13145f021ef7e6cb2b7fd306"
+    },
+    {
+      "path": "modes/small-battle/js/skills.js",
+      "sha256": "358906e5730de6d292c2113e496718d48a9a08f2fdb84842d0948fb21e4d5ae1"
     }
   ],
   "sourceCorrections": [
@@ -272,6 +288,182 @@
       "vertices": 2088,
       "triangles": 1044
     },
+    "gadget/assault/knife": {
+      "vertices": 2520,
+      "triangles": 1260
+    },
+    "gadget/engineer/knife": {
+      "vertices": 2520,
+      "triangles": 1260
+    },
+    "gadget/support/knife": {
+      "vertices": 2520,
+      "triangles": 1260
+    },
+    "gadget/recon/knife": {
+      "vertices": 2520,
+      "triangles": 1260
+    },
+    "gun/rpg": {
+      "vertices": 456,
+      "triangles": 228
+    },
+    "gun/knife": {
+      "vertices": 840,
+      "triangles": 420
+    },
+    "gadget/assault/medkit": {
+      "vertices": 2568,
+      "triangles": 1284
+    },
+    "gadget/assault/ammo": {
+      "vertices": 2544,
+      "triangles": 1272
+    },
+    "gadget/assault/charge": {
+      "vertices": 2520,
+      "triangles": 1260
+    },
+    "gadget/assault/remote": {
+      "vertices": 2520,
+      "triangles": 1260
+    },
+    "gadget/assault/binoculars": {
+      "vertices": 2568,
+      "triangles": 1284
+    },
+    "gadget/engineer/medkit": {
+      "vertices": 2568,
+      "triangles": 1284
+    },
+    "gadget/engineer/ammo": {
+      "vertices": 2544,
+      "triangles": 1272
+    },
+    "gadget/engineer/charge": {
+      "vertices": 2520,
+      "triangles": 1260
+    },
+    "gadget/engineer/remote": {
+      "vertices": 2520,
+      "triangles": 1260
+    },
+    "gadget/engineer/binoculars": {
+      "vertices": 2568,
+      "triangles": 1284
+    },
+    "gadget/support/medkit": {
+      "vertices": 2568,
+      "triangles": 1284
+    },
+    "gadget/support/ammo": {
+      "vertices": 2544,
+      "triangles": 1272
+    },
+    "gadget/support/charge": {
+      "vertices": 2520,
+      "triangles": 1260
+    },
+    "gadget/support/remote": {
+      "vertices": 2520,
+      "triangles": 1260
+    },
+    "gadget/support/binoculars": {
+      "vertices": 2568,
+      "triangles": 1284
+    },
+    "gadget/recon/medkit": {
+      "vertices": 2568,
+      "triangles": 1284
+    },
+    "gadget/recon/ammo": {
+      "vertices": 2544,
+      "triangles": 1272
+    },
+    "gadget/recon/charge": {
+      "vertices": 2520,
+      "triangles": 1260
+    },
+    "gadget/recon/remote": {
+      "vertices": 2520,
+      "triangles": 1260
+    },
+    "gadget/recon/binoculars": {
+      "vertices": 2568,
+      "triangles": 1284
+    },
+    "deployed/medkit": {
+      "vertices": 72,
+      "triangles": 36
+    },
+    "deployed/ammo": {
+      "vertices": 24,
+      "triangles": 12
+    },
+    "deployed/charge": {
+      "vertices": 24,
+      "triangles": 12
+    },
+    "gadget/assault/frag": {
+      "vertices": 1416,
+      "triangles": 708
+    },
+    "gadget/assault/flash": {
+      "vertices": 1368,
+      "triangles": 684
+    },
+    "gadget/assault/smoke": {
+      "vertices": 1368,
+      "triangles": 684
+    },
+    "gadget/engineer/frag": {
+      "vertices": 1416,
+      "triangles": 708
+    },
+    "gadget/engineer/flash": {
+      "vertices": 1368,
+      "triangles": 684
+    },
+    "gadget/engineer/smoke": {
+      "vertices": 1368,
+      "triangles": 684
+    },
+    "gadget/support/frag": {
+      "vertices": 1416,
+      "triangles": 708
+    },
+    "gadget/support/flash": {
+      "vertices": 1368,
+      "triangles": 684
+    },
+    "gadget/support/smoke": {
+      "vertices": 1368,
+      "triangles": 684
+    },
+    "gadget/recon/frag": {
+      "vertices": 1416,
+      "triangles": 708
+    },
+    "gadget/recon/flash": {
+      "vertices": 1368,
+      "triangles": 684
+    },
+    "gadget/recon/smoke": {
+      "vertices": 1368,
+      "triangles": 684
+    },
+    "projectile/frag": {
+      "vertices": 96,
+      "triangles": 48
+    },
+    "projectile/flash": {
+      "vertices": 48,
+      "triangles": 24
+    },
+    "projectile/smoke": {
+      "vertices": 48,
+      "triangles": 24
+    },
     "small/arms/vanguard": {
       "vertices": 2088,
       "triangles": 1044
@@ -423,6 +615,206 @@
     "small/inspect/usp": {
       "vertices": 216,
       "triangles": 108
+    },
+    "small/gadget/vanguard/knife": {
+      "vertices": 3192,
+      "triangles": 1596
+    },
+    "small/gadget/medic/knife": {
+      "vertices": 3192,
+      "triangles": 1596
+    },
+    "small/gadget/ghost/knife": {
+      "vertices": 3192,
+      "triangles": 1596
+    },
+    "small/gadget/juggernaut/knife": {
+      "vertices": 3192,
+      "triangles": 1596
+    },
+    "small/gadget/raider/knife": {
+      "vertices": 3192,
+      "triangles": 1596
+    },
+    "small/gadget/engineer/knife": {
+      "vertices": 3192,
+      "triangles": 1596
+    },
+    "small/gadget/vanguard/frag": {
+      "vertices": 2664,
+      "triangles": 1332
+    },
+    "small/gadget/vanguard/flash": {
+      "vertices": 2856,
+      "triangles": 1428
+    },
+    "small/gadget/vanguard/smoke": {
+      "vertices": 2688,
+      "triangles": 1344
+    },
+    "small/gadget/vanguard/semtex": {
+      "vertices": 2400,
+      "triangles": 1200
+    },
+    "small/gadget/vanguard/molotov": {
+      "vertices": 2592,
+      "triangles": 1296
+    },
+    "small/gadget/vanguard/stun": {
+      "vertices": 2592,
+      "triangles": 1296
+    },
+    "small/gadget/medic/frag": {
+      "vertices": 2664,
+      "triangles": 1332
+    },
+    "small/gadget/medic/flash": {
+      "vertices": 2856,
+      "triangles": 1428
+    },
+    "small/gadget/medic/smoke": {
+      "vertices": 2688,
+      "triangles": 1344
+    },
+    "small/gadget/medic/semtex": {
+      "vertices": 2400,
+      "triangles": 1200
+    },
+    "small/gadget/medic/molotov": {
+      "vertices": 2592,
+      "triangles": 1296
+    },
+    "small/gadget/medic/stun": {
+      "vertices": 2592,
+      "triangles": 1296
+    },
+    "small/gadget/ghost/frag": {
+      "vertices": 2664,
+      "triangles": 1332
+    },
+    "small/gadget/ghost/flash": {
+      "vertices": 2856,
+      "triangles": 1428
+    },
+    "small/gadget/ghost/smoke": {
+      "vertices": 2688,
+      "triangles": 1344
+    },
+    "small/gadget/ghost/semtex": {
+      "vertices": 2400,
+      "triangles": 1200
+    },
+    "small/gadget/ghost/molotov": {
+      "vertices": 2592,
+      "triangles": 1296
+    },
+    "small/gadget/ghost/stun": {
+      "vertices": 2592,
+      "triangles": 1296
+    },
+    "small/gadget/juggernaut/frag": {
+      "vertices": 2664,
+      "triangles": 1332
+    },
+    "small/gadget/juggernaut/flash": {
+      "vertices": 2856,
+      "triangles": 1428
+    },
+    "small/gadget/juggernaut/smoke": {
+      "vertices": 2688,
+      "triangles": 1344
+    },
+    "small/gadget/juggernaut/semtex": {
+      "vertices": 2400,
+      "triangles": 1200
+    },
+    "small/gadget/juggernaut/molotov": {
+      "vertices": 2592,
+      "triangles": 1296
+    },
+    "small/gadget/juggernaut/stun": {
+      "vertices": 2592,
+      "triangles": 1296
+    },
+    "small/gadget/raider/frag": {
+      "vertices": 2664,
+      "triangles": 1332
+    },
+    "small/gadget/raider/flash": {
+      "vertices": 2856,
+      "triangles": 1428
+    },
+    "small/gadget/raider/smoke": {
+      "vertices": 2688,
+      "triangles": 1344
+    },
+    "small/gadget/raider/semtex": {
+      "vertices": 2400,
+      "triangles": 1200
+    },
+    "small/gadget/raider/molotov": {
+      "vertices": 2592,
+      "triangles": 1296
+    },
+    "small/gadget/raider/stun": {
+      "vertices": 2592,
+      "triangles": 1296
+    },
+    "small/gadget/engineer/frag": {
+      "vertices": 2664,
+      "triangles": 1332
+    },
+    "small/gadget/engineer/flash": {
+      "vertices": 2856,
+      "triangles": 1428
+    },
+    "small/gadget/engineer/smoke": {
+      "vertices": 2688,
+      "triangles": 1344
+    },
+    "small/gadget/engineer/semtex": {
+      "vertices": 2400,
+      "triangles": 1200
+    },
+    "small/gadget/engineer/molotov": {
+      "vertices": 2592,
+      "triangles": 1296
+    },
+    "small/gadget/engineer/stun": {
+      "vertices": 2592,
+      "triangles": 1296
+    },
+    "small/projectile/frag": {
+      "vertices": 336,
+      "triangles": 168
+    },
+    "small/projectile/flash": {
+      "vertices": 528,
+      "triangles": 264
+    },
+    "small/projectile/smoke": {
+      "vertices": 360,
+      "triangles": 180
+    },
+    "small/projectile/semtex": {
+      "vertices": 72,
+      "triangles": 36
+    },
+    "small/projectile/molotov": {
+      "vertices": 264,
+      "triangles": 132
+    },
+    "small/projectile/stun": {
+      "vertices": 264,
+      "triangles": 132
+    },
+    "small/gadget/vanguard/charge": {
+      "vertices": 2400,
+      "triangles": 1200
+    },
+    "small/deployed/charge": {
+      "vertices": 72,
+      "triangles": 36
     }
   }
 }
