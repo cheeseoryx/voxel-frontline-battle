@@ -1,0 +1,1285 @@
+/* Small-mode HUD / result / picker styles (from former small-battle page). */
+:root { --font-pixel: 'Zpix', 'Microsoft YaHei', sans-serif; }
+
+/* Skins are a large-war feature; keeping them out leaves the footer grid three columns wide. */
+body.frontline-small .class-skin-label,
+body.frontline-small #class-skin-grid {
+  display: none;
+}
+.tdm-score {
+  flex: 0 0 auto;
+  min-width: 2.1em;
+  font-family: var(--font-pixel);
+  font-size: clamp(20px, 2.2vw, 30px);
+  line-height: 1;
+  text-align: center;
+  text-shadow: var(--read);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.tdm-score.hidden { display: none !important; }
+.tdm-score.blue { order: -1; margin-right: 8px; color: #8ec8ff; }
+.tdm-score.red { order: 99; margin-left: 8px; color: #ff9a8c; }
+
+/* Blink as a side approaches the score limit */
+.tdm-score.critical { animation: tdm-score-blink 0.7s steps(2, end) infinite; }
+
+@keyframes tdm-score-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.32; }
+}
+
+.tdm-feed {
+  position: absolute;
+  top: clamp(10px, 1.6vh, 22px);
+  right: clamp(10px, 1.6vw, 24px);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  max-width: min(420px, 40vw);
+  font-family: var(--font-pixel);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.tdm-feed.hidden { display: none !important; }
+
+.tdm-feed-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  background: rgba(10, 7, 5, 0.72);
+  border-left: 3px solid rgba(210, 150, 90, 0.6);
+  color: #e8dcc8;
+  white-space: nowrap;
+}
+
+.tdm-feed-row.mine { border-left-color: #ffe08a; background: rgba(30, 20, 8, 0.82); }
+.tdm-feed-row.negative { border-left-color: #d8524a; }
+.tdm-feed-name.blue { color: #8ec8ff; }
+.tdm-feed-name.red { color: #ff9a8c; }
+.tdm-feed-verb { color: rgba(232, 220, 200, 0.5); }
+.tdm-feed-hs { color: #ffe08a; }
+
+.tdm-banner {
+  position: absolute;
+  top: clamp(74px, 12vh, 128px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  padding: 8px 26px;
+  background: rgba(10, 7, 5, 0.76);
+  border: 2px solid rgba(210, 150, 90, 0.5);
+  font-family: var(--font-pixel);
+  font-size: clamp(15px, 1.7vw, 21px);
+  color: #fdf3e2;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.tdm-banner.hidden { display: none !important; }
+.tdm-banner.warn { border-color: #d8524a; color: #ffd7cf; }
+
+/* 自由混战: 左侧实时排行榜（灵魂 UI）+ 结算表冠军行 */
+.ffa-rank {
+  position: absolute;
+  top: clamp(80px, 12vh, 132px);
+  right: clamp(10px, 1.6vw, 24px);
+  z-index: 6;
+  width: min(232px, 26vw);
+  padding: 6px 6px 8px;
+  background: rgba(10, 7, 5, 0.72);
+  border: 2px solid rgba(210, 150, 90, 0.45);
+  border-right-width: 3px;
+  font-family: var(--font-pixel);
+  color: #e8dcc8;
+  pointer-events: none;
+}
+.ffa-rank.hidden { display: none !important; }
+
+/* 自由混战沿用死斗击杀播报样式，但排行榜占据右上角，故把击杀信息下移到榜单下方，避免互相遮挡 */
+#ffa-feed { top: clamp(324px, 46vh, 384px); }
+
+.ffa-rank-head {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: #ffd9a6;
+  padding: 1px 4px 5px;
+  border-bottom: 1px solid rgba(210, 150, 90, 0.28);
+  margin-bottom: 3px;
+}
+
+.ffa-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.ffa-rank-row.me { background: rgba(74, 140, 220, 0.22); }
+
+.ffa-rank-place {
+  flex: 0 0 18px;
+  text-align: right;
+  color: rgba(232, 220, 200, 0.55);
+}
+.ffa-rank-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #ff9a8c; /* 除自己外皆敌 → 默认红 */
+}
+.ffa-rank-row.me .ffa-rank-name { color: #8ec8ff; } /* 自己 → 蓝 */
+.ffa-rank-row.leader .ffa-rank-name { color: #ffe08a; } /* 领先者 → 金 */
+.ffa-rank-kills {
+  flex: 0 0 auto;
+  min-width: 20px;
+  text-align: right;
+  color: #fdf3e2;
+}
+.ffa-rank-kills.critical { color: #ffd166; }
+
+.ffa-rank-foot {
+  margin-top: 4px;
+  padding: 3px 4px 0;
+  border-top: 1px solid rgba(210, 150, 90, 0.28);
+  font-size: 11px;
+  color: rgba(232, 220, 200, 0.6);
+}
+.ffa-rank-foot.leading { color: #ffe08a; }
+
+/* ── 枪械模式：个人武器进度（HUD 核心反馈，文档 5.1） ───────────────── */
+.gg-progress {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(96px, 14vh, 148px);
+  transform: translateX(-50%);
+  z-index: 6;
+  min-width: min(300px, 46vw);
+  padding: 6px 12px 8px;
+  background: rgba(10, 7, 5, 0.72);
+  border: 2px solid rgba(143, 123, 216, 0.5);
+  font-family: var(--font-pixel);
+  color: #e8dcc8;
+  text-align: center;
+  pointer-events: none;
+}
+.gg-progress.hidden { display: none !important; }
+.gg-progress.final { border-color: rgba(255, 209, 102, 0.8); }
+
+.gg-progress-head {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: #d6c8ff;
+}
+.gg-progress.final .gg-progress-head { color: #ffe08a; }
+
+/* 一格 = 一级武器，走完最后一格即通关 */
+.gg-progress-bar {
+  display: flex;
+  gap: 2px;
+  margin: 5px 0 4px;
+}
+.gg-progress-cell {
+  flex: 1 1 0;
+  height: 7px;
+  background: rgba(232, 220, 200, 0.14);
+}
+.gg-progress-cell.done { background: #8f7bd8; }
+.gg-progress-cell.current { background: #d6c8ff; }
+.gg-progress-cell.final { box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.85); }
+.gg-progress-cell.final.done { background: #ffd166; }
+
+.gg-progress-foot {
+  font-size: 11px;
+  color: rgba(232, 220, 200, 0.6);
+}
+.gg-progress-foot.final { color: #ffd166; }
+
+/* 排行榜沿用自由混战的框，只把「击杀数」列换成等级 + 迷你进度条 */
+.gg-rank .gg-rank-bar {
+  flex: 0 0 42px;
+  height: 5px;
+  background: rgba(232, 220, 200, 0.14);
+}
+.gg-rank .gg-rank-fill {
+  display: block;
+  height: 100%;
+  background: #8f7bd8;
+}
+.gg-rank .gg-rank-fill.final { background: #ffd166; }
+
+#gg-feed { top: clamp(324px, 46vh, 384px); }
+.gg-feed-demote { color: #ff9a8c; }
+
+.ffa-result-place {
+  font-family: var(--font-pixel);
+  font-size: clamp(14px, 1.6vw, 20px);
+  color: #ffd9a6;
+  text-align: center;
+  margin: 2px 0 6px;
+}
+.tdm-table tr.champion { background: rgba(255, 209, 102, 0.16); }
+.tdm-table tr.champion td:nth-child(2) { color: #ffe08a; }
+
+/* 爆破: 计时下方的双方存活/阵亡条 + 当前包点字母 */
+.sd-status {
+  position: absolute;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 10px;
+  background: rgba(10, 7, 5, 0.62);
+  border: 2px solid rgba(180, 130, 80, 0.35);
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+.sd-status.hidden { display: none !important; }
+.sd-status-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.sd-status-icons.blue { flex-direction: row; }
+.sd-status-icons.red { flex-direction: row; }
+.sd-ic {
+  height: 14px;
+  display: inline-flex;
+  align-items: flex-end;
+  flex: 0 0 auto;
+}
+.sd-ic svg { height: 100%; width: auto; display: block; }
+.sd-ic.alive.blue { color: #4aa3ff; filter: drop-shadow(0 0 2px rgba(74, 163, 255, 0.7)); }
+.sd-ic.alive.red { color: #ff5a4a; filter: drop-shadow(0 0 2px rgba(255, 90, 74, 0.7)); }
+.sd-ic.dead {
+  color: rgba(150, 140, 130, 0.62);
+  opacity: 0.78;
+}
+.sd-status-site {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: #d0342b;
+  color: #fff;
+  font-family: var(--font-pixel);
+  font-size: 13px;
+  line-height: 1;
+  text-shadow: var(--read);
+}
+.sd-status-site.hidden { display: none !important; }
+
+/* 爆破: 世界中的 A/B 包点指引标签（屏幕投影，穿墙可见，越界贴边） */
+#sd-site-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  overflow: hidden;
+}
+.sd-site-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  will-change: left, top;
+}
+.sd-site-marker .sd-site-tag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: rgba(208, 52, 43, 0.92);
+  border: 1.5px solid rgba(255, 220, 210, 0.85);
+  color: #fff;
+  font-family: var(--font-pixel);
+  font-size: 13px;
+  line-height: 1;
+  text-shadow: var(--read);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+}
+.sd-site-marker .sd-site-arrow {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid rgba(208, 52, 43, 0.92);
+  margin-top: -1px;
+}
+.sd-site-marker.live .sd-site-tag {
+  background: rgba(224, 40, 30, 0.96);
+  animation: sdSiteLive 0.7s ease-in-out infinite;
+}
+.sd-site-marker.live .sd-site-arrow { border-top-color: rgba(224, 40, 30, 0.96); }
+.sd-site-marker.off .sd-site-arrow { display: none; }
+.sd-site-marker.hidden { display: none !important; }
+@keyframes sdSiteLive {
+  0%, 100% { box-shadow: 0 0 6px rgba(224, 40, 30, 0.5); }
+  50% { box-shadow: 0 0 14px rgba(224, 40, 30, 0.95); }
+}
+
+/* 爆破: bottom-center contextual action prompt (安装 / 拆除 / 丢弃 / 拾取) */
+.sd-prompt {
+  position: absolute;
+  bottom: clamp(120px, 22vh, 240px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 24px;
+  background: rgba(10, 7, 5, 0.78);
+  border: 2px solid rgba(210, 150, 90, 0.55);
+  font-family: var(--font-pixel);
+  font-size: clamp(15px, 1.7vw, 20px);
+  color: #fdf3e2;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.sd-prompt.hidden { display: none !important; }
+.sd-prompt.warn { border-color: #d8524a; color: #ffd7cf; }
+
+.sd-prompt-bar {
+  width: min(240px, 46vw);
+  height: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  overflow: hidden;
+}
+
+.sd-prompt-bar.hidden { display: none !important; }
+
+.sd-prompt-bar > i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: linear-gradient(90deg, #ffb020, #ff5a3c);
+}
+
+
+/* ========== 结算前检查武器镜头 ========== */
+#weapon-inspect-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 7vh;
+  transform: translateX(-50%);
+  z-index: 1070;
+  pointer-events: none;
+  font-family: var(--font-pixel);
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: rgba(232, 220, 200, 0.78);
+  text-shadow: 0 2px 10px #000;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+#weapon-inspect-hint.hidden { display: none !important; }
+body.weapon-inspect #weapon-inspect-hint {
+  opacity: 1;
+}
+body.weapon-inspect #hud {
+  opacity: 0.18;
+  transition: opacity 0.35s ease;
+}
+body.weapon-inspect #crosshair,
+body.weapon-inspect #scope-overlay,
+body.weapon-inspect #interact-hint,
+body.weapon-inspect #death-overlay,
+body.weapon-inspect #tdm-feed,
+body.weapon-inspect #ffa-feed,
+body.weapon-inspect #gg-feed,
+body.weapon-inspect #tdm-banner,
+body.weapon-inspect #ffa-banner,
+body.weapon-inspect #gg-banner,
+body.weapon-inspect #ffa-rank,
+body.weapon-inspect #gg-rank,
+body.weapon-inspect #gg-progress {
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* ========== 死斗 result ========== */
+.tdm-result {
+  position: fixed;
+  inset: 0;
+  z-index: 1080;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 5, 4, 0.9);
+  font-family: var(--font-pixel);
+  color: #e8dcc8;
+}
+
+.tdm-result.hidden { display: none !important; }
+
+.tdm-result-panel {
+  width: min(760px, 92vw);
+  max-height: 88vh;
+  overflow: auto;
+  padding: clamp(18px, 3vh, 32px) clamp(18px, 3vw, 38px);
+  background: #130d08;
+  border: 2px solid rgba(210, 150, 90, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tdm-result-kicker {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: #e8a050;
+}
+
+.tdm-result-title {
+  margin: 0;
+  font-size: clamp(26px, 3.4vw, 42px);
+  color: #fdf3e2;
+}
+
+.tdm-result-title.lose { color: #ff9a8c; }
+.tdm-result-title.draw { color: #d8cbb4; }
+
+.tdm-result-reason {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(232, 220, 200, 0.7);
+}
+
+.tdm-result-scores {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 10px 0;
+}
+
+.tdm-result-team { display: flex; align-items: baseline; gap: 10px; }
+.tdm-result-team-name { font-size: 14px; color: rgba(232, 220, 200, 0.66); }
+.tdm-result-team-score { font-size: clamp(26px, 3vw, 38px); line-height: 1; }
+.tdm-result-team.blue .tdm-result-team-score { color: #8ec8ff; }
+.tdm-result-team.red .tdm-result-team-score { color: #ff9a8c; }
+.tdm-result-vs { color: rgba(232, 220, 200, 0.34); }
+
+.tdm-result-mvp {
+  padding: 10px 14px;
+  background: rgba(232, 160, 80, 0.12);
+  border-left: 3px solid #e8a050;
+  font-size: 15px;
+}
+
+.tdm-table-wrap { overflow: auto; max-height: 34vh; }
+
+.tdm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tdm-table th,
+.tdm-table td {
+  padding: 6px 8px;
+  text-align: right;
+  border-bottom: 1px solid rgba(210, 150, 90, 0.18);
+}
+
+.tdm-table th:nth-child(1),
+.tdm-table td:nth-child(1),
+.tdm-table th:nth-child(2),
+.tdm-table td:nth-child(2) {
+  text-align: left;
+}
+
+.tdm-table th { color: rgba(232, 220, 200, 0.5); font-weight: normal; }
+.tdm-table tr.blue td:nth-child(2) { color: #8ec8ff; }
+.tdm-table tr.red td:nth-child(2) { color: #ff9a8c; }
+.tdm-table tr.me { background: rgba(255, 224, 138, 0.1); }
+.tdm-table tr.me td:nth-child(2) { color: #ffe08a; }
+
+.tdm-result-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.tdm-result-countdown { font-size: 13px; color: rgba(232, 220, 200, 0.55); }
+
+/* ========== 爆破: 回合结算 (Layer 1) ========== */
+.sd-roundend {
+  position: fixed;
+  inset: 0;
+  z-index: 1082;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(120% 120% at 50% 40%, rgba(14, 9, 6, 0.82), rgba(6, 4, 3, 0.94));
+  font-family: var(--font-pixel);
+  color: #e8dcc8;
+  --ally: #6fd8c6;
+  --enemy: #ff8a78;
+}
+
+.sd-roundend.hidden { display: none !important; }
+
+.sd-roundend.show .sd-re-center { animation: sd-re-rise 0.4s ease-out both; }
+
+@keyframes sd-re-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sd-crest {
+  position: absolute;
+  top: 50%;
+  width: clamp(120px, 15vw, 210px);
+  transform: translateY(-50%);
+  opacity: 0.9;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.6));
+}
+
+.sd-crest svg { width: 100%; height: auto; display: block; }
+.sd-crest.ally { left: clamp(24px, 9vw, 150px); color: var(--ally); }
+.sd-crest.enemy { right: clamp(24px, 9vw, 150px); color: var(--enemy); }
+
+.sd-roundend.show .sd-crest.ally { animation: sd-crest-in-l 0.5s ease-out both; }
+.sd-roundend.show .sd-crest.enemy { animation: sd-crest-in-r 0.5s ease-out both; }
+
+@keyframes sd-crest-in-l {
+  from { opacity: 0; transform: translate(-30px, -50%); }
+  to { opacity: 0.9; transform: translate(0, -50%); }
+}
+@keyframes sd-crest-in-r {
+  from { opacity: 0; transform: translate(30px, -50%); }
+  to { opacity: 0.9; transform: translate(0, -50%); }
+}
+
+.sd-re-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  padding: 0 clamp(180px, 30vw, 420px);
+}
+
+.sd-re-title {
+  margin: 0;
+  font-size: clamp(30px, 4.4vw, 56px);
+  letter-spacing: 0.06em;
+  color: #fdf3e2;
+}
+
+.sd-re-title.win { color: #ffe08a; text-shadow: 0 0 22px rgba(255, 200, 90, 0.4); }
+.sd-re-title.lose { color: #ff9a8c; text-shadow: 0 0 22px rgba(255, 110, 90, 0.32); }
+
+.sd-re-reason {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: clamp(14px, 1.7vw, 19px);
+  color: rgba(232, 220, 200, 0.78);
+}
+
+.sd-re-reason svg { width: 22px; height: 22px; fill: #e8a050; }
+
+.sd-re-scoreline {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.6vw, 20px);
+  margin-top: 4px;
+}
+
+.sd-re-label {
+  font-size: clamp(13px, 1.5vw, 17px);
+  letter-spacing: 0.14em;
+  color: rgba(232, 220, 200, 0.6);
+}
+.sd-re-label.ally { color: var(--ally); }
+.sd-re-label.enemy { color: var(--enemy); }
+
+.sd-re-score {
+  font-size: clamp(38px, 5.4vw, 68px);
+  line-height: 1;
+  font-weight: bold;
+}
+.sd-re-score.ally { color: var(--ally); }
+.sd-re-score.enemy { color: var(--enemy); }
+.sd-re-colon { font-size: clamp(28px, 3.6vw, 44px); color: rgba(232, 220, 200, 0.4); }
+
+.sd-re-score.bump { animation: sd-bump 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+
+@keyframes sd-bump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.42); filter: brightness(1.6); }
+  100% { transform: scale(1); }
+}
+
+.sd-re-mvp {
+  margin: 0;
+  font-size: clamp(13px, 1.5vw, 17px);
+  letter-spacing: 0.08em;
+  color: rgba(232, 220, 200, 0.62);
+}
+.sd-re-mvp.hidden { display: none !important; }
+.sd-re-mvp b { color: #ffe08a; font-weight: bold; }
+.sd-re-mvp b.ally { color: var(--ally); }
+.sd-re-mvp b.enemy { color: var(--enemy); }
+
+/* ========== 爆破: 对局结算计分板 (Layer 2) ========== */
+.sd-scoreboard {
+  position: fixed;
+  inset: 0;
+  z-index: 1084;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 1.6vh, 20px);
+  padding: clamp(16px, 3vh, 36px);
+  background: radial-gradient(130% 120% at 50% 30%, rgba(16, 11, 7, 0.94), rgba(5, 3, 2, 0.98));
+  font-family: var(--font-pixel);
+  color: #e8dcc8;
+  --ally: #6fd8c6;
+  --ally-head: linear-gradient(180deg, #1f7d72, #12564e);
+  --enemy: #ff8a78;
+  --enemy-head: linear-gradient(180deg, #9a2b34, #6a1c23);
+}
+
+.sd-scoreboard.hidden { display: none !important; }
+
+.sd-sb-head { text-align: center; }
+
+.sd-sb-mode {
+  font-size: clamp(18px, 2.4vw, 30px);
+  letter-spacing: 0.14em;
+  color: #fdf3e2;
+}
+.sd-sb-sep { color: rgba(232, 220, 200, 0.34); margin: 0 6px; }
+.sd-sb-sub {
+  margin-top: 4px;
+  font-size: clamp(12px, 1.3vw, 15px);
+  letter-spacing: 0.28em;
+  color: #e8a050;
+}
+
+.sd-sb-bigscore {
+  display: flex;
+  align-items: baseline;
+  gap: clamp(20px, 4vw, 60px);
+}
+
+.sd-sb-big {
+  font-size: clamp(48px, 8vw, 104px);
+  line-height: 1;
+  font-weight: bold;
+}
+.sd-sb-big.win { color: #ffe08a; text-shadow: 0 0 26px rgba(255, 200, 90, 0.42); }
+.sd-sb-big.lose { color: rgba(232, 220, 200, 0.42); }
+.sd-sb-big.ally.win { color: var(--ally); text-shadow: 0 0 26px rgba(111, 216, 198, 0.4); }
+.sd-sb-big.enemy.win { color: var(--enemy); text-shadow: 0 0 26px rgba(255, 138, 120, 0.4); }
+
+.sd-sb-tables {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(880px, 96vw);
+  max-height: 68vh;
+  overflow: auto;
+}
+
+.sd-sb-team-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 6px 14px;
+  font-size: clamp(14px, 1.6vw, 19px);
+  letter-spacing: 0.1em;
+  color: #fdf3e2;
+}
+.sd-sb-team-head.ally { background: var(--ally-head); }
+.sd-sb-team-head.enemy { background: var(--enemy-head); }
+.sd-sb-team-count { font-size: 0.8em; color: rgba(255, 255, 255, 0.72); }
+
+.sd-sb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: clamp(12px, 1.3vw, 15px);
+}
+
+.sd-sb-table th,
+.sd-sb-table td {
+  padding: 6px 10px;
+  text-align: center;
+  border-bottom: 1px solid rgba(210, 150, 90, 0.14);
+}
+.sd-sb-table th { color: rgba(232, 220, 200, 0.5); font-weight: normal; }
+.sd-sb-table th.rank,
+.sd-sb-table td.rank { width: 58px; text-align: left; }
+.sd-sb-table th.name,
+.sd-sb-table td.name { text-align: left; width: 40%; }
+
+.sd-sb-table td.rank .chev { color: rgba(232, 220, 200, 0.28); margin-right: 4px; }
+.sd-sb-table td.rank .lvl {
+  display: inline-block;
+  min-width: 20px;
+  padding: 0 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(232, 220, 200, 0.7);
+  text-align: center;
+}
+.sd-sb-team.ally .sd-sb-table td.name { color: var(--ally); }
+.sd-sb-team.enemy .sd-sb-table td.name { color: var(--enemy); }
+
+.sd-sb-table tr.me { background: rgba(255, 224, 138, 0.12); }
+.sd-sb-table tr.me td.name { color: #ffe08a; }
+.sd-sb-table tr.me td.rank .chev { color: #ffe08a; }
+
+.sd-mvp-chip {
+  margin-left: 8px;
+  padding: 1px 6px;
+  background: #e8a050;
+  color: #180f06;
+  font-size: 0.72em;
+  letter-spacing: 0.06em;
+  border-radius: 2px;
+}
+
+.sd-sb-foot {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: min(880px, 96vw);
+}
+.sd-sb-mvp { font-size: clamp(13px, 1.4vw, 16px); color: rgba(232, 220, 200, 0.66); }
+.sd-sb-mvp b { color: #ffe08a; }
+.sd-sb-mvp b.ally { color: var(--ally); }
+.sd-sb-mvp b.enemy { color: var(--enemy); }
+.sd-sb-spacer { flex: 1; }
+.sd-sb-countdown { font-size: 13px; color: rgba(232, 220, 200, 0.55); }
+
+/* ========== Match mode picker ========== */
+.mode-select {
+  --mode-accent: #e8a050;
+  --mode-line: rgba(210, 150, 90, 0.4);
+  position: fixed;
+  inset: 0;
+  z-index: 1060;
+  display: flex;
+  flex-direction: column;
+  background: #0d0906;
+  font-family: var(--font-pixel);
+  color: #e8dcc8;
+  overflow: hidden;
+}
+
+.mode-select.hidden { display: none !important; }
+
+/* Hero: mode identity + the single confirm action */
+.mode-hero {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mode-hero-art {
+  position: absolute;
+  inset: 0;
+  background:
+    var(--mode-art, none) center / cover no-repeat,
+    radial-gradient(ellipse 70% 60% at 72% 40%, color-mix(in srgb, var(--mode-accent) 26%, transparent) 0%, transparent 72%),
+    radial-gradient(ellipse 90% 50% at 20% 90%, rgba(60, 34, 18, 0.6) 0%, transparent 74%),
+    #140d08;
+}
+
+.mode-hero-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.32) 0 2px, transparent 2px 4px);
+}
+
+.mode-hero-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(9, 6, 4, 0.94) 0%, rgba(9, 6, 4, 0.68) 46%, transparent 78%);
+}
+
+.mode-hero-back {
+  position: absolute;
+  top: clamp(14px, 2.4vh, 26px);
+  left: clamp(16px, 2.4vw, 34px);
+  z-index: 2;
+  padding: 8px 20px;
+  border: 2px solid var(--mode-line);
+  background: rgba(14, 9, 6, 0.7);
+  color: #e8dcc8;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.mode-hero-back:hover {
+  border-color: var(--mode-accent);
+  filter: brightness(1.15);
+}
+
+.mode-hero-info {
+  position: absolute;
+  left: clamp(18px, 4vw, 72px);
+  bottom: clamp(20px, 5vh, 56px);
+  z-index: 2;
+  width: min(560px, 56vw);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mode-hero-kicker {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: var(--mode-accent);
+}
+
+.mode-hero-name {
+  margin: 0;
+  font-size: clamp(30px, 4.4vw, 58px);
+  line-height: 1.05;
+  color: #fdf3e2;
+}
+
+.mode-hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mode-hero-tag {
+  padding: 4px 12px;
+  border: 2px solid var(--mode-line);
+  background: rgba(14, 9, 6, 0.62);
+  font-size: 13px;
+  color: rgba(232, 220, 200, 0.86);
+}
+
+.mode-hero-desc {
+  margin: 0;
+  max-width: 42em;
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(232, 220, 200, 0.82);
+}
+
+.mode-hero-note {
+  margin: 0;
+  font-size: 13px;
+  color: #d8524a;
+}
+
+.mode-hero-note.hidden { display: none; }
+
+.mode-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.mode-start {
+  padding: 14px 40px;
+  border: 2px solid var(--mode-accent);
+  background: color-mix(in srgb, var(--mode-accent) 16%, rgba(14, 9, 6, 0.85));
+  color: #fdf3e2;
+  font-family: inherit;
+  font-size: 19px;
+  cursor: pointer;
+}
+
+.mode-start:hover:not(:disabled) { filter: brightness(1.2); }
+
+.mode-start:disabled {
+  border-color: rgba(150, 130, 110, 0.4);
+  background: rgba(20, 16, 12, 0.7);
+  color: rgba(200, 190, 175, 0.42);
+  cursor: not-allowed;
+}
+
+.mode-hero-entry {
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: rgba(232, 220, 200, 0.6);
+}
+
+/* Rail: horizontal mode cards, locked slots kept visible */
+.mode-rail {
+  flex: 0 0 auto;
+  padding: clamp(10px, 1.6vh, 18px) clamp(18px, 4vw, 72px) clamp(16px, 2.6vh, 28px);
+  border-top: 2px solid var(--mode-line);
+  background: #0a0705;
+}
+
+.mode-rail-label {
+  margin: 0 0 10px;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: rgba(232, 220, 200, 0.55);
+}
+
+.mode-rail-cards {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: clamp(8px, 1.2vw, 18px);
+}
+
+.mode-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: clamp(84px, 13vh, 124px);
+  padding: 0 0 12px;
+  border: 2px solid var(--mode-line);
+  background: #150e09;
+  color: #e8dcc8;
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.mode-card-art {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 26px;
+  margin-bottom: 8px;
+  border-bottom: 3px solid var(--mode-line);
+  background:
+    radial-gradient(ellipse 80% 90% at 50% 100%, rgba(70, 40, 22, 0.7) 0%, transparent 72%),
+    #1c130c;
+}
+
+.mode-card-title {
+  font-size: clamp(15px, 1.5vw, 19px);
+  color: #fdf3e2;
+}
+
+.mode-card-sub {
+  font-size: 12px;
+  color: rgba(232, 220, 200, 0.55);
+}
+
+.mode-card:hover:not(:disabled) {
+  border-color: var(--mode-accent);
+  filter: brightness(1.14);
+}
+
+.mode-card.active {
+  border-color: #ffe08a;
+  background: #1e150d;
+}
+
+.mode-card.locked {
+  cursor: not-allowed;
+  filter: grayscale(1) brightness(0.62);
+}
+
+.mode-card-lock {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 4px 0;
+  background: rgba(8, 6, 4, 0.86);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: rgba(232, 220, 200, 0.72);
+}
+
+@media (max-width: 720px) {
+  .mode-hero-info { width: auto; right: clamp(18px, 4vw, 72px); }
+  .mode-rail-cards { grid-auto-flow: row; grid-auto-columns: auto; }
+  .mode-card { min-height: 64px; flex-direction: row; align-items: center; gap: 12px; padding: 8px 14px; }
+  .mode-card-art { flex: 0 0 44px; min-height: 40px; margin: 0; border-bottom: none; border-right: 3px solid var(--mode-line); }
+}
+
+/* ==================== 装备界面 (arsenal.js) ==================== */
+.arsenal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1070;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 6, 3, 0.9);
+  padding: 1vh 0.6rem;
+  overflow: auto;
+}
+
+.arsenal-panel {
+  width: min(1400px, 98vw);
+  height: min(940px, 96vh);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  opacity: 0.97;
+}
+
+.arsenal-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 0 0 auto;
+}
+
+.arsenal-head h2 {
+  font-family: var(--font-pixel);
+  font-weight: normal;
+  font-size: 20px;
+  color: var(--text);
+  text-shadow: var(--read);
+  flex: 0 0 auto;
+}
+
+/* Buying happens in this screen, so the balance has to be visible while choosing. */
+.arsenal-coins {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 4px 10px;
+  font-family: var(--font-pixel);
+  font-size: 13px;
+  color: var(--coin, #e0a850);
+  background: rgba(20, 12, 6, 0.6);
+  border: 1px solid var(--panel-border);
+  text-shadow: var(--read);
+  white-space: nowrap;
+}
+
+.arsenal-head #arsenal-back { flex: 0 0 auto; }
+
+.arsenal-slots { display: flex; gap: 8px; flex: 1 1 auto; }
+
+.arsenal-slot {
+  /* Four slots share the header row, so they split it rather than fix a width. */
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  background: rgba(20, 12, 6, 0.6);
+  border: 1px solid var(--panel-border);
+  color: var(--text-dim);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.arsenal-slot.active {
+  border-color: var(--accent);
+  background: rgba(255, 154, 74, 0.14);
+  color: var(--text);
+}
+
+.arsenal-slot span { font-size: 11px; letter-spacing: 0.1em; opacity: 0.75; }
+.arsenal-slot b { font-size: 14px; color: var(--text); }
+.arsenal-slot em { font-size: 10px; font-style: normal; opacity: 0.55; }
+
+.arsenal-slot span,
+.arsenal-slot b,
+.arsenal-slot em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arsenal-body {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: 0.85fr 1.1fr 0.85fr;
+  gap: 12px;
+  min-height: 0;
+}
+
+.arsenal-left,
+.arsenal-mid,
+.arsenal-right {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.arsenal-cats { display: flex; flex-wrap: wrap; gap: 4px; flex: 0 0 auto; }
+
+.arsenal-cat {
+  padding: 4px 9px;
+  font-size: 11px;
+  background: rgba(20, 12, 6, 0.6);
+  border: 1px solid var(--panel-border);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.arsenal-cat.active { border-color: var(--accent); color: var(--text); background: rgba(255, 154, 74, 0.16); }
+
+.arsenal-list { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
+
+.arsenal-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 10px;
+  background: rgba(18, 11, 6, 0.62);
+  border: 1px solid var(--panel-border);
+  color: var(--text-dim);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.arsenal-item:hover { border-color: var(--panel-border-hi); }
+.arsenal-item.selected { border-color: var(--accent); background: rgba(255, 154, 74, 0.14); }
+.arsenal-item.locked { opacity: 0.5; }
+.arsenal-item strong { font-size: 13px; color: var(--text); font-weight: normal; }
+.arsenal-item span { font-size: 10px; opacity: 0.7; }
+.arsenal-item em { font-size: 10px; font-style: normal; opacity: 0.85; color: var(--warm); }
+
+.arsenal-eqtag,
+.arsenal-lock {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 9px;
+  font-style: normal;
+  padding: 1px 5px;
+}
+
+.arsenal-eqtag { background: var(--accent); color: #1a1008; }
+.arsenal-lock { background: rgba(0, 0, 0, 0.5); color: var(--danger); }
+
+.arsenal-stage {
+  flex: 1 1 auto;
+  min-height: 180px;
+  background: radial-gradient(ellipse at 50% 60%, rgba(255, 154, 74, 0.1), transparent 70%);
+  border: 1px solid var(--panel-border);
+}
+
+.arsenal-stage canvas { width: 100%; height: 100%; display: block; }
+
+.arsenal-name {
+  font-family: var(--font-pixel);
+  font-size: 17px;
+  color: var(--text);
+  text-shadow: var(--read);
+}
+
+.arsenal-flavor { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+
+.arsenal-headline { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+
+.arsenal-hi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 5px;
+  background: rgba(20, 12, 6, 0.6);
+  border: 1px solid var(--panel-border);
+}
+
+.arsenal-hi b { font-size: 17px; color: var(--text); font-weight: normal; }
+.arsenal-hi span { font-size: 10px; opacity: 0.65; }
+.arsenal-hi.up b { color: var(--health); }
+.arsenal-hi.down b { color: var(--danger); }
+
+.arsenal-bars { display: flex; flex-direction: column; gap: 4px; }
+
+.arsenal-bar,
+.arsenal-kv {
+  display: grid;
+  grid-template-columns: 68px 1fr 42px;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.arsenal-bar i,
+.arsenal-kv i {
+  height: 7px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--panel-border);
+  display: block;
+}
+
+.arsenal-bar em,
+.arsenal-kv em {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.arsenal-bar b,
+.arsenal-kv b { text-align: right; color: var(--text); font-weight: normal; }
+.arsenal-bar.up em, .arsenal-kv.up em { background: var(--health); }
+.arsenal-bar.down em, .arsenal-kv.down em { background: var(--danger); }
+.arsenal-bar.up b, .arsenal-kv.up b { color: var(--health); }
+.arsenal-bar.down b, .arsenal-kv.down b { color: var(--danger); }
+
+.arsenal-sec {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  border-bottom: 1px solid var(--panel-border);
+  padding-bottom: 3px;
+}
+
+.arsenal-detail { display: flex; flex-direction: column; gap: 4px; }
+
+.arsenal-falloff { width: 100%; height: auto; }
+.arsenal-falloff line { stroke: rgba(255, 210, 175, 0.35); stroke-width: 1; }
+.arsenal-falloff text { fill: var(--text-dim); font-size: 8px; }
+.arsenal-falloff .selected { stroke: var(--accent); stroke-width: 2; }
+.arsenal-falloff .equipped { stroke: rgba(255, 232, 212, 0.45); stroke-width: 1.5; stroke-dasharray: 3 3; }
+
+.arsenal-legend { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-dim); }
+.arsenal-legend i { width: 14px; height: 2px; display: inline-block; }
+.arsenal-legend i.sel { background: var(--accent); }
+.arsenal-legend i.eq { background: rgba(255, 232, 212, 0.45); margin-left: 8px; }
+
+.arsenal-empty { font-size: 11px; color: var(--text-dim); padding: 12px; }
+
+@media (max-width: 1100px) {
+  .arsenal-body { grid-template-columns: 1fr 1fr; }
+  .arsenal-right { grid-column: 1 / -1; }
+}

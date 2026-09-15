@@ -7,6 +7,50 @@
 
   const TEAM_SIZE = 32;
 
+  /**
+   * Mode params only govern the small-battle runtime. The 32v32 war has no mode
+   * system, and GameModes falls back to 核心攻防 (teamSize 25) when asked, so the
+   * large runtime must never reach through to it.
+   */
+  function smallRuntime() {
+    const entry = global.VFEntry;
+    return !!(entry && entry.isSmall && entry.isSmall());
+  }
+
+  function modeParam(key, fallback) {
+    if (!smallRuntime()) return fallback;
+    const GM = global.VF && global.VF.GameModes;
+    return GM && GM.param ? GM.param(key, fallback) : fallback;
+  }
+
+  /** Match mode wins over the feel tuning: 死斗 wants 12v12 encounter density. */
+  function modeTeamSize() {
+    const n = modeParam('teamSize', null);
+    return Math.max(1, Math.floor(n != null ? n : feelAi().teamSize));
+  }
+
+  /** 自由混战 / 枪械模式 have no teams: the player stands alone against everyone. */
+  function teamlessMode() {
+    if (!smallRuntime()) return false;
+    const GM = global.VF && global.VF.GameModes;
+    return !!(GM && GM.isTeamless && GM.isTeamless());
+  }
+
+  /** The local human, plus any networked opponents sharing the board. */
+  function teamlessHumanSlots() {
+    const pvp = global.VF.Pvp;
+    if (global.VF.game && global.VF.game.mode === 'pvp' && pvp && pvp.getHumanCounts) {
+      const humans = pvp.getHumanCounts();
+      return Math.max(1, (humans.ally || 0) + (humans.enemy || 0));
+    }
+    return 1;
+  }
+
+  /** Bot headcount so the arena holds `combatants` bodies including the humans. */
+  function teamlessAiCount() {
+    return Math.max(0, Math.floor(modeParam('combatants', 8)) - teamlessHumanSlots());
+  }
+
   function feelAi() {
     const F = global.VF && global.VF.Feel && global.VF.Feel.ai;
     return {
@@ -132,6 +176,26 @@
   }
 
   /* ---------- World helpers ---------- */
+
+  /**
+   * 枪械模式：把单位的交战数值换成它当前武器对应的兵种档。range 就是交战距离，
+   * 所以换枪后 AI 自动改用对应的贴脸 / 中距 / 远距打法。
+   *
+   * 刻意不动 hp / speed —— 枪械模式的前提是「人人平等，只拼枪法适应」，让霰弹兵
+   * 变成 140 血的慢坦克会破坏这个前提。
+   */
+  AI.prototype.applyGgWeapon = function (unit, weaponId) {
+    if (!unit) return;
+    const gg = global.VF.GgMatch;
+    const typeKey = (gg && gg.aiTypeForWeapon && gg.aiTypeForWeapon(weaponId)) || 'infantry';
+    const stats = RED_DEFS[typeKey] || RED_DEFS.infantry;
+    unit.type = typeKey;
+    unit.damage = stats.damage;
+    unit.range = stats.range;
+    unit.accuracy = stats.accuracy;
+    unit.fireRate = stats.fireRate;
+    unit._ggWeapon = weaponId;
+  };
 
   AI.prototype._groundAt = function (x, z) {
     if (this.world.getWalkHeight) return this.world.getWalkHeight(x, z);
@@ -743,7 +807,11 @@
   };
 
   AI.prototype._aiCapForTeam = function (team) {
-    const roster = Math.max(1, Math.floor(feelAi().teamSize));
+    // Park every bot on red in teamless modes, even when this client spawned as
+    // the PVP "enemy" human: using the player's own team here would split the
+    // arena into two armies and double the headcount.
+    if (teamlessMode()) return team === 'enemy' ? teamlessAiCount() : 0;
+    const roster = modeTeamSize();
     const humans = this._pvpHumanCounts();
     const taken = team === 'enemy' ? humans.enemy || 0 : humans.ally || 0;
     return Math.max(0, roster - taken);
@@ -3711,6 +3779,9 @@
   AI.prototype.update = function (dt) {
     this._updateDeathChunks(dt);
     if (!this.enabled || !this._armiesSpawned) return;
+    // 小型模式赛前倒计时里 AI 和玩家一样原地不动。
+    const GM = global.VF.GameModes;
+    if (GM && GM.prepFrozen && GM.prepFrozen()) return;
 
     this.waveTimer += dt;
     const stepDt = Math.min(dt, 0.05);
@@ -3812,5 +3883,11 @@
       return feelAi().teamSize;
     },
   });
+  /** Roster size the current match actually fields, mode params included. */
+  global.VF.matchTeamSize = modeTeamSize;
+  global.VF.isTeamlessMatch = teamlessMode;
+  global.VF.teamlessCombatants = function () {
+    return Math.max(1, Math.floor(modeParam('combatants', 8)));
+  };
   global.VF.ALLY_CHASE_RANGE = ENGAGE_RANGE;
 })(window);

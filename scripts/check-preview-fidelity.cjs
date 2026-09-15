@@ -47,6 +47,6 @@ const {chromium}=require('playwright'),assert=require('assert/strict'),fs=requir
  await checkLoadout('large');
  // Each renderer gets a fresh page; navigation is covered by check-frontline-browser.cjs.
  await page.close();page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
- await page.goto('http://127.0.0.1:8765/modes/small-battle/index.html?mode=tdm',{waitUntil:'domcontentloaded'});await page.waitForSelector('#class-overlay:not(.hidden)',{timeout:60000});await checkLoadout('small');
+ await page.goto('http://127.0.0.1:8765/',{waitUntil:'domcontentloaded'});await page.waitForSelector('#enter-hub-btn:not([disabled])',{timeout:60000});await page.click('#enter-hub-btn');await page.waitForSelector('#mode-overlay:not(.hidden)',{timeout:60000});await page.click('[data-quick-mode=tdm]');await page.waitForSelector('#class-overlay:not(.hidden)',{timeout:60000});await checkLoadout('small');
  assert.deepEqual(errors,[]);console.log('PASS: archive clearance, 800–2705 layouts, gear labels, hit targets, all class models, drag rotation, player order; no page errors.');
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exit(1);});

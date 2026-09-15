@@ -743,21 +743,15 @@
     this._bindCraftUI();
   };
 
-  /** Kubee: no room codes — both players open the same Kubee URL. */
   Hub.prototype._refreshPvpModeUI = function () {
-    const kubee = !!(global.VF_KUBEE && global.VF_KUBEE.active);
     const enter = document.getElementById('hub-pvp-enter');
     const create = document.getElementById('hub-pvp-create');
     const join = document.getElementById('hub-pvp-join');
     const sub = document.getElementById('hub-pvp-sub');
-    if (enter) enter.classList.toggle('hidden', !kubee);
-    if (create) create.classList.toggle('hidden', kubee);
-    if (join) join.classList.toggle('hidden', kubee);
-    if (sub) {
-      sub.textContent = kubee
-        ? '双方打开同一 Kubee 链接后点此进入 · 先到者为房主'
-        : '1v1 联机对战大厅（房号 / PeerJS）';
-    }
+    if (enter) enter.classList.add('hidden');
+    if (create) create.classList.remove('hidden');
+    if (join) join.classList.remove('hidden');
+    if (sub) sub.textContent = '联机对战大厅（造化房间）';
   };
 
   Hub.prototype._bindCraftUI = function () {

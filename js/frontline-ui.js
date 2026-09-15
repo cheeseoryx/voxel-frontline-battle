@@ -1,17 +1,21 @@
 /** Shared UI adapters. Gameplay eligibility stays in each runtime. */
 (function(global){
 'use strict';
-const VF=global.VF,UI=VF.UI,small=document.body.dataset.gameRuntime==='small';
-document.body.classList.add(small?'frontline-small':'frontline-large');
+const VF=global.VF,UI=VF.UI;
+const isSmall=()=>!!(global.VFEntry&&global.VFEntry.isSmall&&global.VFEntry.isSmall());
+if(document.body){
+ document.body.classList.add('frontline-large');
+ document.body.classList.toggle('frontline-small',isSmall());
+}
 const el=id=>document.getElementById(id),put=(id,text)=>{if(el(id))el(id).textContent=text;};
 const className=c=>c?(c.nameZh||(c.label||'').split('|').pop().trim()||c.nameEn||c.id):'';
 const selectedInfo=()=>VF.Soldier.CLASSES.find(c=>c.id===UI.selectedClassId)||VF.Soldier.CLASSES[0];
-const modeName=()=>small?VFEntry.modeNames[VF.GameModes.currentId()]:'大型战争 · 征服';
+const modeName=()=>isSmall()?VFEntry.modeNames[VF.GameModes.currentId()]:'大型战争 · 征服';
 function metadata(){
- const g=VF.game,pvp=g.mode==='pvp';
+ const g=VF.game,pvp=g.mode==='pvp',small=isSmall();
  put('class-deploy-player-count','装备整备');
  put('class-deploy-player-state',pvp?'房间 '+(VF.Pvp.roomCode||'')+' · AI 自动补位':'单人对局 · AI 对战');
- if(small){put('class-deploy-map-name',g.world._mapName||'作战区域');put('class-deploy-mode-name',modeName());}
+ if(small){put('class-deploy-map-name',(g.world&&g.world._mapName)||VFEntry.modeNames[VF.GameModes.currentId()]||'作战区域');put('class-deploy-mode-name',modeName());}
  put('class-deploy-faction-name',small&&VF.GameModes.isTeamless()?'独立作战':(g.world._playerTeam||(g.pvp&&g.pvp.team))==='enemy'?'赤焰军团 · 红方':'和平军团 · 蓝方');
 }
 function bindSquadElements(){
@@ -19,13 +23,14 @@ function bindSquadElements(){
  Object.keys(map).forEach(k=>UI.els[k]=el(map[k]));
 }
 function gear(){
- if(!small)return;
- const c=selectedInfo(),E=VF.Economy,defs=VF.WEAPONS,g=VF.game;
+ if(!isSmall())return;
+ const c=selectedInfo(),E=VF.Economy||{},defs=VF.WEAPONS||{},g=VF.game;
  put('class-deploy-blurb',(c.blurb||c.role||'').split('主动')[0].replace(/[。；;\s]+$/,'')+'。');
  [['active',c.activeSkill],['passive',c.passiveSkill]].forEach(([key,s])=>{put('class-skill-'+key+'-name',s?s.name:'');put('class-skill-'+key+'-desc',s?s.desc:'');});
- const locked=VF.GameModes.isGg();
- const primary=E.weaponForSlot(1),secondary=E.weaponForSlot(2);
- const thrown=(VF.THROWABLE_CATALOG||{})[E.throwableForSlot()];
+ const locked=!!(VF.GameModes&&VF.GameModes.isGg&&VF.GameModes.isGg());
+ const primary=E.weaponForSlot?E.weaponForSlot(1):'ak74';
+ const secondary=E.weaponForSlot?E.weaponForSlot(2):'pistol';
+ const thrown=(VF.THROWABLE_CATALOG||{})[E.throwableForSlot?E.throwableForSlot():'frag'];
  const wname=id=>defs[id]?(defs[id].nameZh||defs[id].name||id):id;
  const items=[['主武器',locked?'击杀晋级':wname(primary),1],['副武器',locked?'模式锁定':wname(secondary),2],['近战','战术匕首',0],['投掷物',locked?'模式禁用':(thrown?thrown.nameZh:'破片手雷'),4],['技能',c.activeSkill?c.activeSkill.name:'兵种技能',0],['特性',c.passiveSkill?c.passiveSkill.name:'兵种特性',0]];
  for(const id of ['class-deploy-loadout','squad-intro-loadout']){
@@ -36,7 +41,6 @@ function gear(){
    const icon=document.createElement('span');icon.className='frontline-gear-icon';icon.innerHTML=UI._deployGearSvg(['rifle','shotgun','knife','frag','ammo','optic'][i]);
    b.append(s,icon,strong);
    if(slot&&!locked)b.addEventListener('click',()=>{
-    // Opening the arsenal during the showcase freezes its personal timer.
     const remaining=UI.squadIntroOpen?Math.max(.2,(UI._squadIntroEndsAt-performance.now())/1000):null;
     if(remaining!==null)clearInterval(UI._squadIntroTimer);
     VF.Arsenal.show({slot,onClose:()=>{gear();if(remaining!==null&&UI.squadIntroOpen)UI._startSquadIntroCountdown(remaining);}});
@@ -45,46 +49,64 @@ function gear(){
   });
  }
 }
-if(small){
- UI._playerTeam=()=>VF.game.world._playerTeam||'ally';
- UI.closeArsenal=()=>{if(VF.Arsenal)VF.Arsenal.hide();};
- UI._syncDeployClassDetails=gear;
- const update=UI._updateClassStageUI;
- UI._updateClassStageUI=function(){update.apply(this,arguments);gear();put('class-stage-name',className(selectedInfo()));};
- const init=UI.init;UI.init=function(){init.apply(this,arguments);bindSquadElements();};
- const build=UI._buildClassGrid;UI._buildClassGrid=function(){build.apply(this,arguments);this.els.classGrid.querySelectorAll('.class-card').forEach(b=>{const c=VF.Soldier.CLASSES.find(c=>c.id===b.dataset.classId);b.querySelector('.class-card-name').textContent=className(c);b.setAttribute('aria-pressed',b.dataset.classId===this.selectedClassId?'true':'false');});};
- const open=UI.openClassSelect;
- UI.openClassSelect=function(confirm,cancel,preferred){
-  open.call(this,confirm,cancel,preferred||VF.game.playerClass||'vanguard');
-  metadata();gear();
- };
- global.addEventListener('keydown',e=>{
-  if(VF.Arsenal.isOpen&&e.code==='Escape'){e.preventDefault();e.stopImmediatePropagation();VF.Arsenal.hide();return;}
-  if(e.repeat||!UI.classSelectOpen||VF.Arsenal.isOpen)return;
-  if(e.code==='KeyC'&&!VF.GameModes.isGg()){e.preventDefault();VF.Arsenal.show({onClose:gear});}
-  if(e.code==='Escape'){e.preventDefault();if(UI._classOnCancel)UI._classOnCancel();}
- },true);
-}else{
- const open=UI.openClassSelect;
- UI.openClassSelect=function(){const result=open.apply(this,arguments);metadata();return result;};
- document.addEventListener('click',e=>{
-  const b=e.target.closest('[data-quick-mode],[data-server-runtime]');
-  if(!b||b.disabled)return;
-  e.preventDefault();e.stopImmediatePropagation();
-  if(b.dataset.serverRuntime==='small')VFEntry.openSmallBattle(b.dataset.serverModeId,b.dataset.serverCode);
-  else if(b.dataset.quickMode)VFEntry.openSmallBattle(b.dataset.quickMode);
- },true);
-}
+UI._playerTeam=()=>VF.game.world._playerTeam||'ally';
+UI.closeArsenal=()=>{if(VF.Arsenal)VF.Arsenal.hide();};
+const syncDeploy=UI._syncDeployClassDetails;
+UI._syncDeployClassDetails=function(){
+ if(isSmall())return gear();
+ const result=syncDeploy?syncDeploy.apply(this,arguments):undefined;
+ const kit=VF.Arsenal&&VF.Arsenal.getStripItems?VF.Arsenal.getStripItems(arguments[0]||selectedInfo()):[];
+ const labels={primary:'主武器',secondary:'副武器',gadget1:'轻型装备',gadget2:'重型装备',grenade:'投掷物',melee:'近战'};
+ document.querySelectorAll('#squad-intro-loadout .deploy-gear-slot').forEach((button,index)=>{
+  const icon=button.querySelector('svg');if(icon&&kit[index])icon.outerHTML=UI._squadGearIcon(kit[index].kind);
+  const label=button.querySelector('small');if(label)label.textContent=labels[button.dataset.arsenalSlot]||label.textContent;
+  button.setAttribute('aria-label',button.title);
+ });
+ return result;
+};
+const update=UI._updateClassStageUI;
+UI._updateClassStageUI=function(){update.apply(this,arguments);if(isSmall()){gear();put('class-stage-name',className(selectedInfo()));}};
+const init=UI.init;UI.init=function(){init.apply(this,arguments);bindSquadElements();};
+const build=UI._buildClassGrid;
+UI._buildClassGrid=function(){
+ build.apply(this,arguments);
+ if(!isSmall())return;
+ this.els.classGrid.querySelectorAll('.class-card').forEach(b=>{
+  const c=VF.Soldier.CLASSES.find(c=>c.id===b.dataset.classId);
+  const name=b.querySelector('.class-card-name');
+  if(name)name.textContent=className(c);
+  b.setAttribute('aria-pressed',b.dataset.classId===this.selectedClassId?'true':'false');
+ });
+};
+const open=UI.openClassSelect;
+UI.openClassSelect=function(confirm,cancel,preferred){
+ const result=open.call(this,confirm,cancel,preferred||VF.game.playerClass);
+ metadata();
+ if(isSmall())gear();
+ return result;
+};
+document.addEventListener('click',e=>{
+ const b=e.target.closest('[data-quick-mode],[data-server-runtime]');
+ if(!b||b.disabled)return;
+ e.preventDefault();e.stopImmediatePropagation();
+ if(b.dataset.serverRuntime==='small')VFEntry.openSmallBattle(b.dataset.serverModeId,b.dataset.serverCode);
+ else if(b.dataset.quickMode)VFEntry.openSmallBattle(b.dataset.quickMode);
+},true);
+global.addEventListener('keydown',e=>{
+ if(!isSmall())return;
+ if(VF.Arsenal&&VF.Arsenal.isOpen&&e.code==='Escape'){e.preventDefault();e.stopImmediatePropagation();VF.Arsenal.hide();return;}
+ if(e.repeat||!UI.classSelectOpen||(VF.Arsenal&&VF.Arsenal.isOpen))return;
+ if(e.code==='KeyC'&&!(VF.GameModes&&VF.GameModes.isGg())){e.preventDefault();VF.Arsenal.show({onClose:gear});}
+ if(e.code==='Escape'){e.preventDefault();if(UI._classOnCancel)UI._classOnCancel();}
+},true);
 put('class-confirm-btn','部署进入战场');
 const canvas=el('class-stage-canvas');
 if(canvas){let start=null;canvas.addEventListener('pointerdown',e=>{start={x:e.clientX,yaw:UI._menuRotation||.12};canvas.setPointerCapture(e.pointerId);});canvas.addEventListener('pointermove',e=>{if(start)UI._menuRotation=start.yaw+(e.clientX-start.x)*.009;});for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,()=>{start=null;});}
-const syncSquadEquipment=UI._syncDeployClassDetails;
-UI._syncDeployClassDetails=function(){const result=syncSquadEquipment.apply(this,arguments);if(!small){const kit=VF.Arsenal&&VF.Arsenal.getStripItems?VF.Arsenal.getStripItems(arguments[0]||selectedInfo()):[];const labels={primary:'主武器',secondary:'副武器',gadget1:'轻型装备',gadget2:'重型装备',grenade:'投掷物',melee:'近战'};document.querySelectorAll('#squad-intro-loadout .deploy-gear-slot').forEach((button,index)=>{const icon=button.querySelector('svg');if(icon&&kit[index])icon.outerHTML=UI._squadGearIcon(kit[index].kind);const label=button.querySelector('small');if(label)label.textContent=labels[button.dataset.arsenalSlot]||label.textContent;button.setAttribute('aria-label',button.title);});}return result;};
 const squad=UI.openSquadIntro;
 UI.openSquadIntro=function(roster,done,opts){
  roster=roster.slice().sort((a,b)=>Number(b.isPlayer)-Number(a.isPlayer));
  squad.call(this,roster,done,Object.assign({durationSec:3},opts));
- const teamless=small&&VF.GameModes.isTeamless();
+ const teamless=isSmall()&&VF.GameModes.isTeamless();
  put('squad-intro-title',teamless?'个人部署':'小队部署');
  const factionSub=document.querySelector('.squad-intro-faction small');
  if(factionSub)factionSub.textContent=teamless?'各自为战':(this._playerTeam()==='enemy'?'红方':'蓝方');

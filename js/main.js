@@ -40,6 +40,18 @@
     /* no-op: use player.punchFeedback instead */
   };
 
+  /**
+   * 小型模式的结算界面（死斗 / 爆破 / 混战 / 枪械）用它退回大厅。拆场靠
+   * returnFromDeathToHub，但小型模式还挂着 ?mode= / ?room=，不经 VFEntry 清掉
+   * 的话刷新会直接重进这一局；isSmall 必须在拆场前读，拆场会把 runtime 切回
+   * large。
+   */
+  game.returnFromMatch = function () {
+    const small = !!(globalThis.VFEntry && VFEntry.isSmall && VFEntry.isSmall());
+    returnFromDeathToHub();
+    if (small && VFEntry.goLobby) VFEntry.goLobby();
+  };
+
   function init() {
     const enterHubBtn = document.getElementById('enter-hub-btn');
     const quitBtn = document.getElementById('quit-btn');
@@ -151,7 +163,6 @@
 
       // Unlock cover once systems are ready
       _enableCoverReady();
-      if (VFEntry.selection.screen === "modes") openFrontlineHub();
     } catch (err) {
       VFEntry.hideTransition();
       console.error(err);
@@ -286,6 +297,7 @@
     VF.requestRedeploy = requestRedeploy;
     VF.leaveMatchFromPause = leaveMatchFromPause;
     VF.startConquest32 = startConquest32;
+    VF.startSmallMatch = startSmallMatch;
     VF.openFrontlineHub = openFrontlineHub;
     VF.openRangeFromHub = openRangeFromHub;
     if (VF.UI.setDeathHandlers) {
@@ -1071,7 +1083,83 @@
 
   game.spawnResource = spawnResource;
 
+  function isSmallRuntime() {
+    return !!(globalThis.VFEntry && VFEntry.isSmall && VFEntry.isSmall());
+  }
+
+  /** Roster size the current match fields; mode params override the feel tuning. */
+  function matchTeamSize() {
+    if (VF.matchTeamSize) return VF.matchTeamSize();
+    return (VF.Feel && VF.Feel.ai && VF.Feel.ai.teamSize) || 32;
+  }
+
+  function stopSmallModes() {
+    if (VF.TdmMatch && VF.TdmMatch.stop) VF.TdmMatch.stop();
+    if (VF.TdmSpawn && VF.TdmSpawn.stop) VF.TdmSpawn.stop();
+    if (VF.TdmUi && VF.TdmUi.leave) VF.TdmUi.leave();
+    if (VF.SdMatch && VF.SdMatch.stop) VF.SdMatch.stop();
+    if (VF.SdSpawn && VF.SdSpawn.stop) VF.SdSpawn.stop();
+    if (VF.SdField && VF.SdField.stop) VF.SdField.stop();
+    if (VF.SdUi && VF.SdUi.leave) VF.SdUi.leave();
+    if (VF.FfaMatch && VF.FfaMatch.stop) VF.FfaMatch.stop();
+    if (VF.FfaSpawn && VF.FfaSpawn.stop) VF.FfaSpawn.stop();
+    if (VF.FfaUi && VF.FfaUi.leave) VF.FfaUi.leave();
+    if (VF.GgMatch && VF.GgMatch.stop) VF.GgMatch.stop();
+    if (VF.GgUi && VF.GgUi.leave) VF.GgUi.leave();
+    if (VF.WeaponInspect && VF.WeaponInspect.cancel) VF.WeaponInspect.cancel();
+    if (game.battlefieldEvents && game.battlefieldEvents.stop) game.battlefieldEvents.stop();
+    if (VF.Career && VF.Career.finish) VF.Career.finish(null);
+  }
+
+  function startSmallModeRules() {
+    if (VF.GameModes && VF.GameModes.isTdm()) {
+      if (VF.TdmMatch) VF.TdmMatch.start();
+      if (VF.TdmSpawn) VF.TdmSpawn.start();
+      if (VF.TdmUi) VF.TdmUi.enter();
+    } else if (VF.GameModes && VF.GameModes.isSd()) {
+      if (VF.SdUi) VF.SdUi.enter();
+      if (VF.SdField) VF.SdField.start();
+      if (VF.SdSpawn) VF.SdSpawn.start();
+      if (VF.SdStats) VF.SdStats.start();
+      if (VF.SdMatch) VF.SdMatch.start();
+    } else if (VF.GameModes && VF.GameModes.isFfa()) {
+      if (VF.FfaMatch) VF.FfaMatch.start();
+      if (VF.FfaSpawn) VF.FfaSpawn.start();
+      if (VF.FfaUi) VF.FfaUi.enter();
+    } else if (VF.GameModes && VF.GameModes.isGg()) {
+      if (VF.GgMatch) VF.GgMatch.start();
+      if (VF.FfaSpawn) VF.FfaSpawn.start();
+      if (VF.GgUi) VF.GgUi.enter();
+    }
+    if (VF.Throwables) {
+      if (VF.GameModes && VF.GameModes.isGg && VF.GameModes.isGg()) VF.Throwables.stop();
+      else VF.Throwables.start();
+    }
+    if (VF.Career && VF.Career.start) VF.Career.start();
+  }
+
+  function startSmallMatch(info) {
+    info = info || {};
+    game.mode = info.mode || 'pve';
+    game.pvp = info.pvp || null;
+    if (info.matchMode && VF.GameModes && VF.GameModes.setMode) {
+      VF.GameModes.setMode(info.matchMode);
+    }
+    if (VF.GameModes && VF.GameModes.currentId) game.matchMode = VF.GameModes.currentId();
+    if (game.pvp) game.pvp.conquest = false;
+    game.teamLocked = false;
+    game.lockedTeam = null;
+    if (info.seed != null) game.mapSeed = info.seed >>> 0;
+    else if (VF.Pvp && VF.Pvp.matchSeed != null) game.mapSeed = VF.Pvp.matchSeed >>> 0;
+    else if (game.mapSeed == null) game.mapSeed = ((Date.now() ^ ((Math.random() * 1e9) | 0)) >>> 0);
+    if (VF.Pvp && game.mapSeed != null) VF.Pvp.matchSeed = game.mapSeed;
+    if (VF.UI && VF.UI.closeModeSelect) VF.UI.closeModeSelect();
+    openClassSelect();
+  }
+  VF.startSmallMatch = startSmallMatch;
+
   function openFrontlineHub() {
+    if (globalThis.VFEntry && VFEntry.setRuntime) VFEntry.setRuntime('large');
     game.teamLocked = false;
     game.lockedTeam = null;
     game._openingTeam = null;
@@ -1113,6 +1201,7 @@
     game.running = false;
     clearPreMatchMapView();
     if (game.player) game.player._cqTicketPending = false;
+    stopSmallModes();
     if (VF.Conquest && VF.Conquest.stop) VF.Conquest.stop();
     if (VF.Throwables && VF.Throwables.stop) VF.Throwables.stop();
     if (document.exitPointerLock) document.exitPointerLock();
@@ -1205,7 +1294,36 @@
     return !!(game.mode === 'pvp' && VF.Pvp && VF.Pvp.skipSpawnGate);
   }
 
+  function currentMatchModeId() {
+    if (isSmallRuntime() && VF.GameModes && typeof VF.GameModes.currentId === 'function') {
+      return VF.GameModes.currentId();
+    }
+    if (VF.Pvp && VF.Pvp._quickPending && VF.Pvp._quickPending.mode) {
+      return VF.Pvp._quickPending.mode;
+    }
+    return game.matchMode || 'conquest';
+  }
+
+  function matchMapName() {
+    const id = currentMatchModeId();
+    if (id && id !== 'conquest') {
+      return (
+        (game.world && game.world._mapName) ||
+        (globalThis.VFEntry && VFEntry.modeNames && VFEntry.modeNames[id]) ||
+        '作战区域'
+      );
+    }
+    return (
+      (game.world && game.world._mapName) ||
+      (VF.IslandConquestMap && VF.IslandConquestMap.name) ||
+      '荒盆'
+    );
+  }
+
   function matchModeName() {
+    if (isSmallRuntime() && VF.GameModes && VFEntry.modeNames[VF.GameModes.currentId()]) {
+      return VFEntry.modeNames[VF.GameModes.currentId()];
+    }
     if (game.mode === 'pvp') return '征服 · 8 VS 8';
     const teamSize = (VF.Feel && VF.Feel.ai && VF.Feel.ai.teamSize) || 32;
     return '征服 · ' + teamSize + ' VS ' + teamSize;
@@ -1213,8 +1331,9 @@
 
   function matchPlayerMax() {
     if (game.mode === 'pvp') return (VF.Pvp && VF.Pvp.HUMAN_CAP) || 16;
-    const teamSize = (VF.Feel && VF.Feel.ai && VF.Feel.ai.teamSize) || 32;
-    return teamSize * 2;
+    // Teamless arenas count bodies, not sides, so doubling would be wrong there.
+    if (VF.isTeamlessMatch && VF.isTeamlessMatch()) return VF.teamlessCombatants();
+    return matchTeamSize() * 2;
   }
 
   function matchPlayerCount() {
@@ -1259,10 +1378,7 @@
     const isPvp = game.mode === 'pvp';
     const assignedTeam =
       game.world && game.world._playerTeam === 'enemy' ? 'enemy' : 'ally';
-    const mapName =
-      (VF.IslandConquestMap && VF.IslandConquestMap.name) ||
-      (game.world && game.world._mapName) ||
-      '荒盆';
+    const mapName = matchMapName();
     const playerMax = matchPlayerMax();
     const playerCount = matchPlayerCount();
     VF.UI.openClassSelect(
@@ -1320,6 +1436,7 @@
     const mapReady =
       game.mapSeed != null &&
       game._mapReadyForSeed === (game.mapSeed >>> 0) &&
+      game._mapReadyForMode === currentMatchModeId() &&
       game.world._spawnPoints &&
       game.world._spawnPoints.all &&
       game.world._spawnPoints.all.length;
@@ -1418,8 +1535,11 @@
         return id !== selected;
       });
     while (others.length < 3) others.push('assault');
-    const ids = [others[0], selected, others[1], others[2]];
-    const names = ['阿尔法-01', '你', '阿尔法-03', '阿尔法-04'];
+    // 自由混战 / 枪械模式 have no squad: the player stands alone, so one card.
+    const teamless = !!(VF.isTeamlessMatch && VF.isTeamlessMatch());
+    const ids = teamless ? [selected] : [others[0], selected, others[1], others[2]];
+    const names = teamless ? ['你'] : ['阿尔法-01', '你', '阿尔法-03', '阿尔法-04'];
+    const playerIndex = teamless ? 0 : 1;
     const weapons = {
       assault: 'AKM',
       engineer: 'Remington 870',
@@ -1429,6 +1549,13 @@
     const currentWeaponId =
       game.weapons && game.weapons.current ? game.weapons.current : 'ar';
     const currentWeaponDef = VF.WEAPONS && VF.WEAPONS[currentWeaponId];
+    // 枪械模式 promotes the gun on every kill, so naming one is meaningless.
+    const isGunGame = !!(VF.GameModes && VF.GameModes.isGg && VF.GameModes.isGg());
+    const playerWeapon = isGunGame
+      ? '武器阶梯'
+      : currentWeaponDef
+        ? currentWeaponDef.nameZh || currentWeaponDef.name
+        : null;
     return ids.map(function (id, index) {
       const info = classes.find(function (entry) {
         return entry.id === id;
@@ -1439,10 +1566,10 @@
         classId: id,
         className: /兵$/.test(rawName) ? rawName : rawName + '兵',
         weapon:
-          index === 1 && currentWeaponDef
-            ? currentWeaponDef.nameZh || currentWeaponDef.name
+          index === playerIndex && playerWeapon
+            ? playerWeapon
             : weapons[id] || '制式步枪',
-        isPlayer: index === 1,
+        isPlayer: index === playerIndex,
       };
     });
   }
@@ -1450,11 +1577,8 @@
   function openSquadIntro(durationSec) {
     const isPvp = game.mode === 'pvp';
     const team = game.world && game.world._playerTeam === 'enemy' ? 'enemy' : 'ally';
-    const teamSize = (VF.Feel && VF.Feel.ai && VF.Feel.ai.teamSize) || 32;
-    const mapName =
-      (VF.IslandConquestMap && VF.IslandConquestMap.name) ||
-      (game.world && game.world._mapName) ||
-      '荒盆';
+    const teamSize = matchTeamSize();
+    const mapName = matchMapName();
     const enterMatch = function () {
       if (pvpSkipsPrep()) beginMatch();
       else if (game.mode === 'pvp' && VF.Pvp && VF.Pvp.roomCode) {
@@ -1476,7 +1600,20 @@
         openClassSelect();
       },
       onCustomize: function (remainingSec) {
-        openLoadoutCustomizer(remainingSec);
+        if (!isSmallRuntime()) {
+          openLoadoutCustomizer(remainingSec);
+          return;
+        }
+        // Gun game hands out the weapon ladder, so editing the kit there is meaningless.
+        if (VF.GameModes && VF.GameModes.isGg && VF.GameModes.isGg()) {
+          openClassSelect();
+          return;
+        }
+        VF.Arsenal.show({
+          onClose: function () {
+            openSquadIntro(remainingSec);
+          },
+        });
       },
     });
   }
@@ -1488,11 +1625,8 @@
     }
     const isPvp = game.mode === 'pvp';
     const team = game.world && game.world._playerTeam === 'enemy' ? 'enemy' : 'ally';
-    const teamSize = (VF.Feel && VF.Feel.ai && VF.Feel.ai.teamSize) || 32;
-    const mapName =
-      (VF.IslandConquestMap && VF.IslandConquestMap.name) ||
-      (game.world && game.world._mapName) ||
-      '荒盆';
+    const teamSize = matchTeamSize();
+    const mapName = matchMapName();
     VF.UI.openLoadoutCustomize({
       classId: game.playerClass || (game.player && game.player.classId) || 'assault',
       weaponId:
@@ -1542,8 +1676,23 @@
   }
 
   function startPvpMatch(info) {
+    if (info && info.matchMode && VF.GameModes && typeof VF.GameModes.setMode === 'function') {
+      if (info.matchMode !== 'conquest') {
+        if (globalThis.VFEntry && VFEntry.setRuntime) VFEntry.setRuntime('small');
+        VF.GameModes.setMode(info.matchMode);
+        game.matchMode = info.matchMode;
+      } else if (globalThis.VFEntry && VFEntry.setRuntime) {
+        VFEntry.setRuntime('large');
+        game.matchMode = 'conquest';
+      }
+    }
     game.mode = 'pvp';
     game.pvp = info || null;
+    if (isSmallRuntime()) {
+      if (game.pvp) game.pvp.conquest = false;
+      startSmallMatch({ mode: 'pvp', pvp: game.pvp, seed: info && info.seed, matchMode: info && info.matchMode });
+      return;
+    }
     if (game.pvp) game.pvp.conquest = true;
     game.teamLocked = false;
     game.lockedTeam = null;
@@ -1570,6 +1719,8 @@
   function startConquest32() {
     game.mode = 'pve';
     game.pvp = null;
+    game.matchMode = 'conquest';
+    if (globalThis.VFEntry && VFEntry.setRuntime) VFEntry.setRuntime('large');
     game.teamLocked = false;
     game.lockedTeam = null;
     if (game.world) {
@@ -1626,8 +1777,43 @@
       game.mapSeed = seed;
     }
 
-    // No procedural city — always empty terrain/roads + map-kit stamps
-    if (VF.MapEditor && VF.MapEditor.applyMatchMap) {
+    const modeId = currentMatchModeId();
+    const tdm = modeId === 'tdm';
+    const sd = modeId === 'demo';
+    const personalFfa = modeId === 'ffa' && game.mode !== 'pvp';
+    const ffa = modeId === 'ffa' || modeId === 'gungame';
+    const coreArena = modeId === 'core';
+    if (personalFfa && game.world && game.world.generateFfaDistrictMap) {
+      if (game.bases && game.bases.detach) game.bases.detach();
+      game.world.generateFfaDistrictMap(seed);
+      game.world.applyTdmSpawnPoints();
+      game._mapKitLayout = false;
+    } else if (ffa && game.world && game.world.generateFfaMap) {
+      if (game.bases && game.bases.detach) game.bases.detach();
+      game.world.generateFfaMap(seed);
+      game.world.applyTdmSpawnPoints();
+      game._mapKitLayout = false;
+    } else if (tdm && game.world && game.world.generateTdmMap) {
+      if (game.bases && game.bases.detach) game.bases.detach();
+      game.world.generateTdmMap(seed, {
+        heightCap: VF.GameModes && VF.GameModes.param ? VF.GameModes.param('mapHeightCap', 26) : 26,
+      });
+      game.world.applyTdmSpawnPoints();
+      game._mapKitLayout = false;
+    } else if (sd && game.world && game.world.generateSdMap) {
+      if (game.bases && game.bases.detach) game.bases.detach();
+      game.world.generateSdMap(seed, {
+        heightCap: VF.GameModes && VF.GameModes.param ? VF.GameModes.param('mapHeightCap', 26) : 26,
+      });
+      game.world.applyTdmSpawnPoints();
+      game._mapKitLayout = false;
+    } else if (coreArena && game.world && game.world.generateTdmMap) {
+      if (game.bases && game.bases.detach) game.bases.detach();
+      game.world.generateTdmMap(seed, { heightCap: 32 });
+      game.world.applyTdmSpawnPoints();
+      game.world._mapName = '核心街区';
+      game._mapKitLayout = false;
+    } else if (VF.MapEditor && VF.MapEditor.applyMatchMap) {
       VF.MapEditor.applyMatchMap();
     } else if (game.world && game.world.regenerate) {
       game.world.regenerate(seed);
@@ -1641,23 +1827,27 @@
       }
       game.resources.length = 0;
     }
-    seedResources();
-    if (VF.Vehicles) {
-      VF.Vehicles.init(game.scene, game.world);
-      VF.Vehicles.reset(game.world._vehicleSpawns || []);
-      if (VF.Vehicles.setStations) {
-        VF.Vehicles.setStations(game.world._armorRepairStations || []);
+    const smallArena = !!(tdm || sd || ffa || personalFfa || coreArena);
+    if (!smallArena) {
+      seedResources();
+      if (VF.Vehicles) {
+        VF.Vehicles.init(game.scene, game.world);
+        VF.Vehicles.reset(game.world._vehicleSpawns || []);
+        if (VF.Vehicles.setStations) {
+          VF.Vehicles.setStations(game.world._armorRepairStations || []);
+        }
+        game.vehicles = VF.Vehicles;
+        if (VF.VehicleEffects) {
+          VF.VehicleEffects.init(game, VF.Vehicles);
+          VF.VehicleEffects.reset();
+        }
       }
-      game.vehicles = VF.Vehicles;
-      if (VF.VehicleEffects) {
-        VF.VehicleEffects.init(game, VF.Vehicles);
-        VF.VehicleEffects.reset();
-      }
+      game._mapKitLayout = true;
     }
 
     game.mapSeed = seed;
     game._mapReadyForSeed = seed;
-    game._mapKitLayout = true;
+    game._mapReadyForMode = modeId;
     return seed;
   }
 
@@ -1856,6 +2046,9 @@
       game.world.setPlayerTeam(game.pvp.team);
     }
     if (!game.world._playerTeam || !game.world.getSelectedSpawn()) return;
+    if (VF.ZaohuaOnline && typeof VF.ZaohuaOnline.notifyLocalEnter === 'function') {
+      VF.ZaohuaOnline.notifyLocalEnter();
+    }
     // First spawn confirm locks faction for this match (incl. death redeploy)
     game.teamLocked = true;
     game.lockedTeam = game.world._playerTeam;
@@ -1892,8 +2085,9 @@
         game.world.ensureMeshedAround(sp.x, sp.z, 8);
       }
       VF.UI.showHud();
-      game.player.cores = 1;
-      game.player.blocks = 8;
+      const canBuild = !VF.Building.disabledByMode();
+      game.player.cores = canBuild ? 1 : 0;
+      game.player.blocks = canBuild ? 8 : 0;
       game._towerGunArmed = false;
       if (game.skills && game.skills.reset) game.skills.reset();
       game._coinGranted = false;
@@ -1908,7 +2102,9 @@
         VF.Economy.chargeTowerForMatch();
       }
       if (VF.UI && VF.UI.syncWeaponLocks) VF.UI.syncWeaponLocks();
-      if (
+      if (isSmallRuntime()) {
+        startSmallModeRules();
+      } else if (
         (game.mode !== 'pvp' || (game.pvp && game.pvp.conquest)) &&
         VF.Conquest &&
         VF.Conquest.start
@@ -1920,7 +2116,7 @@
       } else if (VF.Conquest && VF.Conquest.stop) {
         VF.Conquest.stop();
       }
-      if (VF.Throwables && VF.Throwables.start) VF.Throwables.start();
+      if (!isSmallRuntime() && VF.Throwables && VF.Throwables.start) VF.Throwables.start();
       if (VF.Audio) {
         VF.Audio.play('confirm');
       }
@@ -1928,7 +2124,7 @@
         VF.Pvp.phase = 'play';
         VF.Pvp._battlefieldEntered = true;
         VF.Pvp.ensureRemoteAvatar(game.scene);
-        if (VF.UI.toast) VF.UI.toast('已进入战场 · 8v8 征服');
+        if (VF.UI.toast && !isSmallRuntime()) VF.UI.toast('已进入战场 · 8v8 征服');
       }
     } catch (err) {
       console.error('[VF] beginMatch', err);
@@ -1948,7 +2144,7 @@
           console.error('[VF] Conquest.start', err2);
         }
       }
-      if (VF.Throwables && VF.Throwables.start) VF.Throwables.start();
+      if (!isSmallRuntime() && VF.Throwables && VF.Throwables.start) VF.Throwables.start();
     }
     const canvas = game.renderer.domElement;
     setTimeout(function () {
@@ -2104,6 +2300,7 @@
     game.lockedTeam = null;
     game._openingTeam = null;
     if (game.player) game.player._cqTicketPending = false;
+    stopSmallModes();
     if (VF.Conquest && VF.Conquest.stop) VF.Conquest.stop();
     if (VF.Throwables && VF.Throwables.stop) VF.Throwables.stop();
     if (game.mode === 'pvp' && VF.Pvp && VF.Pvp.leaveLobby) {
@@ -2229,6 +2426,27 @@
     const dt = rawDt * (game.timeScale != null ? game.timeScale : 1);
 
     const rangeOpen = !!(VF.Range && VF.Range.isOpen);
+
+    if (!rangeOpen && VF.TdmMatch && VF.TdmMatch.active) {
+      VF.TdmMatch.update(dt);
+      if (VF.TdmSpawn && VF.TdmSpawn.update) VF.TdmSpawn.update(dt);
+    }
+    if (!rangeOpen && VF.SdMatch && VF.SdMatch.active) {
+      const sdGuest = !!(VF.SdNet && VF.SdNet.isGuest && VF.SdNet.isGuest());
+      if (VF.SdField && VF.SdField.update) VF.SdField.update(dt);
+      if (!sdGuest) {
+        VF.SdMatch.update(dt);
+        if (VF.SdSpawn && VF.SdSpawn.update) VF.SdSpawn.update(dt);
+      }
+    }
+    if (!rangeOpen && VF.FfaMatch && VF.FfaMatch.active) {
+      VF.FfaMatch.update(dt);
+      if (VF.FfaSpawn && VF.FfaSpawn.update) VF.FfaSpawn.update(dt);
+    }
+    if (!rangeOpen && VF.GgMatch && VF.GgMatch.active) {
+      VF.GgMatch.update(dt);
+      if (VF.FfaSpawn && VF.FfaSpawn.update) VF.FfaSpawn.update(dt);
+    }
 
     // 关卡编辑器（dev）：自由相机 + ghost + 以相机为中心的区块流送
     const editorActive = !!(VF.LevelEditor && VF.LevelEditor.isActive && VF.LevelEditor.isActive());

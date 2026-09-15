@@ -24,6 +24,12 @@
   const SWITCH_BASE_SEC = 0.15;
   const LEGACY_FIRE_RATE_SEC_MAX = 5;
 
+  /** 小型模式赛前倒计时：可以看，不能打。大型战争恒为 false。 */
+  function prepFrozen() {
+    const GM = global.VF.GameModes;
+    return !!(GM && GM.prepFrozen && GM.prepFrozen());
+  }
+
   /** Enemy type → ammo pool */
   const ENEMY_AMMO_TYPE = {
     infantry: 'ar',
@@ -607,6 +613,20 @@
     if (id === 'knife' && global.VF.Gadgets) {
       global.VF.Gadgets.hand = 'melee';
     }
+    this._equipNow(id);
+  };
+
+  /**
+   * 枪械模式 hands out the weapon ladder by kill progression, so the gun is never
+   * bought and the 商城 ownership gate in equip() would reject every rung.
+   * GgMatch calls this on each promotion.
+   */
+  Weapons.prototype.forceEquip = function (id) {
+    if (!WEAPONS[id] || this.current === id) return;
+    this._equipNow(id);
+  };
+
+  Weapons.prototype._equipNow = function (id) {
     if (this.reloading) this._cancelReload();
     this.current = id;
     this.mode = 'weapon';
@@ -720,6 +740,7 @@
 
   Weapons.prototype.tryFire = function () {
     if (this.player && this.player.dead) return;
+    if (prepFrozen()) return;
     if (
       this.player &&
       this.player.vehicleId &&

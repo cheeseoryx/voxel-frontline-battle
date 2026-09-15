@@ -1865,7 +1865,7 @@
         this.camera.updateProjectionMatrix();
         return;
       }
-    } else if (fDown && this._zipCool <= 0) {
+    } else if (fDown && this._zipCool <= 0 && !this._prepFrozen()) {
       const ok = this._tryStartZipline();
       if (!ok) this._zipCool = 0.18;
     }
@@ -1881,10 +1881,12 @@
     if (this._sprintLock > 0) this._sprintLock = Math.max(0, this._sprintLock - dt);
 
     const locomoLocked = this._locomotionLocked();
-    const forward = this.keys['KeyW'] ? 1 : 0;
-    const back = this.keys['KeyS'] ? 1 : 0;
-    const left = this.keys['KeyA'] ? 1 : 0;
-    const right = this.keys['KeyD'] ? 1 : 0;
+    // Prep countdown lets the player look around but not move.
+    const frozen = this._prepFrozen();
+    const forward = !frozen && this.keys['KeyW'] ? 1 : 0;
+    const back = !frozen && this.keys['KeyS'] ? 1 : 0;
+    const left = !frozen && this.keys['KeyA'] ? 1 : 0;
+    const right = !frozen && this.keys['KeyD'] ? 1 : 0;
     this.direction.set(right - left, 0, back - forward);
     if (this.direction.lengthSq() > 0) this.direction.normalize();
     const sin = Math.sin(this.yaw);
@@ -2526,8 +2528,19 @@
     }
   };
 
+  /**
+   * 小型模式赛前倒计时（死斗 / 混战 / 枪械的 prep，爆破的购买回合）：玩家可以
+   * 转头观察战场，但不能移动、冲刺、滑铲或开火。大型战争没有这个阶段，
+   * GameModes.prepFrozen() 在那边恒为 false。
+   */
+  Player.prototype._prepFrozen = function () {
+    const GM = global.VF.GameModes;
+    return !!(GM && GM.prepFrozen && GM.prepFrozen());
+  };
+
   Player.prototype._locomotionLocked = function () {
     if (this.vehicleId || this.zipRide || this.downed || this.dead) return true;
+    if (this._prepFrozen()) return true;
     const skills = global.VF.game && global.VF.game.skills;
     if (skills && skills.isChanneling && skills.isChanneling()) return true;
     return false;

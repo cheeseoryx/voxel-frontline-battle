@@ -64,11 +64,14 @@
     return !!(g && g.mode === 'pvp' && g.pvp && g.pvp.conquest);
   };
 
-  NetSimulation.prototype.isAuthority = function (game) {
-    const g = game || (global.VF && global.VF.game);
-    if (!this.isNetworkConquest(g)) return true;
-    return !!(global.VF.Pvp && global.VF.Pvp.mode === 'host');
-  };
+    NetSimulation.prototype.isAuthority = function (game) {
+      const g = game || (global.VF && global.VF.game);
+      if (global.VF && global.VF.ZaohuaOnline && global.VF.ZaohuaOnline.isPlaying()) {
+        return false;
+      }
+      if (!this.isNetworkConquest(g)) return true;
+      return !!(global.VF.Pvp && global.VF.Pvp.mode === 'host');
+    };
 
   NetSimulation.prototype._send = function (message) {
     if (global.VF.Pvp && global.VF.Pvp._send) global.VF.Pvp._send(message);
@@ -770,7 +773,7 @@
       lastSnapshotAgeMs: this.lastSnapshotAt ? performance.now() - this.lastSnapshotAt : null,
       errors: this.errors.slice(-20),
       transportLimit:
-        'PeerJS mesh is supported only as a small-session prototype; 32v32 requires a dedicated authoritative server or SFU.',
+        'Rooms go through zaohua-platform-sdk; 32v32 still needs an authoritative server snapshot, not a client mesh.',
     };
   };
 

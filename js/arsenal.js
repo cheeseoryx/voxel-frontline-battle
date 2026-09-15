@@ -442,6 +442,7 @@
     selectedId: null,
     _bound: false,
     _preview: null,
+    _onClose: null,
 
     init() {
       if (this._bound) return;
@@ -547,6 +548,7 @@
       if (!node.overlay) return;
       opts = opts || {};
       this.isOpen = true;
+      this._onClose = typeof opts.onClose === 'function' ? opts.onClose : null;
       if (global.VF.UI) global.VF.UI.arsenalOpen = true;
       const requested = slotDef(opts.slot) ? opts.slot : 'primary';
       this.slot = requested;
@@ -597,6 +599,9 @@
         cancelAnimationFrame(this._preview.raf);
         this._preview.raf = 0;
       }
+      const done = this._onClose;
+      this._onClose = null;
+      if (done) done();
     },
 
     setSlot(id) {

@@ -845,6 +845,23 @@
     readTowerDesign: readTowerDesign,
     releaseDesignReservation: releaseDesignReservation,
     listBlockItems: listBlockItems,
+    weaponForSlot: function (slot) {
+      const arsenal = global.VF && global.VF.Arsenal;
+      const items = arsenal && arsenal.getStripItems ? arsenal.getStripItems() : [];
+      const key = slot === 2 ? 'secondary' : 'primary';
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].arsenalSlot === key && items[i].itemId) return items[i].itemId;
+      }
+      return slot === 2 ? 'pistol' : 'ak74';
+    },
+    throwableForSlot: function () {
+      const arsenal = global.VF && global.VF.Arsenal;
+      const items = arsenal && arsenal.getStripItems ? arsenal.getStripItems() : [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].arsenalSlot === 'grenade' && items[i].itemId) return items[i].itemId;
+      }
+      return 'frag';
+    },
     BULK_QTY: BULK_QTY,
     TOWER_BLOCKS: TOWER_BLOCKS,
     TOWER_RULES: TOWER_RULES,

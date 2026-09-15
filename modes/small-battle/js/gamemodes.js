@@ -28,7 +28,7 @@
       tags: ['队伍人数 25', '玩家上限 2', '大地图'],
       desc: '摧毁敌方核心。双方核心各 1000 点结构值，率先拆毁对方核心的队伍获胜。',
       accent: '#e8a050',
-      art: 'assets/mode-core.png',
+      art: 'modes/small-battle/assets/mode-core.png',
       params: {
         teamSize: 25,
         cores: true,
@@ -51,7 +51,7 @@
       tags: ['队伍人数 12', '玩家上限 2', '随机地图'],
       desc: '击杀敌对队伍中的玩家。率先达到得分上限的队伍获胜。',
       accent: '#d8524a',
-      art: 'assets/mode-tdm.png',
+      art: 'modes/small-battle/assets/mode-tdm.png',
       params: {
         // ⑦ 配置参数表
         scoreLimit: 50,
@@ -107,7 +107,7 @@
       tags: ['队伍人数 5', '单命制', 'A/B 包点'],
       desc: '攻方安装并引爆炸弹，守方阻止或拆除。单命制回合对抗，先赢 7 回合获胜（BO13）。',
       accent: '#c9a24b',
-      art: 'assets/mode-demo.png',
+      art: 'modes/small-battle/assets/mode-demo.png',
       params: {
         // 阵营与人数
         teamSize: 5,
@@ -176,7 +176,7 @@
       tags: ['玩家数 8', '无队伍', '个人排名'],
       desc: '所有人打所有人，没有队友。率先达到 30 杀，或时限内击杀最多者获胜。',
       accent: '#5ad2a0',
-      art: 'assets/mode-ffa.png',
+      art: 'modes/small-battle/assets/mode-ffa.png',
       params: {
         // 基础规则（文档第十部分）
         combatants: 8,
@@ -239,7 +239,7 @@
       tags: ['玩家数 8', '无队伍', '武器进阶'],
       desc: '所有人从同一把武器开始，每击杀 1 人升一级武器。最先用最后一把武器完成击杀者获胜。',
       accent: '#8f7bd8',
-      art: 'assets/mode-gun.png',
+      art: 'modes/small-battle/assets/mode-gun.png',
       params: {
         // 基础规则（文档 2.1 / 八）
         combatants: 8,

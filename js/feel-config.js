@@ -189,6 +189,25 @@
     skipHoldSec: 1.2,
     medicListRange: 180,
     bleedSlowMul: 0.5
+  },
+
+  // 死斗连杀奖励召唤的空袭。battlefield-events 没读到就退回内置默认值，
+  // 表现是弹着点偏小、杀伤半径偏窄。
+  airStrike: {
+    size: 2.1,
+    sizeVar: 0.65,
+    stemH: 17,
+    capR: 2.5,
+    ringR: 3.4,
+    life: 2.8,
+    dust: 1,
+    dustSize: 1,
+    smoke: 1,
+    carveR: 4.5,
+    breakMax: 8,
+    damageR: 6.2,
+    shake: 0.05,
+    shakeReach: 42
   }
 };
 

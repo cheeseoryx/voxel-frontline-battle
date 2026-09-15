@@ -40,7 +40,7 @@ function request(relative) {
 function checkSources() {
   const index = read('index.html');
   const main = read('js/main.js');
-  const kubee = read('js/kubee-bridge.js');
+  const entry = read('js/game-entry.js');
 
   ok(/<div\s+id="start-overlay"(?![^>]*\bhidden\b)[^>]*>/.test(index), 'default entry overlay must be visible');
   ok(/<div\s+id="mode-overlay"\s+class="hidden"/.test(index), 'mode overlay must start hidden');
@@ -48,14 +48,14 @@ function checkSources() {
   ok(/id="startup-critical-css"/.test(index), 'critical startup style is missing');
   ok(/\.hidden\s*\{\s*display:\s*none\s*!important/.test(index), 'critical hidden rule is missing');
   ok(/#start-overlay\s*\{[^}]*position:\s*fixed[^}]*inset:\s*0/s.test(index), 'entry overlay is not fail-closed');
+  ok(!/peerjs/.test(index), 'PeerJS must not be loaded');
+  ok(!/kubee-bridge/.test(index), 'Kubee bridge must not be loaded');
+  ok(!/modes\/small-battle\/js\/pvp\.js/.test(index), 'small pvp fork must not be loaded');
+  ok(!/location\.(assign|replace)\s*\(/.test(entry), 'entry must stay on one document');
 
   ok(!/forceRefresh/.test(main), 'forceRefresh must not select a startup mode');
   ok(!/URLSearchParams|location\.(?:search|hash)/.test(main), 'main bootstrap must not infer a mode from arbitrary URL parameters');
   ok(!/localStorage|sessionStorage/.test(main), 'main bootstrap must not restore a match from browser storage');
-  ok(
-    /[?&]kubee=1/.test(kubee) && /global\.parent !== global/.test(kubee),
-    'the explicit Kubee embed route is missing'
-  );
   const soldier = read('js/soldier.js');
   ok(
     /const enemyTint = team === 'enemy'/.test(soldier) &&

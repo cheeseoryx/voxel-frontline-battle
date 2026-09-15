@@ -380,6 +380,7 @@
       }
       if (this.syncTeamSwitchButton) this.syncTeamSwitchButton();
       if (this.syncWeaponLocks) this.syncWeaponLocks();
+      this.syncBuildHud();
       if (this.syncWeaponStack) this.syncWeaponStack();
       if (global.VF && global.VF.syncGameBackBtn) global.VF.syncGameBackBtn();
     },
@@ -463,6 +464,18 @@
       const show = !!draining || v < 40;
       row.classList.toggle('hidden', !show);
       if (fill) fill.style.transform = 'scaleX(' + (v / m) + ')';
+    },
+
+    /**
+     * 部署核 / 掩体建材 only exist where building does, i.e. 核心攻防 and the
+     * large war. Every other mode refuses to build, so the counters are dead
+     * chrome there.
+     */
+    syncBuildHud() {
+      const res = document.getElementById('resources');
+      if (!res) return;
+      const building = !(global.VF.Building && global.VF.Building.disabledByMode());
+      res.classList.toggle('hidden', !building);
     },
 
     updateResources(cores, blocks) {
@@ -1217,7 +1230,22 @@
       if (this.els.dashHud) this.els.dashHud.classList.add('hidden');
     },
 
+    /**
+     * 死斗 / 爆破 / 混战 / 枪械 drive #timer from their own round or bomb clock.
+     * They claim it here so the generic wave / PVP match-time writer yields,
+     * otherwise the two fight and the readout flickers between count-up and
+     * countdown depending on which one wrote last.
+     */
+    claimClock(owner) {
+      this._clockOwner = owner;
+    },
+
+    releaseClock(owner) {
+      if (this._clockOwner === owner) this._clockOwner = null;
+    },
+
     updateWave(wave, seconds) {
+      if (this._clockOwner) return;
       const sec = Math.floor(seconds);
       if (wave === this._cachedWave && sec === this._cachedWaveSec) return;
       this._cachedWave = wave;
@@ -2913,8 +2941,16 @@
           if (self.toast) self.toast('设置：右上角可切换音效 · F10 打开参数调节');
         } else if (act === 'conquest32') {
           self.closeModeSelect();
-          if (global.VF.Pvp && typeof global.VF.Pvp.quickMatch === 'function') {
-            global.VF.Pvp.quickMatch();
+          const pvp = global.VF.Pvp;
+          if (pvp && typeof pvp.quickMatch === 'function') {
+            // 平台房间服务不可用时 SDK 包装返回 false，退回本地大战；否则模式选择
+            // 已经关了，人就卡在空场景里。只认显式的 false —— 未装 SDK 包装时
+            // pvp 自己的 quickMatch 返回 undefined，那条路不该重复开局。
+            Promise.resolve(pvp.quickMatch()).then(function (matched) {
+              if (matched === false && typeof global.VF.startConquest32 === 'function') {
+                global.VF.startConquest32();
+              }
+            });
           } else if (self.toast) {
             self.toast('联机模块未就绪');
           }
@@ -2977,7 +3013,6 @@
       if (!this.serverBrowserOpen) return;
       const pvp = global.VF && global.VF.Pvp;
       let servers = pvp && pvp.listServers ? pvp.listServers() : [];
-      if (global.VFEntry) servers = servers.concat(global.VFEntry.listSmallServers());
       const searchEl = document.getElementById('server-search-input');
       const query = searchEl ? String(searchEl.value || '').trim().toLowerCase() : '';
       const showOfficial = this._serverFilterChecked(

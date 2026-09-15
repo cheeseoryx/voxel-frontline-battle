@@ -2421,4 +2421,13 @@
   };
 
   VF.Throwables = Api;
+
+  /**
+   * 投掷物名录：装备卡按 id 查中文名，生涯统计靠 key 在不在判断一次击杀算不算
+   * 投掷物。只暴露这两处真正会读的字段。
+   */
+  VF.THROWABLE_CATALOG = Object.keys(DEFS).reduce(function (out, id) {
+    out[id] = { id: id, name: NAMES[id] || id, nameZh: NAMES[id] || id };
+    return out;
+  }, {});
 })(typeof window !== 'undefined' ? window : globalThis);

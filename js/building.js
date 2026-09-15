@@ -98,7 +98,24 @@
     return Math.round(yaw / step) * step;
   };
 
+  /**
+   * 死斗 / 爆破 / 混战 / 枪械 are pure gunplay: no cover walls, no custom towers.
+   * 核心攻防 and the large war leave building on.
+   */
+  Building.disabledByMode = function () {
+    const GM = global.VF.GameModes;
+    return !!(GM && GM.param && GM.param('building', true) === false);
+  };
+
+  Building.prototype.isEnabled = function () {
+    return !Building.disabledByMode();
+  };
+
   Building.prototype.enterMode = function (type) {
+    if (!this.isEnabled()) {
+      if (global.VF.UI && global.VF.UI.toast) global.VF.UI.toast('本模式禁用建造');
+      return;
+    }
     this.buildType = type;
     this.active = true;
     this.placeYaw = this._snapYaw(this.player.yaw);

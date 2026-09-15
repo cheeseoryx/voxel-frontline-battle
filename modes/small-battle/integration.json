@@ -1,6 +1,5 @@
 {
   "name": "小型战斗",
-  "entry": "index.html",
   "sharedAssets": [
     "cover.png",
     "fonts/zpix.ttf",
@@ -53,6 +52,5 @@
     "sfx/throwables/stun_sub.ogg",
     "sfx/throwables/throw_whoosh.ogg"
   ],
-  "storagePrefix": "vf_small_",
-  "peerPrefix": "vf-small-"
+  "storagePrefix": "vf_small_"
 }

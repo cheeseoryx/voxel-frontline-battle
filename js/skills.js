@@ -247,11 +247,18 @@
     return null;
   };
 
+  /** 小型模式赛前倒计时：技能和移动一样冻结。大型战争没有这个阶段。 */
+  Skills.prototype._prepFrozen = function () {
+    const GM = global.VF.GameModes;
+    return !!(GM && GM.prepFrozen && GM.prepFrozen());
+  };
+
   Skills.prototype._canDash = function () {
     if (!this.player || !this.player.locked || this.player.dead || this.player.downed) {
       return false;
     }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
+    if (this._prepFrozen()) return false;
     if (this.player.zipRide) return false;
     if (this.player.prone || this.player.slide || this.player.vault) return false;
     if (this.dash) return false;
@@ -263,6 +270,7 @@
       return false;
     }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
+    if (this._prepFrozen()) return false;
     if (this.player.classId !== VANGUARD.id) return false;
     return true;
   };
@@ -272,6 +280,7 @@
       return false;
     }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
+    if (this._prepFrozen()) return false;
     if (this.player.classId !== MEDIC.id) return false;
     return true;
   };
@@ -281,6 +290,7 @@
       return false;
     }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
+    if (this._prepFrozen()) return false;
     if (this.player.classId !== GHOST.id) return false;
     return true;
   };
@@ -756,6 +766,7 @@
       return false;
     }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
+    if (this._prepFrozen()) return false;
     if (this.player.classId !== JUGGERNAUT.id) return false;
     return true;
   };
@@ -1032,6 +1043,7 @@
       return false;
     }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
+    if (this._prepFrozen()) return false;
     if (this.player.classId !== RAIDER.id) return false;
     return true;
   };
@@ -2738,6 +2750,7 @@
       return false;
     }
     if (global.VF.UI && global.VF.UI.isMenuOpen && global.VF.UI.isMenuOpen()) return false;
+    if (this._prepFrozen()) return false;
     if (this.player.classId !== ENGINEER.id) return false;
     return true;
   };

@@ -1,12 +1,11 @@
 /**
- * pvp.js — 8v8 human rooms + shared battlefield sync
- * Transport: localStorage bus (same PC) + PeerJS (optional).
- * Host creates and enters play immediately; joiners drop into the live match.
+ * pvp.js — 8v8 human rooms + shared battlefield sync.
+ * Room transport is zaohua-platform-sdk (VF.ZaohuaOnline). This module keeps
+ * match seating, roster, and battlefield enter/leave.
  */
 (function (global) {
   'use strict';
 
-  const PEER_PREFIX = 'vf1v1';
   const BUS_PREFIX = 'vf_pvp_bus_';
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const BUS_TTL_MS = 10000;
@@ -14,17 +13,6 @@
   const HUMAN_PER_TEAM = 8;
   const TEAM_SWITCH_COOLDOWN_SEC = 60;
   const TEAM_SWITCH_MAX = 3;
-  const PEER_OPTS = {
-    debug: 0,
-    secure: true,
-    config: {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:global.stun.twilio.com:3478' },
-      ],
-    },
-  };
-  const CONN_OPTS = { reliable: true, serialization: 'json' };
 
   function randomCode(len) {
     len = len || 6;
@@ -273,191 +261,11 @@
         });
       }
 
-      this._setupKubeeBridge();
     },
 
-    /** Kubee iframe bridge (本地开发包 threejs-3d-multiplayer) */
-    _setupKubeeBridge() {
-      if (!global.VF_KUBEE || !global.VF_KUBEE.active) return;
-      if (this._kubeeBound) return;
-      this._kubeeBound = true;
-      this._kubee = true;
-      global.VF_KUBEE.onNet((msg) => this._onKubeeMessage(msg));
-      if (this._setStatus) this._setStatus('Kubee 联机模式 · 等待房间分配…');
-    },
 
-    _onKubeeMessage(msg) {
-      if (!msg || typeof msg !== 'object') return;
-      if (msg.type === 'kubee-lobby') {
-        this._applyKubeeLobby(msg);
-        return;
-      }
-      if (msg.type === 'kubee-welcome') {
-        if (msg.playerId) this._busClientId = 'k_' + msg.playerId;
-        return;
-      }
-      if (msg.type === 'kubee-net') {
-        const payload = msg.payload;
-        if (payload && payload.type === 'vf' && payload.payload) {
-          this._onData(payload.payload);
-        } else if (payload) {
-          this._onData(payload);
-        }
-        return;
-      }
-      if (msg.type === 'kubee-disconnected') {
-        this.remotePresent = false;
-        this.connected = false;
-        this._updateStatusFromFlags();
-        this._refreshLobby();
-      }
-    },
 
-    _applyKubeeLobby(msg) {
-      const players = msg.players || [];
-      const others = players.filter((p) => p.id && p.id !== msg.playerId);
-      const kubeePaired = others.length > 0;
 
-      let role = null;
-      if (kubeePaired) {
-        role = msg.role === 'guest' ? 'guest' : msg.role === 'host' ? 'host' : null;
-      }
-      if (!role) role = this._electKubeeRoleFromBus();
-
-      this._destroyed = false;
-      this._kubee = true;
-      if (msg.playerId) this._busClientId = this._normalizeNetId(msg.playerId);
-      this.mode = role;
-      this.skipSpawnGate = true;
-      this.phase =
-        this.phase === 'play' || this.phase === 'prep' || this.phase === 'spawnWait'
-          ? this.phase
-          : 'prep';
-      this.roomCode = 'KUBEE';
-      this._hideCover();
-      if (this.els.lobbyOverlay) this.els.lobbyOverlay.classList.add('hidden');
-      if (this.els.copyBtn) this.els.copyBtn.classList.add('hidden');
-
-      this._startBus();
-      if (role === 'host') {
-        if (!this._rosterTeamOf(this._busClientId)) {
-          this._ensureLocalRosterTeam();
-        }
-        if (!this._lobbyDone) this._launchInstantMatch();
-        const live = Object.create(null);
-        live[this._busClientId] = 1;
-        for (let i = 0; i < players.length; i++) {
-          const pid = this._normalizeNetId(players[i] && players[i].id);
-          if (pid && pid !== this._busClientId) {
-            live[pid] = 1;
-            this._hostAssignPlayer(pid);
-          }
-        }
-        const listed = (this.humanRoster && this.humanRoster.ally || []).concat(
-          (this.humanRoster && this.humanRoster.enemy) || []
-        );
-        for (let i = 0; i < listed.length; i++) {
-          if (!live[listed[i]]) this._hostRemovePlayer(listed[i]);
-        }
-      } else if (!this._lobbyDone) {
-        this._busPublish();
-        this._ingestBus();
-        if (kubeePaired) this._send({ type: 'joinRequest', fromId: this._busClientId });
-      }
-
-      if (kubeePaired) {
-        this.remotePresent = true;
-        this.connected = true;
-      }
-      this._send({
-        type: 'hello',
-        role: this.mode,
-        ready: this.localReady,
-        wallTime: Date.now(),
-      });
-    },
-
-    /**
-     * First claimer becomes host; second becomes guest.
-     * Shared localStorage lock so two tabs on one PC never both stay host.
-     */
-    _electKubeeRoleFromBus() {
-      const LOCK_KEY = 'vf_kubee_seat';
-      const now = Date.now();
-      let seat = null;
-      try {
-        seat = JSON.parse(localStorage.getItem(LOCK_KEY) || 'null');
-      } catch (_) {
-        seat = null;
-      }
-      const seatFresh = !!(seat && seat.hostId && now - (seat.ts || 0) < BUS_TTL_MS);
-      if (!seatFresh) {
-        seat = { hostId: this._busClientId, ts: now };
-        try {
-          localStorage.setItem(LOCK_KEY, JSON.stringify(seat));
-        } catch (_) {}
-        try {
-          seat = JSON.parse(localStorage.getItem(LOCK_KEY) || 'null') || seat;
-        } catch (_) {}
-      }
-      if (seat && seat.hostId === this._busClientId) {
-        seat.ts = now;
-        try {
-          localStorage.setItem(LOCK_KEY, JSON.stringify(seat));
-        } catch (_) {}
-        return 'host';
-      }
-      return 'guest';
-    },
-
-    _isKubee() {
-      return !!(this._kubee || (global.VF_KUBEE && global.VF_KUBEE.active));
-    },
-
-    /** Alias used by AI / HUD — same as mode (host|guest) */
-    get role() {
-      return this.mode;
-    },
-
-    /** Kubee: enter lobby using role from shell / local bus. */
-    _enterKubeeLobby() {
-      this._destroyed = false;
-      this._kubee = true;
-      this.roomCode = 'KUBEE';
-      this.skipSpawnGate = true;
-      this.localReady = false;
-      this.remoteReady = false;
-      this.remotePresent = false;
-      this.connected = false;
-      this._pendingEnter = null;
-      this._cancelledStartSeed = null;
-      this._pendingPrepCancel = null;
-      this._lastPrepCancelAt = 0;
-      this._lastNetCommandIds = null;
-      this.spawnReadyLocal = false;
-      this.spawnReadyRemote = false;
-      this.mode = this._electKubeeRoleFromBus();
-      this._hideCover();
-      if (this.els.lobbyOverlay) this.els.lobbyOverlay.classList.add('hidden');
-      if (this.els.copyBtn) this.els.copyBtn.classList.add('hidden');
-      this._startBus();
-      if (this.mode === 'host') {
-        if (!this._rosterTeamOf(this._busClientId)) {
-          this._ensureLocalRosterTeam();
-        }
-        if (!this._lobbyDone) this._launchInstantMatch();
-      } else if (!this._lobbyDone) {
-        this._busPublish();
-        this._ingestBus();
-        this._send({ type: 'joinRequest', fromId: this._busClientId });
-        this._toast('正在加入对局…');
-      }
-      if (global.VF_KUBEE && global.VF_KUBEE.lobby) {
-        this._applyKubeeLobby(global.VF_KUBEE.lobby);
-      } else if (global.VF_KUBEE) {
-        global.VF_KUBEE.pingParent();
-      }
-    },
 
     /** Re-broadcast lobby presence (used when backing out of class select). */
     _sendLobbySync() {
@@ -485,9 +293,6 @@
       if (o) o.classList.remove('hidden');
     },
 
-    _ensurePeerJs() {
-      return typeof Peer !== 'undefined';
-    },
 
     _busKey() {
       return BUS_PREFIX + (this.roomCode || '');
@@ -534,55 +339,7 @@
     },
 
     listServers() {
-      const out = [];
-      const now = Date.now();
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (!key || key.indexOf(BUS_PREFIX) !== 0) continue;
-          const suffix = key.slice(BUS_PREFIX.length);
-          if (!suffix || /^(builds_|core_|dead_|dmg_|net_|netcmd_)/.test(suffix)) continue;
-          let state = null;
-          try {
-            state = JSON.parse(localStorage.getItem(key) || 'null');
-          } catch (_) {
-            state = null;
-          }
-          if (!state || !state.code || !state.host) continue;
-          if (now - (state.host.ts || 0) >= BUS_TTL_MS) continue;
-          const guestAlive = !!(
-            state.guest &&
-            now - (state.guest.ts || 0) < BUS_TTL_MS
-          );
-          const counts = rosterCounts(state.roster);
-          const listedHumans = Math.max(
-            counts.ally + counts.enemy,
-            1 + (guestAlive ? 1 : 0)
-          );
-          out.push({
-            code: String(state.code),
-            name:
-              (state.server && state.server.name) ||
-              '社区对战服务器 [' + String(state.code) + ']',
-            map: (state.server && state.server.map) || '荒盆',
-            mode: (state.server && state.server.mode) || 'conquest',
-            modeLabel: (state.server && state.server.modeLabel) || '征服',
-            size: HUMAN_CAP,
-            sizeLabel: '8 v 8',
-            players: Math.min(HUMAN_CAP, listedHumans),
-            capacity: HUMAN_CAP,
-            ping: Math.max(1, Math.min(999, now - (state.host.ts || now))),
-            official: false,
-            password: false,
-            phase: state.phase || 'play',
-            createdAt: (state.server && state.server.createdAt) || state.ts || now,
-          });
-        }
-      } catch (_) {}
-      out.sort(function (a, b) {
-        return b.createdAt - a.createdAt;
-      });
-      return out;
+      return [];
     },
 
     isServerJoinable(server) {
@@ -598,30 +355,7 @@
     },
 
     quickMatch() {
-      if (this._quickBusy) return;
-      this._quickBusy = true;
-      const self = this;
-      setTimeout(function () {
-        self._quickBusy = false;
-      }, 1400);
-      if (this._isKubee()) {
-        this._enterKubeeLobby();
-        return;
-      }
-      let best = null;
-      try {
-        best = pickBestJoinableServer(this.listServers());
-      } catch (_) {
-        best = null;
-      }
-      if (best && best.code) {
-        this._toast('正在加入 ' + (best.name || best.code));
-        if (this.joinRoom(best.code, { silentFail: true }) !== false) return;
-        this._toast('房间无法加入 · 正在创建匹配房间');
-      } else {
-        this._toast('未找到可加入房间 · 正在创建匹配房间');
-      }
-      this.createRoom({ quick: true });
+      this._toast('联机需要在造化预览或平台中运行');
     },
 
     _writeBus(state) {
@@ -630,29 +364,7 @@
       } catch (_) {}
     },
 
-    _startBus() {
-      this._stopBus();
-      this._onStorage = (e) => {
-        if (!e) return;
-        if (e.key === this._busKey()) this._ingestBus();
-        if (e.key === this._dmgKey()) this._pollDamageBus();
-        if (e.key === this._buildLogKey()) this._pollBuildBus();
-        if (e.key === this._netBusRemoteKey()) this._pollNetBus();
-        if (e.key === this._netCommandBusRemoteKey()) {
-          this._pollNetCommandBus();
-        }
-      };
-      window.addEventListener('storage', this._onStorage);
-      this._busTimer = setInterval(() => {
-        if (this._destroyed || !this.roomCode) return;
-        this._busPublish();
-        this._ingestBus();
-        this._pollDamageBus();
-        this._pollBuildBus();
-      }, 120);
-      this._busPublish();
-      this._ingestBus();
-    },
+    _startBus() {},
 
     _stopBus() {
       if (this._busTimer) {
@@ -780,30 +492,6 @@
       if (!state) return;
       const now = Date.now();
 
-      // Kubee same-PC: if two tabs both claimed host, demote the later id to guest
-      if (
-        this._isKubee() &&
-        !this._lobbyDone &&
-        this.phase === 'lobby' &&
-        this.mode === 'host' &&
-        state.host &&
-        state.host.id &&
-        state.host.id !== this._busClientId &&
-        now - (state.host.ts || 0) < BUS_TTL_MS
-      ) {
-        if (String(this._busClientId) > String(state.host.id)) {
-          this.mode = 'guest';
-          try {
-            localStorage.setItem(
-              'vf_kubee_seat',
-              JSON.stringify({ hostId: state.host.id, ts: now })
-            );
-          } catch (_) {}
-          this._openLobbyUI();
-          this._busPublish();
-        }
-      }
-
       const other = this.mode === 'host' ? state.guest : state.host;
       const otherAlive = !!(other && now - (other.ts || 0) < BUS_TTL_MS);
       const peerUp = !!(this.conn && this.conn.open);
@@ -898,7 +586,6 @@
         if (
           this.mode === 'guest' &&
           this._lobbyDone &&
-          !this._isKubee() &&
           (this.phase === 'play' || this.phase === 'prep')
         ) {
           this._toast('房主已离开 · 对局结束');
@@ -1039,10 +726,6 @@
     },
 
     openJoin() {
-      if (this._isKubee()) {
-        this._enterKubeeLobby();
-        return;
-      }
       this._hideCover();
       if (this.els.joinErr) this.els.joinErr.textContent = '';
       if (this.els.joinCode) this.els.joinCode.value = '';
@@ -1059,197 +742,15 @@
 
     createRoom(opts) {
       opts = opts || {};
-      if (this._isKubee()) {
-        this._enterKubeeLobby();
-        return;
-      }
-      this.destroySession();
-      this._destroyed = false;
-      this.mode = 'host';
-      this.skipSpawnGate = true;
-      this.humanRoster = emptyRoster();
-      this._ensureLocalRosterTeam();
-      this.localReady = false;
-      this.remoteReady = false;
-      this.remotePresent = false;
-      this.connected = false;
-      this._battlefieldEntered = false;
-      this._pendingEnter = null;
-      this._cancelledStartSeed = null;
-      this._pendingPrepCancel = null;
-      this._lastPrepCancelAt = 0;
-      this._lastNetCommandIds = null;
-      this._teamSwitchAt = 0;
-      this._teamSwitchCount = 0;
-      this.spawnReadyLocal = false;
-      this.spawnReadyRemote = false;
-      this.roomCode = randomCode(6);
-      this._serverInfo = {
-        name: (opts.quick ? '匹配房间 [' : '社区对战服务器 [') + this.roomCode + ']',
-        map: '荒盆',
-        mode: 'conquest',
-        modeLabel: opts.quick ? '快速匹配' : '征服',
-        createdAt: Date.now(),
-        source: opts.quick ? 'quick' : 'create',
-      };
-      this._hideCover();
-      if (this.els.lobbyOverlay) this.els.lobbyOverlay.classList.add('hidden');
-      this._startBus();
-      this._toast(opts.quick ? '匹配房间已创建 · 正在进入战场' : '房间已创建 · 正在进入战场');
-      this._launchInstantMatch();
-
-      if (!this._ensurePeerJs()) return;
-
-      const peerId = PEER_PREFIX + this.roomCode;
-      try {
-        this.peer = new Peer(peerId, PEER_OPTS);
-      } catch (_) {
-        return;
-      }
-
-      this.peer.on('error', (err) => {
-        const msg = (err && err.type) || (err && err.message) || 'error';
-        if (msg === 'unavailable-id') return;
-      });
-      this.peer.on('connection', (conn) => {
-        if (this.conn && this.conn.open) {
-          conn.close();
-          return;
-        }
-        this._bindConn(conn);
-      });
+      this._toast('联机需要在造化预览或平台中运行');
     },
 
     joinRoom(codeOverride, opts) {
       opts = opts || {};
-      if (this._isKubee()) {
-        this._enterKubeeLobby();
-        return true;
-      }
-      const raw =
-        codeOverride != null && String(codeOverride).length
-          ? String(codeOverride)
-          : (this.els.joinCode && this.els.joinCode.value) || '';
-      const code = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      if (code.length < 4) {
-        if (this.els.joinErr) this.els.joinErr.textContent = '请输入有效房间码';
-        return false;
-      }
-      if (this.els.joinCode) this.els.joinCode.value = code;
-      if (this.els.joinErr) this.els.joinErr.textContent = '';
-
-      this.destroySession();
-      this._destroyed = false;
-      this.mode = 'guest';
-      this.skipSpawnGate = true;
-      this.roomCode = code;
-      this.humanRoster = emptyRoster();
-      this.localReady = false;
-      this.remoteReady = false;
-      this.remotePresent = false;
-      this.connected = false;
-      this._battlefieldEntered = false;
-      this._pendingStart = null;
-      this._pendingEnter = null;
-      this._cancelledStartSeed = null;
-      this._pendingPrepCancel = null;
-      this._lastPrepCancelAt = 0;
-      this._lastNetCommandIds = null;
-      this._teamSwitchAt = 0;
-      this._teamSwitchCount = 0;
-      this.spawnReadyLocal = false;
-      this.spawnReadyRemote = false;
-
-      if (this.els.joinOverlay) this.els.joinOverlay.classList.add('hidden');
-      if (this.els.lobbyOverlay) this.els.lobbyOverlay.classList.add('hidden');
-      this._hideCover();
-      this._startBus();
-
-      const bus = this._readBus();
-      const hostAlive = !!(
-        bus &&
-        bus.host &&
-        Date.now() - (bus.host.ts || 0) < BUS_TTL_MS
-      );
-      if (!hostAlive) {
-        this._toast('房间不存在或已关闭');
-        this.leaveLobby({ silent: !!opts.silentFail });
-        return false;
-      }
-      const listed = {
-        code: code,
-        players: Math.max(
-          rosterCounts(bus.roster).ally + rosterCounts(bus.roster).enemy,
-          1
-        ),
-        capacity: HUMAN_CAP,
-        phase: bus.phase || 'play',
-      };
-      if (!isServerJoinable(listed)) {
-        this._toast('房间已满或不可加入');
-        this.leaveLobby({ silent: !!opts.silentFail });
-        return false;
-      }
-      this.remotePresent = true;
-      this.connected = true;
-      this.matchSeed =
-        (bus.start && bus.start.seed) || bus.seed || this.matchSeed;
-      this._syncRosterFromBus(bus);
-      this._busPublish();
-      this._send({ type: 'joinRequest', fromId: this._busClientId });
-      if (this._rosterTeamOf(this._busClientId)) {
-        this._beginMatchFromNet(bus.start || { seed: this.matchSeed });
-      } else {
-        this._toast('正在加入对局…');
-      }
-
-      if (this._ensurePeerJs()) {
-        try {
-          this.peer = new Peer(PEER_OPTS);
-        } catch (_) {
-          return true;
-        }
-        this.peer.on('open', () => {
-          try {
-            this._bindConn(this.peer.connect(PEER_PREFIX + code, CONN_OPTS));
-          } catch (_) {}
-        });
-      }
-      return true;
+      this._toast('联机需要在造化预览或平台中运行');
+      return false;
     },
 
-    _bindConn(conn) {
-      if (!conn) return;
-      if (this.conn && this.conn !== conn) {
-        try {
-          this.conn.close();
-        } catch (_) {}
-      }
-      this.conn = conn;
-      const onOpen = () => {
-        this.connected = true;
-        this.remotePresent = true;
-        this._send({
-          type: 'hello',
-          role: this.mode,
-          ready: this.localReady,
-          wallTime: Date.now(),
-        });
-        if (this.mode === 'guest') {
-          this._send({ type: 'joinRequest' });
-        }
-        this._busPublish();
-        this._refreshLobby();
-      };
-      if (conn.open) onOpen();
-      else conn.on('open', onOpen);
-      conn.on('data', (data) => this._onData(data));
-      conn.on('close', () => {
-        if (this.conn !== conn) return;
-        this.conn = null;
-        this._ingestBus();
-      });
-    },
 
     _onData(data) {
       if (typeof data === 'string') {
@@ -1513,12 +1014,6 @@
           this.conn.send(obj);
         } catch (_) {}
       }
-      // Kubee room relay (本地开发包)
-      if (this._isKubee() && global.VF_KUBEE && global.VF_KUBEE.send) {
-        try {
-          global.VF_KUBEE.send(obj);
-        } catch (_) {}
-      }
       if (
         this.roomCode &&
         obj &&
@@ -1633,11 +1128,7 @@
     },
 
     _linkOk() {
-      return !!(
-        this.remotePresent ||
-        (this.conn && this.conn.open) ||
-        (this._isKubee() && this.remotePresent)
-      );
+      return !!this.remotePresent;
     },
 
     hostStartMatch() {
@@ -1691,6 +1182,17 @@
           ? (data && data.hostTeam) || 'ally'
           : (data && data.guestTeam) || 'enemy');
       this.localTeam = team;
+      const matchMode = (data && data.matchMode) || (this._quickPending && this._quickPending.mode) || null;
+      if (matchMode && matchMode !== 'conquest') {
+        if (global.VFEntry && typeof global.VFEntry.setRuntime === 'function') {
+          global.VFEntry.setRuntime('small');
+        }
+        if (global.VF && global.VF.GameModes && typeof global.VF.GameModes.setMode === 'function') {
+          global.VF.GameModes.setMode(matchMode);
+        }
+      } else if (matchMode === 'conquest' && global.VFEntry && typeof global.VFEntry.setRuntime === 'function') {
+        global.VFEntry.setRuntime('large');
+      }
       if (typeof this._onMatchStart === 'function') {
         this._onMatchStart({
           mode: 'pvp',
@@ -1699,6 +1201,7 @@
           seed: (data && data.seed) || this.matchSeed,
           team: team,
           isHost: isHost,
+          matchMode: matchMode,
         });
       }
       this._busPublish();
@@ -3116,11 +2619,7 @@
       try {
         if (this.conn) this.conn.close();
       } catch (_) {}
-      try {
-        if (this.peer) this.peer.destroy();
-      } catch (_) {}
       this.conn = null;
-      this.peer = null;
       this.connected = false;
       this.remotePresent = false;
       this.localReady = false;
@@ -3153,7 +2652,6 @@
     _normalizeNetId(id) {
       if (id == null || id === '') return null;
       const s = String(id);
-      if (this._isKubee() && s.indexOf('k_') !== 0) return 'k_' + s;
       return s;
     },
 
@@ -3179,6 +2677,24 @@
 
     getHumanCounts() {
       return rosterCounts(this.humanRoster || emptyRoster());
+    },
+
+    /**
+     * 小型模式按人头凑满编制，真人占掉的位置不能再塞 AI。teamless 模式里对端
+     * 一律算红方，否则棋盘会被劈成两支军队。ffa-spawn / tdm-spawn 调用。
+     */
+    remoteHumanSlots(team) {
+      if (!this.quickSession) return 0;
+      const teamless = !!(
+        global.VF.GameModes &&
+        global.VF.GameModes.isTeamless &&
+        global.VF.GameModes.isTeamless()
+      );
+      const remoteTeam = teamless ? 'enemy' : this.mode === 'host' ? 'enemy' : 'ally';
+      if (team && team !== remoteTeam) return 0;
+      const counts = this.getHumanCounts();
+      const remote = (counts.ally || 0) + (counts.enemy || 0) - 1;
+      return Math.max(0, remote);
     },
 
     _syncRosterFromBus(bus) {
@@ -3256,7 +2772,7 @@
     },
 
     _hostReconcilePresence(state, now) {
-      if (this.mode !== 'host' || this._isKubee()) return;
+      if (this.mode !== 'host') return;
       const guest = state && state.guest;
       const guestAlive = !!(guest && now - (guest.ts || 0) < BUS_TTL_MS && guest.id);
       if (guestAlive) {

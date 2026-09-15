@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="styles/frontline-ui.css?v=3" />
   <link rel="stylesheet" href="styles/preview-fidelity.css?v=original-art1" />
   <link rel="stylesheet" href="styles/squad-ui.css?v=2" />
+  <link rel="stylesheet" href="styles/small-modes.css?v=spa2" />
 </head>
 <body data-game-runtime="large">
   <div id="throw-flash" aria-hidden="true"></div>
@@ -307,6 +308,103 @@
   </div>
 
   <!-- Always-available back (top-left); shown in match / hub / range -->
+<div id="tdm-result" class="tdm-result hidden" role="dialog" aria-modal="true" aria-labelledby="tdm-result-title">
+    <div class="tdm-result-panel">
+      <p id="tdm-result-kicker" class="tdm-result-kicker">团队死斗</p>
+      <h2 id="tdm-result-title" class="tdm-result-title">胜利</h2>
+      <p id="tdm-result-reason" class="tdm-result-reason"></p>
+      <div class="tdm-result-scores">
+        <div class="tdm-result-team blue">
+          <span class="tdm-result-team-name">蓝方</span>
+          <span id="tdm-result-blue" class="tdm-result-team-score">0</span>
+        </div>
+        <span class="tdm-result-vs">—</span>
+        <div class="tdm-result-team red">
+          <span class="tdm-result-team-name">红方</span>
+          <span id="tdm-result-red" class="tdm-result-team-score">0</span>
+        </div>
+      </div>
+      <div id="tdm-result-mvp" class="tdm-result-mvp"></div>
+      <div class="tdm-table-wrap">
+        <table class="tdm-table">
+          <thead>
+            <tr><th>#</th><th>单位</th><th>击杀</th><th>死亡</th><th>助攻</th><th>爆头</th><th>连杀</th><th>个人分</th></tr>
+          </thead>
+          <tbody id="tdm-result-rows"></tbody>
+        </table>
+      </div>
+      <div class="tdm-result-actions">
+        <span id="tdm-result-countdown" class="tdm-result-countdown"></span>
+        <button type="button" id="tdm-result-back" class="cover-btn cover-btn-start">返回基地</button>
+      </div>
+    </div>
+  </div>
+
+<div id="ffa-result" class="tdm-result hidden" role="dialog" aria-modal="true" aria-labelledby="ffa-result-title">
+    <div class="tdm-result-panel">
+      <p class="tdm-result-kicker">自由混战</p>
+      <h2 id="ffa-result-title" class="tdm-result-title">冠军</h2>
+      <p id="ffa-result-place" class="ffa-result-place"></p>
+      <p id="ffa-result-reason" class="tdm-result-reason"></p>
+      <div class="tdm-table-wrap">
+        <table class="tdm-table">
+          <thead>
+            <tr><th>名次</th><th>玩家</th><th>击杀</th><th>死亡</th><th>K/D</th><th>爆头</th><th>连杀</th><th>得分</th></tr>
+          </thead>
+          <tbody id="ffa-result-rows"></tbody>
+        </table>
+      </div>
+      <div class="tdm-result-actions">
+        <span id="ffa-result-countdown" class="tdm-result-countdown"></span>
+        <button type="button" id="ffa-result-back" class="cover-btn cover-btn-start">返回基地</button>
+      </div>
+    </div>
+  </div>
+
+<div id="gg-result" class="tdm-result hidden" role="dialog" aria-modal="true" aria-labelledby="gg-result-title">
+    <div class="tdm-result-panel">
+      <p class="tdm-result-kicker">枪械模式</p>
+      <h2 id="gg-result-title" class="tdm-result-title">军械库大师</h2>
+      <p id="gg-result-place" class="ffa-result-place"></p>
+      <p id="gg-result-reason" class="tdm-result-reason"></p>
+      <div class="tdm-table-wrap">
+        <table class="tdm-table">
+          <thead>
+            <tr><th>名次</th><th>玩家</th><th>最终等级</th><th>击杀</th><th>爆头降级</th><th>被降级</th><th>卡关武器</th></tr>
+          </thead>
+          <tbody id="gg-result-rows"></tbody>
+        </table>
+      </div>
+      <div class="tdm-result-actions">
+        <span id="gg-result-countdown" class="tdm-result-countdown"></span>
+        <button type="button" id="gg-result-back" class="cover-btn cover-btn-start">返回基地</button>
+      </div>
+    </div>
+  </div>
+
+<div id="mode-select-overlay" class="mode-select hidden" role="dialog" aria-modal="true" aria-labelledby="mode-hero-name">
+    <div class="mode-hero" id="mode-hero">
+      <div class="mode-hero-art" aria-hidden="true"></div>
+      <div class="mode-hero-shade" aria-hidden="true"></div>
+      <button type="button" class="mode-hero-back" data-mode-action="close">返回</button>
+      <div class="mode-hero-info">
+        <p class="mode-hero-kicker" id="mode-hero-kicker">VOXEL FRONTLINE</p>
+        <h2 class="mode-hero-name" id="mode-hero-name">核心攻防</h2>
+        <div class="mode-hero-tags" id="mode-hero-tags"></div>
+        <p class="mode-hero-desc" id="mode-hero-desc"></p>
+        <p class="mode-hero-note hidden" id="mode-hero-note"></p>
+        <div class="mode-hero-actions">
+          <button type="button" class="mode-start" id="mode-start-btn" data-mode-action="start">进入战斗</button>
+          <span class="mode-hero-entry" id="mode-hero-entry">PVE · 人机对战</span>
+        </div>
+      </div>
+    </div>
+    <div class="mode-rail">
+      <p class="mode-rail-label">选择模式</p>
+      <div class="mode-rail-cards" id="mode-rail-cards"></div>
+    </div>
+  </div>
+
   <button id="game-back-btn" type="button" class="game-back-btn hidden" title="返回大厅">返回</button>
 
   <!-- In-match Esc menu -->
@@ -352,9 +450,24 @@
       <span id="minimap-zone" class="hud-label">荒盆</span>
     </div>
     <div id="squad-rail" class="squad-rail" aria-label="小队"></div>
+    <div id="tdm-feed" class="tdm-feed hidden" aria-live="polite"></div>
+    <div id="tdm-banner" class="tdm-banner hidden" aria-live="polite"></div>
+    <div id="ffa-rank" class="ffa-rank hidden" aria-hidden="true"></div>
+    <div id="ffa-feed" class="tdm-feed hidden" aria-live="polite"></div>
+    <div id="ffa-banner" class="tdm-banner hidden" aria-live="polite"></div>
+    <div id="gg-progress" class="gg-progress hidden" aria-live="polite"></div>
+    <div id="gg-rank" class="ffa-rank gg-rank hidden" aria-hidden="true"></div>
+    <div id="gg-feed" class="tdm-feed hidden" aria-live="polite"></div>
+    <div id="gg-banner" class="tdm-banner hidden" aria-live="polite"></div>
+    <div id="sd-prompt" class="sd-prompt hidden" aria-live="polite">
+      <div id="sd-prompt-text" class="sd-prompt-text"></div>
+      <div id="sd-prompt-bar" class="sd-prompt-bar hidden"><i id="sd-prompt-fill"></i></div>
+    </div>
 
     <!-- Top center: blue core | pixel clock | red core -->
     <div id="mission-row">
+      <span id="tdm-score-blue" class="tdm-score blue hidden">0</span>
+      <span id="tdm-score-red" class="tdm-score red hidden">0</span>
       <div id="home-status" class="core-status blue" title="蓝方">
         <div id="ticket-ally" class="ticket-readout hidden">250</div>
         <div id="home-seg-bar" class="core-seg-bar blue" aria-hidden="true">
@@ -371,6 +484,7 @@
         </div>
       </div>
       <div id="match-clock">
+        <div id="match-target">50</div>
         <div id="timer">00:00</div>
       </div>
       <div id="mission-status" class="core-status red" title="红方">
@@ -388,6 +502,11 @@
           <div id="mission-bar-fill" class="core-bar-fill red"></div>
         </div>
       </div>
+    </div>
+    <div id="sd-status" class="sd-status hidden" aria-hidden="true">
+      <span class="sd-status-icons blue" id="sd-status-blue"></span>
+      <span class="sd-status-site hidden" id="sd-status-site">B</span>
+      <span class="sd-status-icons red" id="sd-status-red"></span>
     </div>
     <div id="flag-strip" class="flag-strip hidden" aria-label="占领点"></div>
 
@@ -1470,12 +1589,10 @@
   <!-- Three.js (global THREE) — local bundle: three@0.160.0 + GLTFLoader/FBXLoader
        + SkeletonUtils + EXRLoader/RGBELoader (built by scripts/three-global-entry.js) -->
   <script src="js/vendor/three.gltf.global.js?v=rifle1"></script>
-  <!-- PeerJS for PVP rooms (WebRTC) -->
-  <script src="js/vendor/peerjs-1.5.4.min.js"></script>
 
   <!-- Game modules (order matters) -->
   <!-- feel-config.js: KEEP on production (baked feel numbers) -->
-  <script src="js/feel-config.js?v=move2"></script>
+  <script src="js/feel-config.js?v=modeapi1"></script>
   <!-- render-config.js/render-pipeline.js/render-scene.js: KEEP on production -->
   <script src="js/render-config.js?v=2"></script>
   <script src="js/render-pipeline.js?v=downed1"></script>
@@ -1485,6 +1602,8 @@
        props-bundle.js (bake-props.js) registers the shared palette and all
        props on load; the map that stamps them comes after. -->
   <script src="js/voxel-world.js?v=propbundle10"></script>
+  <script src="js/small-arenas.js?v=spa1"></script>
+  <script src="modes/small-battle/js/pve-district.js"></script>
   <script src="js/props/prop-palette.js?v=propbundle10"></script>
   <script src="js/props/props-bundle.js?v=propbundle10"></script>
   <script src="js/props/prop-stamp.js?v=propbundle10"></script>
@@ -1507,19 +1626,19 @@
   <script src="js/soldier.js?v=voxelskin1"></script>
   <script src="js/soldier-voxel.js?v=voxelskin1"></script>
   <script src="js/hitboxes.js?v=move1"></script>
-  <script src="js/player.js?v=faction-mesh1"></script>
+  <script src="js/player.js?v=prepfreeze1"></script>
   <script src="js/weapon-catalog.js?v=sfx1"></script>
-  <script src="js/weapons.js?v=sfx1"></script>
+  <script src="js/weapons.js?v=modeapi1"></script>
   <script src="js/melee.js?v=faction-mesh1"></script>
-  <script src="js/throwables.js?v=faction-mesh1"></script>
-  <script src="js/skills.js?v=move1"></script>
+  <script src="js/throwables.js?v=modeapi1"></script>
+  <script src="js/skills.js?v=prepfreeze1"></script>
   <script src="js/building.js?v=gadget1"></script>
   <script src="js/tower-designer.js?v=scorch3"></script>
   <script src="js/hub.js?v=kit1"></script>
   <script src="js/economy.js?v=kit1"></script>
   <script src="js/lobby.js?v=solo1"></script>
   <script src="js/range.js?v=kit1"></script>
-  <script src="js/ai.js?v=sfx1"></script>
+  <script src="js/ai.js?v=modeapi1"></script>
   <script src="js/conquest.js?v=teamlook1"></script>
   <script src="js/revive.js?v=move1"></script>
   <script src="js/squads.js?v=scorch3"></script>
@@ -1530,17 +1649,39 @@
   <script src="js/net-simulation.js?v=cannonfx2"></script>
   <script src="js/match-flow.js?v=scorch3"></script>
   <script src="js/soldier-menu.js?v=wepammo1"></script>
-  <script src="js/arsenal.js?v=infantryhud1"></script>
-  <script src="js/ui.js?v=voxelskin1"></script>
+  <script src="js/arsenal.js?v=smallclose1"></script>
+  <script src="js/ui.js?v=modeapi1"></script>
   <script src="js/audio.js?v=sfx5"></script>
   <script src="js/vehicle-effects.js?v=sfx2"></script>
   <script src="js/atmosphere.js?v=scorch3"></script>
   <script src="js/config.js?v=scorch3"></script>
-  <script src="js/kubee-bridge.js?v=scorch3"></script>
-  <script src="js/pvp.js?v=voxelskin1"></script>
+  <script src="modes/small-battle/js/gamemodes.js"></script>
+  <script src="modes/small-battle/js/tdm-match.js"></script>
+  <script src="modes/small-battle/js/tdm-spawn.js"></script>
+  <script src="modes/small-battle/js/tdm-ui.js"></script>
+  <script src="modes/small-battle/js/sd-bomb.js"></script>
+  <script src="modes/small-battle/js/sd-match.js"></script>
+  <script src="modes/small-battle/js/sd-spawn.js"></script>
+  <script src="modes/small-battle/js/sd-ui.js"></script>
+  <script src="modes/small-battle/js/sd-field.js"></script>
+  <script src="modes/small-battle/js/sd-net.js"></script>
+  <script src="modes/small-battle/js/sd-stats.js"></script>
+  <script src="modes/small-battle/js/sd-result.js"></script>
+  <script src="modes/small-battle/js/ffa-match.js"></script>
+  <script src="modes/small-battle/js/ffa-spawn.js"></script>
+  <script src="modes/small-battle/js/ffa-marker.js"></script>
+  <script src="modes/small-battle/js/ffa-ui.js"></script>
+  <script src="modes/small-battle/js/gg-match.js"></script>
+  <script src="modes/small-battle/js/gg-ui.js"></script>
+  <script src="modes/small-battle/js/career.js"></script>
+  <script src="modes/small-battle/js/weapon-inspect.js"></script>
+  <script src="modes/small-battle/js/battlefield-events.js"></script>
+  <script src="modes/small-battle/js/maps/dust2-default.js"></script>
+  <script src="js/pvp.js?v=modeapi1"></script>
+  <script src="js/zaohua-online.js?v=zh8"></script>
   <script src="js/deployment-presentation.js?v=voxelskin1"></script>
   <script src="js/frontline-ui.js?v=6"></script>
-  <script src="js/main.js?v=voxveh1"></script>
+  <script src="js/main.js?v=modeapi1"></script>
   <!-- feel-tuner.js: F10 参数调节 · map-editor.js: 大厅「地图」 -->
   <script src="js/feel-tuner.js?v=move2"></script>
   <!-- render-tuner.js: F9 后处理参数调节（生产环境删除） -->

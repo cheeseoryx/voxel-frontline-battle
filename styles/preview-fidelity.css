@@ -70,7 +70,13 @@
 #class-stage-canvas:active{cursor:grabbing;}
 .class-deploy-stage-glow{display:none;}
 .class-stage::after{content:"拖动旋转角色";position:absolute;right:-14%;bottom:16px;color:#c4d1d999;font-size:10px;pointer-events:none;letter-spacing:2px;}
-.class-deploy-footer{height:24vh;min-height:174px;left:2.6vw;right:2.6vw;padding:30px 0;grid-template-columns:minmax(260px,1.5fr) minmax(290px,1.15fr) minmax(180px,.78fr);gap:24px;align-items:center;border-color:#c1d2dc40;}
+/* Four columns, in `order` sequence: 角色形象 · 当前装备 · 兵种 · 部署。The skin
+   picker arrived with feat/voxel-skins and never got a column, so it landed in
+   the first one and pushed 部署 onto an implicit second row outside the footer. */
+.class-deploy-footer{height:24vh;min-height:174px;left:2.6vw;right:2.6vw;padding:30px 0;grid-template-columns:minmax(130px,.75fr) minmax(250px,1.4fr) minmax(230px,1.05fr) minmax(160px,.7fr);gap:24px;align-items:center;border-color:#c1d2dc40;}
+/* Scroll rather than wrap: a wrapped second row of skin cards overflows the
+   fixed-height footer the same way 部署 did. */
+#class-overlay #class-skin-grid{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;align-self:center;margin-top:0;}
 .class-deploy-current-loadout{align-self:center;}
 .class-deploy-current-loadout>span{color:#e0e8eb;font-size:12px;letter-spacing:3px;margin-bottom:14px;}
 #class-overlay .class-deploy-loadout .deploy-gear-slot{height:87px;display:flex;flex-direction:column;justify-content:center;gap:7px;background:#36506354;border-color:#96afbd66;min-width:36px;padding:6px;}
@@ -113,7 +119,7 @@
 .squad-intro-back{padding:10px 2px;font-size:10px;}
 @media(min-width:1600px){.class-deploy-footer{gap:30px;}#class-overlay .class-deploy-loadout .deploy-gear-slot{height:101px;}#class-overlay #class-grid{height:148px;}#class-overlay .class-card{height:147px;}#class-overlay .class-avatar{height:100px;width:100px;}.squad-intro-stage{bottom:180px;}.squad-intro-footer,body.frontline-small .squad-intro-footer{height:170px;}}
 @media(max-width:1100px){
- #mode-overlay .mode-top{gap:24px;}.frontline-brand{font-size:23px;}.class-deploy-footer{grid-template-columns:minmax(245px,1.15fr) minmax(285px,1.2fr) 164px;gap:12px;}
+ #mode-overlay .mode-top{gap:24px;}.frontline-brand{font-size:23px;}.class-deploy-footer{grid-template-columns:minmax(110px,.6fr) minmax(235px,1.15fr) minmax(215px,1.05fr) 150px;gap:12px;}
  .class-deploy-faction strong{font-size:12px;}.class-deploy-faction small{font-size:9px;}
  #class-overlay .class-deploy-loadout .deploy-gear-slot{padding:4px;gap:5px;}.squad-intro-card{padding:12px 10px;}.squad-intro-card strong{font-size:14px;}.squad-intro-card span{font-size:10px;}
  .squad-intro-footer,body.frontline-small .squad-intro-footer{display:grid;grid-template-columns:1fr auto auto;grid-template-rows:76px 52px;height:160px;gap:10px 16px;padding:10px 0 11px;}
@@ -135,7 +141,10 @@
  .frontline-subnav{top:52px;height:48px;padding:0 20px;gap:12px;}.frontline-subnav>span{padding-left:12px;font-size:12px;}.frontline-scroll{top:100px;}
  .frontline-mode-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}.operation-copy{padding:14px;}.operation-copy strong{font-size:23px;}.operation-copy small{font-size:10px;}
  .solo-banner{height:300px;}.solo-status{left:280px;}.frontline-section-title>span{font-size:10px;}
+ /* Two columns leave no room for the skin picker; it is cosmetic, so drop it
+    rather than let it overflow the footer. */
  .class-deploy-footer{grid-template-columns:minmax(0,1fr) 146px;grid-template-rows:103px 69px;height:207px;padding:12px 0;gap:9px 15px;}
+ .class-skin-label,#class-overlay #class-skin-grid{display:none;}
  #class-overlay #class-grid{grid-column:1;grid-row:1;height:102px;}#class-overlay .class-card{height:101px;}#class-overlay .class-avatar{height:60px;width:60px;}
  .class-deploy-current-loadout{grid-column:1;grid-row:2;}#class-overlay .class-deploy-loadout .deploy-gear-slot{height:66px;padding:3px;gap:3px;}
  #class-overlay .class-actions{grid-column:2;grid-row:1/3;}#class-overlay .class-actions::before{font-size:10px;}#class-overlay .class-actions::after{font-size:8px;}

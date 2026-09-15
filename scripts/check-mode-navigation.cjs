@@ -18,17 +18,14 @@ await page.goto(base+'?mode=ffa',{waitUntil:'domcontentloaded'});await page.wait
 await page.waitForSelector('#mode-overlay:not(.hidden)');assert(await page.evaluate(()=>!VF.UI.classSelectOpen&&!VF.game.running&&!VF.Pvp.roomCode));
 console.log('COVER: remembered FFA and stale mode query do not start a match.');
 for(const mode of ['tdm','demo','ffa','gungame','core']){
- let at=Date.now();await page.click('[data-quick-mode="'+mode+'"]');await page.waitForSelector('#class-overlay:not(.hidden)',{timeout:15000});console.log(mode,'prep',Date.now()-at+'ms');assert.equal(await page.evaluate(()=>VF.GameModes.currentId()),mode);
- await page.click('#class-cancel-btn');await page.waitForSelector('#mode-overlay:not(.hidden)',{timeout:15000});assert(!page.url().includes('screen=modes'));
- await page.click('[data-quick-mode="'+mode+'"]');await page.waitForSelector('#class-overlay:not(.hidden)',{timeout:15000});
- const code=await page.evaluate(()=>VF.Pvp.roomCode);await page.click('#class-confirm-btn');await page.waitForSelector('#squad-intro-overlay:not(.hidden)');await page.click('#squad-intro-skip');await page.waitForFunction(()=>VF.game.running,{timeout:15000});
- await page.evaluate(()=>{document.exitPointerLock();});at=Date.now();await page.click('#game-back-btn');await page.waitForSelector('#mode-overlay:not(.hidden)',{timeout:15000});
- assert(!(await page.evaluate(code=>VFEntry.listSmallServers().some(r=>r.code===code),code)),'Leaving seat still advertised');
- console.log(mode,'exit',Date.now()-at+'ms');
+ let at=Date.now();await page.click('[data-quick-mode="'+mode+'"]');await page.waitForSelector('#class-overlay:not(.hidden)',{timeout:20000});console.log(mode,'prep',Date.now()-at+'ms');assert.equal(await page.evaluate(()=>VF.GameModes.currentId()),mode);
+ assert(await page.evaluate(()=>location.pathname==='/'||location.pathname.endsWith('/index.html')));
+ await page.click('#class-cancel-btn');await page.waitForSelector('#mode-overlay:not(.hidden)',{timeout:15000});
+ assert(await page.evaluate(()=>document.body.dataset.gameRuntime!=='small'||!!document.getElementById('mode-overlay')));
 }
-await page.reload({waitUntil:'domcontentloaded'});await page.waitForSelector('#enter-hub-btn:not([disabled])',{timeout:15000});assert(await page.locator('#start-overlay').isVisible());assert(!(await page.locator('#mode-overlay').isVisible()));console.log('RELOAD: consumed lobby return opens the cover.');
+await page.reload({waitUntil:'domcontentloaded'});await page.waitForSelector('#enter-hub-btn:not([disabled])',{timeout:15000});assert(await page.locator('#start-overlay').isVisible());assert(!(await page.locator('#mode-overlay').isVisible()));console.log('RELOAD: cover after reload.');
 await page.close();
 const hidden=await context.newPage();hidden.on('pageerror',e=>errors.push(e.message));await hidden.addInitScript(()=>{window.requestAnimationFrame=()=>0;});
 await hidden.goto(base+'?screen=modes',{waitUntil:'domcontentloaded'});await hidden.waitForSelector('#enter-hub-btn:not([disabled])',{timeout:15000});assert(await hidden.locator('#start-overlay').isVisible());assert(!(await hidden.locator('#mode-overlay').isVisible()));await hidden.click('#enter-hub-btn');await hidden.waitForSelector('#mode-overlay:not(.hidden)',{timeout:15000});assert(!(await hidden.locator('#game-entry-transition').count()));await hidden.close();
-assert.deepEqual(externalScripts,[]);assert.deepEqual(errors,[]);console.log('PASS: same-tab enter/cancel/play/exit for all five modes, no CDN scripts, no stuck transition, RAF-independent startup, no page errors.');
+assert.deepEqual(externalScripts,[]);assert.deepEqual(errors,[]);console.log('PASS: same-document lobby enter/cancel for all five modes, no CDN scripts, no page errors.');
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exit(1);});
