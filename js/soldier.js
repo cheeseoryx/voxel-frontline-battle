@@ -846,7 +846,12 @@
     if (opts.voxel !== false) {
       const V = global.VF.SoldierVoxel;
       if (V && V.isReady(classId)) {
-        const voxel = V.create(classId, { classId: classId, team: team, weaponId: weaponId });
+        const voxel = V.create(classId, {
+          classId: classId,
+          team: team,
+          weaponId: weaponId,
+          armed: opts.armed === true, // 端枪（AI 小队）——默认只背枪
+        });
         if (voxel) return voxel;
         // 创建失败静默回退盒子兵
       }
@@ -875,22 +880,29 @@
     return finishSoldier(root, classId, team, gunBits.muzzle, gunBits.flash);
   }
 
-  /** AI / legacy variants */
-  function createSoldier(variant) {
+  /**
+   * AI / legacy variants
+   *
+   * opts 会透传给 createClassSoldier：AI 小队传 { armed: true, weaponId }，
+   * 让骨骼角色端着枪（默认只背枪）。盒子兵路径本来就 addGun 持枪，
+   * 不受 armed 影响。
+   */
+  function createSoldier(variant, opts) {
+    opts = opts || {};
     if (variant === 'enemy_heavy') {
-      return createClassSoldier('juggernaut', { team: 'enemy' });
+      return createClassSoldier('juggernaut', Object.assign({ team: 'enemy' }, opts));
     }
     if (variant === 'enemy_ranged') {
-      return createClassSoldier('ghost', { team: 'enemy' });
+      return createClassSoldier('ghost', Object.assign({ team: 'enemy' }, opts));
     }
     if (variant === 'enemy' || (variant && variant.indexOf('enemy') === 0)) {
-      return createClassSoldier('vanguard', { team: 'enemy' });
+      return createClassSoldier('vanguard', Object.assign({ team: 'enemy' }, opts));
     }
     if (variant === 'ally' || !variant) {
-      return createClassSoldier('vanguard', { team: 'ally' });
+      return createClassSoldier('vanguard', Object.assign({ team: 'ally' }, opts));
     }
     // Treat unknown as class id
-    return createClassSoldier(variant, { team: 'ally' });
+    return createClassSoldier(variant, Object.assign({ team: 'ally' }, opts));
   }
 
   /** FPS arms + full rifle — all meshes stay in front of camera (-Z) */
@@ -898,6 +910,13 @@
   function createViewModel(classId, weaponId, opts) {
     classId = normalizeClassId(classId);
     opts = opts || {};
+    // 美术化身优先：兵种 GLB + 动作库就绪时走「真手臂 + 真枪」，否则落回下面的
+    // 程序化盒子手臂。任何一步失败都静默回落，不会开天窗。
+    // opts.art === false 可强制程序化（做对照验证用）。
+    if (opts.art !== false) {
+      const art = createArtViewModel(classId, weaponId, opts);
+      if (art) return art;
+    }
     const team = resolveFactionTeam(opts.team);
     const enemyTint = team === 'enemy';
     const pal = viewModelSleeveColors(classId, enemyTint);
@@ -1115,6 +1134,260 @@
     root.userData.classId = classId;
     root.userData.team = team;
     return { root, gun, muzzle, flash, rightArm: arm, leftArm: lArm };
+  }
+
+  /* ==================================================================
+   * 第一人称美术化身 —— 把兵种 GLB 现场裁成 FPS viewmodel
+   *
+   * 为什么这么做：美术只给了"完整的角色"，没有单独的手臂 viewmodel 资产。
+   * 而持枪待机/持枪跑的姿势本来就把手臂和枪送到身体前方，所以在身体后方切一刀
+   * 只留手臂+手+枪，就是一套可用的 FPS viewmodel —— 还自动和第三人称、背枪、
+   * AI 用同一套模型与动作，永远不会有"第一人称和第三人称不像"的问题。
+   *
+   * 参数来自验证台 scripts/check-fps-view.html（产物 tmp/fps-view/），
+   * 按主相机腰射 FOV=70 定标，取景对齐真机基准 tmp/weapons-main/ak74.png：
+   * 枪占右下象限、枪口约在屏幕 (0.62, 0.62)。
+   *
+   * 接口与 createViewModel 完全一致（root/gun/muzzle/flash/rightArm/leftArm），
+   * 外加一个 tick(dt, state) 由 Player 每帧驱动。
+   * ================================================================== */
+
+  const VM_ART = {
+    // 头骨钉在相机原点后，再在**相机坐标系**里偏移出眼睛位置（x 右 / y 上 / z 负=身前）。
+    eyeX: 0,
+    eyeY: -0.1, // 头骨在眼下 10cm（头骨是颅底/寰枕关节，眼睛在它前上方）
+    eyeZ: 0,
+    // 每帧把头骨钉回相机。动画里头会漂 —— 实测 Sprint 往前漂 33cm、往下漂 12cm，
+    // 而 rig.position 只在创建时按绑定姿势对齐过一次，不逐帧钉回去相机就退到后脑勺
+    // 后面去了，脖子和肩膀会怼到镜头上（这是比裁剪更根本的问题）。
+    pinHead: true,
+    pinSmooth: 14, // 跟随速率（1/s）。越大越硬；太小会拖影。0 = 瞬间
+    // 裁剪面：相机坐标系里 z = cut 的平面，**保留 z <= cut**（负 = 眼睛前方多少米）。
+    // 默认 0 = 关闭。别再往深了调：第一人称里你真正看得见的手臂，恰恰是**离眼睛最近**
+    // 的那一截（肘到肩，实测就在眼前 0~5cm），任何"切掉离眼 N 厘米内的东西"的平面
+    // 都会先把这段手臂切没 —— 试过 -0.22（手和枪一起没，只剩浮空的枪）和 -0.02
+    // （手臂整条消失），都是这个原因。
+    // 躯干之所以不糊脸，靠的是「头骨每帧钉回相机」+ 相机近平面 0.08：躯干在眼睛
+    // 正下方 30cm 开外，70° 竖直 FOV 下早就出画了，用不着裁剪。
+    cut: 0,
+    gripBack: 0.2, // 枪原点沿身体前方回推，把握把塞进手里
+    gunPos: [-0.03, 0.05, 0], // 握持微调（身体根坐标系，会跟手一起走）
+    // 各 clip 的整体垂直微调（把眼睛再往下压一点，纯观感）。头骨钉回相机之后
+    // 动画自带的漂移已经被抵消了，这里只留观感微调，默认不动。
+    clipDrop: {},
+  };
+
+  /** 每个 clip 的整具模型垂直微调，缺省 0 */
+  function vmClipDrop(name) {
+    return VM_ART.clipDrop[name] || 0;
+  }
+
+  /**
+   * 用美术兵种 GLB 拼第一人称 viewmodel。
+   * 失败（模型/动作库没就绪、武器没资产、手骨找不到）返回 null，
+   * 调用方回落到程序化 viewmodel，不会开天窗。
+   *
+   * @param {string} classId
+   * @param {string} weaponId
+   * @param {{ team?: 'ally'|'enemy' }} [opts]
+   */
+  function createArtViewModel(classId, weaponId, opts) {
+    opts = opts || {};
+    classId = normalizeClassId(classId);
+    const V = global.VF.SoldierVoxel;
+    const M = global.VF.WeaponModels;
+    if (!V || !V.isReady || !V.isReady(classId) || !V.create || !V.driveRifle) return null;
+    if (!M || !M.build) return null;
+    const built = M.build(weaponId);
+    if (!built || !built.gun) return null;
+
+    const team = opts.team === 'enemy' ? 'enemy' : 'ally';
+    // 不传 weaponId：背枪是第三人称的事，第一人称挂在胸前正好挡脸
+    const rig = V.create(classId, { classId: classId, team: team });
+    if (!rig || !rig.userData.glbAnim) return null;
+    const hand = rig.getObjectByName('Dummy001_R-Hand') || rig.getObjectByName('Bip001-R-Hand');
+    if (!hand) return null;
+
+    // 阵营环（脚下的发光圈）属于世界，第一人称下不要
+    const marker = rig.getObjectByName('TeamMarker');
+    if (marker && marker.parent) marker.parent.remove(marker);
+
+    const root = new THREE.Group();
+    root.name = 'SoldierArtViewModel';
+    root.frustumCulled = false;
+    root.position.set(0, 0, 0);
+    root.add(rig);
+
+    // ---- 对齐 + 隐藏 ----
+    rig.updateMatrixWorld(true);
+    const head = rig.getObjectByName('Bip001-Head');
+    const localHead = new THREE.Vector3();
+    if (head) head.getWorldPosition(localHead);
+    // 头骨落到相机原点，再整体按 eyeY/eyeZ 偏
+    rig.position.set(-localHead.x, -localHead.y + VM_ART.eyeY, -localHead.z + VM_ART.eyeZ);
+    // 头骨直接缩没：它在裁剪面之后本来就没了，缩掉是保险（且避免颅骨内壁露出来）
+    if (head) head.scale.setScalar(0.001);
+    // Dummy001 是背枪挂点，第一人称下横在脸前
+    const backMount = rig.getObjectByName('Dummy001');
+    if (backMount) backMount.visible = false;
+    rig.updateMatrixWorld(true);
+
+    // ---- 近脸裁剪（保险） ----
+    // 材质必须 clone：几何和材质在 SoldierVoxel 注册表里跨实例共享（AI、选兵种
+    // 预览页用的是同一份），直接改会连累所有人（同 weapon-models 的 shared 规则）。
+    //
+    // 平面定义在**相机（root）坐标系**里，不跟模型局部系：模型会被 pinHead 每帧平移，
+    // 挂在模型局部系上的平面含义会跟着漂（Sprint 里能漂到眼睛后面 30cm 去）。
+    //
+    // three.js 的裁剪语义是「丢掉 distanceToPoint > 0 的片元」，也就是**保留 <= 0**。
+    // 相机看向局部 -Z，要保留的是 z <= cut：
+    //   normal = (0,0,1)、constant = -cut  ⇒  distance = z - cut ≤ 0  ⇔  z ≤ cut
+    // （这里踩过坑：normal 写成 (0,0,-1) 时 distance = -z + cut，保留的是后半身，
+    //   结果画面里站着的是自己的躯干和腿，手臂反而被切掉了。）
+    // root 的局部变换是单位阵，所以 root.matrixWorld 就是相机矩阵 —— 平面每帧
+    // 跟着相机走，cut 的语义恒定是「眼睛前方多少米」。
+    const useClip = typeof VM_ART.cut === 'number' && VM_ART.cut < 0;
+    const planeRoot = useClip ? new THREE.Plane(new THREE.Vector3(0, 0, 1), -VM_ART.cut) : null;
+    const planeWorld = useClip ? new THREE.Plane() : null;
+    rig.traverse(function (n) {
+      if (!n.isMesh && !n.isSkinnedMesh) return;
+      n.castShadow = false;
+      n.receiveShadow = false;
+      n.frustumCulled = false;
+      if (!useClip) return; // 不开裁剪就别 clone 材质，省一份 GPU 资源也省一次着色器重编
+      const src = Array.isArray(n.material) ? n.material : [n.material];
+      const cloned = src.map(function (mm) {
+        const c = mm.clone();
+        c.clippingPlanes = [planeWorld];
+        c.clipShadows = true;
+        return c;
+      });
+      n.material = Array.isArray(n.material) ? cloned : cloned[0];
+    });
+
+    // ---- 枪：挂到手骨上，每帧解析解对齐 ----
+    // mount 负责「对齐」（每帧覆写），gun 负责「后坐」（Player 那套弹簧照旧写 gun.position/rotation）。
+    // 分两层的原因是解析解每帧会重置变换，写在同一层上后坐会被抹掉。
+    const mount = new THREE.Group();
+    mount.name = 'ViewGunMount';
+    hand.add(mount);
+    const gun = built.gun;
+    gun.position.set(0, 0, 0);
+    gun.rotation.set(0, 0, 0);
+    mount.add(gun);
+    const muzzle = built.muzzle || null;
+    const flash = built.flash || null;
+
+    const qHandInv = new THREE.Quaternion();
+    const qRoot = new THREE.Quaternion();
+    const vD = new THREE.Vector3();
+    const dropCur = { v: vmClipDrop(V.CLIP.aimIdle) };
+
+    /** three.js 的 clippingPlanes 是世界坐标：平面定义在相机系，每帧按相机矩阵同步 */
+    function syncClip() {
+      if (!useClip) return;
+      root.updateMatrixWorld(true);
+      planeWorld.copy(planeRoot).applyMatrix4(root.matrixWorld);
+    }
+
+    const vHead = new THREE.Vector3();
+    const mRootInv = new THREE.Matrix4();
+    let pinned = false;
+
+    /**
+     * 把头骨钉回相机的眼睛位置。
+     *
+     * 为什么必须逐帧钉：rig.position 只在创建时按**绑定姿势**对齐过一次，而动画会把头
+     * 带走 —— 实测 Sprint 往前 33cm、往下 12cm，RifleRun 往前 14cm。不钉的话相机等于
+     * 退到后脑勺后面，脖子/肩膀/后脑勺会怼到镜头上，还会让枪忽远忽近。
+     *
+     * 钉的是 rig.position 的**增量**（头在 root 局部的位置 vHead 已经含了当前 rig.position，
+     * 想让它落到 E 就加 E - vHead），一次就精确，不用迭代。
+     */
+    function pinHead(dt) {
+      if (!VM_ART.pinHead || !head) return;
+      rig.updateMatrixWorld(true);
+      mRootInv.copy(root.matrixWorld).invert();
+      vHead.setFromMatrixPosition(head.matrixWorld).applyMatrix4(mRootInv);
+      let k = 1;
+      if (VM_ART.pinSmooth > 0 && dt > 0 && pinned) k = 1 - Math.exp(-VM_ART.pinSmooth * dt);
+      pinned = true;
+      rig.position.x += (VM_ART.eyeX - vHead.x) * k;
+      rig.position.y += (VM_ART.eyeY - dropCur.v - vHead.y) * k;
+      rig.position.z += (VM_ART.eyeZ - vHead.z) * k;
+      rig.updateMatrixWorld(true);
+    }
+
+    /**
+     * 把枪摆成「枪口朝身体正前方、枪身不歪」。
+     * 手骨在动画里是任意朝向，所以每帧解一次：
+     *   朝向 q = qHand⁻¹ · qRoot          （抵消手骨旋转，回到身体坐标系）
+     *   位置 p = qHand⁻¹ · (D 在身体坐标系里的偏移)
+     * D 里含 gripBack：美术枪原点在握把（第一批）或包围盒中心（第二批），
+     * 往前提一截才能让握把落在手心里。
+     * 必须在 mixer.update **之后**调，否则用的是上一帧的姿势。
+     */
+    function alignGun() {
+      hand.getWorldQuaternion(qHandInv);
+      qHandInv.invert();
+      root.getWorldQuaternion(qRoot);
+      mount.quaternion.copy(qHandInv).multiply(qRoot);
+      vD.set(VM_ART.gunPos[0], VM_ART.gunPos[1], VM_ART.gunPos[2] - VM_ART.gripBack);
+      vD.applyQuaternion(qRoot);
+      mount.position.copy(vD).applyQuaternion(qHandInv);
+    }
+
+    const state = { moving: false, speedRatio: 0, ads: 0, crouching: false };
+    let reloading = false;
+
+    /**
+     * 每帧驱动：动作 → 枪对齐 → 裁剪面同步。
+     * @param {number} dt
+     * @param {{ moving?: boolean, speedRatio?: number, ads?: number, crouch?: number,
+     *           firing?: boolean, reload?: number }} st
+     */
+    function tick(dt, st) {
+      st = st || {};
+      state.moving = !!st.moving;
+      state.speedRatio = st.speedRatio != null ? st.speedRatio : st.moving ? 1 : 0;
+      state.ads = st.ads || 0;
+      const crouch = st.crouch != null ? st.crouch : 0;
+      if (rig.userData.crouchPose) {
+        rig.userData.crouchPose.target = crouch;
+      } else {
+        rig.userData.crouchPose = { current: crouch, target: crouch };
+      }
+      V.setFiring(rig, !!st.firing);
+      // 换弹起手播一次 Reload，播完 playOnce 自己回落
+      const reload = st.reload || 0;
+      if (reload > 0.05) {
+        if (!reloading && V.reload) V.reload(rig);
+        reloading = true;
+      } else {
+        reloading = false;
+      }
+      V.driveRifle(rig, dt, state);
+
+      // 整具模型按 clip 下移一点（手和枪一起走，握持关系不变）
+      const clipName =
+        (rig.userData.glbAnim && rig.userData.glbAnim.current && rig.userData.glbAnim.current.getClip().name) ||
+        V.CLIP.aimIdle;
+      const want = vmClipDrop(clipName);
+      dropCur.v += (want - dropCur.v) * Math.min(1, dt * 10);
+
+      // 顺序有讲究：先钉头（会改 rig.position）→ 再对齐枪（要读最新的世界矩阵）→ 最后同步裁剪面
+      pinHead(dt);
+      root.updateMatrixWorld(true);
+      alignGun();
+      syncClip();
+    }
+
+    tick(0, {}); // 先摆一次，避免第一帧停在 A-pose
+
+    root.userData.classId = classId;
+    root.userData.team = team;
+    root.userData.artViewModel = true;
+    return { root, gun, muzzle, flash, rightArm: null, leftArm: null, tick, rig };
   }
 
   /** 该武器的枪口在握把前方的距离（米），用于给美术枪推第一人称摆位 */
@@ -1883,12 +2156,13 @@
     // 体素骨骼角色：走 AnimationMixer 驱动（见 js/soldier-voxel.js）。
     // 必须分支在 initLocomotion 之前——否则盒子兵的腿部摆动逻辑会找到
     // 背挂的 Weapon 并和 mixer 抢着改它的变换。
-    if (
-      root.userData.glbAnim &&
-      global.VF.SoldierVoxel &&
-      global.VF.SoldierVoxel.drive
-    ) {
-      global.VF.SoldierVoxel.drive(root, dt, state);
+    if (root.userData.glbAnim && global.VF.SoldierVoxel) {
+      // armed = 端着枪的角色（AI 小队默认）：走持枪动作组，移动是端枪跑
+      if (root.userData.armed && global.VF.SoldierVoxel.driveArmed) {
+        global.VF.SoldierVoxel.driveArmed(root, dt, state);
+      } else if (global.VF.SoldierVoxel.drive) {
+        global.VF.SoldierVoxel.drive(root, dt, state);
+      }
       return;
     }
     const loco = root.userData.loco || initLocomotion(root);
@@ -1976,6 +2250,8 @@
     createClassSoldier,
     createPreviewSoldier,
     createViewModel,
+    createArtViewModel,
+    VM_ART,
     createBuildViewModel,
     createKnifeViewModel,
     createThrowableViewModel,

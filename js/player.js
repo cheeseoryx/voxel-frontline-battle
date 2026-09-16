@@ -156,8 +156,19 @@
     this._weaponFlash = vm.flash;
     this.rightArm = vm.rightArm;
     this.leftArm = vm.leftArm;
-    this._hipPos = vm.root.position.clone();
-    this._adsPos = new THREE.Vector3(0.08, -0.26, -0.4);
+    this._vmTick = vm.tick || null;
+    if (vm.root.userData && vm.root.userData.artViewModel) {
+      // 美术化身自带摆位（头骨已经对齐相机原点），所以基准位移是 0，
+      // 位移只用来做摇摆/奔跑/换弹的抖动。
+      this._hipPos = new THREE.Vector3(0, 0, 0);
+      // 瞄准：AimIdle 的枪在身体右侧，往左压让它靠近准星。
+      // （和程序化 viewmodel 的 (0.08,-0.26,-0.4) 不是一个坐标系，
+      //   那个是把盒子枪挪到右下角，这个是微调。）
+      this._adsPos = new THREE.Vector3(-0.13, -0.05, -0.05);
+    } else {
+      this._hipPos = vm.root.position.clone();
+      this._adsPos = new THREE.Vector3(0.08, -0.26, -0.4);
+    }
     this._weaponHip = this._hipPos.clone();
     this._weaponAds = this._adsPos.clone();
     this._gunRest = null;
@@ -170,6 +181,37 @@
     } else if (this._weaponViewModel) {
       this._weaponViewModel.visible = false;
     }
+    this._awaitRoleArt(classId);
+  };
+
+  /** 当前装备的武器 id（切枪/换兵种重建 viewmodel 用） */
+  Player.prototype._currentWeaponId = function () {
+    return (
+      (global.VF.game && global.VF.game.weapons && global.VF.game.weapons.current) ||
+      (global.VF.game && global.VF.game.preferredWeaponId) ||
+      (global.VF.DEFAULT_PRIMARY || 'ak74')
+    );
+  };
+
+  /**
+   * 兵种 GLB + 动作库是懒加载的，进游戏的第一帧多半还没就绪，这时第一人称
+   * 走的是程序化盒子手臂。等就绪后重建一次，换上美术化身。
+   * 和 _awaitWeaponArt 同一个模式：每个兵种只等一次，失败不重试。
+   */
+  Player.prototype._awaitRoleArt = function (classId) {
+    const V = global.VF.SoldierVoxel;
+    if (!V || !V.preload || !V.isReady) return;
+    if (V.isReady(classId)) return; // 已经是美术化身，不用重建
+    this._roleArtPending = this._roleArtPending || {};
+    if (this._roleArtPending[classId]) return;
+    this._roleArtPending[classId] = true;
+    const self = this;
+    V.preload(classId).then(function (ok) {
+      if (!ok) return;
+      if (self.classId !== classId) return; // 期间换过兵种
+      if (!V.isReady(classId)) return;
+      self._rebuildWeaponViewModel(self.classId, self._currentWeaponId());
+    });
   };
 
   Player.prototype.applyWeaponModel = function (weaponId) {
@@ -2157,6 +2199,22 @@
         this._vmBase.z + az + rlPullZ + pronePullZ
       );
       this.viewModel.rotation.set(rPitch + rlPitch, rYaw + rlYaw, rRoll + rlRoll);
+    }
+
+    // 美术第一人称化身（兵种 GLB 的手臂 + 真枪）：动作状态机 + 枪的解析解对齐
+    // + 「只留手臂」裁剪面同步。放在写完 root 的 position/rotation 之后，
+    // 这样解出来的枪才是按当前摇摆姿势对齐的。
+    if (this._vmTick && this.viewModel && this._weaponViewModel === this.viewModel) {
+      const vx = this.velocity ? this.velocity.x : 0;
+      const vz = this.velocity ? this.velocity.z : 0;
+      this._vmTick(dt, {
+        moving: moving,
+        speedRatio: Math.min(1.2, Math.sqrt(vx * vx + vz * vz) / MOVE_SPEED),
+        ads: this._adsBlend,
+        crouch: crouchT,
+        firing: !!(weapons && weapons.firing) && reloadW < 0.05,
+        reload: reloadW,
+      });
     }
 
     // Gun recoil only while holding a weapon

@@ -133,6 +133,15 @@
     },
   };
 
+  // AI 手里的枪（纯视觉，不参与伤害计算）：按定位给不同型号，远处一眼能分辨。
+  // 必须是 js/weapon-models.js 里登记过的 id，否则会静默回退成程序化盒子枪。
+  const AI_WEAPON = {
+    infantry: 'm4a1',
+    heavy: 'm249',
+    ranged: 'mk14ebr',
+    ally: 'acr',
+  };
+
   const BLUE_DEF = {
     variant: 'ally',
     hp: 90,
@@ -562,7 +571,12 @@
   AI.prototype._spawnUnit = function (typeKey, pos, faction, opts) {
     opts = opts || {};
     const def = faction === 'ally' ? BLUE_DEF : RED_DEFS[typeKey] || RED_DEFS.infantry;
-    const mesh = global.VF.Soldier.createSoldier(def.variant);
+    // 默认端着枪：骨骼角色走 armed（枪挂右手骨骼 + 持枪动作组），
+    // 盒子兵回退路径本来就 addGun 持枪，armed 对它无副作用。
+    const mesh = global.VF.Soldier.createSoldier(def.variant, {
+      armed: true,
+      weaponId: faction === 'ally' ? AI_WEAPON.ally : AI_WEAPON[typeKey] || AI_WEAPON.infantry,
+    });
     mesh.position.copy(pos);
     mesh.visible = true;
     if (global.VF.Soldier.initLocomotion) global.VF.Soldier.initLocomotion(mesh);

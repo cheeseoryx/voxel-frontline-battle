@@ -56,6 +56,10 @@ const ANIMS = [
   { src: 'Soldier01_Fast_Run_410.glb', name: 'Sprint', loop: true },
   { src: 'Soldier01_Rifle_Crouch_Idle.glb', name: 'CrouchIdle', loop: true },
   { src: 'Soldier01_Crouch_Walk_90.glb', name: 'CrouchWalk', loop: true },
+  // 持枪移动（第一人称化身用；第三人称暂时也走同一套）
+  { src: 'Soldier01_Rifle_Run.glb', name: 'RifleRun', loop: true },
+  { src: 'Soldier01_Rifle_Crouch_Aim_Idle.glb', name: 'RifleCrouchAim', loop: true },
+  { src: 'Soldier01_Rifle_Shoot.glb', name: 'ShootAuto', loop: true },
   // 跳跃
   { src: 'Soldier01_Jump_Start.glb', name: 'JumpStart', loop: false },
   { src: 'Soldier01_Jump_Loop.glb', name: 'JumpLoop', loop: true },

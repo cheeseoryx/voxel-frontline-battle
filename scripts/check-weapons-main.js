@@ -96,9 +96,12 @@ const WEAPONS = [
     page.on('response', (r) => {
       if (r.status() >= 400) netFails.push('HTTP ' + r.status() + ' ' + r.url());
     });
-    // 已知缺失资源（和 check-frontline-browser.cjs 同一份白名单）：
-    // 主题曲没进仓库，属于既有状态，不该算到这次改动头上。
-    const KNOWN_MISSING = [/\/assets\/music\/theme\.mp3$/];
+    // 已知缺失资源（和 check-fps-viewmodel.js 同一份白名单）：
+    // - theme.mp3 没进仓库；
+    // - js/zaohua-online.js 是 scripts/build-zaohua.mjs 的产物、已 gitignore，
+    //   仓库里根本没有，index.html 的 ?v=zh8 引用必然 404。
+    // 两者都属于既有状态，不该算到本次改动头上。
+    const KNOWN_MISSING = [/\/assets\/music\/theme\.mp3$/, /zaohua-online\.js/];
     const unexpectedNet = () => netFails.filter((s) => !KNOWN_MISSING.some((re) => re.test(s)));
 
     // 主游戏启动链（照抄 scripts/check-frontline-browser.cjs 的 large 流程）

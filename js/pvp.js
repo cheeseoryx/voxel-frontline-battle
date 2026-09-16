@@ -2246,9 +2246,12 @@
       }
 
       this.removeRemoteAvatar(scene);
+      // armed：远端玩家化身也端着枪（与场上 AI 一致）。默认是背枪，
+      // 一个端着枪跑、一个背着枪跑，同屏看着像两个游戏。
       const mesh = global.VF.Soldier.createClassSoldier(classId, {
         team: team,
         weaponId: weaponId,
+        armed: true,
       });
       mesh.name = 'RemotePlayer';
       mesh.rotation.order = 'YXZ';

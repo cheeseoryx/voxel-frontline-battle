@@ -150,7 +150,9 @@ async function newPage(browser, errors, netFails, consoleLogs) {
   return page;
 }
 
-const KNOWN_MISSING = [/\/assets\/music\/theme\.mp3$/];
+// theme.mp3 没进仓库；zaohua-online.js 是 build-zaohua.mjs 的产物（已 gitignore），
+// 主游戏 index.html 引用它必然 404。两者都是既有状态。与 check-fps-viewmodel.js 同白名单。
+const KNOWN_MISSING = [/\/assets\/music\/theme\.mp3$/, /zaohua-online\.js/];
 const unexpected = (netFails) => netFails.filter((s) => !KNOWN_MISSING.some((re) => re.test(s)));
 
 /* ------------------------------- 主游戏 ------------------------------- */

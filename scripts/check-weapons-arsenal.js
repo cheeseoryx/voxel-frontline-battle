@@ -123,7 +123,9 @@ async function pick(page, id) {
     page.on('response', (r) => {
       if (r.status() >= 400) netFails.push('HTTP ' + r.status() + ' ' + r.url());
     });
-    const KNOWN_MISSING = [/\/assets\/music\/theme\.mp3$/];
+    // theme.mp3 没进仓库；zaohua-online.js 是 build-zaohua.mjs 的产物（已 gitignore）。
+    // 两个都是既有 404，不该算到改动头上。与 check-fps-viewmodel.js 保持同一份白名单。
+    const KNOWN_MISSING = [/\/assets\/music\/theme\.mp3$/, /zaohua-online\.js/];
     const unexpectedNet = () => netFails.filter((s) => !KNOWN_MISSING.some((re) => re.test(s)));
 
     // 主游戏启动链：首页 → 枢纽 → 单人 → 兵种选择（军械库就是从这一步打开的）

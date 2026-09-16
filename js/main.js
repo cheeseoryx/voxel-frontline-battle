@@ -180,6 +180,9 @@
     const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(1);
+    // 局部裁剪：第一人称美术化身用它把身体裁掉、只留手臂 + 枪
+    // （见 js/soldier.js 的 createArtViewModel）。three.js 默认关着。
+    renderer.localClippingEnabled = true;
     renderer.shadowMap.enabled = false;
     renderer.setClearColor(0x7eb6e4);
     document.body.prepend(renderer.domElement);

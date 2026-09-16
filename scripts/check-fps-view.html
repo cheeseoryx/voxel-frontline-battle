@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<base href="/" />
+<title>check-fps-view harness</title>
+<style>html,body{margin:0;background:#101820}canvas{display:block}</style>
+</head>
+<body>
+<canvas id="stage" width="854" height="480"></canvas>
+<script src="../js/vendor/three.gltf.global.js"></script>
+<script src="../js/soldier.js"></script>
+<script src="../js/soldier-voxel.js"></script>
+<script src="../js/weapon-models.js"></script>
+<script>
+/* 第一人称预览：把 GLB 角色挂到相机上、相机放在头部骨骼处，
+ * 渲染出来看 FPS 视角下到底能看见什么（躯干/手臂/枪有没有入画）。
+ * 参数通过 window.FpsView.pose(opts) 调，截图给人工复核。 */
+(function () {
+  const canvas = document.getElementById('stage');
+  const W = 854, H = 480;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+  renderer.setSize(W, H, false);
+  renderer.localClippingEnabled = true;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x8fa7b8);
+  scene.fog = new THREE.Fog(0x8fa7b8, 12, 60);
+  // 灯光必须同时在两个层上：three.js 按 camera.layers 筛光源，只挂 0 层的话
+  // 窄 FOV 那趟收不到灯，第一人称模型会渲成纯黑剪影。
+  const LIGHTS = [
+    new THREE.AmbientLight(0x99aabb, 0.85),
+    Object.assign(new THREE.DirectionalLight(0xfff2e0, 1.25), {}),
+    Object.assign(new THREE.DirectionalLight(0x88bbff, 0.5), {}),
+  ];
+  LIGHTS[1].position.set(4, 8, 3);
+  LIGHTS[2].position.set(-4, 3, -6);
+  LIGHTS.forEach(function (l) {
+    l.layers.enable(0);
+    l.layers.enable(1);
+    scene.add(l);
+  });
+
+  // 地面 + 远处参照物，用来判断比例和朝向。
+  // 收进 WORLD_OBJS 是为了支持 opts.noWorld：判定「裁剪面切出来的断面」时
+  // 必须把地面和箱子摘掉，否则断面正好落在某个箱子上，黑块到底是断面还是箱子分不清。
+  const WORLD_OBJS = [];
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(80, 80),
+    new THREE.MeshLambertMaterial({ color: 0x6b7a5e })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  scene.add(ground);
+  WORLD_OBJS.push(ground);
+  for (let i = 0; i < 8; i++) {
+    const h = 1.5 + (i % 3) * 1.2;
+    const box = new THREE.Mesh(
+      new THREE.BoxGeometry(1.2, h, 1.2),
+      new THREE.MeshLambertMaterial({ color: i % 2 ? 0x7d6a55 : 0x5d6b78 })
+    );
+    // 偏开 22.5°，避免有箱子正好落在旁观视角的视线中心（会被误认成角色身上的东西）
+    const ang = (i / 8) * Math.PI * 2 + Math.PI / 8;
+    box.position.set(Math.sin(ang) * 11, h / 2, -Math.cos(ang) * 11);
+    scene.add(box);
+    WORLD_OBJS.push(box);
+  }
+
+  const EYE_H = 1.65;
+  const camera = new THREE.PerspectiveCamera(75, W / H, 0.05, 120);
+  camera.position.set(0, EYE_H, 0);
+  scene.add(camera);
+
+  /** 第一人称模型专用相机：同一位置/朝向，但 FOV 更窄。
+   *  真枪按真尺寸挂在手上、离眼只有 0.3m，用世界 FOV 渲染会被透视放大到糊满屏幕，
+   *  必须像正经 FPS 那样把 viewmodel 单独用窄 FOV 画一遍（深度缓冲清掉、盖在最上面）。
+   *  模型放在 layer 1，世界在 layer 0，两趟各画一层。 */
+  const vmCamera = new THREE.PerspectiveCamera(55, W / H, 0.02, 120);
+  scene.add(vmCamera);
+  const LAYER_WORLD = 0;
+  const LAYER_VM = 1;
+  camera.layers.set(LAYER_WORLD);
+  vmCamera.layers.set(LAYER_VM);
+
+  // 玩家根节点：跟随位置和朝向；相机只负责俯仰，这样低头能看到自己的身体
+  const playerRoot = new THREE.Object3D();
+  playerRoot.position.set(0, EYE_H, 0);
+  scene.add(playerRoot);
+
+  let rig = null;
+
+  function buildRig(opts) {
+    if (rig) { playerRoot.remove(rig); rig = null; gunNode = null; }
+    // 裁剪面是「这次搭建」的状态，必须清掉：不清的话上一轮 armsOnly:true 搭出来的平面
+    // 会残留在全局变量里，被下一轮 step() 的 syncClip() 套到新模型的 matrixWorld 上，
+    // 于是「没裁剪」的那一轮也会被当成裁剪过的（screenBox / vertexStats 全错）。
+    clipPlaneLocal = null;
+    clipPlaneWorld = null;
+    const m = VF.Soldier.createClassSoldier('assault', { team: 'ally' });
+    if (!m) return null;
+    // 先在玩家根节点坐标下量头部位置（根节点在眼高、无旋转）
+    playerRoot.add(m);
+    m.position.set(0, 0, 0);
+    // 模型默认就朝 -Z（与相机同向）；转 PI 会变成对着自己后背
+    m.rotation.set(0, opts.yaw != null ? opts.yaw : 0, 0);
+    m.userData.glbAnim.mixer.update(0);
+    m.updateMatrixWorld(true);
+
+    const head = m.getObjectByName('Bip001-Head');
+    const localHead = new THREE.Vector3();
+    if (head) {
+      head.getWorldPosition(localHead);
+      // 换算到 playerRoot 局部坐标（playerRoot 只有平移，减掉即可）
+      localHead.sub(playerRoot.position);
+    }
+
+    if (opts.hideHead && head) head.scale.setScalar(0.001);
+
+    // 背枪挂在 Dummy001 骨骼上，第一人称下正好横在脸前，必须藏掉
+    if (opts.hideBack !== false) {
+      const dummy = m.getObjectByName('Dummy001');
+      if (dummy) dummy.visible = false;
+    }
+    (opts.hideNode || []).forEach(function (nm) {
+      const n = m.getObjectByName(nm);
+      if (n) n.visible = false;
+    });
+
+    // 「只留手臂」：在模型局部坐标系里放一个平面，把 z 大于阈值的部分（躯干/头/腿）裁掉，
+    // 只保留往前伸的手臂、手和枪。这是正经 FPS viewmodel 的做法（真实游戏的美术资产
+    // 就是一个"手臂 + 武器"模型）；我们直接拿整具模型现场裁出来，省一套美术资产。
+    // 注意：材质要 clone —— 几何/材质在原注册表里是跨实例共享的（AI、预览页都用同一份），
+    // 直接改会连累所有人。
+    if (opts.armsOnly) {
+      // 阈值按**相机坐标系**给：负 = 眼睛前方多少米。
+      // 早先挂在模型局部系上（-(rel + localHead.z)），但模型会被 pinHead 每帧平移，
+      // 平面的实际含义就跟着漂 —— Sprint 里能漂到眼睛后面 30cm 去，和真机对不上。
+      const rel = typeof opts.armsOnly === 'number' ? opts.armsOnly : -0.12;
+      // three.js 裁剪保留 distanceToPoint <= 0 的片元。相机看向 -Z，
+      // 保留 z <= rel 需要 normal=(0,0,1)、constant=-rel。
+      clipPlaneLocal = new THREE.Plane(new THREE.Vector3(0, 0, 1), -rel);
+      clipPlaneWorld = new THREE.Plane().copy(clipPlaneLocal);
+      m.traverse(function (n) {
+        if (!n.isSkinnedMesh && !n.isMesh) return;
+        const src = Array.isArray(n.material) ? n.material : [n.material];
+        const cloned = src.map(function (mm) {
+          const c = mm.clone();
+          c.clippingPlanes = [clipPlaneWorld];
+          c.clipShadows = true;
+          return c;
+        });
+        n.material = Array.isArray(n.material) ? cloned : cloned[0];
+        n.userData.clippedMaterial = true;
+      });
+    }
+
+    // 体检用：把蒙皮网格整体隐藏，看剩下的东西是什么
+    if (opts.hideSkinned) {
+      m.traverse(function (n) { if (n.isSkinnedMesh) n.visible = false; });
+    }
+
+    // 让头部骨骼正好落在相机原点（+ 可调眼偏移）
+    m.position.sub(localHead);
+    m.position.x += opts.eyeX || 0;
+    m.position.y += opts.eyeY || 0;
+    m.position.z += opts.eyeZ || 0;
+    m.updateMatrixWorld(true);
+    rig = m;
+
+    // 角色整体归到「第一人称模型」层；地面上的阵营环是世界观的东西，还给世界层
+    m.traverse(function (n) { n.layers.set(LAYER_VM); });
+    const tmark = m.getObjectByName('TeamMarker');
+    if (tmark) tmark.layers.set(LAYER_WORLD);
+
+    if (opts.weapon) {
+      gunRot = opts.gunRot || [0, 0, 0];
+      gunPos = opts.gunPos || [0, 0, 0];
+      gunRotExtra = opts.gunRotExtra || null;
+      optsGripBack = opts.gripBack != null ? opts.gripBack : 0.2;
+      optsGunScale = opts.gunScale != null ? opts.gunScale : null;
+      attachWeapon(opts.weapon);
+    }
+    return m;
+  }
+
+  let gunNode = null;
+  function attachWeapon(weaponId) {
+    if (!rig) return false;
+    const hand = rig.getObjectByName('Dummy001_R-Hand');
+    if (!hand) return false;
+    const M = window.VF && window.VF.WeaponModels;
+    if (!M || !M.build) return false;
+    const built = M.build(weaponId);
+    if (!built || !built.gun) return false;
+    const gun = built.gun;
+    if (gunRot !== 'auto') gun.rotation.set(gunRot[0], gunRot[1], gunRot[2]);
+    gun.position.set(gunPos[0], gunPos[1], gunPos[2]);
+    if (optsGunScale != null) gun.scale.setScalar(optsGunScale);
+    gun.traverse(function (n) { n.layers.set(LAYER_VM); });
+    hand.add(gun);
+    gunNode = gun;
+    return true;
+  }
+
+  let gunRot = [0, 0, 0];
+  let gunPos = [0, 0, 0];
+  let gunRotExtra = null;
+  let optsGripBack = null;
+  let optsGunScale = null;
+  let clipPlaneLocal = null;
+  let clipPlaneWorld = null;
+
+  /** three.js 的 clippingPlanes 是世界坐标：平面定义在相机系，每帧按相机矩阵同步 */
+  function syncClip() {
+    if (!clipPlaneLocal || !clipPlaneWorld || !rig) return;
+    camera.updateMatrixWorld(true);
+    clipPlaneWorld.copy(clipPlaneLocal).applyMatrix4(camera.matrixWorld);
+  }
+
+  /**
+   * 把头骨钉回相机的眼睛位置（和真机 createArtViewModel 的 pinHead 同一套）。
+   * 动画会把头带走（Sprint 往前 33cm / 往下 12cm），不钉的话相机就退到后脑勺后面，
+   * 脖子肩膀怼镜头 —— 这一步比裁剪重要得多。
+   * 离线 harness 里没有上一帧，直接一次钉到位（不做阻尼）。
+   */
+  function pinHead(opts) {
+    if (!rig || opts.pinHead === false) return;
+    const head = rig.getObjectByName('Bip001-Head');
+    if (!head) return;
+    rig.updateMatrixWorld(true);
+    playerRoot.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(playerRoot.matrixWorld).invert();
+    const v = new THREE.Vector3().setFromMatrixPosition(head.matrixWorld).applyMatrix4(inv);
+    rig.position.x += ((opts.eyeX || 0) - v.x);
+    rig.position.y += ((opts.eyeY != null ? opts.eyeY : -0.1) - v.y);
+    rig.position.z += ((opts.eyeZ != null ? opts.eyeZ : 0) - v.z);
+    rig.updateMatrixWorld(true);
+  }
+
+  /** 两趟渲染：世界一层，第一人称模型另一层（窄 FOV、清深度后盖上去） */
+  function renderFps(opts) {
+    const vmFov = opts.vmFov != null ? opts.vmFov : 55;
+    renderer.autoClear = true;
+    if (vmFov >= 74) {
+      // 不分层（省一趟）：模型挂在 LAYER_VM 上，必须让主相机也接受这一层，
+      // 否则主相机只画 LAYER_WORLD，模型整个被剔除 → 画面里啥都没有。
+      camera.layers.enable(LAYER_VM);
+      renderer.render(scene, camera);
+      camera.layers.disable(LAYER_VM);
+      return;
+    }
+    renderer.render(scene, camera);
+    vmCamera.fov = vmFov;
+    vmCamera.aspect = W / H;
+    vmCamera.near = opts.vmNear != null ? opts.vmNear : 0.06;
+    vmCamera.far = 20;
+    vmCamera.position.copy(camera.position);
+    vmCamera.quaternion.copy(camera.quaternion);
+    vmCamera.updateProjectionMatrix();
+    vmCamera.updateMatrixWorld(true);
+    // 坑：scene.background 是 Color 时 three.js 会无视 autoClear 强制 clear，
+    // 把第一趟画好的世界整个抹掉 —— 第二趟必须临时把 background 摘掉。
+    const bg = scene.background;
+    scene.background = null;
+    renderer.autoClear = false;
+    renderer.clearDepth();
+    renderer.render(scene, vmCamera);
+    scene.background = bg;
+    renderer.autoClear = true;
+  }
+
+  /** 推进到某个 clip 的某时刻（不渲染） */
+  function step(opts) {
+    const a = rig.userData.glbAnim;
+    a.mixer.stopAllAction();
+    const action = a.actions[opts.clip || 'Idle'];
+    if (!action) return null;
+    action.reset();
+    action.setLoop(THREE.LoopRepeat, Infinity);
+    if (opts.timeScale) action.timeScale = opts.timeScale;
+    action.play();
+    a.mixer.update(opts.t != null ? opts.t : 0.4);
+    rig.updateMatrixWorld(true);
+    pinHead(opts); // 动画把头带走之后钉回来，和真机 tick() 的顺序一致
+    alignGun();
+    syncClip();
+    rig.updateMatrixWorld(true);
+    return action;
+  }
+
+  /** 对齐必须在动画推进之后做：姿势一变，挂点骨骼的世界朝向就变了。
+   *
+   *  要解的方程（都在「身体根节点」坐标系里算，因为枪要跟着身体不跟着俯仰）：
+   *    R_gun世界 = R_手世界 · R_枪局部  =  R_根世界
+   *  ⇒ R_枪局部 = R_手世界⁻¹ · R_根世界
+   *  这样枪的局部 -Z（枪口）就指向身体正前方、+Y 朝上。
+   *
+   *  位置同理：希望枪的「握把」落在手骨上，而美术资产原点在包围盒中心（第二批）
+   *  或握把（第一批），所以要把枪沿自身 +Z 方向补偿 gripBack 米：
+   *    握把世界坐标 = 枪原点世界坐标 + R_gun·(0,0,+gripBack) = 手世界坐标
+   *  ⇒ 枪原点 = 手 + D，D = (0,0,-gripBack) 再叠加人工微调 gunPos。
+   */
+  function alignGun() {
+    if (!gunNode || gunRot !== 'auto') return;
+    const hand = gunNode.parent;
+    if (!hand) return;
+    const qHand = new THREE.Quaternion();
+    hand.getWorldQuaternion(qHand);
+    const qRoot = new THREE.Quaternion();
+    playerRoot.getWorldQuaternion(qRoot);
+    const qHandInv = qHand.clone().invert();
+    gunNode.quaternion.copy(qHandInv).multiply(qRoot); // qHand⁻¹ · qRoot
+    if (gunRotExtra) {
+      gunNode.quaternion.multiply(
+        new THREE.Quaternion().setFromEuler(
+          new THREE.Euler(gunRotExtra[0] || 0, gunRotExtra[1] || 0, gunRotExtra[2] || 0)
+        )
+      );
+    }
+    // D 先按「身体根节点」坐标系给出，再转到手骨局部坐标系
+    const D = new THREE.Vector3(
+      gunPos[0],
+      gunPos[1],
+      gunPos[2] - (optsGripBack != null ? optsGripBack : 0)
+    ).applyQuaternion(qRoot);
+    gunNode.position.copy(D).applyQuaternion(qHandInv);
+  }
+
+  function pose(opts) {
+    opts = opts || {};
+    if (!buildRig(opts)) return { ok: false, reason: 'create returned null' };
+    if (!step(opts)) return { ok: false, reason: '没有 clip: ' + opts.clip };
+    // 俯仰只转相机，身体留在玩家根节点上（低头才看得到自己）
+    if (opts.fov && camera.fov !== opts.fov) {
+      camera.fov = opts.fov;
+      camera.updateProjectionMatrix();
+    }
+    if (opts.near && camera.near !== opts.near) {
+      camera.near = opts.near;
+      camera.updateProjectionMatrix();
+    }
+    camera.rotation.set(opts.pitch || 0, 0, 0);
+    camera.updateMatrixWorld(true);
+    syncClip(); // 平面挂在相机系上，转完相机要重新同步，否则用的是上一帧的朝向
+    // noWorld：只留天空色背景，把地面和参照箱子摘掉。
+    // 判定「只留手臂」裁剪时用 —— 断面是黑片，落在箱子上就分不清是断面还是箱子。
+    const wasVis = WORLD_OBJS.map(function (o) { return o.visible; });
+    WORLD_OBJS.forEach(function (o) { o.visible = !opts.noWorld; });
+    renderFps(opts);
+    WORLD_OBJS.forEach(function (o, i) { o.visible = wasVis[i]; });
+    return {
+      ok: true,
+      png: canvas.toDataURL('image/png'),
+      headY: headInfo(),
+      gun: !!gunNode,
+      vis: visChain(),
+    };
+  }
+
+  /** 旁观视角：把相机位置和朝向画出来，确认对齐关系 */
+  function debugPose(opts) {
+    opts = opts || {};
+    if (!buildRig(opts)) return { ok: false, reason: 'create returned null' };
+    if (!step(opts)) return { ok: false, reason: '没有 clip: ' + opts.clip };
+
+    const marks = [];
+    const eye = new THREE.Mesh(
+      new THREE.SphereGeometry(0.05, 12, 8),
+      new THREE.MeshBasicMaterial({ color: 0x00ff66 })
+    );
+    camera.add(eye);
+    marks.push(eye);
+    const arrow = new THREE.ArrowHelper(
+      new THREE.Vector3(0, 0, -1),
+      new THREE.Vector3(0, 0, 0),
+      0.8,
+      0x00ff66,
+      0.18,
+      0.1
+    );
+    camera.add(arrow);
+    marks.push(arrow);
+
+    const dbg = new THREE.PerspectiveCamera(40, W / H, 0.1, 200);
+    // 模型整个在 LAYER_VM(=1) 上，新建的相机默认只收 layer 0 —— 不打开这一层的话
+    // 旁观视角里根本看不到人体，只能看到相机标记飘在空中。
+    dbg.layers.enable(LAYER_VM);
+    dbg.position.set(opts.dx != null ? opts.dx : 1.9, opts.dy != null ? opts.dy : 1.75, opts.dz != null ? opts.dz : 1.9);
+    dbg.lookAt(0, opts.lookY != null ? opts.lookY : 1.35, 0);
+    renderer.render(scene, dbg);
+
+    marks.forEach((m) => camera.remove(m));
+    return { ok: true, png: canvas.toDataURL('image/png') };
+  }
+
+  /** 枪口朝向探针：把枪的局部 -Z 端点投到相机坐标系，看它到底指向哪 */
+  function gunProbe(opts) {
+    opts = opts || {};
+    if (!buildRig(opts)) return null;
+    if (!step(opts)) return null;
+    if (!gunNode) return { ok: false, reason: '没挂上枪' };
+    camera.rotation.set(opts.pitch || 0, 0, 0);
+    camera.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(camera.matrixWorld).invert();
+    const toCam = (local) =>
+      gunNode.localToWorld(new THREE.Vector3(local[0], local[1], local[2])).applyMatrix4(inv);
+    const o = toCam([0, 0, 0]);
+    const tipZ = toCam([0, 0, -1]); // 枪的 -Z 端
+    const tipY = toCam([0, 1, 0]); // 枪的 +Y 端
+    const d1 = tipZ.clone().sub(o);
+    const d2 = tipY.clone().sub(o);
+    const f = (v) => [+v.x.toFixed(3), +v.y.toFixed(3), +v.z.toFixed(3)];
+    return {
+      ok: true,
+      origin: f(o),
+      axisZ: f(d1),
+      axisY: f(d2),
+      muzzleForward: d1.z < -0.5,
+      muzzleUp: d2.y > 0.5,
+    };
+  }
+
+  /** 查头部到底归谁管：骨骼世界缩放 + 蒙皮网格清单 */
+  function inspect(opts) {
+    opts = opts || {};
+    if (!buildRig(opts)) return null;
+    if (!step(opts)) return null;
+    const head = rig.getObjectByName('Bip001-Head');
+    const skinned = [];
+    rig.traverse(function (n) {
+      if (!n.isSkinnedMesh) return;
+      const bones = n.skeleton ? n.skeleton.bones : [];
+      skinned.push({
+        name: n.name || '(无名)',
+        verts: n.geometry.attributes.position.count,
+        bones: bones.length,
+        headIdx: head ? bones.indexOf(head) : -1,
+      });
+    });
+    const meshes = [];
+    rig.traverse(function (n) {
+      if (!n.isMesh && !n.isSkinnedMesh) return;
+      const p = new THREE.Vector3().setFromMatrixPosition(n.matrixWorld);
+      const bb = new THREE.Box3().setFromObject(n);
+      const sz = new THREE.Vector3();
+      bb.getSize(sz);
+      const c = new THREE.Vector3();
+      bb.getCenter(c);
+      const chain = [];
+      for (let p = n; p && p !== rig.parent; p = p.parent) chain.unshift(p.name || '(无名)');
+      meshes.push({
+        name: (n.name || '(无名)') + (n.isSkinnedMesh ? '[蒙皮]' : '[网格]'),
+        path: chain.join('/'),
+        vis: n.visible,
+        origin: [+p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2)],
+        size: [+sz.x.toFixed(2), +sz.y.toFixed(2), +sz.z.toFixed(2)],
+        center: [+c.x.toFixed(2), +c.y.toFixed(2), +c.z.toFixed(2)],
+      });
+    });
+    const out = { skinned: skinned, meshes: meshes, headScale: null, headChildren: [], allHeadNamed: [] };
+    if (head) {
+      const s = new THREE.Vector3();
+      const q = new THREE.Quaternion();
+      const p = new THREE.Vector3();
+      head.matrixWorld.decompose(p, q, s);
+      out.headScale = [+s.x.toFixed(4), +s.y.toFixed(4), +s.z.toFixed(4)];
+      out.headLocalScale = [+head.scale.x.toFixed(4), +head.scale.y.toFixed(4), +head.scale.z.toFixed(4)];
+      out.headChildren = head.children.map(function (c) { return c.name + '(' + c.type + ')'; });
+    }
+    rig.traverse(function (n) {
+      if (/head/i.test(n.name)) {
+        out.allHeadNamed.push(n.name + '(' + n.type + ') vis=' + n.visible + ' sc=' + n.scale.x.toFixed(3));
+      }
+    });
+    return out;
+  }
+
+  /** 报告隐藏项与"实际会被渲染"的网格（祖先链上有 invisible 的就不算） */
+  function visChain() {
+    if (!rig) return null;
+    const out = { hidden: [], rendered: [] };
+    rig.traverse(function (n) {
+      if (n.visible === false) out.hidden.push((n.name || '(无名)') + ':' + n.type);
+    });
+    rig.traverse(function (n) {
+      if (!n.isMesh && !n.isSkinnedMesh) return;
+      let ok = true;
+      for (let p = n; p && p !== rig.parent; p = p.parent) if (p.visible === false) ok = false;
+      if (ok) out.rendered.push(n.name || '(无名网格)');
+    });
+    return out;
+  }
+
+  /** 枪在相机坐标系下的包围盒（x 右 / y 上 / z 前负后正）+ 屏幕上占多少 */
+  function gunBox(opts) {
+    opts = opts || {};
+    if (!buildRig(opts)) return null;
+    if (!step(opts)) return null;
+    if (!gunNode) return { ok: false, reason: '没挂上枪' };
+    camera.rotation.set(opts.pitch || 0, 0, 0);
+    camera.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(camera.matrixWorld).invert();
+    gunNode.updateMatrixWorld(true);
+    const bb = new THREE.Box3();
+    gunNode.traverse(function (n) {
+      if (!n.isMesh) return;
+      if (!n.geometry.boundingBox) n.geometry.computeBoundingBox();
+      const g = n.geometry.boundingBox;
+      for (let i = 0; i < 8; i++) {
+        const v = new THREE.Vector3(
+          i & 1 ? g.max.x : g.min.x,
+          i & 2 ? g.max.y : g.min.y,
+          i & 4 ? g.max.z : g.min.z
+        );
+        v.applyMatrix4(n.matrixWorld).applyMatrix4(inv);
+        bb.expandByPoint(v);
+      }
+    });
+    const f3 = (v) => [+v.x.toFixed(2), +v.y.toFixed(2), +v.z.toFixed(2)];
+    // 枪自身 -Z 端（枪口）与 +Z 端（枪托）在相机系里的位置
+    const muzzle = gunNode.localToWorld(new THREE.Vector3(0, 0, -1)).applyMatrix4(inv);
+    const stock = gunNode.localToWorld(new THREE.Vector3(0, 0, 1)).applyMatrix4(inv);
+    return { ok: true, min: f3(bb.min), max: f3(bb.max), muzzleDirPoint: f3(muzzle), stockDirPoint: f3(stock) };
+  }
+
+  /** 按指定 FOV 算出「枪」和「可见骨骼」在屏幕上的归一化包围盒，用来客观挑参数 */
+  function screenBox(opts) {
+    opts = opts || {};
+    if (!buildRig(opts)) return null;
+    if (!step(opts)) return null;
+    const vmFov = opts.vmFov != null ? opts.vmFov : 55;
+    const vm = new THREE.PerspectiveCamera(vmFov, W / H, 0.06, 20);
+    vm.position.copy(camera.position);
+    vm.rotation.set(opts.pitch || 0, 0, 0);
+    vm.updateMatrixWorld(true);
+    const v = new THREE.Vector3();
+    const mk = () => ({ minX: 9, minY: 9, maxX: -9, maxY: -9, any: false });
+    const fmt = (a) => (a.any ? [a.minX, a.minY, a.maxX, a.maxY].map((n) => +n.toFixed(2)) : null);
+    let cur = null;
+    const camInv = new THREE.Matrix4().copy(vm.matrixWorld).invert();
+    const csp = new THREE.Vector3();
+    const addG = (p) => {
+      // 先转到相机坐标系：z >= -near 的点在镜头后面/贴脸，投影出来是乱值，直接丢
+      csp.copy(p).applyMatrix4(camInv);
+      if (csp.z > -0.06) return;
+      v.copy(p).project(vm);
+      if (v.x < cur.minX) cur.minX = v.x;
+      if (v.x > cur.maxX) cur.maxX = v.x;
+      if (v.y < cur.minY) cur.minY = v.y;
+      if (v.y > cur.maxY) cur.maxY = v.y;
+      cur.any = true;
+    };
+
+    // 枪
+    const gunAcc = mk();
+    cur = gunAcc;
+    if (gunNode) {
+      gunNode.updateMatrixWorld(true);
+      gunNode.traverse(function (n) {
+        if (!n.isMesh) return;
+        if (!n.geometry.boundingBox) n.geometry.computeBoundingBox();
+        const g = n.geometry.boundingBox;
+        for (let i = 0; i < 8; i++) {
+          addG(
+            new THREE.Vector3(
+              i & 1 ? g.max.x : g.min.x,
+              i & 2 ? g.max.y : g.min.y,
+              i & 4 ? g.max.z : g.min.z
+            ).applyMatrix4(n.matrixWorld)
+          );
+        }
+      });
+    }
+    // 骨骼（只算没被裁掉的，近似代表"画面里能看到的人体部分"）
+    const boneAcc = mk();
+    cur = boneAcc;
+    rig.traverse(function (n) {
+      if (!n.isBone) return;
+      const wp = new THREE.Vector3().setFromMatrixPosition(n.matrixWorld);
+      // three.js 丢弃 distanceToPoint > 0 的片元 ⇒ 保留的是 <= 0，被裁掉的是 > 0。
+      // （这里原先写成 < 0，语义反了，会把「留下来的手臂骨骼」当成被裁的剔掉。）
+      if (clipPlaneWorld && clipPlaneWorld.distanceToPoint(wp) > 0) return; // 被裁掉
+      addG(wp);
+    });
+    return { gun: fmt(gunAcc), bones: fmt(boneAcc) };
+  }
+
+  /**
+   * 顶点级统计：裁剪面到底把什么留在了画面里。
+   *
+   * 为什么不用骨骼近似：一根上臂骨代表的是整条上臂（误差几十厘米），而裁剪是逐片元
+   * 生效的，靠骨骼包围盒挑 cut 会差出半条胳膊。这里直接取蒙皮后的真实顶点
+   * （SkinnedMesh.getVertexPosition 会套用骨骼变换），并且按**三角面**判定：
+   * 只要一个三角面还有顶点没被裁掉，它就会被光栅化出一部分，所以它算"画出来了"。
+   *
+   * 返回：按 part 分组（role / gun）的「画出来的包围盒」，以及深度范围。
+   * 屏幕坐标用 0..1 的屏幕占比（和真机探针同一套），x 右 y 下。
+   */
+  function vertexStats(opts) {
+    opts = opts || {};
+    if (!buildRig(opts)) return null;
+    if (!step(opts)) return null;
+    if (opts.fov && camera.fov !== opts.fov) {
+      camera.fov = opts.fov;
+      camera.updateProjectionMatrix();
+    }
+    camera.rotation.set(opts.pitch || 0, 0, 0);
+    camera.updateMatrixWorld(true);
+    syncClip(); // 同上：平面在相机系里，转完相机必须重新同步
+    const camInv = new THREE.Matrix4().copy(camera.matrixWorld).invert();
+    const proj = camera.projectionMatrix;
+    const nearZ = camera.near;
+    // 把裁剪面也搬到相机系里：Plane.applyMatrix4 对刚体变换是精确的，
+    // 这样顶点距离直接在相机系里算，不用每算一次就把点搬回世界系（还省一次分配）。
+    const planeCam = clipPlaneWorld ? clipPlaneWorld.clone().applyMatrix4(camInv) : null;
+
+    const groups = { role: blank(), gun: blank() };
+    const v = new THREE.Vector3();
+    const cache = new Map(); // 顶点去重：蒙皮计算贵，三角面共享顶点时复用
+    const probe = function (n, i) {
+      const key = n.id + ':' + i;
+      let p = cache.get(key);
+      if (p) return p;
+      if (n.getVertexPosition) n.getVertexPosition(i, v);
+      else v.fromBufferAttribute(n.geometry.attributes.position, i);
+      v.applyMatrix4(n.matrixWorld); // → 世界
+      const kept = !clipPlaneWorld || clipPlaneWorld.distanceToPoint(v) <= 0;
+      v.applyMatrix4(camInv); // → 相机系（-z 为前方，单位米）
+      p = { kept: kept, cx: v.x, cy: v.y, cz: v.z, dc: planeCam ? planeCam.distanceToPoint(v) : -1 };
+      cache.set(key, p);
+      return p;
+    };
+
+    // 枪是挂在手骨上的，属于 rig 的子树。不排除掉的话「角色」的统计里混着枪，
+    // 包围盒永远 ⊇ 枪的盒子，就分不清「手臂露没露出来」（实测被这个坑过：
+    // 明明画面里只有枪，role 的 onScreen 却报 x0=0.41，看着像手臂可见）。
+    const gunSet = new Set();
+    if (gunNode) gunNode.traverse(function (n) { gunSet.add(n); });
+
+    const scan = function (rootObj, part, exclude) {
+      const g = groups[part];
+      const push = function (p) {
+        if (p.cz > -nearZ) return; // 落在近平面之后/贴脸，投影出来是乱值
+        const q = new THREE.Vector3(p.cx, p.cy, p.cz).applyMatrix4(proj);
+        const sx = q.x * 0.5 + 0.5;
+        const sy = 1 - (q.y * 0.5 + 0.5);
+        g.x0 = Math.min(g.x0, sx);
+        g.x1 = Math.max(g.x1, sx);
+        g.y0 = Math.min(g.y0, sy);
+        g.y1 = Math.max(g.y1, sy);
+        g.n++;
+        g.zmin = Math.min(g.zmin, p.cz);
+        g.zmax = Math.max(g.zmax, p.cz);
+        g.cx0 = Math.min(g.cx0, p.cx);
+        g.cx1 = Math.max(g.cx1, p.cx);
+        g.cy0 = Math.min(g.cy0, p.cy);
+        g.cy1 = Math.max(g.cy1, p.cy);
+        // 「真正看得见」的部分：包围盒会把画面外的点也算进来（比如脚投影到屏幕下方 5 屏处），
+        // 光看 screen 盒会以为占了整屏。这里只收落在 [0,1]² 里的点 —— 这才是肉眼所见。
+        if (sx >= 0 && sx <= 1 && sy >= 0 && sy <= 1) {
+          g.onN++;
+          g.ox0 = Math.min(g.ox0, sx);
+          g.ox1 = Math.max(g.ox1, sx);
+          g.oy0 = Math.min(g.oy0, sy);
+          g.oy1 = Math.max(g.oy1, sy);
+        }
+      };
+      rootObj.traverse(function (n) {
+        if (!n.isMesh && !n.isSkinnedMesh) return;
+        if (exclude && exclude.has(n)) return; // 见上：角色统计要排除枪
+        const geo = n.geometry;
+        if (!geo || !geo.attributes || !geo.attributes.position) return;
+        const idx = geo.index ? geo.index.array : null;
+        const total = geo.attributes.position.count;
+        g.verts += total;
+        const nIdx = idx ? idx.length : total;
+        for (let k = 0; k + 2 < nIdx; k += 3) {
+          const tri = [probe(n, idx ? idx[k] : k), probe(n, idx ? idx[k + 1] : k + 1), probe(n, idx ? idx[k + 2] : k + 2)];
+          g.tris++;
+          if (!(tri[0].kept || tri[1].kept || tri[2].kept)) continue; // 整个三角面被裁光
+          g.drawn++;
+          // 只把**存活的**顶点算进包围盒：部分被裁的三角面，远端顶点其实已经被裁掉了，
+          // 全算进去会让包围盒虚胖到整屏（实测 role 盒报出 x0=-1.00 而画面左边什么都没有）。
+          // 被平面切出来的那条新边由「边与平面的交点」补上，可见轮廓才闭合。
+          tri.forEach(function (p) {
+            if (p.kept) push(p);
+          });
+          if (planeCam) {
+            for (let e = 0; e < 3; e++) {
+              const a = tri[e];
+              const b = tri[(e + 1) % 3];
+              if (a.kept === b.kept) continue;
+              const t = a.dc / (a.dc - b.dc);
+              push({
+                kept: true,
+                cx: a.cx + (b.cx - a.cx) * t,
+                cy: a.cy + (b.cy - a.cy) * t,
+                cz: a.cz + (b.cz - a.cz) * t,
+              });
+            }
+          }
+        }
+      });
+    };
+    function blank() {
+      return {
+        verts: 0, tris: 0, drawn: 0, n: 0,
+        x0: 9, x1: -9, y0: 9, y1: -9,
+        onN: 0, ox0: 9, ox1: -9, oy0: 9, oy1: -9,
+        zmin: 9, zmax: -9, cx0: 9, cx1: -9, cy0: 9, cy1: -9,
+      };
+    }
+    const r3 = (x) => Number(x.toFixed(3));
+    const finish = function (g) {
+      if (!g.n) return { verts: g.verts, tris: g.tris, drawn: 0, screen: null, onScreen: null };
+      const o = {
+        verts: g.verts,
+        tris: g.tris,
+        drawn: g.drawn,
+        drawnPct: Math.round((g.drawn / g.tris) * 100),
+        screen: [r3(g.x0), r3(g.y0), r3(g.x1), r3(g.y1)],
+        screenW: r3(g.x1 - g.x0),
+        screenH: r3(g.y1 - g.y0),
+        depth: [r3(-g.zmax), r3(-g.zmin)], // 换成「距眼睛多少米」，小→近
+        cam: [r3(g.cx0), r3(g.cy0), r3(g.cx1), r3(g.cy1)],
+      };
+      // onScreen = 真正落在画面里的那部分的包围盒；onPct = 画出来的点里有多少真的在画面内
+      if (g.onN) {
+        o.onScreen = [r3(g.ox0), r3(g.oy0), r3(g.ox1), r3(g.oy1)];
+        o.onW = r3(g.ox1 - g.ox0);
+        o.onH = r3(g.oy1 - g.oy0);
+        o.onPct = Math.round((g.onN / g.n) * 100);
+      } else {
+        o.onScreen = null;
+        o.onPct = 0;
+      }
+      return o;
+    };
+
+    if (rig) scan(rig, 'role', gunSet);
+    if (gunNode) scan(gunNode, 'gun', null);
+
+    // 手骨到底还在不在（裁剪面如果把手也切了，就是 cut 挪过头了）
+    const hands = {};
+    ['Dummy001_R-Hand', 'Dummy002_L-Hand', 'Dummy001', 'Bip001-R-Forearm', 'Bip001-L-Forearm'].forEach(function (nm) {
+      const b = rig.getObjectByName(nm);
+      if (!b) return;
+      const wp = new THREE.Vector3().setFromMatrixPosition(b.matrixWorld);
+      const kept = !clipPlaneWorld || clipPlaneWorld.distanceToPoint(wp) <= 0;
+      const p = wp.applyMatrix4(camInv);
+      hands[nm] = { kept: kept, cam: [r3(p.x), r3(p.y), r3(p.z)] };
+    });
+
+    return {
+      fov: camera.fov,
+      near: camera.near,
+      cut: clipPlaneWorld ? 'on' : 'off',
+      role: finish(groups.role),
+      gun: finish(groups.gun),
+      hands: hands,
+    };
+  }
+
+  /**
+   * 骨架几何 dump：确认「眼睛到底在身体的什么位置」。
+   * 输出的是**相机系**（x 右 / y 上 / z 负=身前），单位米；外加整具模型的世界包围盒，
+   * 用来核对模型身高、头骨离地高度是否合理 —— 相机放错高度/前后，调 cut 怎么调都是白搭。
+   */
+  function geomDump(opts) {
+    opts = opts || {};
+    if (!buildRig(opts)) return null;
+    if (!step(opts)) return null;
+    rig.updateMatrixWorld(true);
+    const r3 = (x) => Number(x.toFixed(3));
+    const at = function (nm) {
+      const b = rig.getObjectByName(nm);
+      if (!b) return null;
+      const v = new THREE.Vector3();
+      b.getWorldPosition(v);
+      return [r3(v.x), r3(v.y), r3(v.z)];
+    };
+    const box = new THREE.Box3();
+    rig.traverse(function (n) {
+      if (n.isMesh || n.isSkinnedMesh) {
+        n.updateMatrixWorld(true);
+        if (n.isSkinnedMesh) {
+          // 蒙皮网格的 geometry.boundingBox 是绑定姿势的，必须按当前姿势重新算
+          const g = n.geometry;
+          const pos = g.attributes.position;
+          const v = new THREE.Vector3();
+          for (let i = 0; i < pos.count; i++) {
+            n.getVertexPosition(i, v);
+            v.applyMatrix4(n.matrixWorld);
+            box.expandByPoint(v);
+          }
+        } else {
+          box.expandByObject(n);
+        }
+      }
+    });
+    // 只算皮肤网格（不含挂在手上的枪）：枪是真实尺寸，混进包围盒会把身高量成 2.2m
+    const sbox = new THREE.Box3();
+    rig.traverse(function (n) {
+      if (!n.isSkinnedMesh) return;
+      const pos = n.geometry.attributes.position;
+      const v = new THREE.Vector3();
+      for (let i = 0; i < pos.count; i++) {
+        n.getVertexPosition(i, v);
+        v.applyMatrix4(n.matrixWorld);
+        sbox.expandByPoint(v);
+      }
+    });
+    return {
+      box: {
+        min: [r3(box.min.x), r3(box.min.y), r3(box.min.z)],
+        max: [r3(box.max.x), r3(box.max.y), r3(box.max.z)],
+        h: r3(box.max.y - box.min.y),
+      },
+      skin: {
+        min: [r3(sbox.min.x), r3(sbox.min.y), r3(sbox.min.z)],
+        max: [r3(sbox.max.x), r3(sbox.max.y), r3(sbox.max.z)],
+        h: r3(sbox.max.y - sbox.min.y),
+      },
+      head: at('Bip001-Head'),
+      neck: at('Bip001-Neck'),
+      spine: at('Bip001-Spine'),
+      spine1: at('Bip001-Spine1'),
+      pelvis: at('Bip001-Pelvis'),
+      rHand: at('Dummy001_R-Hand'),
+      lHand: at('Dummy002_L-Hand'),
+      rFore: at('Bip001-R-Forearm'),
+      lFore: at('Bip001-L-Forearm'),
+      rUp: at('Bip001-R-UpperArm'),
+      lUp: at('Bip001-L-UpperArm'),
+      rFoot: at('Bip001-R-Foot'),
+      lFoot: at('Bip001-L-Foot'),
+    };
+  }
+
+  function headInfo() {
+    if (!rig) return null;
+    const h = rig.getObjectByName('Bip001-Head');
+    if (!h) return null;
+    const v = new THREE.Vector3();
+    h.getWorldPosition(v);
+    return [+v.x.toFixed(3), +v.y.toFixed(3), +v.z.toFixed(3)];
+  }
+
+  /** 参数扫描的公共底座（第一人称 + 持枪 + 挂 M4A1） */
+  window.__fpsBase = {
+    clip: 'AimIdle',
+    hideHead: true,
+    hideBack: true,
+    near: 0.1,
+    weapon: 'm4a1',
+    gunRot: 'auto',
+    gripBack: 0.2,
+    gunPos: [-0.03, 0.05, 0],
+  };
+
+  window.FpsView = {
+    ready: () => new Promise((resolve) => {
+      VF.SoldierVoxel.preloadAll().then(() => {
+        const M = window.VF && window.VF.WeaponModels;
+        if (M && M.preload) return M.preload(['m4a1']);
+        return false;
+      }).then(resolve, () => resolve(false));
+    }),
+    /** 所有骨骼在相机坐标系下的位置（相机在原点、朝 -Z），用来定位什么挡在眼前 */
+    boneMap: function (opts) {
+      opts = opts || {};
+      if (!buildRig(opts)) return null;
+      if (!step(opts)) return null;
+      camera.updateMatrixWorld(true);
+      const inv = new THREE.Matrix4().copy(camera.matrixWorld).invert();
+      const out = [];
+      rig.traverse(function (n) {
+        if (!n.isBone) return;
+        const p = new THREE.Vector3().setFromMatrixPosition(n.matrixWorld).applyMatrix4(inv);
+        out.push({
+          name: n.name,
+          x: +p.x.toFixed(3),
+          y: +p.y.toFixed(3),
+          z: +p.z.toFixed(3),
+          d: +p.length().toFixed(3),
+        });
+      });
+      out.sort((a, b) => a.d - b.d);
+      return out;
+    },
+
+    /** 从视野中心打射线，看看正前方到底是什么挡着 */
+    raycast: function (opts) {
+      opts = opts || {};
+      if (!buildRig(opts)) return null;
+      if (!step(opts)) return null;
+      camera.rotation.set(opts.pitch || 0, 0, 0);
+      camera.updateMatrixWorld(true);
+      const rc = new THREE.Raycaster();
+      const budget = [3, 2, 1, 0.5, 0.25];
+      return budget.map(function (near) {
+        rc.setFromCamera(new THREE.Vector2(0, 0), camera);
+        rc.near = 0;
+        rc.far = near;
+        const hits = rc.intersectObject(scene, true).filter(function (h) {
+          return h.object.visible;
+        });
+        const h = hits[0];
+        if (!h) return { near: near, hit: null };
+        return {
+          near: near,
+          name: h.object.name || h.object.type,
+          parent: h.object.parent ? h.object.parent.name || h.object.parent.type : '-',
+          dist: +h.distance.toFixed(3),
+        };
+      });
+    },
+
+    /** 模型根节点下的结构（只列两层，找背枪/标记这类附加物） */
+    tree: function (opts) {
+      opts = opts || {};
+      if (!buildRig(opts)) return null;
+      const lines = [];
+      (function walk(n, d) {
+        if (d > 4) return;
+        lines.push('  '.repeat(d) + (n.name || '(无名)') + ' (' + n.type + ')' +
+          (n.isBone ? ' [骨]' : '') + (n.isSkinnedMesh ? ' [蒙皮 ' + n.geometry.attributes.position.count + '顶点]' : ''));
+        n.children.forEach(function (c) {
+          if (c.isBone && d >= 3) { lines.push('  '.repeat(d + 1) + c.name + ' (Bone) …骨架'); return; }
+          walk(c, d + 1);
+        });
+      })(rig, 0);
+      return lines.filter(function (l) { return !/\(Bone\) …骨架/.test(l); }).slice(0, 40);
+    },
+
+    /** 骨骼在屏幕上的归一化坐标（x -1 左 1 右 / y -1 下 1 上 / 1 以外=出画） */
+    screenMap: function (opts) {
+      opts = opts || {};
+      if (!buildRig(opts)) return null;
+      if (!step(opts)) return null;
+      camera.rotation.set(opts.pitch || 0, 0, 0);
+      camera.updateMatrixWorld(true);
+      const v = new THREE.Vector3();
+      const out = [];
+      rig.traverse(function (n) {
+        if (!n.isBone) return;
+        v.setFromMatrixPosition(n.matrixWorld).project(camera);
+        out.push({ name: n.name, x: +v.x.toFixed(2), y: +v.y.toFixed(2), z: +v.z.toFixed(3) });
+      });
+      return out;
+    },
+
+    pose: pose,
+    /** 隔离显示：把「角色网格」和「枪」分别开关，用来点名画面里那一团到底是什么。
+     *  典型场景：裁剪面改了半天像素纹丝不动 —— 说明你看到的东西压根没吃裁剪面。 */
+    setVisible: function (opts) {
+      opts = opts || {};
+      if (!rig) return null;
+      const SKIP = { ViewGunMount: 1, Dummy001: 1 };
+      // 枪挂在手骨上，本来会被当成角色网格收进来 —— 那样「只角色」和「只枪」
+      // 两个开关会互相打架（关枪时枪跟着角色一起被关，出图全空，点不出名）。
+      const gunSet = new Set();
+      if (gunNode) gunNode.traverse(function (n) { gunSet.add(n); });
+      const role = [];
+      const walk = function (n, skip) {
+        if (!skip && (n.isMesh || n.isSkinnedMesh) && !gunSet.has(n)) role.push(n);
+        const ns = skip || !!SKIP[n.name];
+        n.children.forEach(function (c) { walk(c, ns); });
+      };
+      walk(rig, false);
+      if (opts.role != null) role.forEach(function (m) { m.visible = !!opts.role; });
+      if (opts.gun != null && gunNode) gunNode.visible = !!opts.gun;
+      // 场景里其它东西（地面/箱子）也一起关掉，避免干扰
+      if (opts.others != null) WORLD_OBJS.forEach(function (o) { o.visible = !opts.others; });
+      return { role: role.length, gun: !!gunNode };
+    },
+    /** 只重画一帧：不重建模型、不重摆姿势。改完可见性（setVisible）后取图用。 */
+    reRender: function (opts) {
+      opts = opts || {};
+      camera.rotation.set(opts.pitch || 0, 0, 0);
+      camera.updateMatrixWorld(true);
+      const wasVis = WORLD_OBJS.map(function (o) { return o.visible; });
+      if (opts.noWorld != null) WORLD_OBJS.forEach(function (o) { o.visible = !opts.noWorld; });
+      renderFps(opts);
+      WORLD_OBJS.forEach(function (o, i) { o.visible = wasVis[i]; });
+      return canvas.toDataURL('image/png');
+    },
+    debugPose: debugPose,
+    gunProbe: gunProbe,
+    gunBox: gunBox,
+    screenBox: screenBox,
+    vertexStats: vertexStats,
+    geomDump: geomDump,
+    inspect: inspect,
+  };
+})();
+</script>
+</body>
+</html>
