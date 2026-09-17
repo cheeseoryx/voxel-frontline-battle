@@ -1,0 +1,278 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>块面微缩纹理 · 真机对比</title>
+<style>
+  body { margin: 0; background: #20242c; color: #dde; font: 13px/1.5 system-ui; }
+  canvas { display: block; }
+</style>
+<body>
+<!-- 与 index.html 相同的加载顺序：three → voxel-world → 调色板 → bundle → prop-faces → stamp -->
+<script src="../js/vendor/three.gltf.global.js"></script>
+<script src="../js/voxel-world.js"></script>
+<script src="../js/props/prop-palette.js"></script>
+<script src="../js/props/props-bundle.js"></script>
+<script src="../js/props/prop-faces.js"></script>
+<script src="../js/props/prop-stamp.js"></script>
+<script>
+/*
+ * 真机对比实验台
+ *
+ *   A. 原始 GLB（美术资产本体），按同一 yaw 旋转
+ *   B. 体素化 + 块面微缩纹理（新管线）
+ *   C. 体素化但关掉面纹理（只有几何，用来确认 B 的花纹确实来自图集）
+ *
+ * 两种机位：
+ *   view()  3/4 视角，看整体还原度
+ *   face()  **正对一个世界面**的视点 —— 判方向用。
+ *           判据：对同一个世界面方向，A 和 B 显示的图案内容和朝向必须一致，
+ *           这跟"我能不能读懂招牌上的字"无关。
+ *
+ * yaw 符号约定（推导见 check-prop-faces-render.js 顶部注释）：
+ *   prop-stamp 的 q=1 = 绕 +Y 转 -90°；prop-faces 的 YAW_R[1] 与之一致。
+ *   所以 A 侧参照图用 rotation.y = -yawRad；glbOpp(+yawRad) 是反例。
+ *
+ * 用法见 scripts/check-prop-faces-render.js；浏览器直接打开只会看到黑屏。
+ */
+(function () {
+  'use strict';
+  var W = 560, H = 560;
+  var renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(1);
+  renderer.setSize(W, H);
+  renderer.localClippingEnabled = true;
+  document.body.appendChild(renderer.domElement);
+
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x2a2f3a);
+  var camera = new THREE.PerspectiveCamera(45, W / H, 0.01, 8000);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+  var dir = new THREE.DirectionalLight(0xffffff, 1.1);
+  dir.position.set(0.6, 1, 0.4);
+  scene.add(dir);
+  var dir2 = new THREE.DirectionalLight(0xffffff, 0.45);
+  dir2.position.set(-0.6, 0.3, -0.5);
+  scene.add(dir2);
+
+  var group = new THREE.Group();
+  scene.add(group);
+
+  var FACE_DIRS = [[0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]];
+  var FACE_NAME = ['+Y(顶)', '-Y(底)', '+X', '-X', '+Z', '-Z'];
+
+  function clearGroup() {
+    for (var i = group.children.length - 1; i >= 0; i--) {
+      var c = group.children[i];
+      group.remove(c);
+      c.traverse(function (o) { if (o.isMesh && o.geometry) o.geometry.dispose(); });
+    }
+  }
+
+  function placeCam(box, az, el, padFactor) {
+    var c = box.getCenter(new THREE.Vector3());
+    var s = box.getSize(new THREE.Vector3());
+    var r = Math.max(s.x, s.y, s.z);
+    var d = r * padFactor + 2;
+    camera.position.set(
+      c.x + d * Math.cos(el) * Math.sin(az),
+      c.y + d * Math.sin(el),
+      c.z + d * Math.cos(el) * Math.cos(az)
+    );
+    camera.lookAt(c);
+    camera.near = Math.max(0.01, d * 0.01);
+    camera.far = d * 10;
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
+  }
+
+  /* ---------------- A. 原始 GLB ---------------- */
+  var glbCache = {};
+  function loadGlb(url) {
+    if (glbCache[url]) return Promise.resolve(glbCache[url]);
+    return new Promise(function (res, rej) {
+      new THREE.GLTFLoader().load(url, function (g) { glbCache[url] = g.scene; res(g.scene); }, undefined, rej);
+    });
+  }
+
+  /** sign: -1 = 与 prop-stamp 的 yaw 同向（应为正确），+1 = 反例。返回 box（已居中到原点）。 */
+  function glbBuild(url, yawDeg, sign) {
+    return loadGlb(url).then(function (src) {
+      clearGroup();
+      var obj = src.clone(true);
+      var box0 = new THREE.Box3().setFromObject(obj);
+      var size0 = box0.getSize(new THREE.Vector3());
+      var c0 = box0.getCenter(new THREE.Vector3());
+      var k = 40 / Math.max(size0.x, size0.y, size0.z);
+      obj.position.set(-c0.x, -c0.y, -c0.z);
+      var pivot = new THREE.Group();
+      pivot.add(obj);
+      pivot.scale.setScalar(k);
+      pivot.rotation.y = sign * yawDeg * Math.PI / 180;
+      group.add(pivot);
+      var s = size0.clone().multiplyScalar(k);
+      return new THREE.Box3(new THREE.Vector3(-s.x / 2, -s.y / 2, -s.z / 2),
+        new THREE.Vector3(s.x / 2, s.y / 2, s.z / 2));
+    });
+  }
+
+  /* ---------------- B / C. 体素版 ---------------- */
+  var world = null;
+  var CX = 512, CZ = 512, GY = 4;
+
+  function getWorld() {
+    if (!world) world = new VF.VoxelWorld(scene);
+    return world;
+  }
+
+  /** 清成一张空平地：不重建整个 1024³ 世界，只擦掉内容。 */
+  function wipe() {
+    var w = world;
+    w.blocks.fill(0);
+    if (w._faceSlots) w._faceSlots.clear();
+    if (w._faceChunks) w._faceChunks.clear();
+    if (w._blockDurability) w._blockDurability.clear();
+    w.chunkMeshes.forEach(function (root) {
+      if (root.parent) root.parent.remove(root);
+      root.traverse(function (o) { if (o.geometry) o.geometry.dispose(); });
+    });
+    w.chunkMeshes.clear();
+    w._dirtyChunks.clear();
+    if (w._lodDirtyChunks) w._lodDirtyChunks.clear();
+    while (w.group.children.length) w.group.remove(w.group.children[0]);
+    w.props.length = 0;
+    w.groundY.fill(GY);
+    w.terrainH.fill(GY + 1);
+  }
+
+  var _flat = null;
+  function matFlat() {
+    if (!_flat) _flat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    return _flat;
+  }
+
+  /** 盖章 -> 建网格 -> 归一化居中。返回 box（已居中到原点）。 */
+  function voxBuild(propId, yawDeg, withTex) {
+    var w = getWorld();
+    wipe();
+    var placed = VF.Props.stamp(w, propId, { cx: CX, cz: CZ, yaw: yawDeg });
+    if (!placed) throw new Error('stamp 失败: ' + propId);
+    w.flushRebuilds(4000, CX, CZ);
+
+    // 只框住摆件本身（不含地基/地形面）：扫摆件包围盒
+    var min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+    for (var y = 0; y < w.height; y++) {
+      for (var z = placed.oz - 2; z < placed.oz + placed.d + 2; z++) {
+        for (var x = placed.ox - 2; x < placed.ox + placed.w + 2; x++) {
+          if (!w.get(x, y, z)) continue;
+          if (x < min[0]) min[0] = x;
+          if (y < min[1]) min[1] = y;
+          if (z < min[2]) min[2] = z;
+          if (x > max[0]) max[0] = x;
+          if (y > max[1]) max[1] = y;
+          if (z > max[2]) max[2] = z;
+        }
+      }
+    }
+    if (min[0] === Infinity) throw new Error('摆件没有任何实心格: ' + propId);
+
+    clearGroup();
+    var inner = new THREE.Group();
+    var n = 0;
+    w.chunkMeshes.forEach(function (root) {
+      var c = root.clone(true);
+      c.traverse(function (o) { if (o.isMesh) o.material = withTex ? w._chunkMat : matFlat(); });
+      inner.add(c);
+      n++;
+    });
+    if (!n) throw new Error('没有生成任何 chunk 网格');
+
+    var mx = (min[0] + max[0] + 1) / 2, my = (min[1] + max[1] + 1) / 2, mz = (min[2] + max[2] + 1) / 2;
+    inner.position.set(-mx, -my, -mz);
+    var sx = max[0] - min[0] + 1, sy = max[1] - min[1] + 1, sz = max[2] - min[2] + 1;
+    var k = 40 / Math.max(sx, sy, sz);
+    var pivot = new THREE.Group();
+    pivot.add(inner);
+    pivot.scale.setScalar(k);
+    group.add(pivot);
+
+    return new THREE.Box3(
+      new THREE.Vector3(-sx * k / 2, -sy * k / 2, -sz * k / 2),
+      new THREE.Vector3(sx * k / 2, sy * k / 2, sz * k / 2)
+    );
+  }
+
+  function shootView(box, yawDeg) {
+    placeCam(box, Math.PI * 0.25 + yawDeg * Math.PI / 180, 0.38, 1.9);
+    renderer.render(scene, camera);
+    return renderer.domElement.toDataURL('image/png');
+  }
+
+  /** 正对世界面 face（法线 = FACE_DIRS[face]），几乎无俯仰，图案朝向一目了然。 */
+  function shootFace(box, face) {
+    var n = FACE_DIRS[face];
+    var az = Math.atan2(n[0], n[2]);
+    placeCam(box, az, 0.02, 1.75);
+    renderer.render(scene, camera);
+    return renderer.domElement.toDataURL('image/png');
+  }
+
+  /* ---------------- 拼图 ---------------- */
+  function compose(items, cols) {
+    cols = cols || items.length;
+    return Promise.all(items.map(function (it) {
+      return new Promise(function (res, rej) {
+        var img = new Image();
+        img.onload = function () { res({ img: img, label: it.label }); };
+        img.onerror = rej;
+        img.src = it.url;
+      });
+    })).then(function (loaded) {
+      var pad = 6, lab = 22;
+      var cw = W, ch = H + lab;
+      var rows = Math.ceil(loaded.length / cols);
+      var cv = document.createElement('canvas');
+      cv.width = cols * (cw + pad) - pad;
+      cv.height = rows * (ch + pad) - pad;
+      var g = cv.getContext('2d');
+      g.fillStyle = '#20242c';
+      g.fillRect(0, 0, cv.width, cv.height);
+      g.font = '15px system-ui';
+      g.textBaseline = 'top';
+      loaded.forEach(function (l, i) {
+        var x = (i % cols) * (cw + pad);
+        var y = Math.floor(i / cols) * (ch + pad);
+        g.drawImage(l.img, x, y);
+        g.fillStyle = '#dde';
+        g.fillText(l.label, x + 4, y + H + 3);
+      });
+      return cv.toDataURL('image/png');
+    });
+  }
+
+  window.CHECK = {
+    /* A. 原始 GLB：sign -1 = 与 stamp 同向（正确解），+1 = 反例 */
+    glbView: function (u, y, s) { return glbBuild(u, y, s || -1).then(function (b) { return shootView(b, y); }); },
+    glbFace: function (u, y, f, s) { return glbBuild(u, y, s || -1).then(function (b) { return shootFace(b, f); }); },
+    /* B / C. 体素版 */
+    voxView: function (p, y) { return shootView(voxBuild(p, y, true), y); },
+    flatView: function (p, y) { return shootView(voxBuild(p, y, false), y); },
+    voxFace: function (p, y, f) { return shootFace(voxBuild(p, y, true), f); },
+    flatFace: function (p, y, f) { return shootFace(voxBuild(p, y, false), f); },
+    /* 拼图 */
+    compose: compose,
+    faceNames: function () { return FACE_NAME; },
+    atlas: function () { return VF.PropFaces.info(); },
+    stats: function () {
+      var w = getWorld();
+      return {
+        faceSlots: w._faceSlots ? w._faceSlots.size : 0,
+        faceChunks: w._faceChunks ? w._faceChunks.size : 0,
+        chunkMeshes: w.chunkMeshes.size,
+        atlas: VF.PropFaces.info(),
+      };
+    },
+    manifest: function () { return VF.PROP_MANIFEST; },
+  };
+  window.CHECK_READY = true;
+})();
+</script>

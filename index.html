@@ -1601,18 +1601,22 @@
        prop-palette.js injects prop colours into, so it must come first.
        props-bundle.js (bake-props.js) registers the shared palette and all
        props on load; the map that stamps them comes after. -->
-  <script src="js/voxel-world.js?v=propbundle10"></script>
+  <script src="js/voxel-world.js?v=propbundle11"></script>
   <script src="js/small-arenas.js?v=spa1"></script>
   <script src="modes/small-battle/js/pve-district.js"></script>
-  <script src="js/props/prop-palette.js?v=propbundle10"></script>
-  <script src="js/props/props-bundle.js?v=propbundle10"></script>
-  <script src="js/props/prop-stamp.js?v=propbundle10"></script>
+  <script src="js/props/prop-palette.js?v=propbundle11"></script>
+  <script src="js/props/props-bundle.js?v=propbundle11"></script>
+  <!-- prop-faces.js 读 props-bundle 里的 VF.PROP_FACE_ATLAS（.glb 摆件的块面微缩
+       纹理图集），所以必须在 props-bundle 之后、prop-stamp 之前。图集是懒解码的
+       （VoxelWorld 构造时才建 DataTexture），没有 .glb 摆件时它全程短路。 -->
+  <script src="js/props/prop-faces.js?v=propbundle11"></script>
+  <script src="js/props/prop-stamp.js?v=propbundle11"></script>
   <!-- map-terrain.js 是地形覆盖层的采样器，island-conquest.js 的 heightAtMeters
        和 voxel-world 的 _buildHeightTerrain 都读它，所以必须在两者之前。
        *-terrain.js / *-props.js 是纯数据，由 F8 关卡编辑器直写。 -->
-  <script src="js/maps/map-terrain.js?v=propbundle10"></script>
-  <script src="js/maps/island-conquest-terrain.js?v=propbundle10"></script>
-  <script src="js/maps/island-conquest-props.js?v=propbundle10"></script>
+  <script src="js/maps/map-terrain.js?v=propbundle11"></script>
+  <script src="js/maps/island-conquest-terrain.js?v=propbundle11"></script>
+  <script src="js/maps/island-conquest-props.js?v=propbundle11"></script>
   <script src="js/maps/island-conquest.js?v=resupply1"></script>
   <script src="js/terrain-fine.js?v=scorch3"></script>
   <script src="js/world-outskirts.js?v=scorch3"></script>
@@ -1693,6 +1697,6 @@
   <script src="js/render-tuner.js?v=2"></script>
   <script src="js/map-editor.js?v=scorch3"></script>
   <!-- level-editor.js: F8 关卡编辑器（摆件/预制体/地形/材质/水域，生产环境删除） -->
-  <script src="js/level-editor.js?v=propbundle10"></script>
+  <script src="js/level-editor.js?v=propbundle11"></script>
 </body>
 </html>

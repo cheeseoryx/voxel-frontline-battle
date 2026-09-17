@@ -109,14 +109,27 @@ function makeThree() {
     m.clone = function () { return material(Object.assign({}, m)); };
     return m;
   }
+  // prop-faces.js 会真的建一张 DataTexture（块面微缩纹理图集）。这里只要能
+  // 接住 data/宽/高 就行 —— 校验关心的是解码出的字节对不对，不是 GPU 上传。
+  class DataTexture {
+    constructor(data, width, height, format) {
+      this.data = data;
+      this.width = width;
+      this.height = height;
+      this.format = format;
+      this.needsUpdate = false;
+    }
+  }
   return {
     Color, Vector3, Box3, BufferAttribute, Float32BufferAttribute, BufferGeometry,
-    Object3D, Group: Object3D, Mesh, InstancedMesh,
+    Object3D, Group: Object3D, Mesh, InstancedMesh, DataTexture,
     MeshLambertMaterial: material, MeshBasicMaterial: material, MeshStandardMaterial: material,
     BoxGeometry: BufferGeometry, CylinderGeometry: BufferGeometry, PlaneGeometry: BufferGeometry,
     Quaternion: class { set() { return this; } setFromAxisAngle() { return this; } },
     Matrix4: class { makeRotationY() { return this; } compose() { return this; } identity() { return this; } },
     DoubleSide: 2, FrontSide: 0, MathUtils: { degToRad: (d) => (d * Math.PI) / 180 },
+    RGBAFormat: 1023, NearestFilter: 1003, LinearFilter: 1006, SRGBColorSpace: 'srgb',
+    NoColorSpace: '', LinearEncoding: 3000,
   };
 }
 

@@ -18,6 +18,9 @@ assets/*.zip
 assets/Roles/
 # 枪械资产转换用的中转目录（原始 SM_*.glb 本身入库，游戏直接加载）
 assets/weapons/raw/
+# 摆件的烘焙输入（美术原始 GLB，30~40MB 级）。游戏只加载烘焙产物
+# js/props/props-bundle.js；改 res/faceft 等参数重烘焙时才需要原文件。
+assets/props/*.glb
 
 # Local tooling / scratch output
 .workbuddy/

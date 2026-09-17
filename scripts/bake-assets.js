@@ -85,28 +85,31 @@ function listAssets() {
     ]);
   }
   const all = fs.readdirSync(PROPS_DIR);
-  const vox = all.filter((f) => f.toLowerCase().endsWith('.vox')).sort();
+  const props = all
+    .filter((f) => /\.vox$|\.glb$/i.test(f))
+    .sort();
   // Case matters on the web server even though Windows ignores it, and the id
-  // must be a valid JS identifier (bake-props.js:54 enforces this too, but its
+  // must be a valid JS identifier (bake-props.js enforces this too, but its
   // message is aimed at a developer).
-  const bad = vox.filter((f) => !/^[A-Za-z_][A-Za-z0-9_]*\.vox$/.test(f));
+  const bad = props.filter((f) => !/^[A-Za-z_][A-Za-z0-9_]*\.(vox|glb)$/i.test(f));
   if (bad.length) {
     die('有 ' + bad.length + ' 个文件名不能用', [
       '不能用的文件：' + bad.join('、'),
       '',
       '文件名规则：只能用英文字母、数字、下划线，且不能用数字开头。',
-      '  可以：house2.vox  water_tower.vox  Shed.vox',
-      '  不行：小屋.vox（中文）  2号楼.vox（数字开头）  water tower.vox（空格）',
+      '  可以：house2.vox  water_tower.glb  Shed.vox',
+      '  不行：小屋.vox（中文）  2号楼.glb（数字开头）  water tower.vox（空格）',
       '',
       '文件名就是面板里显示的名字。',
     ]);
   }
-  if (!vox.length) {
-    die('assets\\props\\ 里没有 .vox 文件', [
-      '把模型导出成 .vox 放进 assets\\props\\，然后再运行一次。',
+  if (!props.length) {
+    die('assets\\props\\ 里没有模型文件', [
+      '把模型导出成 .vox（Vengi / MagicaVoxel）或 .glb 放进 assets\\props\\，',
+      '然后再运行一次。.glb 会在烘焙时自动体素化并带上块面微缩纹理。',
     ]);
   }
-  return vox;
+  return props;
 }
 
 /**
@@ -116,7 +119,8 @@ function listAssets() {
  * assets that turns into a hunt.
  */
 function checkHeaders(files) {
-  const bad = [];
+  const badVox = [];
+  const badGlb = [];
   for (const f of files) {
     let head = '';
     try {
@@ -126,16 +130,25 @@ function checkHeaders(files) {
       fs.closeSync(fd);
       head = buf.toString('latin1');
     } catch (e) {
-      bad.push(f + '（读不出来：' + e.code + '）');
+      badVox.push(f + '（读不出来：' + e.code + '）');
       continue;
     }
-    if (head !== 'VOX ') bad.push(f);
+    const isGlb = /\.glb$/i.test(f);
+    if (isGlb ? head !== 'glTF' : head !== 'VOX ') (isGlb ? badGlb : badVox).push(f);
   }
-  if (bad.length) {
-    die('有 ' + bad.length + ' 个文件不是有效的 .vox', [
-      '有问题的文件：' + bad.join('、'),
+  if (badVox.length) {
+    die('有 ' + badVox.length + ' 个文件不是有效的 .vox', [
+      '有问题的文件：' + badVox.join('、'),
       '',
       '请在 Vengi / MagicaVoxel 里重新导出，格式选 MagicaVoxel (.vox)。',
+      '注意：改扩展名不会改变文件格式。',
+    ]);
+  }
+  if (badGlb.length) {
+    die('有 ' + badGlb.length + ' 个文件不是有效的 .glb', [
+      '有问题的文件：' + badGlb.join('、'),
+      '',
+      '请导出成二进制 glTF（.glb）。',
       '注意：改扩展名不会改变文件格式。',
     ]);
   }

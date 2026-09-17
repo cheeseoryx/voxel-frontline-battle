@@ -146,6 +146,11 @@
     // Each of those now consults world.isPropClaimed() before writing.
     if (world.claimPropArea) world.claimPropArea(ox, oz, rotW, rotD, gy, gy + H);
 
+    // .glb 摆件带块面微缩纹理：face 是按「实心格顺序」排的 6 面槽位，
+    // 与下面 bz→by→bx 的遍历顺序一一对应（bake-props.js bakeOneGlb 用的同一顺序）。
+    const PF = global.VF && global.VF.PropFaces;
+    const faceFlat = PF ? PF.decodePropFace(prop) : null;
+
     // Stamp voxels with yaw rotation (local bx/by → world x/z).
     //
     // .vox is right-handed Z-up (X right, Y depth, Z up); the game is
@@ -153,12 +158,19 @@
     // determinant -1, i.e. a reflection, and the model comes out mirrored.
     // Flipping the depth axis (dy) restores determinant +1.
     const vol = decode(prop);
+    let solid = 0; // 实心格计数 —— faceFlat 的下标，必须与 bake 端的 j 同步
     for (let bz = 0; bz < H; bz++) {
       for (let by = 0; by < D; by++) {
         const dy = D - 1 - by;
         for (let bx = 0; bx < W; bx++) {
           const id = vol[(bz * D + by) * W + bx];
           if (!id) continue;
+          const rec = faceFlat ? new Uint16Array(7) : null;
+          if (rec) {
+            for (let f = 0; f < 6; f++) rec[f] = faceFlat[solid * 6 + f];
+            rec[6] = q;
+          }
+          solid++; // 越界跳过也要计数，否则后面的格全部错位
           let lx;
           let lz;
           if (q === 0) { lx = bx; lz = dy; }
@@ -170,6 +182,7 @@
           const wz = oz + lz;
           if (wx < 0 || wz < 0 || wx >= size || wz >= size) continue;
           world.set(wx, wy, wz, id);
+          if (rec) PF.put(world, wx, wy, wz, rec);
         }
       }
     }

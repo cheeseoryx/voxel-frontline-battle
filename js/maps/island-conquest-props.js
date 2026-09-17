@@ -15,8 +15,8 @@
   g.VF.MAP_PROPS = g.VF.MAP_PROPS || {};
   g.VF.MAP_PREFABS = g.VF.MAP_PREFABS || {};
   g.VF.MAP_PROPS["island-conquest"] = [
-    { id: "hotel", nx: 0.4717, nz: 0.1445, yaw: 0 },
     { id: "house", nx: 0.3496, nz: 0.1631, yaw: 0 },
+    { id: "hotel", nx: 0.457, nz: 0.1396, yaw: 0 },
   ];
   g.VF.MAP_PREFABS["island-conquest"] = [
   ];

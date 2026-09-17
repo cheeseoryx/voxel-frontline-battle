@@ -120,6 +120,8 @@
     this._lastVisibilityAt = 0;
     this._deathStains = [];
     this._chunkMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    // 块面微缩纹理：只有烘焙出图集时才会把 map 挂上去（没有 .glb 摆件则完全不碰材质）
+    if (global.VF && global.VF.PropFaces) global.VF.PropFaces.patchMaterial(this._chunkMat);
     this._colorCache = {};
     this._propPt = new THREE.Vector3();
     this.group = new THREE.Group();
@@ -152,6 +154,10 @@
     if (type === BLOCK.AIR || type === BLOCK.WATER) this.clearStair(x, y, z);
     if (type === BLOCK.AIR && this._blockDurability) {
       this._blockDurability.delete(x + ',' + y + ',' + z);
+    }
+    // 方块没了，它的面槽位也就没了（破坏后重建的网格不该再带旧的面纹理）
+    if ((type === BLOCK.AIR || type === BLOCK.WATER) && this._faceSlots && this._faceSlots.size) {
+      this._faceSlots.delete(i);
     }
     return true;
   };
@@ -2906,6 +2912,14 @@
 
     if (!this._colorScratch) this._colorScratch = new THREE.Color();
 
+    // 块面微缩纹理：这个世界没有任何面槽位（= 没有 .glb 摆件）时整条短路，
+    // 不产出 uv 属性，顶点色也不做任何改动 —— 与接入前逐顶点一致。
+    const PF = (global.VF && global.VF.PropFaces) || null;
+    const useFaces = !!(PF && PF.active(this, cx, cz));
+    const uvs = useFaces ? [] : null;
+    if (useFaces && !this._cornerUv) this._cornerUv = PF.buildCornerUv(faces);
+    const cornerUv = this._cornerUv;
+
     const blocks = this.blocks;
     const size = this.worldSize;
     const h = this.height;
@@ -2927,7 +2941,8 @@
         if (yMax < 0) continue;
 
         for (let y = 0; y <= yMax; y++) {
-          const type = blocks[(y * size + z) * size + x];
+          const bi = (y * size + z) * size + x;
+          const type = blocks[bi];
           if (type === air) continue;
           if (skipFill && this._isTerrainFill(x, y, z)) continue;
 
@@ -2956,12 +2971,27 @@
             if (type === water && neighbor === water) continue;
             if (type === water && neighbor === air && face.oy !== 1) continue;
 
+            // 面纹理：决定这一面由谁供色。槽 0 是纯白 → 顶点色原样保留；
+            // 槽 ≠ 0 → 顶点色置白（只留 tint/shade），颜色完全交给面纹理，
+            // 否则会和顶点色叠乘变暗。
+            let rec = null;
+            let textured = false;
+            if (useFaces) {
+              rec = PF.getIndex(this, bi);
+              textured = rec ? PF.isTextured(rec, f) : false;
+            }
+
             for (let v = 0; v < 4; v++) {
               const d = face.d[v];
               positions.push(x + d[0], y + d[1], z + d[2]);
               normals.push(face.n[0], face.n[1], face.n[2]);
               const shade = 0.72 + 0.28 * Math.max(0, face.n[1]);
-              colors.push(col.r * shade, col.g * shade, col.b * shade);
+              if (textured) colors.push(tint * shade, tint * shade, tint * shade);
+              else colors.push(col.r * shade, col.g * shade, col.b * shade);
+              if (uvs) {
+                const uv = PF.faceUv(rec, f, cornerUv, v);
+                uvs.push(uv[0], uv[1]);
+              }
             }
             indices.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
             vi += 4;
@@ -2976,6 +3006,7 @@
       geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
       geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
       geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      if (uvs) geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
       geo.setIndex(indices);
       geo.computeBoundingSphere();
       voxelMesh = new THREE.Mesh(geo, this._chunkMat);
